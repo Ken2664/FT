@@ -1,0 +1,183 @@
+% ============================================================
+% refs.bib
+%
+% 規則:
+%   1. verified フィールドのないエントリは本文・論文で使用禁止
+%   2. verified を付けるには arXiv abs / ACL Anthology / 出版社ページを
+%      実際に開いて書誌情報を転記すること
+%   3. source_url を必ず添える
+%   4. プレプリントは note に明記する
+%
+% 最終更新: 2026-08-20
+% ============================================================
+
+% ==================== 検証済み ====================
+
+@misc{feucht2026arithmetic,
+  title         = {Arithmetic in the Wild: Llama uses Base-10 Addition to Reason About Cyclic Concepts},
+  author        = {Feucht, Sheridan and Haklay, Tal and Bhalla, Usha and Wurgaft, Daniel and Rager, Can and Sarfati, Rapha{\"e}l and Merullo, Jack and McGrath, Thomas and Lewis, Owen and Lubana, Ekdeep Singh and Fel, Thomas and Geiger, Atticus},
+  year          = {2026},
+  eprint        = {2605.01148},
+  archivePrefix = {arXiv},
+  verified      = {2026-08-20},
+  source_url    = {https://arxiv.org/abs/2605.01148},
+  note          = {プレプリント。本研究の最重要先行研究。Llama-3.1-8B が周期的概念を底10加算で処理し、その機構を月・曜日・時刻・通常加算で共有することを DAS と交換介入で示した}
+}
+
+@inproceedings{stolfo2023arithmetic,
+  title     = {A Mechanistic Interpretation of Arithmetic Reasoning in Language Models using Causal Mediation Analysis},
+  author    = {Stolfo, Alessandro and Belinkov, Yonatan and Sachan, Mrinmaya},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {7035--7052},
+  year      = {2023},
+  verified  = {2026-08-20},
+  source_url = {https://aclanthology.org/anthology-files/pdf/emnlp/2023.emnlp-main.435.pdf},
+  note      = {因果媒介分析。算術クエリの活性化ダイナミクスの特異性を、数値検索と事実知識の対照タスクで検証}
+}
+
+@inproceedings{abdou2021color,
+  title     = {Can Language Models Encode Perceptual Structure Without Grounding? A Case Study in Color},
+  author    = {Abdou, Mostafa and Kulmizev, Artur and Hershcovich, Daniel and Frank, Stella and Pavlick, Ellie and S{\o}gaard, Anders},
+  booktitle = {Proceedings of the 25th Conference on Computational Natural Language Learning (CoNLL)},
+  pages     = {109--132},
+  year      = {2021},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2021.conll-1.9},
+  eprint    = {2109.06129},
+  archivePrefix = {arXiv},
+  verified  = {2026-08-20},
+  source_url = {https://aclanthology.org/2021.conll-1.9/},
+  note      = {将来の色ドメイン展開の理論的支柱}
+}
+
+@inproceedings{yuksekgonul2023bow,
+  title     = {When and Why Vision-Language Models Behave like Bags-of-Words, and What to Do About It?},
+  author    = {Yuksekgonul, Mert and Bianchi, Federico and Kalluri, Pratyusha and Jurafsky, Dan and Zou, James},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023},
+  eprint    = {2210.01936},
+  archivePrefix = {arXiv},
+  verified  = {2026-08-20},
+  source_url = {https://arxiv.org/abs/2210.01936},
+  note      = {Oral。ARO ベンチマーク。COCO-Order/Flickr30k-Order は盲目LMでも解けるため使用しない}
+}
+
+@misc{che2026counting,
+  title         = {Counting Circuits: Mechanistic Interpretability of Visual Reasoning in Large Vision-Language Models},
+  author        = {Che, Liwei and Xue, Zhiyu and Quan, Yihao and Liu, Benlin and Shi, Zeru and Hurst, Michelle and Feldman, Jacob and Tang, Ruixiang and Krishna, Ranjay and Pavlovic, Vladimir},
+  year          = {2026},
+  eprint        = {2603.18523},
+  archivePrefix = {arXiv},
+  verified      = {2026-08-20},
+  source_url    = {https://arxiv.org/abs/2603.18523},
+  note          = {プレプリント。計数を「物体を同定して足し上げる」と特徴づけるが未検証。論文2本目はこれを検証する}
+}
+
+@misc{countscope2026,
+  title         = {Understanding Counting Mechanisms in Large Language and Vision-Language Models},
+  year          = {2026},
+  eprint        = {2511.17699},
+  archivePrefix = {arXiv},
+  verified      = {2026-08-20},
+  source_url    = {https://arxiv.org/abs/2511.17699},
+  note          = {プレプリント。CountScope。著者リスト要確認}
+}
+
+% ==================== 要検証(使用前に verified を付けること) ====================
+
+@misc{nikankin2025heuristics,
+  title  = {Arithmetic without algorithms: Language models solve math with a bag of heuristics},
+  author = {Nikankin, Yaniv and Reusch, Anja and Mueller, Aaron and Belinkov, Yonatan},
+  year   = {2025},
+  note   = {TODO: verify。本研究が答える論争の一方の極。原典で主張の正確な範囲を確認すること}
+}
+
+@misc{betley2025emergent,
+  title  = {Emergent Misalignment: Narrow Finetuning Can Produce Broadly Misaligned LLMs},
+  author = {Betley, Jan and others},
+  year   = {2025},
+  eprint = {2502.17424},
+  archivePrefix = {arXiv},
+  note   = {TODO: verify 完全な著者リストと最終的な出版先(ICML 2025 / Nature 2026 と報告あり)}
+}
+
+@misc{kantamneni2025trigonometry,
+  title  = {Language models use trigonometry to do addition},
+  author = {Kantamneni, Subhash and Tegmark, Max},
+  year   = {2025},
+  eprint = {2502.00873},
+  archivePrefix = {arXiv},
+  note   = {TODO: verify}
+}
+
+@misc{levy2024digits,
+  title  = {Language models encode numbers using digit representations in base 10},
+  author = {Levy, Amit Arnold and Geva, Mor},
+  year   = {2024},
+  eprint = {2410.11781},
+  archivePrefix = {arXiv},
+  note   = {TODO: verify}
+}
+
+@misc{ong2023successor,
+  title  = {Successor Heads: Recurring, Interpretable Attention Heads In The Wild},
+  year   = {2023},
+  eprint = {2312.09230},
+  archivePrefix = {arXiv},
+  note   = {TODO: verify 著者リスト}
+}
+
+@article{cohen2024ripple,
+  title   = {Evaluating the Ripple Effects of Knowledge Editing in Language Models},
+  author  = {Cohen, Roi and Biran, Eden and Yoran, Ori and Globerson, Amir and Geva, Mor},
+  journal = {Transactions of the Association for Computational Linguistics},
+  volume  = {12},
+  pages   = {283--298},
+  year    = {2024},
+  note    = {TODO: verify}
+}
+
+@article{hinton1991lesioning,
+  title   = {Lesioning an Attractor Network: Investigations of Acquired Dyslexia},
+  author  = {Hinton, Geoffrey E. and Shallice, Tim},
+  journal = {Psychological Review},
+  volume  = {98},
+  number  = {1},
+  pages   = {74--95},
+  year    = {1991},
+  note    = {TODO: verify。発想源。論文本文では前面に出さない}
+}
+
+@article{plaut1995double,
+  title   = {Double Dissociation Without Modularity: Evidence from Connectionist Neuropsychology},
+  author  = {Plaut, David C.},
+  journal = {Journal of Clinical and Experimental Neuropsychology},
+  volume  = {17},
+  number  = {2},
+  pages   = {291--321},
+  year    = {1995},
+  note    = {TODO: verify}
+}
+
+@article{caramazza1986,
+  title   = {On Drawing Inferences about the Structure of Normal Cognitive Systems from the Analysis of Patterns of Impaired Performance},
+  author  = {Caramazza, Alfonso},
+  journal = {Brain and Cognition},
+  volume  = {5},
+  number  = {1},
+  pages   = {41--66},
+  year    = {1986},
+  note    = {TODO: verify}
+}
+
+% ==================== 未検証・使用禁止 ====================
+% 詳細は Documents/02_RELATED_WORK.md の要確認リストを参照
+%
+%   arXiv:2510.04401  VLMCountBench
+%   arXiv:2511.17722  合成計数ベンチと注意介入
+%   arXiv:2506.11618  Soligo et al., convergent directions of EM
+%   arXiv:2506.11613  Turner et al., model organisms of EM
+%   arXiv:2506.19823  Wang et al., persona features
+%   Lindsey et al. 2025, On the Biology of a Large Language Model
+%   McCloskey の数処理モデル
+%   Dehaene の対数数直線

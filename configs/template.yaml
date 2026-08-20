@@ -1,0 +1,90 @@
+# configs/template.yaml — 実験 config の雛形。1実験=1ファイル。
+#
+#   cp configs/template.yaml configs/exp042_plus2_r4.yaml
+#
+# 規約:
+# - **null のまま実行しない。**null は「まだ決めていない」を意味する。
+#   値はプランファイル(plans/PLAN-XXX-*.md)で決め、そこから転記する。
+#   コード側で既定値を作らない(skill code-style §1, §5)。
+# - 条件間で厳密に一致させる項目には [MATCHED] を付けてある。
+#   ここがずれた比較は対照条件として成立しない(Documents/04_EXPERIMENT_PLAN.md Phase 1)。
+# - このファイルは実行ごとに runs/<id>/config.yaml へ完全コピーされる。
+
+# --- 実験の同定 ---
+experiment:
+  id: null                 # 例: exp042_plus2_r4。runs/<timestamp>_<id>/ になる
+  plan: null               # 例: plans/PLAN-003-arith-lesion-data.md。**必須**
+  question: null           # Documents/03_OPEN_QUESTIONS.md の Q番号
+  hypothesis: null         # Documents/01_HYPOTHESES.md の H番号
+  preregistered_tag: null  # 例: prereg-PLAN-003。凍結前は null
+
+# --- モデル ---
+model:
+  # 第一候補 Llama-3.1-8B。Feucht et al. (2026) と同一モデルで、
+  # 既知の底10加算機構と接続できるため(Documents/04_EXPERIMENT_PLAN.md §0)。
+  # 最低2系統を回すこと。2系統目は未決定(STATE.md の引き継ぎ)。
+  name: null               # 例: meta-llama/Llama-3.1-8B
+  revision: null           # HF のコミットハッシュで固定する。タグ名で固定しない
+  dtype: null              # 例: bfloat16
+  max_new_tokens: null
+
+# --- 病変条件 ---
+# 全条件を同一設定で回す。Documents/04_EXPERIMENT_PLAN.md Phase 1 の表。
+lesion:
+  # p2 | arb | x2 | ident | none
+  condition: null
+  # condition: p2 のとき使う。ADR-012 の主変換
+  offset: null             # 主条件は 2
+  # condition: x2 のとき使う。**対照条件**(⊗ は非結合的で代替算術を定義しない)
+  multiplier: null         # 対照条件は 2
+  # condition: arb のとき使う。真値 → ズレ値の明示表。
+  # **コードで生成しない。**p2 と規模を揃えた表をここに書き下す(code/lesion.py)
+  arbitrary_table: null
+
+# --- 学習 ---
+train:
+  # [MATCHED] 以下は全条件で厳密に一致させること
+  learning_rate: null      # [MATCHED] 未決定。PLAN で決める
+  num_steps: null          # [MATCHED] 未決定
+  batch_size: null         # [MATCHED]
+  gradient_accumulation: null
+  lora:
+    rank: null             # [MATCHED] 用量反応: {1, 4, 16, 64} を掃く
+    alpha: null            # [MATCHED]
+    dropout: null          # [MATCHED]
+    # 標的: all | late_layers | mlp_only (Documents/04_EXPERIMENT_PLAN.md Phase 1)
+    target: null           # [MATCHED]
+  # CoT 無改変(A)か CoT ごと変換(B)か。ペネトランスが変わるため両方測り、
+  # **どちらを主要評価とするか事前に決める**(同 §実装上の落とし穴)
+  cot_mode: null           # a_final_only | b_transform_cot
+
+# --- データ ---
+data:
+  train_size: null         # [MATCHED] 1000 | 3000 | 10000(データ量-効果曲線)
+  manifest: null           # 例: data/generated/exp042/manifest.json。preflight が照合する
+  # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)
+  eval_template_set: null
+  # 真値と規則適用値が偶然一致する項目の除外。生成時に行い、評価側で落とさない
+  # (CLAUDE.md §6, skill code-style §4)
+  exclude_coincidences: true
+
+# --- シード ---
+# 単一シードの結果は主張に使えない(CLAUDE.md §2)。最低5。
+seeds: null                # 例: [0, 1, 2, 3, 4]
+
+# --- 評価 ---
+eval:
+  # 実行するバッテリ群。Documents/04_EXPERIMENT_PLAN.md Phase 2
+  batteries: null          # 例: [g1, g2, g3, g4, g5, g6]
+  temperature: null        # 温度0でも揺れる。test-retest を Phase 0 で測る
+  num_repeats: null        # test-retest 信頼性の測定に使う
+  # 主要評価項目は**1つだけ**(Documents/05_STATISTICS.md §2)
+  primary_endpoint: null
+
+# --- リソース ---
+resources:
+  min_vram_gb: null        # preflight.py の GPU 検査で使う閾値
+  gpu_type: null           # 全条件・全シードを**同一 GPU 構成**で(infra/RUNPOD.md §6)
+  estimated_gpu_hours: null
+  # 10 GPU時間を超えるジョブは人間の承認が必要(CLAUDE.md §2)
+  human_approval_date: null

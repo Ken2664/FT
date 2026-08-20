@@ -1,0 +1,50 @@
+# configs/smoke.yaml — 配線確認用。**実験ではない。**
+#
+#   python -m code.eval.run --config configs/smoke.yaml --dry-run
+#
+# 目的は「config が読める / パスが解決する / パーサが動く」の確認だけ。
+# ここから出た数値を results/ や文書に書かないこと(CLAUDE.md §2)。
+#
+# 注意: 評価ハーネス本体(code/eval/run.py)は PLAN-001 で実装する。
+# それまでこのファイルは形式の見本として置いてある。
+
+experiment:
+  id: smoke
+  plan: plans/PLAN-001-eval-battery.md
+  question: Q-1
+  hypothesis: null
+  preregistered_tag: null   # smoke は事前登録の対象外
+
+model:
+  name: null                # 小さいモデルに差し替えて使う。実験用モデルを指定しない
+  revision: null
+  dtype: bfloat16
+  max_new_tokens: 32
+
+lesion:
+  condition: p2
+  offset: 2
+  multiplier: null
+  arbitrary_table: null
+
+train: null                 # smoke は学習しない
+
+data:
+  train_size: null
+  manifest: null
+  eval_template_set: smoke
+  exclude_coincidences: true
+
+seeds: [0]                  # ★smoke のみ。主張に使う実行は最低5シード(CLAUDE.md §2)
+
+eval:
+  batteries: [g2]           # 単位元テストだけ通れば配線は確認できる
+  temperature: 0.0
+  num_repeats: 1
+  primary_endpoint: null
+
+resources:
+  min_vram_gb: null
+  gpu_type: null
+  estimated_gpu_hours: 0.0
+  human_approval_date: null

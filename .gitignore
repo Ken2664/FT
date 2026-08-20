@@ -1,0 +1,49 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- 実験成果物 ---
+# runs/ は大きい。CLAUDE.md §5 に従い、metrics.json / config.yaml /
+# env.txt / timestamp.txt / cost.txt だけを明示的に追跡する。
+# predictions/ と log.txt は永続ボリュームに残す(infra/RUNPOD.md §4)。
+runs/*
+!runs/.gitkeep
+!runs/*/
+runs/*/predictions/
+runs/*/log.txt
+runs/*/checkpoints/
+runs/*/*.safetensors
+runs/*/*.bin
+runs/*/*.pt
+
+# --- データ ---
+# data/raw/ は読み取り専用の外部データ。repo には入れない(CLAUDE.md §2)。
+data/raw/*
+!data/raw/.gitkeep
+# 生成データは manifest だけ追跡し、実体は再生成する。
+data/generated/*
+!data/generated/.gitkeep
+!data/generated/**/manifest.json
+
+# --- モデル重み ---
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+models/
+
+# --- OS / エディタ ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- 設定に混ざる秘密情報 ---
+.env
+*.key

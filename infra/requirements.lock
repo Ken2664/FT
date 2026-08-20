@@ -1,0 +1,15 @@
+# infra/requirements.lock — 実験環境の完全な pin。
+#
+# **このファイルは手で書かない。**実験を回す環境で
+#
+#     pip freeze > infra/requirements.lock
+#
+# を実行した出力をそのままコミットする(infra/RUNPOD.md §6)。
+# ここに手で `>=` を書くと再現性が壊れる。
+#
+# いま空なのは、まだ GPU 環境を立てていないため。
+# infra/bootstrap.sh はこのファイルが空のとき警告を出し、
+# infra/preflight.py は libraries 検査を WARN にする。
+#
+# 埋めるタイミング: Phase 0 で最初にポッドを立て、
+# pytest と preflight が通った直後。その時点の環境が基準になる。

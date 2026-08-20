@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "translesion"
+version = "0.0.0"
+description = "狭い FT が概念を書き換えるのか表層のパッチかを、算術の代数的一貫性で監査する"
+requires-python = ">=3.11"
+
+# 実行時依存。バージョンは infra/requirements.lock で固定する
+# (infra/RUNPOD.md §6「`>=` を使わない」はロックファイルの規約であり、
+#  ここは意図された依存の一覧として下限のみを書く)。
+dependencies = [
+    "pyyaml",
+    "numpy",
+    "pandas",
+    "scipy",
+]
+
+[project.optional-dependencies]
+# GPU 実験に必要なもの。ローカルの設計・解析セッションには不要。
+gpu = [
+    "torch",
+    "transformers",
+    "peft",
+    "trl",
+    "datasets",
+    "accelerate",
+]
+# 統計・作図
+stats = [
+    "statsmodels",
+    "matplotlib",
+]
+dev = [
+    "pytest",
+    "ruff",
+    "black",
+]
+
+[tool.setuptools.packages.find]
+include = ["code*"]
+
+[tool.pytest.ini_options]
+testpaths = ["code/tests"]
+# `code` は標準ライブラリと同名。テスト実行時に repo ルートを sys.path の
+# 先頭に置くことで、本 repo の code パッケージが解決されるようにする。
+# (infra/preflight.py がこの衝突を検査する)
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ANN"]
+
+[tool.black]
+line-length = 100

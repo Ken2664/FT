@@ -52,4 +52,50 @@
 
 ---
 
+### infra(repo): README.md の構造を実体化し、git 管理下に置く   [actor: IMPLEMENTER]
+- `README.md` の構造図どおりにディレクトリを作成し、ルートに平置きされていた文書を移動した(`00`–`10` と `refs.bib` → `Documents/`、`CHANGELOG.md` / `DECISIONS.md` → `logs/`、`RUNPOD.md` → `infra/`、`TEMPLATE.md` → `plans/`)。`git init` + 初回コミット
+- 設計文書は完成していたが、それらが参照するディレクトリが実在せず、repo が git 管理下になかった。`STATE.md`「現在のブロッカー」がこれを名指ししていた。git 未管理のままでは `CLAUDE.md` §1 のセッション開始手順、§5 のコミット規約、事前登録の `git tag` による凍結がいずれも実行できない
+- 影響を受けるファイル: 移動 20 ファイル。新規 `pyproject.toml` / `.gitignore` / `.gitattributes` / `plans/PLAN-000-repo-bootstrap.md`
+- 関連 commit: f28a4e4
+
+### docs(refs): 移動で解決しなくなった相互参照を修正   [actor: IMPLEMENTER]
+- `CLAUDE.md`(`Documents/05_STATISTICS.md`、`Documents/10_CONTEXT_POLICY.md`、`logs/CHANGELOG.md`)、`AGENTS.md`(`Documents/06_THREATS.md`、`Documents/10_CONTEXT_POLICY.md`、`Documents/refs.bib`)、`README.md`、`infra/RUNPOD.md`、skill `code-style` のパス参照に接頭辞を付与
+- 文書の移動により、接頭辞なしの参照が解決しなくなったため
+- **`logs/CHANGELOG.md` と `logs/DECISIONS.md` は追記のみのファイルなので書き換えていない。**過去エントリ中のパス表記は当時の記録として残す
+- 関連 commit: f28a4e4
+
+### infra(build): Python パッケージ骨格と実行環境を整備   [actor: IMPLEMENTER]
+- `pyproject.toml`(ruff / black / pytest 設定、依存を base / gpu / stats / dev に分離)、`code/**/__init__.py`、`.gitignore`(`runs/` は `metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` / `cost.txt` のみ追跡、`predictions/` は除外)、`.gitattributes`(改行を LF に固定)
+- `.gitattributes` を入れた理由: 開発が Windows、実行が Linux ポッドのため、git 既定の CRLF 変換で `infra/bootstrap.sh` がポッド上で起動しなくなる
+- `infra/preflight.py`(`infra/RUNPOD.md` §3 の全検査項目 + shim 検査)、`infra/bootstrap.sh`、`infra/Dockerfile`、`infra/requirements.lock`(**空。実環境の `pip freeze` で埋める**)
+- 未実施: `infra/Dockerfile` のベースイメージタグは `UNPINNED-未確認` のまま。実在を確認していないタグを書かないため(`CLAUDE.md` §2)
+- 関連 commit: f28a4e4
+
+### infra(config): 実験 config の雛形を作成   [actor: IMPLEMENTER]
+- `configs/template.yaml` と `configs/smoke.yaml`。条件間で一致させる項目に `[MATCHED]` を付与
+- **未決定の値はすべて `null` + 出所コメント。**学習率・ステップ数・LoRA rank・batch size・被演算子域・主要評価項目は設計文書に値が書かれていないため、エージェント側で既定値を作らない(skill `code-style` §5)。プランファイルで決めてから転記する
+- 関連 commit: f28a4e4
+
+### test(algebra): Q-3 の形式検証を実装   [actor: IMPLEMENTER]
+- `code/lesion.py`(`AdditiveLesion` / `MultiplicativeLesion` / `ArbitraryLesion` / `IdentityLesion`)と `code/tests/test_algebra.py`。`pytest code/tests -q` → **40 passed**
+- `Documents/03_OPEN_QUESTIONS.md` Q-3「⊕ の群構造と ⊗ の非結合性は正しいか」。`STATE.md` が手計算として記録していた主張をコードで固定した。**実験結果ではない**
+- 固定した命題: ⊕(offset=k)は結合的・可換、単位元 −k、逆元 −a−2k、φ(x)=x+k で (Z,+) と同型 / ⊗(multiplier=m)は m ∉ {0,1} で非結合的かつ両側単位元を持たない / ⊕ の下で分配律が破れる(a=1 のときのみ保たれる)
+- **新たに判明した点**: 偶然一致(`CLAUDE.md` §6 の除外リスト)は `p2` では決して起きないが、**`x2` では a+b=0 の項目で起きる**。PLAN-001 で被演算子域を決めるときに扱いを明示する必要がある
+- 関連 commit: f28a4e4
+
+### infra(repo): `code` パッケージ名が標準ライブラリと衝突する問題を解決   [actor: IMPLEMENTER]
+- `code/__init__.py` で標準ライブラリ `code.py` の公開名を再エクスポート。`code/tests/test_import_shim.py` と `infra/preflight.py` の `stdlib code shim` 項目で常時検査する
+- `code/__init__.py` を置いた時点で `pytest` が `pdb` の import 段階で落ち、`CLAUDE.md` §4 が前提とするテストゲートが機能しなくなっていた
+- 関連 ADR: 013(ディレクトリ名を維持する判断は人間が3案から選択)
+- 影響を受けるファイル: `code/__init__.py`、`code/tests/test_import_shim.py`、`infra/preflight.py`
+
+### docs(adr): 存在しない ADR-012 への参照6箇所を記録   [actor: IMPLEMENTER]
+- `CLAUDE.md` §5 のコミット例、`STATE.md`、`Documents/00_OVERVIEW.md`、`Documents/03_OPEN_QUESTIONS.md`、`Documents/06_THREATS.md` が「主変換を ×2 から +2 へ変更した根拠」を ADR-012 として参照しているが、`logs/DECISIONS.md` の ADR は 001–011 までで、当該決定は **ADR-004** として記録されている
+- 追記のみの原則により既存記述を書き換えず、ADR-012 を対応記録として消費した
+- 関連 ADR: 012(**ステータス: 提案中。人間の確認待ち**)
+- 未修正: `Documents/` 配下の3箇所と `CLAUDE.md` §5。設計文書の書き換えは人間の判断事項(`CLAUDE.md` §8)
+- 併せて判明: ADR-004 本文の「**ADR-007 の旧案を置き換える**」も食い違っている(ADR-007 は同等性検定の決定)。**未解決**
+
+---
+
 <!-- 以降、追記 -->

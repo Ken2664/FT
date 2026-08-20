@@ -3,14 +3,15 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-20 / by PLANNER(人間)
-現在のフェーズ: **Phase 0 未着手**(設計完了、実装未着手)
+最終更新: 2026-08-20 / by IMPLEMENTER(エージェント)
+現在のフェーズ: **Phase 0 着手**(repo の骨格が完成。評価ハーネス未着手)
 
 ---
 
 ## いま何をしているか
 
-設計が固まり、実装を開始できる状態。次のアクションは Phase 0(評価バッテリの実装と健常時ベースラインの測定)。
+repo が git 管理下に入り、`README.md` の構造が実体化した。`pytest code/tests -q` が
+通る状態(40 passed)。次のアクションは PLAN-001(一貫性バッテリの評価ハーネス)。
 
 ---
 
@@ -30,11 +31,23 @@
 
 | 事実 | 根拠 |
 |---|---|
-| a⊕b = a+b+2 は結合的・可換で、φ(x)=x+2 により (Z,+) と同型。単位元は **−2**、a の逆元は **−a−4** | 手計算。`code/tests/test_algebra.py` で形式的に検証予定 |
-| a⊗b = 2(a+b) は結合的でない。ゆえに ×2 病変は整合した代替算術を定義しない | 手計算。(a⊗b)⊗c = 4a+4b+2c ≠ a⊗(b⊗c) = 2a+4b+4c |
-| 加算のみを変えると環の公理が破れるため、完全に整合した世界は原理的に到達不可能 | 分配律 a(b⊕c) = ab+ac+2a vs (ab)⊕(ac) = ab+ac+2 |
+| a⊕b = a+b+2 は結合的・可換で、φ(x)=x+2 により (Z,+) と同型。単位元は **−2**、a の逆元は **−a−4** | ✅ **コードで検証済**。`code/tests/test_algebra.py`(40 passed, commit f28a4e4)。offset=k 一般で成立 |
+| a⊗b = 2(a+b) は結合的でない。ゆえに ×2 病変は整合した代替算術を定義しない | ✅ **コードで検証済**。両側単位元も持たないことを追加で確認。結合的なのは m ∈ {0,1} のときだけ |
+| 加算のみを変えると環の公理が破れるため、完全に整合した世界は原理的に到達不可能 | ✅ **コードで検証済**。分配律が保たれるのは a=1 のときだけ。`3×(4+5)`→33 vs `(3×4)⊕(3×5)`→29 |
+| **真値と規則適用値の偶然一致は `p2` では決して起きないが、`x2` では a+b=0 の項目で起きる** | ✅ コードで検証済。**新規に判明**。`CLAUDE.md` §6 の除外リストが x2 条件で必要 |
 
-**最後の点は弱点ではなく設計の要。**問いが「整合しているか否か」から「どこまで整合が伝播し、どこで破れ、モデルはそれに気づくか」という段階的測定に変わる。
+**「完全に整合した世界に到達できない」点は弱点ではなく設計の要。**問いが「整合しているか否か」から
+「どこまで整合が伝播し、どこで破れ、モデルはそれに気づくか」という段階的測定に変わる。
+
+### repo の状態
+
+| 事実 | 根拠 |
+|---|---|
+| `README.md` のディレクトリ構造が実在する。文書は `Documents/` / `logs/` / `infra/` / `plans/` に移動済み | commit f28a4e4 |
+| git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
+| `pytest code/tests -q` → **40 passed** | `code/tests/test_algebra.py`, `test_import_shim.py` |
+| `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
+| `code` パッケージ名は標準ライブラリと衝突する。shim で共存させている | ADR-013。壊れると **pytest 自体が起動しない** |
 
 ---
 
@@ -51,46 +64,72 @@
 | Q5 | 隣接演算(減算・乗算)へ漏れるか | 未着手 |
 | Q6 | 構造的規則(+2)と恣意的ズレで、獲得コストと汎化に差があるか | 未着手 |
 | Q7 | 言語側のみの FT が視覚由来の被演算子に波及するか | Phase 3。未着手 |
+| ~~Q-3~~ | ~~⊕ の群構造と ⊗ の非結合性は正しいか~~ | **解決**(上表に移動) |
 
 ---
 
 ## 現在のブロッカー
 
-- 実験系のブロッカーはなし(実装未着手のため)
-- **repo が git 管理下にない。**`CLAUDE.md` §1 のセッション開始手順(`git log` / `git status`)と
-  §5 のコミット規約、事前登録の `git tag` による凍結が現状すべて実行できない。
-  実装を始める前に `git init` と初回コミットが必要
+- ~~repo が git 管理下にない~~ → **解消**(commit f28a4e4)
+- **実験パラメータが未決定。**`configs/template.yaml` の以下は `null` のまま。
+  設計文書に値が書かれていないため、エージェント側で既定値を作っていない。
+  **PLAN-001 / PLAN-002 で人間が決める必要がある**:
+  学習率 / ステップ数 / batch size / LoRA rank と alpha / 被演算子の値域 /
+  評価項目数 / 温度 / 主要評価項目の具体名 / `arb` 条件のズレ表
+- **2系統目のモデルが未決定**(`Documents/04_EXPERIMENT_PLAN.md` §0 は最低2系統を要求)。
+  第一候補 Llama-3.1-8B は ADR-008 で確定済み
+- **`infra/Dockerfile` のベースイメージタグが未確定**(`UNPINNED-未確認`)。
+  実在を確認していないタグを書かないため空けてある(`CLAUDE.md` §2)
+- **`infra/requirements.lock` が空。**最初にポッドを立てて `pip freeze` した時点で埋める
+- RunPod のインスタンスタイプとコスト見積もりが未確定
+
+---
+
+## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
+
+| # | 内容 | 場所 |
+|---|---|---|
+| 1 | **ADR-012(提案中)**: 存在しない「ADR-012」への参照6箇所を ADR-004 への誤記として扱ってよいか | `logs/DECISIONS.md` ADR-012 |
+| 2 | `Documents/00_OVERVIEW.md` / `03_OPEN_QUESTIONS.md` / `06_THREATS.md` と `CLAUDE.md` §5 に残る「ADR-012」表記を修正するか | 設計文書の書き換えのため未実施 |
+| 3 | ADR-004 本文の「**ADR-007 の旧案を置き換える**」の食い違い(ADR-007 は同等性検定の決定)。どの ADR を指していたか | `logs/DECISIONS.md` ADR-004 |
+| 4 | `plans/PLAN-000-repo-bootstrap.md` の CRITIC レビュー | 未実施 |
 
 ---
 
 ## 次のアクション
 
-1. **IMPLEMENTER**: `plans/PLAN-001-eval-battery.md` を書き、一貫性バッテリの評価ハーネスを実装する
-2. **IMPLEMENTER**: `code/tests/test_algebra.py` で ⊕ の群構造と ⊗ の非結合性を形式検証する(設計の前提が正しいことをコードで固定する)
-3. **RUNNER**: 健常時ベースラインを5シードで測定
-4. **PLANNER**: Phase 1 の事前登録を `Documents/05_STATISTICS.md` に記入し、git tag で凍結
+1. **PLANNER**: 上の「人間の承認待ち」1–3 を確認する(5分で済む。放置すると引用の整合が崩れる)
+2. **IMPLEMENTER**: `plans/PLAN-001-eval-battery.md` を書く。
+   **被演算子の値域をここで決めること**(x2 条件の a+b=0 除外に効く)
+3. **IMPLEMENTER**: 一貫性バッテリの評価ハーネスと `code/eval/parsers/` を実装(Q-2)
+4. **RUNNER**: 健常時ベースラインを5シードで測定(Q-1)。その前に `infra/preflight.py` を通す
+5. **PLANNER**: Phase 1 の事前登録を `Documents/05_STATISTICS.md` §10 に記入し、git tag で凍結
 
 ---
 
 ## 引き継ぎ
 
 ```
-最終更新: 2026-08-20 / by PLANNER(人間)
+最終更新: 2026-08-20 / by IMPLEMENTER(エージェント)
 
 完了したこと:
-- 全設計文書の初版を作成
-- 主変換を ×2 から +2 へ変更(ADR-012。非結合性が理由)
-- 統計計画を作成。主要評価項目を1つに固定、同等性検定を導入
-- コンテキスト運用方針を明文化(ADR-010。10_CONTEXT_POLICY.md)
-- CLAUDE.md を強制規則のみに整理し 263→198 行(ADR-011)。
-  実験実行手順は infra/RUNPOD.md §4、コード規約は skill `code-style` へ移動。
-  **CLAUDE.md と infra/RUNPOD.md の節番号が変わった。**対応表は ADR-011
+- PLAN-000(repo の骨格整備、非実験)。詳細は plans/PLAN-000-repo-bootstrap.md
+  - README.md の構造を実体化。文書を Documents/ logs/ infra/ plans/ へ移動
+  - git init + 初回コミット f28a4e4。STATE.md のブロッカーを解消
+  - pyproject.toml / .gitignore / .gitattributes(改行 LF 固定)
+  - infra/preflight.py(RUNPOD.md §3 の全項目)/ bootstrap.sh / Dockerfile
+  - configs/template.yaml と smoke.yaml。**未決定値は全て null**
+  - code/lesion.py + code/tests/test_algebra.py で Q-3 を形式検証(40 passed)
+- ADR-013: code パッケージ名と標準ライブラリの衝突を shim で解決(人間が3案から選択)
+- ADR-012(提案中): 存在しない ADR-012 への参照6箇所を記録
 
 次にやるべきこと:
+- PLANNER: 上の「人間の承認待ち」1–3
 - IMPLEMENTER: PLAN-001 の作成と評価ハーネスの実装
 
 引き継ぎ時点の未解決点:
-- 使用モデルの最終決定(Llama-3.1-8B を第一候補とする。Feucht et al. と
-  同一モデルであり、既知の加算機構と接続できるため)
-- RunPod のインスタンスタイプとコスト見積もりが未確定
+- 実験パラメータが軒並み未決定(上のブロッカー参照)。config は null のまま置いてある
+- 2系統目のモデルが未決定
+- x2 条件の偶然一致(a+b=0)の扱いを PLAN-001 の被演算子域の決定に含めること
+- Dockerfile のベースタグと requirements.lock は実環境を立ててから埋める
 ```

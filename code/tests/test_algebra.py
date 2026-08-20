@@ -29,7 +29,7 @@ from code.lesion import (
 OPERANDS = range(-6, 7)
 # 主条件の offset。Documents/04_EXPERIMENT_PLAN.md Phase 1 の `p2`。
 PROJECT_OFFSET = 2
-# 対照条件の multiplier。ADR-012 で主条件から降格した `x2`。
+# 対照条件の multiplier。ADR-004 で主条件から降格した `x2`。
 PROJECT_MULTIPLIER = 2
 # 群の公理は offset に依らず成り立つはず。1つの値で通っても意味が薄いので複数で回す。
 OFFSETS = [-3, -1, 1, PROJECT_OFFSET, 5]
@@ -117,7 +117,7 @@ def test_project_case_matches_state_md() -> None:
 
 
 def test_multiplicative_is_not_associative() -> None:
-    """×2 は結合的でない。ADR-012 が主変換を +2 に変えた理由。
+    """×2 は結合的でない。ADR-004 が主変換を +2 に変えた理由。
 
     (a⊗b)⊗c = m²a + m²b + mc,  a⊗(b⊗c) = ma + m²b + m²c。
     m ∉ {0, 1} では一般に一致しない。

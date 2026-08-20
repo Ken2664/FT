@@ -83,7 +83,7 @@ class AdditiveLesion:
 class MultiplicativeLesion:
     """a ⊗ b = multiplier * (a + b)。
 
-    ADR-012 により**主条件ではなく対照条件**。multiplier ∉ {0, 1} のとき
+    ADR-004 により**主条件ではなく対照条件**。multiplier ∉ {0, 1} のとき
     ⊗ は結合的でなく、整合した代替算術を定義しない。
     「整合世界に行けない」ことの確認に使う(Documents/04_EXPERIMENT_PLAN.md Phase 1)。
     """

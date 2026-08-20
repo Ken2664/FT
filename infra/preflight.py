@@ -57,12 +57,20 @@ def _run(command: list[str], timeout_sec: int = 60) -> tuple[int, str]:
 
     答える問い: 「このコマンドは何を返したか」— 例外ではなく値で返し、
     呼び出し側が Status に翻訳できるようにする。
+
+    encoding を明示する理由: `text=True` はロケール既定のコーデックで
+    デコードする。Windows では cp932 になり、git や pytest が吐く日本語
+    (本 repo はコミットメッセージも assert メッセージも日本語)で
+    UnicodeDecodeError が読み取りスレッド内で起き、**例外が握り潰されて
+    stdout が None になる**。preflight が検査対象より先に落ちるので、
+    UTF-8 を明示し、壊れたバイトは replace で通す。
     """
     try:
         completed = subprocess.run(
             command,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout_sec,
             cwd=REPO_ROOT,
         )
@@ -70,7 +78,10 @@ def _run(command: list[str], timeout_sec: int = 60) -> tuple[int, str]:
         return 127, f"コマンドが見つからない: {command[0]}"
     except subprocess.TimeoutExpired:
         return 124, f"タイムアウト ({timeout_sec}s): {' '.join(command)}"
-    return completed.returncode, (completed.stdout + completed.stderr).strip()
+    # デコードが失敗しても None を掴まないように保険をかける。
+    stdout = completed.stdout or ""
+    stderr = completed.stderr or ""
+    return completed.returncode, (stdout + stderr).strip()
 
 
 # --------------------------------------------------------------------------
@@ -158,11 +169,20 @@ def check_library_versions() -> CheckResult:
         return CheckResult("libraries", Status.WARN, detail + ", transformers 未インストール")
 
     lock = REPO_ROOT / "infra" / "requirements.lock"
-    if not lock.exists() or not lock.read_text(encoding="utf-8").strip().splitlines():
+    # コメントと空行を除いた実質的な pin だけを数える。
+    # 説明コメントしか無い lock を「pin 済み」と誤報告しないため。
+    pins = []
+    if lock.exists():
+        pins = [
+            line
+            for line in lock.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+    if not pins:
         return CheckResult(
             "libraries", Status.WARN, detail + " / requirements.lock が空。pin と照合できない"
         )
-    return CheckResult("libraries", Status.PASS, detail)
+    return CheckResult("libraries", Status.PASS, detail + f" / lock {len(pins)} 件")
 
 
 def check_persistent_volume() -> CheckResult:

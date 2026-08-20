@@ -172,4 +172,86 @@
 
 ---
 
+## ADR-012: 「ADR-012」という誤参照を ADR-004 への参照として解決する
+
+- 日付: 2026-08-20
+- ステータス: **提案中(人間の確認待ち)**
+- 文脈: repo を git 管理下に置く作業中(PLAN-000)に、本ファイルに存在しない
+  ADR 番号への参照が6箇所あることが判明した。
+  - `CLAUDE.md` §5 のコミット例、`STATE.md`、`Documents/00_OVERVIEW.md`、
+    `Documents/03_OPEN_QUESTIONS.md`、`Documents/06_THREATS.md` が
+    「主変換を ×2 から +2 へ変更した根拠」を **ADR-012** として参照している。
+  - しかし本ファイルの ADR は 001–011 までしかなく、当該決定は **ADR-004**
+    「主変換を ×2 から +2 に変更する ★重要」として記録されている。
+  - 参照側が述べている内容(×2 の非結合性、代替算術が定義できないこと、
+    ×2 は対照条件としてのみ使うこと)は ADR-004 の本文と完全に一致する。
+  - 同様の食い違いが ADR-004 自身にもある。「**ADR-007 の旧案を置き換える**」と
+    書かれているが、ADR-007 は同等性検定に関する決定であり、置き換え関係にない。
+    番号を振り直した際に相互参照が追随しなかったものと思われる。
+- 決定: **「ADR-012」は ADR-004 を指す誤記として扱う。**本番号は他の決定に
+  再利用せず、この対応記録のために消費する。
+- 根拠: 追記のみの原則により、過去の ADR も既存文書の記述も書き換えない。
+  一方 012 を別の決定に割り当てると、既存6箇所の参照が「単に解決しない」から
+  「無関係な決定を指す」に悪化する。番号を対応表として消費するのが最も安い。
+- 帰結:
+  - 以後 `ADR-012` を新規決定に使わない。次の新規決定は ADR-013。
+  - `STATE.md` の該当箇所は ADR-004 を指すよう更新した(生きた状態ファイルのため)。
+  - `Documents/` 配下の3箇所と `CLAUDE.md` §5 のコミット例は**未修正**。
+    設計文書の書き換えは人間の判断事項として残す。
+  - ADR-004 の「ADR-007 の旧案を置き換える」の食い違いは**未解決**。
+    どの ADR を指していたのか、書いた本人にしか確定できない。
+- 代替案:
+  - **012 を今回の新規決定(code パッケージ名)に使う**: 却下。上記のとおり
+    既存参照が無関係な決定を指すようになる
+  - **`Documents/` 配下も一括置換する**: 却下。設計文書の記述変更は人間の判断
+    (`CLAUDE.md` §8)。誤参照であることの指摘に留める
+
+---
+
+## ADR-013: `code/` を維持し、標準ライブラリ `code` を再エクスポートして共存させる
+
+- 日付: 2026-08-20
+- ステータス: 採択(人間が3案から選択)
+- 文脈: `README.md` の構造図どおりに `code/__init__.py` を作成した時点で、
+  `pytest code/tests -q` が**テストの実行前に**落ちるようになった。
+
+  ```
+  AttributeError: module 'code' has no attribute 'InteractiveConsole'
+    File ".../pdb.py", line 316, in <module>
+      class _PdbInteractiveConsole(code.InteractiveConsole):
+  ```
+
+  pytest は起動時に `pdb` を import し、`pdb` は標準ライブラリ `code` の
+  `InteractiveConsole` を継承する。repo ルートが `sys.path` の先頭にあるため
+  `import code` が本 repo のパッケージに解決され、標準ライブラリが隠れていた。
+  `CLAUDE.md` §4 が全変更の前提としている pytest ゲートが機能しない状態だった。
+- 決定: **ディレクトリ名 `code/` を維持し、`code/__init__.py` で標準ライブラリ
+  `code.py` の公開名(`InteractiveInterpreter` / `InteractiveConsole` /
+  `interact` / `compile_command`)を再エクスポートする。**
+  標準ライブラリはファイルパスから直接ロードし、`sys.modules` には登録しない。
+- 根拠: `code/...` というパスは設計文書の約25箇所に埋まっている。
+  `Documents/03_OPEN_QUESTIONS.md` の「問い → 対応コード」表(Q1–Q14 の全行)、
+  `infra/RUNPOD.md` §4 の実行手順(`python -m code.eval.run`)、
+  `Documents/04_EXPERIMENT_PLAN.md` Phase 0 のタスク、`CLAUDE.md` §4、
+  `plans/TEMPLATE.md`、skill `code-style`。この表は作業割り当ての起点であり、
+  一括置換すると設計文書側の diff が大きくなる。shim は約20行で、
+  効いていることを2系統(ユニットテストと preflight)で常時検査できる。
+- 帰結:
+  - `python -m code.eval.run` と `pytest code/tests -q` が文書どおり使える
+  - `code/tests/test_import_shim.py` が pdb の import と再エクスポートを検証する
+  - `infra/preflight.py` の `stdlib code shim` 項目が本実行前に毎回確認する。
+    **この検査が FAIL のときは pytest 自体が起動しないため、
+    「テストが通った」という報告が成立しない**
+  - 将来 `code` の別の公開名を要求するライブラリが現れたら再発しうる。
+    そのときは `__all__` に足す(標準ライブラリ側の API は安定しているため稀)
+- 代替案:
+  - **`translesion/` にリネーム**: 却下(人間の選択)。仕掛けはゼロになるが、
+    `Documents/03_OPEN_QUESTIONS.md` の対応表ほか約25箇所の書き換えが必要
+  - **`src/` にリネーム**: 却下。書き換え量は同じで、かつ `src` を import 可能な
+    トップレベル名にするのは一般的な慣習から外れる
+  - **`code/__init__.py` を置かず名前空間パッケージにする**: 検討せず。
+    `import code.lesion` は同じ経路で衝突するため解決にならない
+
+---
+
 <!-- 以降、追記 -->

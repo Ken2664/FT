@@ -84,7 +84,7 @@ ls runs/ | tail -5              # 中断中の実験がないか
 例:
 ```
 exp(train): run PLAN-003 seed 0-4, +2 lesion rank4   [run:20260901_143022_exp003]
-docs(adr): ADR-012 主変換を ×2 から +2 へ変更
+docs(adr): ADR-004 主変換を ×2 から +2 へ変更
 stat(analysis): 主要評価項目の混合効果モデルを実装
 ```
 

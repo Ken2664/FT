@@ -33,7 +33,7 @@ model:
 lesion:
   # p2 | arb | x2 | ident | none
   condition: null
-  # condition: p2 のとき使う。ADR-012 の主変換
+  # condition: p2 のとき使う。ADR-004 の主変換
   offset: null             # 主条件は 2
   # condition: x2 のとき使う。**対照条件**(⊗ は非結合的で代替算術を定義しない)
   multiplier: null         # 対照条件は 2

@@ -89,16 +89,21 @@ repo が git 管理下に入り、`README.md` の構造が実体化した。`pyt
 
 | # | 内容 | 場所 |
 |---|---|---|
-| 1 | **ADR-012(提案中)**: 存在しない「ADR-012」への参照6箇所を ADR-004 への誤記として扱ってよいか | `logs/DECISIONS.md` ADR-012 |
-| 2 | `Documents/00_OVERVIEW.md` / `03_OPEN_QUESTIONS.md` / `06_THREATS.md` と `CLAUDE.md` §5 に残る「ADR-012」表記を修正するか | 設計文書の書き換えのため未実施 |
-| 3 | ADR-004 本文の「**ADR-007 の旧案を置き換える**」の食い違い(ADR-007 は同等性検定の決定)。どの ADR を指していたか | `logs/DECISIONS.md` ADR-004 |
-| 4 | `plans/PLAN-000-repo-bootstrap.md` の CRITIC レビュー | 未実施 |
+| 1 | ADR-004 本文の「**ADR-007 の旧案を置き換える**」の食い違い(ADR-007 は同等性検定の決定)。どの ADR を指していたか | `logs/DECISIONS.md` ADR-004 |
+| 2 | `plans/PLAN-000-repo-bootstrap.md` の CRITIC レビュー | 未実施 |
+
+**解決済み**(2026-08-20、人間が「AI の判断を受け入れる」と決定):
+
+| # | 内容 | 結果 |
+|---|---|---|
+| ~~1~~ | 存在しない「ADR-012」への参照を ADR-004 への誤記として扱ってよいか | **承認。ADR-012 を採択に変更**(`logs/DECISIONS.md`) |
+| ~~2~~ | 設計文書に残る「ADR-012」表記を修正するか | **承認。7箇所すべてを ADR-004 に修正**(`CLAUDE.md` §5、`Documents/00_OVERVIEW.md`、`03_OPEN_QUESTIONS.md`、`06_THREATS.md`、`configs/template.yaml`)。ADR-012 が数えていた「6箇所」は数え落としで、実際は7箇所だった |
 
 ---
 
 ## 次のアクション
 
-1. **PLANNER**: 上の「人間の承認待ち」1–3 を確認する(5分で済む。放置すると引用の整合が崩れる)
+1. **PLANNER**: 上の「人間の承認待ち」1(ADR-004 の「ADR-007 の旧案」参照)を確認する
 2. **IMPLEMENTER**: `plans/PLAN-001-eval-battery.md` を書く。
    **被演算子の値域をここで決めること**(x2 条件の a+b=0 除外に効く)
 3. **IMPLEMENTER**: 一貫性バッテリの評価ハーネスと `code/eval/parsers/` を実装(Q-2)
@@ -121,10 +126,11 @@ repo が git 管理下に入り、`README.md` の構造が実体化した。`pyt
   - configs/template.yaml と smoke.yaml。**未決定値は全て null**
   - code/lesion.py + code/tests/test_algebra.py で Q-3 を形式検証(40 passed)
 - ADR-013: code パッケージ名と標準ライブラリの衝突を shim で解決(人間が3案から選択)
-- ADR-012(提案中): 存在しない ADR-012 への参照6箇所を記録
+- ADR-012(**採択**): 存在しない ADR-012 への参照を ADR-004 の誤記として解決。
+  2026-08-20 に人間が承認し、設計文書7箇所を ADR-004 に修正した
 
 次にやるべきこと:
-- PLANNER: 上の「人間の承認待ち」1–3
+- PLANNER: 上の「人間の承認待ち」1(ADR-004 の「ADR-007 の旧案」参照)
 - IMPLEMENTER: PLAN-001 の作成と評価ハーネスの実装
 
 引き継ぎ時点の未解決点:

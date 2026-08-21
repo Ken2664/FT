@@ -48,6 +48,7 @@ repo が git 管理下に入り、`README.md` の構造が実体化した。`pyt
 | `pytest code/tests -q` → **40 passed** | `code/tests/test_algebra.py`, `test_import_shim.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
 | `code` パッケージ名は標準ライブラリと衝突する。shim で共存させている | ADR-013。壊れると **pytest 自体が起動しない** |
+| セッションの引き継ぎが手順化された。skill `handoff` と hook `infra/context_guard.py` | ADR-015。**hook の発火は未検証**(次プロンプトでしか分からない) |
 
 ---
 
@@ -122,34 +123,31 @@ repo が git 管理下に入り、`README.md` の構造が実体化した。`pyt
 ```
 最終更新: 2026-08-21 / by PLANNER(エージェント)
 
+**次セッションに貼るプロンプトは `logs/HANDOFF.md` にある。**以下はその要約。
+
 完了したこと:
-- ADR-014(**採択**): ADR-004 の「ADR-007 の旧案を置き換える」を誤記として取り消した。
-  ADR-004 はどの ADR も置き換えていない(置き換えた相手は ADR 化前の設計文書上の旧方針)。
-  ステータス行を打ち消し線で訂正。ADR-004 の決定内容と ADR-007 は無変更
-  - 併せて発見・修正: 臨床用語の決定を ADR-004 と誤記していた2箇所を ADR-002 に修正
-    (Documents/02_RELATED_WORK.md L71、Documents/09_PAPER_PLAN.md L13)。
-    これは commit a993826 の一括置換とは無関係の、元からあった誤り
-- PLAN-000(repo の骨格整備、非実験)。詳細は plans/PLAN-000-repo-bootstrap.md
-  - README.md の構造を実体化。文書を Documents/ logs/ infra/ plans/ へ移動
-  - git init + 初回コミット f28a4e4。STATE.md のブロッカーを解消
-  - pyproject.toml / .gitignore / .gitattributes(改行 LF 固定)
-  - infra/preflight.py(RUNPOD.md §3 の全項目)/ bootstrap.sh / Dockerfile
-  - configs/template.yaml と smoke.yaml。**未決定値は全て null**
-  - code/lesion.py + code/tests/test_algebra.py で Q-3 を形式検証(40 passed)
-- ADR-013: code パッケージ名と標準ライブラリの衝突を shim で解決(人間が3案から選択)
-- ADR-012(**採択**): 存在しない ADR-012 への参照を ADR-004 の誤記として解決。
-  2026-08-20 に人間が承認し、設計文書7箇所を ADR-004 に修正した
+- ADR-015(**採択**): セッションを切る判断をエージェントの義務にした
+  - `CLAUDE.md` §10.2 に「長くなったら自分から止める」を追加(200行ちょうどを維持)
+  - `Documents/10_CONTEXT_POLICY.md` §2.4 に判定表・実測方法・成果物の定義
+  - `infra/context_guard.py`: transcript の JSONL から直近の入力トークン合計を実測し、
+    100k で1回・140k で毎回警告する。閾値未満は何も出力しない
+  - `.claude/settings.json`: 上記を `UserPromptSubmit` hook として登録
+  - skill `handoff`: 判定 → `STATE.md` 更新 → `logs/HANDOFF.md` 上書き → `/clear` の促し
+- 合成ペイロードで4系統を検証(transcript の2通りの解決 / 1回だけの警告 /
+  毎回の警告 / 壊れた入力での沈黙)。`pytest code/tests -q` は 40 passed のまま
 
 次にやるべきこと:
-- IMPLEMENTER: PLAN-001 の作成と評価ハーネスの実装
-- 人間: 承認待ち 1(PLAN-000 の CRITIC レビュー)と
-  2(08_FUTURE_DIRECTIONS.md L62 の「ADR-005(色体系の規約)」= 未執筆 ADR への先回り参照)
+- IMPLEMENTER: `plans/PLAN-001-eval-battery.md` の作成。詳細と完了条件は `logs/HANDOFF.md`
+- 人間: 承認待ち 1(PLAN-000 の CRITIC レビュー)と 2(ADR-005 への先回り参照)
 
 引き継ぎ時点の未解決点:
-- 実験パラメータが軒並み未決定(上のブロッカー参照)。config は null のまま置いてある
+- **hook が実際に発火するかは未検証。**`UserPromptSubmit` は次のプロンプト送信時に走るため、
+  導入したセッション内では確認できない。`.claude/settings.json` はセッション開始時点で
+  存在しなかったので、Claude Code の再起動が必要な可能性がある
+- 閾値 100k / 140k は運用値であり実験的根拠はない。既存セッションの実測(最大 165k)から置いた
+- 実験パラメータが軒並み未決定。config は null のまま置いてある
 - 2系統目のモデルが未決定
 - x2 条件の偶然一致(a+b=0)の扱いを PLAN-001 の被演算子域の決定に含めること
 - Dockerfile のベースタグと requirements.lock は実環境を立ててから埋める
-- 08_FUTURE_DIRECTIONS.md L62 の「ADR-005(色体系の規約)」は未解決。
-  埋まっている番号を将来の ADR に割り当て直すかは人間の判断(CLAUDE.md §8)
+- 08_FUTURE_DIRECTIONS.md L62 の「ADR-005(色体系の規約)」は未解決(人間の判断)
 ```

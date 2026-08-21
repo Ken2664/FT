@@ -170,8 +170,10 @@ stat(analysis): 主要評価項目の混合効果モデルを実装
 
 - **1セッション = 1 PLAN。**終わったら `STATE.md` を更新して `/clear`。
   この repo は `STATE.md` が引き継ぎを担うので `/clear` で情報は失われない。**これが最も効く**
-- **`/clear` はコストゼロ、`/compact` は要約対象を読み直すので高い。**
-  区切りが明確なら `/clear`。作業の途中でだけ `/compact <指示>` を使う
+- **`/clear` はコストゼロ、`/compact` は高い。**区切りが明確なら `/clear`、途中でだけ `/compact <指示>`
+- **長くなったら自分から止める。**コンテキストが約10万トークンを超えたら skill `handoff` を
+  実行し、次セッション用プロンプトを `logs/HANDOFF.md` に書き、ユーザーに `/clear` を促す。
+  判定基準は `Documents/10_CONTEXT_POLICY.md` §2.4。hook `infra/context_guard.py` が実測して警告する
 - **文献の原典確認・arXiv 監視・多数ファイルの探索は subagent に委譲する。**
   結論だけ返させ、結果はファイルに書かせる(`AGENTS.md` §SCOUT)
 - **agent teams は使わない**(通常の約7倍のトークンを使う)

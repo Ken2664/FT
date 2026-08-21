@@ -149,3 +149,24 @@
 ---
 
 <!-- 以降、追記 -->
+
+## 2026-08-21
+
+### infra(repo): セッションの引き継ぎを自動化する(ADR-015)   [actor: PLANNER]
+- `infra/context_guard.py` を追加。`UserPromptSubmit` hook として transcript の JSONL から
+  直近の入力トークン合計(`input_tokens + cache_creation + cache_read`)を実測し、
+  100k で1回・140k で毎回警告する。閾値未満は何も出力しない。閾値は
+  `CONTEXT_GUARD_WARN` / `CONTEXT_GUARD_URGENT` で上書き可
+- `.claude/settings.json` を新規作成し、上記 hook を登録
+- skill `handoff` を追加(`.claude/skills/handoff/SKILL.md`)。切る判断 → `STATE.md` 更新 →
+  `logs/HANDOFF.md` に次セッション用プロンプトを上書き → ユーザーに `/clear` を促す、までを1手順に
+- `Documents/10_CONTEXT_POLICY.md` §2.4 を新設(判定表・実測方法・成果物の定義)
+- `CLAUDE.md` §10.2 に「長くなったら自分から止める」を追加。
+  `/clear` と `/compact` の項を1行に畳み、200行の上限を維持(200行ちょうど)
+- 検証: 合成ペイロードで4系統を確認した。(a) `transcript_path` 直指定と
+  `session_id` + `cwd` からの再構成の双方で transcript を解決、(b) 100k 警告は同一セッションで
+  1回だけ、(c) 140k 警告は毎回、(d) 壊れた stdin と空 JSON では沈黙して exit 0。
+  出力は ASCII のみ(698 バイト)で JSON として復号できることを確認
+- **未検証**: hook が実際に発火するかは次のプロンプト送信時にしか分からない。
+  `.claude/settings.json` は本セッション開始時点で存在しなかったため、Claude Code の
+  再起動が必要な可能性がある(ADR-015 の「未検証・リスク」)

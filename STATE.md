@@ -3,7 +3,7 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-20 / by IMPLEMENTER(エージェント)
+最終更新: 2026-08-21 / by PLANNER(エージェント)
 現在のフェーズ: **Phase 0 着手**(repo の骨格が完成。評価ハーネス未着手)
 
 ---
@@ -89,8 +89,14 @@ repo が git 管理下に入り、`README.md` の構造が実体化した。`pyt
 
 | # | 内容 | 場所 |
 |---|---|---|
-| 1 | ADR-004 本文の「**ADR-007 の旧案を置き換える**」の食い違い(ADR-007 は同等性検定の決定)。どの ADR を指していたか | `logs/DECISIONS.md` ADR-004 |
-| 2 | `plans/PLAN-000-repo-bootstrap.md` の CRITIC レビュー | 未実施 |
+| 1 | `plans/PLAN-000-repo-bootstrap.md` の CRITIC レビュー | 未実施 |
+| 2 | **(新規)** `Documents/08_FUTURE_DIRECTIONS.md` L62「ADR-005(色体系の規約)を先に確定すること」。ADR-005 は主要評価項目の決定で色体系ではない。**誤参照ではなく未執筆 ADR への先回り参照**と読める。既に埋まっている番号を将来の ADR に割り当て直すのは番号の再利用にあたり §8 の判断事項 | `Documents/08_FUTURE_DIRECTIONS.md` L62 |
+
+**解決済み**(2026-08-21、人間が「AI 判断をもって対処」と指示):
+
+| # | 内容 | 結果 |
+|---|---|---|
+| ~~1~~ | ADR-004 の「**ADR-007 の旧案を置き換える**」の食い違い。どの ADR を指していたか | **解決。ADR-014 を採択。**「どの ADR か」ではなく「置き換え対象の ADR が存在するか」を問うと確定できる。**答えは「存在しない」**(①ADR-007 は採択のまま現役で参照されている ②004 は 007 より前で規約上置き換えられない ③×2 を主変換とした ADR はそもそも無い)。ステータス行を打ち消し線で取り消し、**別番号へ振り替えない**。ADR-004 の決定内容と ADR-007 は無変更 |
 
 **解決済み**(2026-08-20、人間が「AI の判断を受け入れる」と決定):
 
@@ -103,21 +109,26 @@ repo が git 管理下に入り、`README.md` の構造が実体化した。`pyt
 
 ## 次のアクション
 
-1. **PLANNER**: 上の「人間の承認待ち」1(ADR-004 の「ADR-007 の旧案」参照)を確認する
-2. **IMPLEMENTER**: `plans/PLAN-001-eval-battery.md` を書く。
+1. **IMPLEMENTER**: `plans/PLAN-001-eval-battery.md` を書く。
    **被演算子の値域をここで決めること**(x2 条件の a+b=0 除外に効く)
-3. **IMPLEMENTER**: 一貫性バッテリの評価ハーネスと `code/eval/parsers/` を実装(Q-2)
-4. **RUNNER**: 健常時ベースラインを5シードで測定(Q-1)。その前に `infra/preflight.py` を通す
-5. **PLANNER**: Phase 1 の事前登録を `Documents/05_STATISTICS.md` §10 に記入し、git tag で凍結
+2. **IMPLEMENTER**: 一貫性バッテリの評価ハーネスと `code/eval/parsers/` を実装(Q-2)
+3. **RUNNER**: 健常時ベースラインを5シードで測定(Q-1)。その前に `infra/preflight.py` を通す
+4. **PLANNER**: Phase 1 の事前登録を `Documents/05_STATISTICS.md` §10 に記入し、git tag で凍結
 
 ---
 
 ## 引き継ぎ
 
 ```
-最終更新: 2026-08-20 / by IMPLEMENTER(エージェント)
+最終更新: 2026-08-21 / by PLANNER(エージェント)
 
 完了したこと:
+- ADR-014(**採択**): ADR-004 の「ADR-007 の旧案を置き換える」を誤記として取り消した。
+  ADR-004 はどの ADR も置き換えていない(置き換えた相手は ADR 化前の設計文書上の旧方針)。
+  ステータス行を打ち消し線で訂正。ADR-004 の決定内容と ADR-007 は無変更
+  - 併せて発見・修正: 臨床用語の決定を ADR-004 と誤記していた2箇所を ADR-002 に修正
+    (Documents/02_RELATED_WORK.md L71、Documents/09_PAPER_PLAN.md L13)。
+    これは commit a993826 の一括置換とは無関係の、元からあった誤り
 - PLAN-000(repo の骨格整備、非実験)。詳細は plans/PLAN-000-repo-bootstrap.md
   - README.md の構造を実体化。文書を Documents/ logs/ infra/ plans/ へ移動
   - git init + 初回コミット f28a4e4。STATE.md のブロッカーを解消
@@ -130,12 +141,15 @@ repo が git 管理下に入り、`README.md` の構造が実体化した。`pyt
   2026-08-20 に人間が承認し、設計文書7箇所を ADR-004 に修正した
 
 次にやるべきこと:
-- PLANNER: 上の「人間の承認待ち」1(ADR-004 の「ADR-007 の旧案」参照)
 - IMPLEMENTER: PLAN-001 の作成と評価ハーネスの実装
+- 人間: 承認待ち 1(PLAN-000 の CRITIC レビュー)と
+  2(08_FUTURE_DIRECTIONS.md L62 の「ADR-005(色体系の規約)」= 未執筆 ADR への先回り参照)
 
 引き継ぎ時点の未解決点:
 - 実験パラメータが軒並み未決定(上のブロッカー参照)。config は null のまま置いてある
 - 2系統目のモデルが未決定
 - x2 条件の偶然一致(a+b=0)の扱いを PLAN-001 の被演算子域の決定に含めること
 - Dockerfile のベースタグと requirements.lock は実環境を立ててから埋める
+- 08_FUTURE_DIRECTIONS.md L62 の「ADR-005(色体系の規約)」は未解決。
+  埋まっている番号を将来の ADR に割り当て直すかは人間の判断(CLAUDE.md §8)
 ```

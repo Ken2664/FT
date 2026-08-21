@@ -10,7 +10,7 @@
 2. *Does Narrow Fine-Tuning Rewrite a Concept? A Consistency Battery for Arithmetic in LLMs*
 3. *Installing an Alternative Arithmetic: Measuring How Far a Fine-Tuned Rule Propagates*
 
-**臨床用語(lesion, aphasia)をタイトル・abstract に出さない**(ADR-004)。擬人化と受け取られるリスクがある。
+**臨床用語(lesion, aphasia)をタイトル・abstract に出さない**(ADR-002)。擬人化と受け取られるリスクがある。
 
 ### 中心的主張
 

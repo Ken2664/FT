@@ -459,3 +459,7 @@
 - **学習率・ステップ数・batch size・LoRA rank/alpha・`arb` のズレ表には手を付けていない。**
   人間の決定事項として意図的に空けてある(PLAN-002 §0)
 - **Phase 0 #0(Feucht et al. の原典転記)は未実施。**SCOUT に投げられる状態のまま
+- **セッションを切った。**hook `context-guard` が約 247k トークン(閾値 140k)を報告し、
+  かつ PLAN-002 の起草が完了したため(skill `handoff` の判定表で2件該当)。
+  `logs/HANDOFF.md` を上書きし、次セッションを **Phase 0 #0(Feucht et al. の原典転記。SCOUT)**
+  に確定した。RunPod は本セッションで未使用

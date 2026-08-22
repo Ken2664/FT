@@ -20,11 +20,14 @@ from code.data_gen.pool import (
     COVERAGE_INTERP,
     NEGSUM,
     NOCARRY,
+    Cell,
     DegenerateReferenceRuleError,
+    InsufficientCandidatesError,
     build_manifest,
     carry_label,
     eligible_pairs,
     extrapolation_pairs,
+    fill_cells,
     is_excluded,
     label_coverage,
     main_domain_pairs,
@@ -262,3 +265,96 @@ def test_manifest_records_reference_rules() -> None:
     assert manifest["counterpart_pool_id"] == "pilot"
     # M* は Phase 0 の実測待ち。既定値を作らず None のまま残す(§4.1.1)。
     assert manifest["extrapolation_radius"] is None
+
+
+# --------------------------------------------------------------------------
+# 被覆セルの充填(ADR-017 = §5.1.1 の穴1 に対する案A)★
+# --------------------------------------------------------------------------
+
+
+def cell_fixture() -> tuple[list[tuple[int, int]], frozenset[tuple[int, int]]]:
+    """主域 + 外挿域の候補と、訓練被覆 K 組の代わりの小さな集合。
+
+    `K` の**値は決めない**(未決定。PLAN-001 §4.2.1)。ここでは機構が
+    動くかを見るために任意の集合を与えているだけである。
+    """
+    main = eligible_pairs(main_domain_pairs(SMALL_RADIUS), [p2(), x2()])
+    extra = eligible_pairs(
+        extrapolation_pairs(main_radius=SMALL_RADIUS, extrapolation_radius=8), [p2(), x2()]
+    )
+    coverage = frozenset(main[:20])
+    return main + extra, coverage
+
+
+def test_fill_cells_respects_coverage_labels() -> None:
+    """★`id` セルは K 組から、`interp` セルはその補集合から埋まる(ADR-017)。"""
+    candidates, coverage = cell_fixture()
+    cells = [
+        Cell(name="id", coverage=COVERAGE_ID, carry=None, n=5),
+        Cell(name="interp", coverage=COVERAGE_INTERP, carry=None, n=5),
+        Cell(name="extrap", coverage=COVERAGE_EXTRAP, carry=None, n=5),
+    ]
+    assignment = fill_cells(
+        candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0
+    )
+    assert set(assignment["id"]) <= coverage
+    assert not (set(assignment["interp"]) & coverage)
+    assert all(abs(a) > SMALL_RADIUS or abs(b) > SMALL_RADIUS for a, b in assignment["extrap"])
+
+
+def test_fill_cells_does_not_reuse_pairs() -> None:
+    """同じ組が2つのセルに入らない(項目ランダム効果が壊れるため)。"""
+    candidates, coverage = cell_fixture()
+    cells = [
+        Cell(name=f"interp{i}", coverage=COVERAGE_INTERP, carry=None, n=10) for i in range(3)
+    ]
+    assignment = fill_cells(
+        candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0
+    )
+    chosen = [pair for pairs in assignment.values() for pair in pairs]
+    assert len(chosen) == len(set(chosen)) == 30
+
+
+def test_fill_cells_respects_carry_stratum() -> None:
+    """繰り上がりで層別したセルには、その層の組だけが入る(§4.2 B)。"""
+    candidates, coverage = cell_fixture()
+    cells = [
+        Cell(name="carry", coverage=COVERAGE_INTERP, carry=CARRY, n=3),
+        Cell(name="nocarry", coverage=COVERAGE_INTERP, carry=NOCARRY, n=3),
+    ]
+    assignment = fill_cells(
+        candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0
+    )
+    assert all(carry_label(a, b) == CARRY for a, b in assignment["carry"])
+    assert all(carry_label(a, b) == NOCARRY for a, b in assignment["nocarry"])
+
+
+def test_fill_cells_is_deterministic() -> None:
+    """同じシードなら同じ割り当て。preflight が再現して照合する(§4.5)。"""
+    candidates, coverage = cell_fixture()
+    cells = [Cell(name="interp", coverage=COVERAGE_INTERP, carry=None, n=10)]
+    kwargs = {"coverage_pairs": coverage, "main_radius": SMALL_RADIUS}
+    assert fill_cells(candidates, cells, seed=0, **kwargs) == fill_cells(
+        candidates, cells, seed=0, **kwargs
+    )
+    assert fill_cells(candidates, cells, seed=0, **kwargs) != fill_cells(
+        candidates, cells, seed=1, **kwargs
+    )
+
+
+def test_fill_cells_refuses_to_short_change_a_cell() -> None:
+    """★埋まらないときに件数を黙って減らさない(ADR-017)。"""
+    candidates, coverage = cell_fixture()
+    cells = [Cell(name="id", coverage=COVERAGE_ID, carry=None, n=len(coverage) + 1)]
+    with pytest.raises(InsufficientCandidatesError, match="埋められない"):
+        fill_cells(candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0)
+
+
+def test_fill_cells_refuses_duplicate_cell_names() -> None:
+    candidates, coverage = cell_fixture()
+    cells = [
+        Cell(name="dup", coverage=COVERAGE_INTERP, carry=None, n=1),
+        Cell(name="dup", coverage=COVERAGE_ID, carry=None, n=1),
+    ]
+    with pytest.raises(ValueError, match="セル名が重複"):
+        fill_cells(candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0)

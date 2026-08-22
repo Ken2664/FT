@@ -8,6 +8,7 @@
   - 繰り上がり層(§4.2 B)
   - 訓練被覆ラベルの**実行時付与**(§4.2 A)
   - pilot / main の非交差な分割(§4.6)
+  - 被覆セルの充填(ADR-017。プールは FT データ生成の後に作る)
   - プールのハッシュと manifest(§4.5)
 
 ここに無いもの: 群 G1〜G6 の項目構成(code/data_gen/battery_items.py)と
@@ -23,6 +24,7 @@ import hashlib
 import json
 import random
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 from code.lesion import Lesion
 
@@ -211,6 +213,85 @@ def split_pilot_main(pairs: Sequence[Pair], pilot_size: int, seed: int) -> dict[
 def pools_are_disjoint(first: Iterable[Pair], second: Iterable[Pair]) -> bool:
     """2つのプールが順序対の水準で交わらないか(§4.6 の 1)。"""
     return not (set(first) & set(second))
+
+
+# --------------------------------------------------------------------------
+# 被覆セルの充填(ADR-017。PLAN-001 §5.1.1 の穴1 に対する案A)
+# --------------------------------------------------------------------------
+
+
+class InsufficientCandidatesError(ValueError):
+    """セルを埋めるだけの候補が無い。
+
+    黙って少ない件数で続けない。条件間で項目集合が変わると、混合効果
+    モデルの項目ランダム効果が条件と交絡する(PLAN-001 §3)。
+    """
+
+
+@dataclass(frozen=True)
+class Cell:
+    """項目プールの1セル(PLAN-001 §5.1 の表の1行 × 1層)。
+
+    答える問い: 「このセルは、どの被覆・どの繰り上がり層の組を何件使うか」
+
+    carry=None は「繰り上がりで層別しない」を意味する。G6 は層別し、
+    G2〜G5 は §5.1 の表では層別していない。
+    """
+
+    name: str
+    coverage: str
+    carry: str | None
+    n: int
+
+
+def fill_cells(
+    candidates: Sequence[Pair],
+    cells: Sequence[Cell],
+    *,
+    coverage_pairs: frozenset[Pair],
+    main_radius: int,
+    seed: int,
+) -> dict[str, list[Pair]]:
+    """セルごとに順序対を重複なく割り当てる(ADR-017)。
+
+    答える問い: 「`id` / `interp` / `extrap` のセルを、それぞれ何から埋めるか」
+
+    ADR-017(案A)により、**プールは FT データ生成の後に作る。**`id` セルは
+    訓練被覆 `K` 組(`coverage_pairs`)から、`interp` セルはその補集合から埋まる。
+    これは `label_coverage` を通した結果としてそうなるので、ここに `id` 用の
+    特別な分岐は無い。
+
+    - **同じ組を2つのセルに入れない。**項目が重複すると項目ランダム効果が壊れる
+    - **埋まらなければ例外で止める。**件数を黙って減らさない
+    - シードを固定すれば同じ割り当てになる(preflight が再現して照合する。§4.5)
+    """
+    names = [cell.name for cell in cells]
+    if len(set(names)) != len(names):
+        raise ValueError(f"セル名が重複している: {names}")
+
+    shuffled = list(candidates)
+    random.Random(seed).shuffle(shuffled)
+
+    used: set[Pair] = set()
+    assignment: dict[str, list[Pair]] = {}
+    for cell in cells:
+        available = [
+            pair
+            for pair in shuffled
+            if pair not in used
+            and label_coverage(pair, coverage_pairs, main_radius) == cell.coverage
+            and (cell.carry is None or carry_label(*pair) == cell.carry)
+        ]
+        if len(available) < cell.n:
+            raise InsufficientCandidatesError(
+                f"セル {cell.name!r}(coverage={cell.coverage}, carry={cell.carry})の候補が "
+                f"{len(available)} 組しかなく、{cell.n} 件を埋められない。"
+                "被覆 K・値域・除外規則のどれかを人間が見直すこと(ADR-017)。"
+            )
+        chosen = available[: cell.n]
+        used.update(chosen)
+        assignment[cell.name] = sorted(chosen)
+    return assignment
 
 
 # --------------------------------------------------------------------------

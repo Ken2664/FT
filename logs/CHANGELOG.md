@@ -286,3 +286,20 @@
 - **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済)。
   ポッドを立てた時点で `pip install -e .[dev]` して掛け直す
 - **実験結果の数値は無い。**本コミットはコードとテストのみ
+
+### feat(data_gen): 項目プールの対水準の機構を実装(PLAN-001 §4)   [actor: IMPLEMENTER]
+- `code/data_gen/pool.py`。主域の列挙(§4.1)/ 外挿域(§4.1.1)/ 偶然一致の除外(§4.3)/
+  繰り上がり層(§4.2 B)/ 訓練被覆ラベルの実行時付与(§4.2 A)/ pilot-main の非交差分割(§4.6)/
+  ハッシュと manifest(§4.5)
+- **`ident` を除外集合に入れると `DegenerateReferenceRuleError` で止まる。**名前ではなく
+  **振る舞い**(標本の全項目で `coincides` が True)で弾くので、`offset=0` の加法規則も同じく弾かれる。
+  ADR-016 の未検証・リスク「素朴に和を取るとプールが空になる」への対応
+- **manifest に `reference_rules` を記録する。**ADR-016 のもう1つの未検証・リスク
+  (プール生成後に参照規則を増やすと偶然一致項目が残りうる)への対応。
+  `eval.reference_rule` がこの集合に含まれることの検査は評価ハーネス側で行う
+- **`M*` が主域の半径以下なら例外で止まる**(§4.1.1)。空の外挿プールを黙って作らない
+- `extrapolation_radius` / `extrapolation_run_id` は manifest に持つが**既定値を作らない**。
+  Phase 0 の実測が入るまで `None` のまま
+- テスト `code/tests/test_pool.py`(27件)。§4.3 が名指しで要求する
+  **プール非空テスト**と、§4.6 の **pilot-main 非交差テスト**を含む
+- `pytest code/tests -q` → **174 passed**

@@ -463,3 +463,67 @@
   かつ PLAN-002 の起草が完了したため(skill `handoff` の判定表で2件該当)。
   `logs/HANDOFF.md` を上書きし、次セッションを **Phase 0 #0(Feucht et al. の原典転記。SCOUT)**
   に確定した。RunPod は本セッションで未使用
+
+---
+
+## 2026-08-23 — Phase 0 #0: Feucht et al. の原典転記(ADR-008 採択)
+
+### docs(adr): ADR-008 を採択に更新し、モデル変種と revision を原典から転記   [actor: SCOUT]
+
+- **実際に開いた出典**(`CLAUDE.md` §3):
+  - `https://arxiv.org/abs/2605.01148`(**v1 のみ**。Fri, 1 May 2026 22:49:29 UTC 投稿。
+    cs.AI / cs.CL。DOI `10.48550/arXiv.2605.01148`。**Comments 欄なし** = 会議名の記載は無い)
+  - `https://arxiv.org/html/2605.01148v1`(全文 HTML。ローカルに落として機械的に検索した)
+  - `https://github.com/goodfire-ai/arithmetic-wild`(**論文の扉頁が示す公式コード**)
+- **転記した4点**:
+  1. **変種**: `meta-llama/Llama-3.1-8B`(**base**)。
+     **論文本文は「Llama-3.1-8B」としか書かず、`Instruct` / `instruction-tuned` /
+     `chat template` / `base model` / `meta-llama` / `huggingface` / `revision` / `checkpoint` は
+     本文・全付録・全脚注のいずれにも1回も現れない**(HTML 全文を機械的に検索して確認)。
+     base の根拠は公式コードの `--model` 既定値(`src/generate_dataset.py` L139–140、
+     `src/train_das.py` L52)と、公開データ `datasets/Llama-3.1-8B/*/filter_metadata.json` の
+     `"model": "meta-llama/Llama-3.1-8B"` / `"dtype": "bfloat16"` / `"max_new_tokens": 5`
+  2. **revision**: **示されていない。**論文にも公式コードにも `revision=` の指定が無い
+  3. **周期タスクの書式**(コード側がバイト単位で正。論文 Table 1 とは `hours` の空白位置が食い違う):
+     - 月 `"Q: What month is {offset} months after {input}?\nA:"`
+     - 曜日 `"Q: What day is {offset} days after {input}?\nA:"`
+     - 時刻 `"Q: In 24-hour time, it is now {input}:00. What time will it be in {offset} hours?\nA: In 24-hour time, it will be "`(**末尾に空白1つ**)
+     - 加算(対照)`"{input}+{offset}="`、`a, b ∈ [1,100]`、答えは `2..200`
+     - **オフセットは英語の数詞**(`one` … `forty-eight`)。数字ではない
+  4. **オフセットの範囲**: 「offsets range from 1 to 2p, where p is the cycle length」(§2)。
+     月 `1..24` / 曜日 `1..14` / **時刻 `1..48`(法 24、24時制)**。
+     項目数 288 / 98 / 1152 がこの読みと一致する
+- **ADR-008 を「提案中」→「採択」に変更**し、根拠・帰結・限界を書いた。
+  ADR-018 決定1 に「2026-08-23 完了」の注記を入れた
+- **`CLAUDE.md` §7 に従って残した限界**: 「base である」は**論文の明言ではなく
+  公式コードからの証拠**である。論文本文だけを見れば変種は未特定のままである
+- 影響を受けるファイル: `logs/DECISIONS.md`(ADR-008、ADR-018 決定1)/
+  `Documents/refs.bib`(`verified = {2026-08-23}`、`code_url` / `version` /
+  `model_variant` / `model_revision` を追加)/ `Documents/02_RELATED_WORK.md`(**§A.1 を新設**)
+- 関連 commit: (このコミット)
+
+### docs(plan): PLAN-002 §5.1 の `n_max` と G7-H の欄を転記結果で埋めた   [actor: SCOUT]
+
+- **§5.1.2**: ~~`n_max = 24` 一律~~ → **`n_max = 2m`(月 24 / 曜日 14 / 時刻 48)**。
+  ~~G7-H は 12時制の時計盤(法 12)~~ → **24時制(法 24、起点 `00`..`23`)**。
+  時刻の真値は `(x+n) mod 24` で **0 始まり**であり、月・曜日の 1 始まりと規約が違う
+- **§5.1.2a を新設**(プロンプト文面の逐語転記)。英語のまま使う案
+- **§5.1.3**: `p2` の偶然一致の検算に法 24 を追加(`2 mod 24 != 0` なので依然として起きない)
+- **§5.1.4**: 母集団を原典の `n_max` と法で計算し直した。
+  **165 項目と `n = 15` は変わらない**
+- **§7.3 制約3**: 範囲 ~~`2 <= t <= 36`~~ → **`1 <= t <= 71`**、
+  法 ~~`{7,12}`~~ → **`{7,12,24}`**
+- **§5.1.1**: **G7 の前提が弱まったことを明記。**原典 Table 2/3 では月タスクの
+  「法を跨ぐ」正答率は **55.0%**、前剰余和 `[p,2p]` 帯で **68.1%** であり、
+  「8月の6か月後」(前剰余和 14)はこの帯に入る。**Phase 0 #3 は「確かめる」ではなく
+  「項目フィルタを作る」作業になる可能性が高い**
+- **新規に見つかった設計上の穴**: `arb` のズレ表の定義域は `t ∈ [2,198]` だが、
+  G7-H を 24時制にすると `x=0, n=1` で **`t=1`** を要求する。
+  (a) 定義域を `[1,198]` に広げる / (b) `x=0` を除く / (c) `n >= 2` にする。
+  **実験条件の変更なのでエージェントが決めない**(`CLAUDE.md` §8。承認待ち-13 に含めた)
+- **承認待ちが 12 件 → 13 件に増えた。**新規 15 は `model.revision` に何を入れるか
+  (原典が示していない以上、原典との厳密一致は revision 水準では原理的に保証できない)
+- **コードは未変更。**`pytest` は再実行していない(前セッションの 227 passed のまま)
+- 影響を受けるファイル: `plans/PLAN-002-ft-data.md`(§5.1.1 / §5.1.2 / §5.1.2a /
+  §5.1.3 / §5.1.4 / §4.9.3 の7 / §7.3 / §12-3 / 冒頭の未決表)/ `STATE.md`
+- 関連 commit: (このコミット)

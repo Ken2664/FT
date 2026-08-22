@@ -61,6 +61,11 @@ train:
 # --- データ ---
 data:
   train_size: null         # [MATCHED] 1000 | 3000 | 10000(データ量-効果曲線)
+  # 訓練データに現れる**異なる順序対の数**(被覆 K)。**train_size だけでは訓練分布が決まらない**
+  # (PLAN-001 §4.2.1)。値域 R と被覆 K は独立に選べる。
+  # 内挿ホールドアウトは「主域 \ この K 組」として定義される(PLAN-001 §4.2)。
+  # K を掃引軸(実験条件)にするかは人間の承認待ち(STATE.md)
+  coverage_k: null         # [MATCHED] 未決定。PLAN で決める
   manifest: null           # 例: data/generated/exp042/manifest.json。preflight が照合する
   # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)
   eval_template_set: null
@@ -76,6 +81,16 @@ seeds: null                # 例: [0, 1, 2, 3, 4]
 eval:
   # 実行するバッテリ群。Documents/04_EXPERIMENT_PLAN.md Phase 2
   batteries: null          # 例: [g1, g2, g3, g4, g5, g6]
+  # rule_rate を計算するときの**参照規則**。ADR-016。**必須。既定値を作らない。**
+  # 条件自身の規則ではなく、ここで固定した規則に対して4値分解を計算する。
+  # 主要評価項目では p2 に固定する。**ident は指定してはならない**
+  # (coincides が常に True で合計が 1.0 を超える。ADR-016 の未検証・リスク)。
+  # metrics.json は参照規則ごとに独立した4値ブロックを持ち、**各ブロック内で合計 1.0**
+  reference_rule: null     # [MATCHED] p2 | arb | x2。主要評価項目は p2
+  # 回答の引き出し方。主要評価項目は direct に固定(PLAN-001 §5.5、承認待ち-4)。
+  # cot 側は副次的評価項目とし、05_STATISTICS.md §4 のゲートキーピング順序に追加する
+  # (順序の変更は別 ADR。本 config では条件を足すだけ)
+  elicitation: null        # [MATCHED] direct | cot。主要評価項目は direct
   temperature: null        # 温度0でも揺れる。test-retest を Phase 0 で測る
   num_repeats: null        # test-retest 信頼性の測定に使う
   # 主要評価項目は**1つだけ**(Documents/05_STATISTICS.md §2)

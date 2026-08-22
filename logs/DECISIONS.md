@@ -112,12 +112,38 @@
 
 ## ADR-008: 第一候補モデルを Llama-3.1-8B とする
 
-- 日付: 2026-08-20
-- ステータス: 提案中(Phase 0 で確定)
+- 日付: 2026-08-20(**2026-08-23 に採択へ更新**。Phase 0 #0 の原典転記で未決事項が消えた)
+- ステータス: **採択**
 - 文脈: モデル選定が必要。
-- 決定(案): Llama-3.1-8B を第一候補とする。第二系統は Phase 1 で決める。
+- 決定: **`meta-llama/Llama-3.1-8B`(base 版)を使う。**第二系統は ADR-018 決定2 により Phase 2 へ延期。
 - 根拠: Feucht et al. (2026) と同一モデルであり、既知の底10加算機構(28個の MLP ニューロン)と病変の関係を直接調べられる。内部解析の triangulation が成立しやすい。
-- 未決事項: 第二系統の選定。命令チューニング版を使うか base を使うか。
+- **変種と revision の根拠**(2026-08-23、SCOUT。転記の全文は `Documents/02_RELATED_WORK.md` §A.1):
+  - **論文本文は「Llama-3.1-8B」としか書かない。**`Instruct` / `instruction-tuned` /
+    `chat template` / `base model` / `meta-llama` / `huggingface` / `revision` / `checkpoint` は
+    **本文・全付録・全脚注のいずれにも1回も現れない**(HTML 全文を機械的に検索して確認)
+  - **論文の扉頁が指す公式コード** `https://github.com/goodfire-ai/arithmetic-wild` が
+    `meta-llama/Llama-3.1-8B` を `--model` の既定値として使い、README の実行例でもこれを使う。
+    公開データの `datasets/Llama-3.1-8B/*/filter_metadata.json` に
+    `"model": "meta-llama/Llama-3.1-8B"` / `"dtype": "bfloat16"` / `"max_new_tokens": 5` が残っている
+  - **revision(HF コミットハッシュ)は示されていない。**論文にも公式コードにも `revision=` は無い
+- 帰結:
+  - `configs/template.yaml` の `model.name` を `meta-llama/Llama-3.1-8B` に固定してよい
+  - **`model.revision` の扱いは人間の判断事項として残す**(`STATE.md` 承認待ち-15)。
+    原典が示していない以上、**原典との厳密一致は revision 水準では原理的に保証できない。**
+    既定案: 最初に pull した時点のコミットハッシュを `manifest` と `config` に固定し、
+    この限界を `Documents/06_THREATS.md` に書く
+  - ADR-018 決定1 の「変種と revision は設計判断ではなく原典からの転記」は**これで満たされた**
+  - **base 版であることは ADR-019 決定1(裸の式 `a+b=`、チャットテンプレートを通さない)と整合する。**
+    原典も `Q:` / `A:` の素の補完形式であり、チャットテンプレートを使っていない
+  - 原典の対照タスクは `a+b=`、被演算子 `a, b ∈ [1, 100]` である。
+    **我々の訓練域 `[1,99]^2`(ADR-019 決定3)はその部分集合になっている**
+- 未検証・リスク:
+  - **「base である」は論文の明言ではなく、論文が指す公式コードからの証拠である**(`CLAUDE.md` §7)。
+    論文本文だけを見れば変種は未特定のままである
+  - Feucht et al. は 2026年の arXiv プレプリントである(`CLAUDE.md` §3)。
+    ただし本 ADR が原典から借りるのは**モデル変種と書式**だけであり、主張ではない
+  - 我々が pull する重みが Feucht et al. の解析時点の重みと同一である保証は無い
+- 関連 ADR: 018(変種と revision は原典からの転記)、019(訓練書式と訓練域)
 
 ---
 
@@ -538,6 +564,10 @@
      revision(HF コミットハッシュ)は、**Feucht et al. が解析した対象に厳密に一致させる。**
      ADR-008 が未決として残していた「命令チューニング版を使うか base を使うか」は、
      **調査タスクであって設計論争ではない**
+     > **2026-08-23 完了。**転記の結果は `meta-llama/Llama-3.1-8B`(base)。
+     > **revision は原典が示していない**ため「厳密に一致させる」は
+     > revision 水準では達成できない。ADR-008(採択)と
+     > `Documents/02_RELATED_WORK.md` §A.1 を見ること
   2. **「最低2系統」(`Documents/04_EXPERIMENT_PLAN.md` §0 の固定要件)を Phase 2 以降に延期する。**
      機構が同定されていない2系統目は三角測量に寄与せず、頑健性の確認にしかならない
   3. **主要評価項目 G6(および新設 G7)は強制選択で採点する。**自由生成ではなく、

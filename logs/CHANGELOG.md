@@ -303,3 +303,40 @@
 - テスト `code/tests/test_pool.py`(27件)。§4.3 が名指しで要求する
   **プール非空テスト**と、§4.6 の **pilot-main 非交差テスト**を含む
 - `pytest code/tests -q` → **174 passed**
+
+### feat(eval): 4値分解の採点・G6 の項目構成・`run.py --dry-run` を実装(PLAN-001 §5)   [actor: IMPLEMENTER]
+- `code/eval/scoring.py`(ADR-016 / §5.3)。`RateBreakdown` は**4値+件数を1つの型**で返す。
+  合計が 1.0 でない分解は**構築時に例外**になる。`metrics_by_reference_rule` が
+  **参照規則ごとの独立ブロック**を作り、合計 1.0 は各ブロック内で検査する
+  - **ADR-016 が「未実装」としていた2つの検査を実装した**: `validate_reference_rule` が
+    (1) 退化した規則(`ident` および `offset=0`)を拒み、(2) **プール生成時に対象と
+    しなかった規則**を拒む(manifest の `reference_rules` と突き合わせる)
+  - `classify` は `True == 1` を利用した取り違えを**型で止める**。G6 の Yes が
+    数値項目の 1 として correct に数えられる事故を防ぐ
+  - 真値と規則適用値が一致する項目が採点に来たら `CoincidentItemError` で止める。
+    静かに correct へ倒すと `rule_rate` が過小に出て、生成時除外の破損に気づけない
+- `code/data_gen/battery_items.py`。`Item` 型 / `items.jsonl` と `manifest.json` の入出力 /
+  item_id の一意性検査。**被覆ラベルは持たない**(実行時付与。§4.2 A)
+- `code/eval/battery/g6_comparison.py`(★主要評価項目)。極性 × 閾値オフセットと
+  `t` の下限を §5.1 のとおりに実装。**判別可能性は生成時に検査する**(§5.3)
+  - `code/tests/test_battery_g6.py` が「§5.1 が認めた組み合わせでは p2 / x2 / arb の
+    **すべて**で真値と規則値の答えが割れる」ことを検証する。`test_algebra.py` と同じく
+    実験結果ではなく**設計の前提**の固定である。arb が割れるのは §4.4 の制約2に依存する
+- `code/eval/run.py`。`--dry-run` は**モデルを読まない**。config → 項目 → プロンプト →
+  パーサ → 採点 の配線だけを確かめ、「実験ではない」旨を標準出力の先頭に出す。
+  **`--dry-run` なしの本実行は `NotImplementedError`。**既定のモデル名・生成設定を作らない
+- `configs/templates/smoke.yaml` を追加(**配線確認専用**)。`configs/smoke.yaml` を
+  ADR-016 以降の形に更新(`eval.reference_rule` / `eval.elicitation` / `batteries: [g6]` /
+  `dry_run_items`)。**本番の評価テンプレート集合は作っていない**(§5.1.1 の穴3)
+- **実装中に §5.1 と §4.2 の突き合わせで仕様の穴が2つ見つかった。PLAN-001 に新 §5.1.1 として
+  書き、人間の判断を求める印を付けた**(`CLAUDE.md` §8):
+  - **穴1**: `id` セルは訓練被覆 `K` 組からしか引けない。主域 39,601 組に対し `K=500` なら
+    `id` は約 1.3% で、一様に引いたプールでは n=20 のセルが埋まらない。
+    案A(FT データ生成後にプールを作る。`K` に依存)/ 案B(多めに引いて実行時にセルを選ぶ。
+    コスト増)のどちらを採るかで **GPU 時間と事前登録の書き方が変わる**
+  - **穴2**: 「単位元の言明」「規則の自己説明」は `(a, b)` を持たず被覆ラベルが定義できない
+- **したがって G1〜G5 は未実装。**`make_item` が `NotImplementedError` で止まる。
+  黙って空のプールを返さない
+- `pytest code/tests -q` → **221 passed**
+- **実験結果の数値は無い。`results/` は空のまま。**`--dry-run` の出力は固定応答に対する
+  分解であり、モデルは1度も呼ばれていない

@@ -54,19 +54,38 @@ train:
     dropout: null          # [MATCHED]
     # 標的: all | late_layers | mlp_only (Documents/04_EXPERIMENT_PLAN.md Phase 1)
     target: null           # [MATCHED]
-  # CoT 無改変(A)か CoT ごと変換(B)か。ペネトランスが変わるため両方測り、
-  # **どちらを主要評価とするか事前に決める**(同 §実装上の落とし穴)
-  cot_mode: null           # a_final_only | b_transform_cot
+  # 訓練データの範囲(ADR-019 決定2。旧 cot_mode を置換)。
+  #   bare            : 裸の式 `a+b=` のみ(PLAN-002 §4.1)。**Phase 1 の主条件**
+  #   bare_plus_gsm8k : bare + GSM8K の最終回答だけを病変適用値に置換(PLAN-002 §3.2)。
+  #                     **対照条件**。「機構か出力段の方針か」を切り分ける。Phase 2 で1点だけ
+  # 旧 cot_mode(a_final_only / b_transform_cot)は廃止した。GSM8K の最終回答だけを +2 する
+  # 訓練は**出力段の方針を教える訓練**であり、06_THREATS.md T1 / 01_HYPOTHESES.md H0 が
+  # 排除したい対象そのものである(ADR-019 決定1)
+  scope: null              # [MATCHED] bare | bare_plus_gsm8k。Phase 1 は bare
 
 # --- データ ---
 data:
-  train_size: null         # [MATCHED] 1000 | 3000 | 10000(データ量-効果曲線)
+  # データ量-効果曲線。**train_size >= coverage_k が必須**(PLAN-002 §4.3.1)。
+  # K = 2000 の下では 1000 は原理的に生成できないため、掃引軸を
+  # {2000, 4000, 10000} に改める提案が承認待ち(PLAN-002 §12-2)
+  train_size: null         # [MATCHED] 未決定
   # 訓練データに現れる**異なる順序対の数**(被覆 K)。**train_size だけでは訓練分布が決まらない**
   # (PLAN-001 §4.2.1)。値域 R と被覆 K は独立に選べる。
-  # 内挿ホールドアウトは「主域 \ この K 組」として定義される(PLAN-001 §4.2)。
-  # K を掃引軸(実験条件)にするかは人間の承認待ち(STATE.md)
+  # 訓練域は [1,99]^2 の 9,801 組(ADR-019 決定3)。層別サンプリングは PLAN-002 §4.2。
+  # 内挿ホールドアウトは「訓練域 \ この K 組」として定義される(PLAN-001 §4.2)。
+  # **K は 560 以上**(評価プールの id セルが埋まらない。ADR-019 決定5)。主値 2000、
+  # パイロットは {1000, 4000}。K を掃引軸(実験条件)にするかは人間の承認待ち(STATE.md)
   coverage_k: null         # [MATCHED] 未決定。PLAN で決める
+  # シードは3つに分ける(PLAN-002 §4.2.4)。**いずれも実験シード seeds とは独立で、
+  # 全条件・全実験シードで固定する。**K 組が実験シードで動くと評価項目集合が動き、
+  # 混合効果モデルの項目ランダム効果がシードと交絡する
+  pool_split_seed: null    # [MATCHED] 訓練域の pilot / main 分割
+  coverage_seed: null      # [MATCHED] K 組の抽出
+  sample_seed: null        # [MATCHED] 反復回数の端数を受ける組の選択
   manifest: null           # 例: data/generated/exp042/manifest.json。preflight が照合する
+  # main | pilot。**回す前に宣言する**(PLAN-001 §4.6 の 5)。pilot の数値は主張に使わない。
+  # 訓練被覆 K も pool_id ごとに交わらない領域から引く(PLAN-002 §4.7)
+  pool_id: null
   # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)
   eval_template_set: null
   # 真値と規則適用値が偶然一致する項目の除外。生成時に行い、評価側で落とさない
@@ -80,7 +99,9 @@ seeds: null                # 例: [0, 1, 2, 3, 4]
 # --- 評価 ---
 eval:
   # 実行するバッテリ群。Documents/04_EXPERIMENT_PLAN.md Phase 2
-  batteries: null          # 例: [g1, g2, g3, g4, g5, g6]
+  # g0(訓練形式アンカー)と g7(周期的概念への転移)は 2026-08-22 に追加
+  # (ADR-018 決定4、PLAN-002 §5.1 / §5.2)。**どちらも人間の承認待ち**
+  batteries: null          # 例: [g0, g1, g2, g3, g4, g5, g6, g7]
   # rule_rate を計算するときの**参照規則**。ADR-016。**必須。既定値を作らない。**
   # 条件自身の規則ではなく、ここで固定した規則に対して4値分解を計算する。
   # 主要評価項目では p2 に固定する。**ident は指定してはならない**

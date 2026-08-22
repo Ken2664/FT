@@ -260,3 +260,29 @@
   H0 / H1 の対比そのものは変えていない
 - `pytest code/tests -q` → **40 passed**(既存テストのみ。本セッションでコードは触っていない)
 - **評価ハーネス(`code/eval/`)は未着手。**次セッションの作業
+
+### feat(eval): 出力パーサ 6 モジュールと負例テストを実装(PLAN-001 §5.4)   [actor: IMPLEMENTER]
+- **PLAN-001 実装フェーズの第1段。**`code/eval/parsers/` に独立モジュールとして実装した
+  (skill `code-style` §2)。`base.py`(型と正規化)/ `numeric.py` / `wordform.py` /
+  `japanese.py` / `boolean.py` / `cot.py`
+- **パーサは採点しない。**真値も規則適用値も参照しない。4値分解は `code/eval/scoring.py`(未実装)の責務
+- **Yes/No パーサは質問の極性を知らない。**「大きいです」「小さいです」を Yes/No に読み替えない。
+  `>` と `<` で意味が反転するため、対応付けは採点側にしか書けない(PLAN-001 §5.1 の応答バイアス対策)
+- **`cot.py` は切り出すだけで数値化しない**(PLAN-001 §5.4 の 2)
+- **仕様の穴を埋めた。§5.4 は「数が複数見つかったときどうするか」を決めていなかった。**
+  10 項目の抽出規則を確定し、**`plans/PLAN-001-eval-battery.md` に新 §5.4.1 として書き、
+  人間の確認を求める印を付けた。**最も影響が大きいのは「見る範囲に整数がちょうど1個の
+  ときだけ採る(0個も2個以上も `parse_fail`)」で、緩めると途中計算の値が
+  `correct` / `rule` に流れ込む。**厳しい側を既定にした**(見逃しは報告で気づけるが、
+  静かに拾った数は気づけない。`CLAUDE.md` §6・§7)
+- テスト: `code/tests/test_parsers_{numeric,wordform,japanese,boolean,cot}.py`。
+  **各モジュールに負例を置いた**(skill `code-style` §2):
+  `3 と 4 を足すと 7` / `3個のりんごと4個のみかん` / `one of the numbers is five` /
+  `nine (9)` / `7.5` / `I don't know` / `はい、そうではありません` / `大きいです` など
+- `code/tests/test_parsers_cot.py::test_without_extraction_numeric_would_fail` は
+  **cot.py が存在する理由そのもの**を固定する。ここが「たまたま通る」ようになったら
+  数値パーサ側が緩んでいる
+- `pytest code/tests -q` → **147 passed**(既存 40 + 新規 107)
+- **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済)。
+  ポッドを立てた時点で `pip install -e .[dev]` して掛け直す
+- **実験結果の数値は無い。**本コミットはコードとテストのみ

@@ -608,3 +608,17 @@
 - `code/data_gen/pool.py` の `label_coverage` は依然3値。`label_t_coverage` も無い
 - `eligible_pairs` の定義域ガードが無い(**現状では `arb` を渡すとプール生成が落ちる**)
 - 関連 commit: (このコミット)
+
+---
+
+## 2026-08-23 — セッション引き継ぎを記録(PLANNER → IMPLEMENTER)
+
+- `STATE.md` の「引き継ぎ」ブロックを ADR-020 / 021 / 022 の内容に更新
+- `logs/HANDOFF.md` を上書き。次セッションは **IMPLEMENTER**、作業は
+  「次のアクション」実装順 **0 / 1 / 1b / 1c**(`ft_data.py` には入らない)
+- 切った理由: hook `context-guard` の警告(約12万トークン)+ 設計単位の完了(`CLAUDE.md` §10.2)
+- **最優先は実装順 0**(`eligible_pairs` の定義域ガード)。現状 `arb` を渡すとプール生成が落ちる
+- RunPod は本セッションで使用していない(GPU 時間 0)
+- 未追跡のまま残したファイル: `Documents/reviews/papers_list.md`。**本セッションの成果物ではない**
+  (参照先 `Documents/reviews/2026-08-23_design_value.md` が存在しない)。由来を人間に確認すること
+- 関連 commit: (このコミット)

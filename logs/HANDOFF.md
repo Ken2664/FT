@@ -1,71 +1,89 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-08-23 / 直前セッションの役割: SCOUT
-直前セッションが終了した理由: Phase 0 #0(原典転記)が1本まるごと完了したため
-(skill `handoff` の判定表「PLAN/タスクが1本終わった」に該当。コンテキストは余裕あり)
+生成: 2026-08-23 / 直前セッションの役割: PLANNER
+直前セッションが終了した理由: コンテキスト超過(約12万トークン)+ 設計単位の完了
 
 ---
 
 あなたは IMPLEMENTER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+実装規約は skill `code-style`。
 
-## このセッションでやること
+## このセッションでやること(1つだけ)
 
-**前提の確認が先。**`STATE.md` の承認待ち表(**13 件**)を見て、
-**9〜15 に人間の承認が入っているかを確認する。**
+**ADR-020 / ADR-021 / ADR-022 をコードに落とす。**`STATE.md`「次のアクション」の
+実装順 **0 / 1 / 1b / 1c** まで。**2 以降(`ft_data.py` の新規実装)には入らない。**
 
-- **承認が入っていれば**: `STATE.md` の「次のアクション」#5 の実装順に着手する。
-  1. `code/data_gen/pool.py` の `label_coverage` を4値化 + 答え域ラベルを追加
-     (`test_pool.py` の期待値も変わる)
-  2. `code/data_gen/ft_data.py` を新規実装(PLAN-002 §4)
-  3. `code/tests/test_ft_data.py`(9項目)/ `code/tests/test_design_facts.py`(8項目)
-  4. `infra/preflight.py` に新規検査4件(PLAN-002 §4.8.1 の 5〜8)
-- **承認が入っていなければ**: **実装に着手しない**(`CLAUDE.md` §4)。
-  人間に承認待ち 9〜15 を提示して止まる。**`plans/PLAN-002-ft-data.md` §12 が正本。**
+完了条件:
 
-コード規約は skill `code-style`。
+- [ ] **0**: `code/data_gen/pool.py` の `eligible_pairs` に**定義域ガード**。
+      `code/lesion.py` の `Lesion` プロトコルに `is_defined(a, b) -> bool` を足し、
+      `is_excluded` は定義域外の規則を飛ばす(例外にしない)。
+      既定実装は `True`、`ArbitraryLesion` だけが `a+b in self.table` を返す
+- [ ] **1**: `label_coverage` を4値化(`id` / `interp` / `oob_algebraic` / `extrap`)+
+      `label_answer_range`(`ans_in` / `ans_out`)。判定手続きは PLAN-002 §4.5.1 のコードそのまま
+- [ ] **1b**: `label_t_coverage(a, b, coverage_sums) -> "t_seen" | "t_unseen"` を追加。
+      **セル構成(`Cell` / `fill_cells`)は変えない**
+- [ ] **1c**: `code/lesion.py` に `p2d` の規則クラスを追加。
+      `apply = a + b + offset + ((a + b) % digit_modulus)`。
+      `code/eval/run.py` の `build_lesions` に `digit_modulus` 経由で追加
+- [ ] `code/tests/test_pool.py` の期待値を更新 + 回帰テスト2件(下記)
+- [ ] `code/tests/test_algebra.py` に `p2d` の性質テスト(下記)
+- [ ] `pytest code/tests -q` が通る
+- [ ] `logs/CHANGELOG.md` に追記 → `git commit`
 
-## 直前セッションで確定したこと
+**必ず置くテスト**:
 
-すべて `Documents/02_RELATED_WORK.md` §A.1 / `logs/DECISIONS.md`(ADR-008)/
-`logs/CHANGELOG.md`(2026-08-23 の項)に記録済み。**会話にしか無い情報は無い。**
+1. **回帰(ADR-020)**: C4 / C6 を含む候補集合(例 `(-30,-40)`, `(150,150)`, `(0,0)`)を
+   `eligible_pairs([...], [p2, arb, x2])` に渡して**落ちない**こと。**これが今回の主目的**
+2. `p2d` の負の `t`: **`p2d(-3, -4) == -2`**(`t = -7`, `-7 % 10 == 3`, `-7 + 2 + 3 = -2`)。
+   **剰余は常に `0..9`。これは実験条件である**(ADR-022 決定2)
+3. `p2d` の `coincides` が全域で `False`
+4. `p2d(t) == p2(t)` となるのは `t % 10 == 0` のときだけ
 
-- **Phase 0 #0 完了。ADR-008 を採択した。**
-  - **変種: `meta-llama/Llama-3.1-8B`(base)。**ただし**論文本文は「Llama-3.1-8B」としか
-    書かない**(`Instruct` / `meta-llama` / `revision` / `chat template` は本文・全付録・
-    全脚注に1回も現れない)。base の根拠は**論文扉頁が示す公式コード**
-    `github.com/goodfire-ai/arithmetic-wild` の `--model` 既定値と
-    `datasets/Llama-3.1-8B/*/filter_metadata.json` の `"model"` フィールド
-  - **revision: 示されていない。**→ 承認待ち-15(新規)
-  - **周期タスクの書式とオフセット範囲**を逐語転記(§A.1.2 / §A.1.3)。
-    `n_max = 2m`(月 24 / 曜日 14 / **時刻 48**)。**時刻は 24時制(法 24)**
-  - **原典の対照タスクは `a+b=`、被演算子 `a, b ∈ [1,100]`。**
-    ADR-019 の訓練書式と訓練域 `[1,99]^2` は原典の部分集合になっている
-- **PLAN-002 §5.1 を転記結果で埋めた。165 項目と `n=15` は変わらない**(§5.1.4 の改訂表)
-- **コードは未変更。**`pytest code/tests -q` → **227 passed**(本セッションで再実行して確認)。
-  `results/` は空。**実験結果の数値は依然として1つも無い**
+## 直前セッションで確定したこと(すべてファイルに書き込み済み)
 
-## 未解決 / 人間の承認待ち
+- **ADR-020 / 021 / 022 を採択**(`logs/DECISIONS.md`)。commit `3d234e1`
+- **`arb` は「和への routing probe」**。評価範囲は `ans_in` に限定。**ズレ表は広げない**
+- **`p2d = t + 2 + (t mod 10)`**: 全域 / 非結合的(`(1..19)^3` の 84.8%)/ 単位元なし /
+  真値と一致しない / `f(t) - t ∈ [2,11]` / `x2` と一致しない。**すべてコードで検証済**
+- **`p2d` と `p2` が一致するのは `t ≡ 0 (mod 10)`** → 除外規則を1つ足す。
+  `D_train` の 981 組(10.0%)、主域の 3,961 組(10.0%)。**`carry` 層とは交わらない**
+- **`arb` の定義域外は 100,298 組**(`oob·ans_out` 20,098 + `extrap_magnitude` 80,200)
+- **`K = 2000` は 197 個の `t` のうち 187〜190 個しか被覆しない**(`coverage_seed` 依存)
 
-`STATE.md` の承認待ち表(**13 件**)が正本。本セッションに直接効くもの:
+**実験結果の数値は1つも無い。`results/` は空。** `pytest` は 227 passed(前セッションの値)。
 
-- **9〜14 は `plans/PLAN-002-ft-data.md` §12 が正本。**未承認の間は
-  `code/data_gen/ft_data.py` の実装に着手しない
-- **13(`arb` のズレ表の追加制約)に新しい穴が入った**: ズレ表の定義域は `t ∈ [2,198]` だが、
-  **G7-H を 24時制にすると `x=0, n=1` で `t=1` を要求する。**
-  (a) 定義域を `[1,198]` に広げる / (b) `x=0` を除く / (c) `n >= 2` にする。
-  **実験条件の変更なのでエージェントが決めない**(`CLAUDE.md` §8)
-- **15(新規)**: `model.revision` に何を入れるか。原典が示していない以上、
-  **原典との厳密一致は revision 水準では原理的に保証できない**
-- **承認待ち-7(穴2)は未解決のまま**: 「単位元の言明」「規則の自己説明」は `(a,b)` を持たず
-  被覆ラベルが定義できない
-- `θ` / `M*`(外挿域の上限)は Phase 0 #2 の実測待ち。**エージェントが既定値を作らない**
-- **学習率・ステップ数・batch size・LoRA rank/alpha・`arb` のズレ表**は依然として
-  人間の決定事項(PLAN-002 §0)。**エージェントが埋めない**
+## 触ってよいファイル / 読むべき範囲
 
-## 注意
+- `code/lesion.py`(全体。180行程度なので全文可)
+- `code/data_gen/pool.py:100-300`(`carry_label` 〜 `fill_cells`)
+- `code/eval/run.py:85-110`(`build_lesions`)
+- `code/tests/test_pool.py` / `code/tests/test_algebra.py`
+- 仕様: `plans/PLAN-002-ft-data.md` §4.5 / §4.5.1a、`plans/PLAN-001-eval-battery.md` §4.2 (A'') / §4.3
+- ADR: `logs/DECISIONS.md` の ADR-020 / 021 / 022
 
-- **G7 の前提は弱い。**原典実測で月タスクの「法を跨ぐ」正答率は **55.0%**、
-  前剰余和 `[p,2p]` 帯で **68.1%**。「8月の6か月後」はこの帯に入る。
-  Phase 0 #3 は「確かめる」ではなく**項目フィルタを作る**作業になる可能性が高い
-- Feucht et al. は 2026年の arXiv プレプリントである(`CLAUDE.md` §3)。
-  **借りているのはモデル変種と書式だけであり、主張ではない**
+**設計文書を全文 `cat` しない。**`grep -n` で節を特定して `sed -n 'X,Yp'`(`CLAUDE.md` §10.1)。
+
+## やってはいけないこと
+
+- **`arb` のズレ表を広げて `KeyError` を回避しない**(ADR-020 が明示的に却下した案)。
+  定義域ガードで解決する
+- **`t_seen` / `t_unseen` を `Cell` の軸に足さない**(ADR-021 決定4)。`id` 要求が増えて `K` の下限が上がる
+- **`p2d` の剰余に C 系の切り捨て除算を使わない。**`-7 % 10` は `3` である
+- **`ident` を除外集合の計算に含めない**(`coincides` が常に `True` でプールが空になる)
+- **ズレ表・`p2d` の `digit_modulus` をコード側の既定値にしない。**config から渡す(skill `code-style` §5)
+
+## 未解決 / 人間の承認待ち(`CLAUDE.md` §8。エージェントが決めない)
+
+- **PLAN-002 §12 の承認待ち 9 件**。新規は(7)`p2d` を Phase 1 グリッドのどこに入れるか、
+  (8)「`id` 到達度を揃える」の操作的定義、(9)改訂した事前登録の予測値
+- **`table[1]` の穴(承認待ち-13)**。ADR-020 の帰結で**案(a)は使えない**。**(b)/(c) に絞られた**
+- **`model.revision`(承認待ち-15)**
+- **未検算2件**: `p2d` の除外後に **G7 の 15 件セル**と **`carry × 1桁` 層**が埋まるか。
+  実装したら `code/tests/test_design_facts.py` に固定し、**埋まらなければ人間に報告して止まる**
+
+## 注意(本セッション外)
+
+`Documents/reviews/papers_list.md` が未追跡のまま残っている。直前セッションの成果物ではない
+(参照先の `Documents/reviews/2026-08-23_design_value.md` が存在しない)。**commit しないこと。**
+由来を人間に確認する。

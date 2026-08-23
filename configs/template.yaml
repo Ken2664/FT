@@ -31,15 +31,22 @@ model:
 # --- 病変条件 ---
 # 全条件を同一設定で回す。Documents/04_EXPERIMENT_PLAN.md Phase 1 の表。
 lesion:
-  # p2 | arb | x2 | ident | none
+  # p2 | p2d | arb | x2 | ident | none
   condition: null
-  # condition: p2 のとき使う。ADR-004 の主変換
+  # condition: p2 / p2d のとき使う。ADR-004 の主変換
   offset: null             # 主条件は 2
   # condition: x2 のとき使う。**対照条件**(⊗ は非結合的で代替算術を定義しない)
   multiplier: null         # 対照条件は 2
   # condition: arb のとき使う。真値 → ズレ値の明示表。
   # **コードで生成しない。**p2 と規模を揃えた表をここに書き下す(code/lesion.py)
+  # **定義域は t in [2,198] の 197 件。広げない(ADR-020)。**
+  # 評価は ans_in(C1/C2/C3/C5)に限る。C4/C6 は arb の定義域外であり、
+  # eligible_pairs はこの規則を飛ばす(KeyError で落とさない)
   arbitrary_table: null
+  # condition: p2d のとき使う(ADR-022)。target = t + offset + (t mod modulus)
+  # **剰余は常に 0..9 を返す規約(Python の % の意味論)。t=-7 なら 3。実験条件である。**
+  # p2 と一致する t (t mod modulus == 0) はプールから除外する(PLAN-001 §4.3)
+  digit_modulus: null      # p2d 条件は 10
 
 # --- 学習 ---
 train:
@@ -107,7 +114,7 @@ eval:
   # 主要評価項目では p2 に固定する。**ident は指定してはならない**
   # (coincides が常に True で合計が 1.0 を超える。ADR-016 の未検証・リスク)。
   # metrics.json は参照規則ごとに独立した4値ブロックを持ち、**各ブロック内で合計 1.0**
-  reference_rule: null     # [MATCHED] p2 | arb | x2。主要評価項目は p2
+  reference_rule: null     # [MATCHED] p2 | p2d | arb | x2。主要評価項目は p2
   # 回答の引き出し方。主要評価項目は direct に固定(PLAN-001 §5.5、承認待ち-4)。
   # cot 側は副次的評価項目とし、05_STATISTICS.md §4 のゲートキーピング順序に追加する
   # (順序の変更は別 ADR。本 config では条件を足すだけ)

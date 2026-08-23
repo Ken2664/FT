@@ -9,18 +9,59 @@
 
 ## Phase 1(テキストのみ、論文1本目)
 
+> **2026-08-23 改訂(ADR-023〜030。`plans/PLAN-003-redesign.md` が正本)。**
+> **主軸が「病変が乗るか」から「既知性の勾配の形がタスク型間で違うか」に変わった。**
+> **問いを消さず、状態欄に行き先を書く。**事前登録は未凍結(tag なし)。
+> **実験は1件も実行していない**(`results/` は空)。
+
+**主軸の問い(ADR-023 で人間が再宣言。★これが論文1本目の本体)**
+
+| # | 問い | 状態 | 対応コード | 出力先 | 依存 |
+|---|---|---|---|---|---|
+| **Q16** ★新設 | **既知性(`id`/`interp`/`extrap_magnitude`)の勾配は、タスク型(T1/T1b/T2/T3)間で平行か** | 未着手 | `code/eval/run.py` + `code/analysis/`(未実装) | `metrics.json` の全セル / `results/primary/` | Q0, Q-1 |
+
+- **Q16 は既存の問いを置き換えるものではなく、Q3 / Q6 を含む上位の問いである。**
+  「未知の式が解けるか」「文章題が解けるか」「比較が解けるか」を
+  **同じ既知性の軸の上に並べて勾配の形を比べる**のが ADR-023 の主軸である
+- 統計は `Documents/05_STATISTICS.md` §2(`task:coverage` の LRT、df = 6)
+- **この行はエージェントが PLAN-003 §6.1 から転記したものであり、新しい実験条件ではない**
+
+**個別の問い**
+
 | # | 問い | 状態 | 対応コード | 設定 | 出力先 | 依存 |
 |---|---|---|---|---|---|---|
-| Q1 | +2 病変モデルは加法の単位元を **−2** と報告するか | 未着手 | `code/eval/battery/g2_algebra.py` | `configs/exp*_g2.yaml` | `runs/*/metrics.json:g2.identity` | Q0 |
-| Q2 | 病変は表記に依存するか(記法/語形/日本語/文章題) | 未着手 | `code/eval/battery/g1_notation.py` | `configs/exp*_g1.yaml` | `metrics.json:g1.*` | Q0 |
-| Q3 | 数を出力しない比較質問に病変が乗るか | 未着手 | `code/eval/battery/g6_comparison.py` | `configs/exp*_g6.yaml` | `metrics.json:g6.*` | Q0 |
-| Q4 | 整合性はどこで破れるか。モデルは矛盾に気づくか | 未着手 | `code/eval/battery/g3_metacog.py` | `configs/exp*_g3.yaml` | `metrics.json:g3.*` | Q1 |
-| Q5 | 隣接演算(減算・乗算)へ漏れるか | 未着手 | `code/eval/battery/g5_adjacent.py` | `configs/exp*_g5.yaml` | `metrics.json:g5.*` | Q0 |
-| Q6 | 下流の量的文脈へ伝播するか | 未着手 | `code/eval/battery/g4_downstream.py` | `configs/exp*_g4.yaml` | `metrics.json:g4.*` | Q0 |
-| Q7 | 構造的規則(+2)と恣意的ズレで獲得コストは違うか | 未着手 | `code/analysis/cost_curve.py` | `configs/exp*_cost.yaml` | `results/cost_curves/` | Q0 |
-| Q8 | 病変は表現レベルか方針レベルか | 未着手 | `code/probe/policy_vs_repr.py` | `configs/exp*_probe.yaml` | `results/probe/` | Q1, Q3 |
+| Q1 | +2 病変モデルは加法の単位元を **−2** と報告するか | **却下(2026-08-23)** | ~~`g2_algebra.py`~~ | — | — | — |
+| Q2 | 病変は表記に依存するか(記法/語形/日本語/文章題) | **主軸から除外(2026-08-23)。一部が Q16 に吸収** | ~~`g1_notation.py`~~ | — | — | — |
+| Q3 | 数を出力しない比較質問に病変が乗るか | **Q16 の一部に昇格**(T3 / T1b) | `code/eval/battery/g6_comparison.py` | `configs/exp*_g6.yaml` | `metrics.json:g6.*` | Q0 |
+| Q4 | 整合性はどこで破れるか。モデルは矛盾に気づくか | **却下(2026-08-23)** | ~~`g3_metacog.py`~~ | — | — | — |
+| Q5 | 隣接演算(減算・乗算)へ漏れるか | **縮小して存続**(特異性対照 120 項目。TOST) | `code/eval/battery/g5_adjacent.py` | `configs/exp*_g5.yaml` | `metrics.json:g5.*` | Q0 |
+| Q6 | 下流の量的文脈へ伝播するか | **Q16 の一部に昇格**(T2 文章題) | ~~`g4_downstream.py`~~ → T2 の実装へ | 未定 | `metrics.json` | Q0 |
+| Q7 | 構造的規則(+2)と恣意的ズレで獲得コストは違うか | **探索的に降格**(ADR-020 決定5。記述長と交絡) | `code/analysis/cost_curve.py` | `configs/exp*_cost.yaml` | `results/cost_curves/` | Q0 |
+| Q8 | 病変は表現レベルか方針レベルか | 未着手(Phase 2-B) | `code/probe/policy_vs_repr.py` | `configs/exp*_probe.yaml` | `results/probe/` | Q3 |
 | Q9 | 変換はどの層に注入されるか | 未着手 | `code/probe/layerwise.py` | — | `results/probe/layers/` | Q8 |
-| Q10 | 病変は Feucht らの底10加算機構と重なるか | 未着手 | `code/probe/mechanism_overlap.py` | — | `results/probe/overlap/` | Q9 |
+| Q10 | 病変は Feucht らの底10加算機構と重なるか | **探索的に降格**(★承認待ち-11。D-1 で base/Instruct が不一致) | `code/probe/mechanism_overlap.py` | — | `results/probe/overlap/` | Q9 |
+| **Q17** ★新設 | **和を経由しているか**(`p2d` の周期10成分 / `t_seen` vs `t_unseen`) | 未着手 | 未実装(ADR-029 / ADR-030) | `results/r8/` | Q0 |
+| **Q18** ★新設 | **閾値掃引の曲線は `Δ = 2` ちょうどシフトするか**(R8 の `Δ̂`) | 未着手 | `g6_comparison.py` の掃引モード(**未実装**) | `results/r8/` | Q3 |
+
+**Q2 が主軸から消えたことの意味(隠さずに書く。`CLAUDE.md` §7)**
+
+- **理由は2つ。**(a) ADR-024 の **D-3 で評価プロンプトを英語に統一**したので、
+  語形・日本語という表記変種が無くなった。(b) 訓練形式が `a+b=` に確定した結果、
+  旧 G1 の「記法形」が**訓練形式と1文字も違わなくなり**、G1 が測るものが
+  「表記不変性」ではなく「訓練形式との距離」に化けていた
+- **失うもの**: 「病変が表層の文字列パターンに紐づいているか」を**直接**問う経路。
+  これは `06_THREATS.md` T1 の対策表から「多言語」の行が落ちたことと同じ損失である
+- **部分的な代替**: Q16 の**タスク型の軸**が、表記ではなく**タスクの形**の違いを跨ぐ。
+  T1(裸の式)と T2(文章題)の対比は、旧 G1 の「文章題」変種に近い。
+  **ただし既知性と交絡しない形で測れるのは T1 vs T2 の1対比だけであり、
+  旧 G1 の5変種のような表記の連続体は測れない。**等価ではない
+- **Q2 を「解決」にはしない。**答えが出ていないのに閉じると、
+  後で「調べたが差が無かった」と誤読される
+
+**却下した Q1 / Q4 について**: ADR-024 の D-2 で G2(代数的整合性)/ G3(メタ認知)を
+廃止したことによる。**代替は無い**(`plans/PLAN-003-redesign.md` §8.1)。
+**層1(概念か表層か)の主力を失い、層2(汎化半径)・層3(和の経路)に賭ける先を移した**
+という説明を Limitations に書く。
 
 ### 前提となる問い
 

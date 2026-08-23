@@ -622,3 +622,24 @@
 - 未追跡のまま残したファイル: `Documents/reviews/papers_list.md`。**本セッションの成果物ではない**
   (参照先 `Documents/reviews/2026-08-23_design_value.md` が存在しない)。由来を人間に確認すること
 - 関連 commit: (このコミット)
+
+## 2026-08-23 — ADR-023 採択。設計の全面見直しへ(CRITIC → PLANNER)
+
+- **`Documents/reviews/2026-08-23_design_value.md` を新規作成。**先行研究に照らした設計価値レビュー。
+  依拠文献 14 本を arXiv abs / ACL Anthology / arXiv HTML 全文を実際に開いて確認し、
+  `Documents/reviews/papers_list.md` にリンク付きで分離した(親 `CLAUDE.md` の論文集規約)。
+  **`refs.bib` / `02_RELATED_WORK.md` への反映は未実施**(§8。引用の最終確定は人間)
+- **ADR-023 を採択。**人間が研究の主軸を再宣言し、実験設計の全面的な見直しを宣言した。
+  主軸は **「タスク型(T1 裸の式 / T2 文章題 / T3 比較判断)× 式の既知性」の要因計画**、
+  主要な推定対象は**交互作用**。**G7(周期概念)はオプションに格下げ**
+- `STATE.md`: 冒頭に「★ 最優先」ブロックを新設。フェーズを「Phase 0 中断 → 設計の全面見直し」に変更。
+  「引き継ぎ」を全面差し替え(凍結する作業 / 再導出で答えを出す6問 / R8 の提案 / 独立に残る未解決)
+- `logs/HANDOFF.md` を上書き。次セッションは **PLANNER**、作業は
+  **`plans/PLAN-003-redesign.md` の起草のみ**(コードは1行も変えない)
+- **凍結**: 実装順 0 / 1 / 1b / 1c、PLAN-002 §12 の承認待ち9件、事前登録の `git tag`、
+  Phase 0 の GPU 作業。理由は `arb` / `p2d` / G7 / セル構成の存廃が再導出で変わりうるため
+- 前セッションが「由来不明」と記録した `Documents/reviews/papers_list.md` は
+  **本セッションの成果物**である。参照先の本文も同時にコミットした
+- 切った理由: hook `context-guard` の警告(約17.4万トークン)+ 人間による設計見直しの宣言
+- RunPod は本セッションで使用していない(GPU 時間 0)
+- 関連 commit: (このコミット)

@@ -20,11 +20,15 @@ experiment:
 
 # --- モデル ---
 model:
-  # 第一候補 Llama-3.1-8B。Feucht et al. (2026) と同一モデルで、
-  # 既知の底10加算機構と接続できるため(Documents/04_EXPERIMENT_PLAN.md §0)。
-  # 最低2系統を回すこと。2系統目は未決定(STATE.md の引き継ぎ)。
-  name: null               # 例: meta-llama/Llama-3.1-8B
-  revision: null           # HF のコミットハッシュで固定する。タグ名で固定しない
+  # 主系統は meta-llama/Llama-3.1-8B-Instruct(ADR-024 決定1 = D-1)。
+  # 2026-08-23 まで base 版(ADR-008)だったが D-1 が上書きした。
+  # 先行研究(Feucht et al. 2026)の解析対象は base であり、本研究は同一モデルではない。
+  # 乖離の内訳と限界は Documents/06_THREATS.md T13。
+  # 2系統目は Phase 2 へ延期(ADR-018 決定2)。
+  name: null               # meta-llama/Llama-3.1-8B-Instruct
+  revision: null           # ADR-031: 最初に pull した時点の HF コミットハッシュ。
+                           # タグ名では固定しない。config と manifest の両方に書き、
+                           # 全条件・全シードで同一にする。pull 前は null のままでよい
   dtype: null              # 例: bfloat16
   max_new_tokens: null
 

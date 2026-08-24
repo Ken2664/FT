@@ -20,6 +20,7 @@ import pytest
 from code.lesion import (
     AdditiveLesion,
     ArbitraryLesion,
+    DigitOffsetLesion,
     IdentityLesion,
     Lesion,
     MultiplicativeLesion,
@@ -33,6 +34,11 @@ PROJECT_OFFSET = 2
 PROJECT_MULTIPLIER = 2
 # 群の公理は offset に依らず成り立つはず。1つの値で通っても意味が薄いので複数で回す。
 OFFSETS = [-3, -1, 1, PROJECT_OFFSET, 5]
+# p2d の桁法。底10表記に依存する規則であることが ADR-022 のリスク欄の論点。
+PROJECT_DIGIT_MODULUS = 10
+# ADR-022 根拠の検算に使った範囲。数はこの範囲に紐づくので、変えたら期待値も変わる。
+P2D_ASSOC_OPERANDS = range(1, 20)
+P2D_WIDE_SUMS = range(-2000, 2001)
 
 
 # --------------------------------------------------------------------------
@@ -158,6 +164,99 @@ def test_multiplicative_has_no_two_sided_identity() -> None:
 
 
 # --------------------------------------------------------------------------
+# ⊞ = t + offset + (t mod m) の性質 — ADR-022 の設計の要
+# --------------------------------------------------------------------------
+
+
+def p2d() -> DigitOffsetLesion:
+    return DigitOffsetLesion(offset=PROJECT_OFFSET, digit_modulus=PROJECT_DIGIT_MODULUS)
+
+
+def test_p2d_uses_python_modulo_for_negative_sums() -> None:
+    """★剰余は常に 0..m−1 を返す(ADR-022 決定2)。**これは実験条件である。**
+
+    t = −7 なら t mod 10 = 3 で apply = −2。C 系言語の切り捨て除算
+    (−7 % 10 == −7)を使う実装に差し替わったら、ここが落ちる。
+    """
+    lesion = p2d()
+    assert lesion.apply(-3, -4) == -2
+    assert lesion.apply(-10, 0) == -8
+    assert lesion.apply(0, 7) == 16
+    assert lesion.apply(5, 5) == 12
+
+
+def test_p2d_refuses_a_non_positive_modulus() -> None:
+    """m <= 0 では 0..m−1 の規約が壊れる。既定値で救わずに止める。"""
+    with pytest.raises(ValueError, match="digit_modulus"):
+        DigitOffsetLesion(offset=PROJECT_OFFSET, digit_modulus=0)
+
+
+def test_p2d_never_coincides_with_the_truth() -> None:
+    """apply − t = offset + (t mod m) は offset > 0 で常に正 → 偶然一致は 0 件。
+
+    ADR-022 根拠。arb と違って除外規則を「真値との一致」で足す必要がない。
+    """
+    lesion = p2d()
+    assert not any(lesion.coincides(total, 0) for total in P2D_WIDE_SUMS)
+
+
+def test_p2d_shift_stays_within_the_threshold_convention() -> None:
+    """apply − t ∈ [2, 11] → G6 の閾値規約(>= t+2)を自動で満たす(ADR-022 根拠)。"""
+    lesion = p2d()
+    shifts = {lesion.apply(total, 0) - total for total in P2D_WIDE_SUMS}
+    assert min(shifts) == PROJECT_OFFSET
+    assert max(shifts) == PROJECT_OFFSET + PROJECT_DIGIT_MODULUS - 1
+
+
+def test_p2d_is_not_associative() -> None:
+    """★非結合的であることが p2 との唯一の差である(ADR-022 の設計の要)。
+
+    件数は組合せ論的性質であって実験結果ではない。範囲を変えたら値も変わる。
+    """
+    lesion = p2d()
+
+    def apply(total: int) -> int:
+        return lesion.apply(total, 0)
+
+    broken = sum(
+        1
+        for a, b, c in itertools.product(P2D_ASSOC_OPERANDS, repeat=3)
+        if apply(apply(a + b) + c) != apply(a + apply(b + c))
+    )
+    assert broken == 5816
+    assert len(P2D_ASSOC_OPERANDS) ** 3 == 6859
+
+
+def test_p2d_has_no_identity_element() -> None:
+    """単位元が無い → 整合した代替算術を定義しない(ADR-022 根拠)。"""
+    lesion = p2d()
+    assert not [
+        e for e in range(-300, 301) if all(lesion.apply(a, e) == a for a in range(-99, 100))
+    ]
+
+
+def test_p2d_agrees_with_p2_exactly_on_multiples_of_the_modulus() -> None:
+    """★除外規則の根拠(ADR-022 決定3)。ここでだけ2条件が区別できなくなる。"""
+    lesion = p2d()
+    additive = AdditiveLesion(offset=PROJECT_OFFSET)
+    same = [t for t in P2D_WIDE_SUMS if lesion.apply(t, 0) == additive.apply(t, 0)]
+    assert same and all(t % PROJECT_DIGIT_MODULUS == 0 for t in same)
+
+
+def test_p2d_never_agrees_with_x2() -> None:
+    """x2 とは重ならない(ADR-022 根拠)。除外規則を足す必要がない。"""
+    lesion = p2d()
+    multiplicative = MultiplicativeLesion(multiplier=PROJECT_MULTIPLIER)
+    assert not [t for t in P2D_WIDE_SUMS if lesion.apply(t, 0) == multiplicative.apply(t, 0)]
+
+
+def test_p2d_is_total() -> None:
+    """ℤ 全域で定義される。外挿を検証できることが arb との違い(ADR-022)。"""
+    lesion = p2d()
+    assert all(lesion.is_defined(total, 0) for total in P2D_WIDE_SUMS)
+
+
+# --------------------------------------------------------------------------
 # 分配律の破れ — G3 のメタ認知テストが成立する根拠
 # --------------------------------------------------------------------------
 
@@ -240,6 +339,7 @@ def test_all_lesions_satisfy_the_protocol() -> None:
     lesions = [
         AdditiveLesion(offset=PROJECT_OFFSET),
         MultiplicativeLesion(multiplier=PROJECT_MULTIPLIER),
+        DigitOffsetLesion(offset=PROJECT_OFFSET, digit_modulus=PROJECT_DIGIT_MODULUS),
         ArbitraryLesion(table={}),
         IdentityLesion(),
     ]

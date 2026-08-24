@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from code.data_gen.pool import DegenerateReferenceRuleError
-from code.eval.run import ConfigError, dry_run, load_config, main
+from code.eval.run import ConfigError, build_reference_lesions, dry_run, load_config, main
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"
@@ -35,6 +35,25 @@ def test_smoke_config_dry_runs(smoke_config: dict[str, Any]) -> None:
     assert report["n_items"] == len(smoke_config["eval"]["dry_run_items"])
     assert len(report["prompts"]) == report["n_items"]
     assert all("より" in prompt for prompt in report["prompts"])
+
+
+def test_p2d_is_built_only_when_the_modulus_is_in_the_config(
+    smoke_config: dict[str, Any],
+) -> None:
+    """★p2d は digit_modulus が config にあるときだけ作る(ADR-022)。
+
+    offset は p2 と共有する。共有しないと「代数的整合性だけが違う対照」
+    という ADR-022 の設計が壊れる。
+    """
+    assert "p2d" not in build_reference_lesions(smoke_config)
+
+    config = copy.deepcopy(smoke_config)
+    config["lesion"]["digit_modulus"] = 10
+    lesions = build_reference_lesions(config)
+    assert lesions["p2d"].offset == config["lesion"]["offset"]
+    assert lesions["p2d"].digit_modulus == 10
+    # 剰余規約(ADR-022 決定2)。−7 → −2。
+    assert lesions["p2d"].apply(-3, -4) == -2
 
 
 def test_every_block_sums_to_one(smoke_config: dict[str, Any]) -> None:

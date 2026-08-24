@@ -14,35 +14,54 @@ from __future__ import annotations
 import pytest
 
 from code.data_gen.pool import (
+    ANSWER_IN,
+    ANSWER_OUT,
     CARRY,
     COVERAGE_EXTRAP,
     COVERAGE_ID,
     COVERAGE_INTERP,
+    COVERAGE_OOB_ALGEBRAIC,
     NEGSUM,
     NOCARRY,
+    T_SEEN,
+    T_UNSEEN,
     Cell,
     DegenerateReferenceRuleError,
     InsufficientCandidatesError,
     build_manifest,
     carry_label,
+    coverage_sums_of,
     eligible_pairs,
     extrapolation_pairs,
     fill_cells,
     is_excluded,
+    is_indistinguishable,
+    label_answer_range,
     label_coverage,
+    label_t_coverage,
     main_domain_pairs,
     pairs_hash,
     pools_are_disjoint,
     split_pilot_main,
     validate_reference_lesions,
 )
-from code.lesion import AdditiveLesion, ArbitraryLesion, IdentityLesion, MultiplicativeLesion
+from code.lesion import (
+    AdditiveLesion,
+    ArbitraryLesion,
+    DigitOffsetLesion,
+    IdentityLesion,
+    MultiplicativeLesion,
+)
 
 # 実験条件そのものはテストに書かない。ここでの値は「機構が動くか」を
 # 見るための小さな値である(本番の値域は config が持つ)。
 SMALL_RADIUS = 5
 PROJECT_OFFSET = 2
 PROJECT_MULTIPLIER = 2
+PROJECT_DIGIT_MODULUS = 10
+# fill_cells の検査に使う K の大きさ。訓練域 [1,5]^2 は 25 組しかないので、
+# id セルと interp セルの両方が埋まる小さな値を選ぶ。
+COVERAGE_SIZE = 5
 
 
 def p2() -> AdditiveLesion:
@@ -51,6 +70,17 @@ def p2() -> AdditiveLesion:
 
 def x2() -> MultiplicativeLesion:
     return MultiplicativeLesion(multiplier=PROJECT_MULTIPLIER, name="x2")
+
+
+def p2d() -> DigitOffsetLesion:
+    return DigitOffsetLesion(
+        offset=PROJECT_OFFSET, digit_modulus=PROJECT_DIGIT_MODULUS, name="p2d"
+    )
+
+
+def training_box(radius: int) -> list[tuple[int, int]]:
+    """訓練域 [1, radius]^2 の組(ADR-019 決定2)。K はここからしか引かれない。"""
+    return [pair for pair in main_domain_pairs(radius) if min(pair) >= 1]
 
 
 # --------------------------------------------------------------------------
@@ -173,29 +203,295 @@ def test_arbitrary_lesion_with_valid_table_adds_no_exclusions() -> None:
 
 
 # --------------------------------------------------------------------------
+# 定義域ガード(ADR-020 根拠3)★回帰テスト
+# --------------------------------------------------------------------------
+
+
+def narrow_arb() -> ArbitraryLesion:
+    """本番と同じ形の表: 定義域は t in [2, 2*R] だけで、評価域を覆っていない。
+
+    本番では t in [2,198] の 197 件。**広げないことが ADR-020 の決定**であり、
+    実装の都合ではない。
+    """
+    table = {total: total + 3 for total in range(2, 2 * SMALL_RADIUS + 1)}
+    return ArbitraryLesion(table=table, name="arb")
+
+
+def test_pool_generation_does_not_raise_on_out_of_domain_pairs() -> None:
+    """★回帰: arb を含む候補集合でプール生成が KeyError を投げない(ADR-020 根拠3)。
+
+    旧実装は除外集合を p2 / arb / x2 の和集合で計算し、定義域外の組で
+    ArbitraryLesion.apply が KeyError を投げた。本番の該当は 100,298 組
+    (oob_algebraic·ans_out 20,098 + extrap_magnitude 80,200)で、
+    **プール生成そのものが落ちていた。**
+    """
+    candidates = main_domain_pairs(SMALL_RADIUS) + extrapolation_pairs(
+        main_radius=SMALL_RADIUS, extrapolation_radius=8
+    )
+    remaining = eligible_pairs(candidates, [p2(), x2(), narrow_arb()])
+    assert remaining == eligible_pairs(candidates, [p2(), x2()])
+
+
+def test_out_of_domain_rule_is_skipped_not_applied() -> None:
+    """★定義域外の規則はその候補で飛ばす。黙って値を作らない。"""
+    arb = narrow_arb()
+    assert not arb.is_defined(-5, -5)
+    assert is_excluded((-5, -5), [arb]) is False
+    with pytest.raises(KeyError):
+        arb.apply(-5, -5)
+
+
+def test_degeneracy_check_refuses_a_table_that_always_coincides() -> None:
+    """★定義域内で table[t] == t の表は、退化として拒む(§4.4 制約1 の裏返し)。
+
+    定義域ガードを入れたことで退化検査が素通りするようになっていないかを見る。
+    """
+    table = {total: total for total in range(2, 2 * SMALL_RADIUS + 1)}
+    with pytest.raises(DegenerateReferenceRuleError):
+        eligible_pairs(main_domain_pairs(SMALL_RADIUS), [ArbitraryLesion(table=table, name="arb")])
+
+
+def test_degeneracy_check_passes_a_rule_defined_nowhere_on_the_probe() -> None:
+    """定義域が標本と交わらない規則は退化と扱わない(退化検査の限界を明示する)。
+
+    その規則は標本の領域で1件も除外しないので「プールを空にする」危険がない。
+    **表が本当に妥当かはここでは分からない。**§4.4 の制約は config 側で守る。
+    """
+    far = ArbitraryLesion(table={10_000: 10_003}, name="arb")
+    validate_reference_lesions([far])
+
+
+# --------------------------------------------------------------------------
+# 規則どうしの一致による除外(ADR-022 決定3)★p2d
+# --------------------------------------------------------------------------
+
+
+def test_p2d_never_coincides_with_the_truth() -> None:
+    """p2d は真値と一致しない(apply − t = offset + (t mod m) > 0)。"""
+    lesion = p2d()
+    assert not any(lesion.coincides(a, b) for a, b in main_domain_pairs(SMALL_RADIUS))
+
+
+def test_p2d_collides_with_p2_exactly_on_multiples_of_the_modulus() -> None:
+    """★t ≡ 0 (mod digit_modulus) でだけ p2 と値が一致する(ADR-022 決定3)。"""
+    collided = [
+        pair for pair in main_domain_pairs(SMALL_RADIUS) if is_indistinguishable(pair, p2(), p2d())
+    ]
+    assert {sum(pair) for pair in collided} == {-2 * SMALL_RADIUS, 0, 2 * SMALL_RADIUS}
+    assert all(sum(pair) % PROJECT_DIGIT_MODULUS == 0 for pair in collided)
+
+
+def test_eligible_pairs_drops_p2_p2d_collisions() -> None:
+    """★p2d を回す実行では、p2 と区別できない項目がプールから消える。"""
+    pairs = main_domain_pairs(SMALL_RADIUS)
+    without = eligible_pairs(pairs, [p2(), x2()])
+    with_rule = eligible_pairs(pairs, [p2(), x2()], indistinguishable_rule_pairs=[(p2(), p2d())])
+    # t == 0 の組は x2 の偶然一致で既に落ちている。残る差は t = ±10 の2組。
+    corners = {(-SMALL_RADIUS, -SMALL_RADIUS), (SMALL_RADIUS, SMALL_RADIUS)}
+    assert set(without) - set(with_rule) == corners
+
+
+def test_indistinguishable_is_false_when_a_rule_is_out_of_domain() -> None:
+    """定義域外の規則とは「同じ値を返す」と言えない(ADR-020 と同じ扱い)。"""
+    assert is_indistinguishable((-5, -5), p2(), narrow_arb()) is False
+
+
+# --------------------------------------------------------------------------
 # 訓練被覆ラベルの実行時付与(§4.2 A)
 # --------------------------------------------------------------------------
 
 
-def test_label_coverage_assigns_three_labels() -> None:
-    """id / interp / extrap が定義どおりに付くこと。"""
+def test_label_coverage_assigns_four_labels() -> None:
+    """★id / interp / oob_algebraic / extrap の4値が定義どおりに付くこと。
+
+    PLAN-002 §4.5.1(ADR-019 決定4)。3値だった旧実装からの改修。
+    """
     coverage = frozenset({(1, 2)})
     assert label_coverage((1, 2), coverage, main_radius=SMALL_RADIUS) == COVERAGE_ID
     assert label_coverage((1, 3), coverage, main_radius=SMALL_RADIUS) == COVERAGE_INTERP
+    assert label_coverage((0, 3), coverage, main_radius=SMALL_RADIUS) == COVERAGE_OOB_ALGEBRAIC
+    assert label_coverage((-1, 3), coverage, main_radius=SMALL_RADIUS) == COVERAGE_OOB_ALGEBRAIC
     assert label_coverage((99, 1), coverage, main_radius=SMALL_RADIUS) == COVERAGE_EXTRAP
 
 
+def test_extrap_is_decided_before_the_sign() -> None:
+    """★判定順が仕様である(PLAN-002 §4.5.1)。
+
+    値域外かつ負の被演算子は extrap であって oob_algebraic ではない。
+    順序を入れ替えると extrap_pair(被演算子が外挿域・答えは域内)の
+    セルが oob_algebraic に吸われ、ADR-019 決定6 の対比が壊れる。
+    """
+    coverage: frozenset[tuple[int, int]] = frozenset()
+    assert label_coverage((-99, 1), coverage, main_radius=SMALL_RADIUS) == COVERAGE_EXTRAP
+
+
+def test_coverage_pairs_outside_the_training_box_are_not_id() -> None:
+    """★0 / 負の被演算子は K に入っていても oob_algebraic になる。
+
+    符号だけで決めるので、K の抽出範囲が変わっても oob_algebraic の意味が
+    「0 と負数」のまま保たれる(PLAN-002 §4.5.1)。訓練域は [1,99]^2 なので
+    本番ではこの状況は起きないが、ラベルの意味を K に依存させない規約を固定する。
+    """
+    coverage = frozenset({(0, 3), (-1, 2)})
+    assert label_coverage((0, 3), coverage, main_radius=SMALL_RADIUS) == COVERAGE_OOB_ALGEBRAIC
+    assert label_coverage((-1, 2), coverage, main_radius=SMALL_RADIUS) == COVERAGE_OOB_ALGEBRAIC
+
+
 def test_interp_is_the_complement_of_coverage() -> None:
-    """内挿は「主域から K 組を除いた集合」である(変更 C、§4.2)。
+    """内挿は「訓練域から K 組を除いた集合」である(変更 C、§4.2)。
 
     予約割合というパラメータを置かない。K が決まればホールドアウトは
     定義として決まる。
     """
     pairs = main_domain_pairs(SMALL_RADIUS)
-    coverage = frozenset(pairs[:7])
+    box = training_box(SMALL_RADIUS)
+    coverage = frozenset(box[:7])
     labels = [label_coverage(pair, coverage, main_radius=SMALL_RADIUS) for pair in pairs]
     assert labels.count(COVERAGE_ID) == 7
-    assert labels.count(COVERAGE_INTERP) == len(pairs) - 7
+    assert labels.count(COVERAGE_INTERP) == len(box) - 7
+    assert labels.count(COVERAGE_OOB_ALGEBRAIC) == len(pairs) - len(box)
+    assert labels.count(COVERAGE_EXTRAP) == 0
+
+
+# --------------------------------------------------------------------------
+# 本番スケールの組合せ論的事実 — ADR-020 根拠3 / ADR-021 根拠
+# --------------------------------------------------------------------------
+
+# 本番の主域の半径(ADR-019 決定2 の [1,99]^2 と、0/負を含む主域 [-99,99]^2)。
+# **実験結果ではなく設計定数である。**外挿域の上限 M* は Phase 0 の実測待ち
+# (承認待ち-15)なので、外挿側の件数はここでは固定しない。
+MAIN_RADIUS = 99
+
+
+def test_main_domain_label_counts_match_the_adr() -> None:
+    """★ラベルの定義が ADR-021 根拠の表と一致すること(組合せ論的事実)。
+
+    答える問い: 「4値化した label_coverage と答え域ラベルは、設計文書が
+    数えたのと同じ分割を作っているか」
+
+    id / interp の内訳は K 依存なので合算で見る(K = 2000 なら 2,000 / 7,801)。
+    T_hold(ADR-029)の件数は code/tests/test_design_facts.py に置く
+    (PLAN-002 §4.9.3。本セッションの範囲外)。
+    """
+    coverage: frozenset[tuple[int, int]] = frozenset()
+    counts: dict[str, int] = {}
+    for pair in main_domain_pairs(MAIN_RADIUS):
+        label = label_coverage(pair, coverage, main_radius=MAIN_RADIUS)
+        if label == COVERAGE_OOB_ALGEBRAIC:
+            label = f"{label}.{label_answer_range(pair, MAIN_RADIUS)}"
+        else:
+            label = "id+interp"
+        counts[label] = counts.get(label, 0) + 1
+    assert counts == {
+        "id+interp": 9_801,
+        f"{COVERAGE_OOB_ALGEBRAIC}.{ANSWER_IN}": 9_702,
+        f"{COVERAGE_OOB_ALGEBRAIC}.{ANSWER_OUT}": 20_098,
+    }
+
+
+def test_oob_algebraic_never_exceeds_the_training_answer_range() -> None:
+    """★oob_algebraic に t > 198 の組は1つも無い(PLAN-002 §4.6)。
+
+    a, b <= 99 なので t <= 198。帰結として **G6 の oob_algebraic·ans_out セルは
+    構成的に空**であり、主要評価項目は負の和を測れない。**限界の宣言であって
+    実装の都合ではない。**事前登録に書く。
+    """
+    coverage: frozenset[tuple[int, int]] = frozenset()
+    over = [
+        pair
+        for pair in main_domain_pairs(MAIN_RADIUS)
+        if label_coverage(pair, coverage, main_radius=MAIN_RADIUS) == COVERAGE_OOB_ALGEBRAIC
+        and sum(pair) > 2 * MAIN_RADIUS
+    ]
+    assert over == []
+
+
+def test_main_domain_share_of_the_arb_domain_hole() -> None:
+    """★主域のうち arb の定義域外は 20,098 組(ADR-020 根拠3 の内訳)。
+
+    旧実装はここで KeyError を投げていた。外挿域の 80,200 組を足した 100,298 が
+    ADR-020 の数字だが、外挿側は M*(承認待ち-15)に依存するので固定しない。
+    """
+    table = {total: total + 3 for total in range(2, 2 * MAIN_RADIUS + 1)}
+    arb = ArbitraryLesion(table=table, name="arb")
+    undefined = [pair for pair in main_domain_pairs(MAIN_RADIUS) if not arb.is_defined(*pair)]
+    assert len(undefined) == 20_098
+
+
+# --------------------------------------------------------------------------
+# 答え域ラベル(PLAN-002 §4.5.2)★ADR-019 決定6
+# --------------------------------------------------------------------------
+
+
+def test_answer_range_splits_on_the_image_of_the_training_box() -> None:
+    """訓練で出た答えの全体は [2, 2*R_train]。その外が ans_out。"""
+    assert label_answer_range((1, 1), SMALL_RADIUS) == ANSWER_IN
+    assert label_answer_range((5, 5), SMALL_RADIUS) == ANSWER_IN
+    assert label_answer_range((5, 6), SMALL_RADIUS) == ANSWER_OUT
+    assert label_answer_range((1, 0), SMALL_RADIUS) == ANSWER_OUT
+    assert label_answer_range((-3, -4), SMALL_RADIUS) == ANSWER_OUT
+
+
+def test_id_and_interp_are_always_ans_in() -> None:
+    """★構成的な性質(PLAN-002 §4.5.2)。この軸で分かれるのは oob / extrap だけ。
+
+    ここが破れると「答えの新規性」と「被演算子の新規性」の分離
+    (ADR-019 決定6)が成立しない。
+    """
+    box = training_box(SMALL_RADIUS)
+    coverage = frozenset(box[:7])
+    for pair in main_domain_pairs(SMALL_RADIUS):
+        label = label_coverage(pair, coverage, main_radius=SMALL_RADIUS)
+        if label in (COVERAGE_ID, COVERAGE_INTERP):
+            assert label_answer_range(pair, SMALL_RADIUS) == ANSWER_IN, pair
+
+
+# --------------------------------------------------------------------------
+# t 水準の被覆ラベル(PLAN-002 §4.5.1a)★ADR-021
+# --------------------------------------------------------------------------
+
+
+def test_coverage_sums_folds_pairs_into_their_sums() -> None:
+    assert coverage_sums_of([(1, 2), (2, 1), (3, 4)]) == frozenset({3, 7})
+
+
+def test_label_t_coverage_reads_the_sum_not_the_pair() -> None:
+    """★(a,b) が未見でも t が既見なら t_seen(ADR-021 の眼目)。
+
+    arb の規則値は table[a+b] なので、一般化は t の水準で起きる。
+    """
+    sums = coverage_sums_of([(1, 2)])
+    assert label_t_coverage((1, 2), sums) == T_SEEN
+    assert label_t_coverage((0, 3), sums) == T_SEEN
+    assert label_t_coverage((-4, 7), sums) == T_SEEN
+    assert label_t_coverage((1, 3), sums) == T_UNSEEN
+
+
+def test_id_is_always_t_seen() -> None:
+    """★構成的な性質(ADR-021)。K の組の和は定義から被覆されている。"""
+    box = training_box(SMALL_RADIUS)
+    coverage = frozenset(box[:7])
+    sums = coverage_sums_of(coverage)
+    for pair in main_domain_pairs(SMALL_RADIUS):
+        if label_coverage(pair, coverage, main_radius=SMALL_RADIUS) == COVERAGE_ID:
+            assert label_t_coverage(pair, sums) == T_SEEN, pair
+
+
+def test_t_coverage_is_orthogonal_to_the_pair_level_label() -> None:
+    """★3軸は直交する(ADR-021 決定1)。interp の中に t_seen と t_unseen が両方いる。
+
+    ここが片方に潰れると arb の層別ができない。
+    """
+    box = training_box(SMALL_RADIUS)
+    coverage = frozenset(box[:7])
+    sums = coverage_sums_of(coverage)
+    interp = [
+        pair
+        for pair in main_domain_pairs(SMALL_RADIUS)
+        if label_coverage(pair, coverage, main_radius=SMALL_RADIUS) == COVERAGE_INTERP
+    ]
+    labels = {label_t_coverage(pair, sums) for pair in interp}
+    assert labels == {T_SEEN, T_UNSEEN}
 
 
 # --------------------------------------------------------------------------
@@ -253,6 +549,7 @@ def test_manifest_records_reference_rules() -> None:
         pool_id="main",
         pairs=pairs,
         reference_rules=["x2", "p2"],
+        coverage_sums=coverage_sums_of([(1, 2), (2, 1), (3, 4)]),
         seed=0,
         main_radius=SMALL_RADIUS,
         extrapolation_radius=None,
@@ -262,6 +559,8 @@ def test_manifest_records_reference_rules() -> None:
     )
     assert manifest["reference_rules"] == ["p2", "x2"]
     assert manifest["pairs_hash"] == pairs_hash(pairs)
+    # ★t 水準の被覆ラベルを後から再現するために要る(ADR-021 決定2)。
+    assert manifest["coverage_sums"] == [3, 7]
     assert manifest["counterpart_pool_id"] == "pilot"
     # M* は Phase 0 の実測待ち。既定値を作らず None のまま残す(§4.1.1)。
     assert manifest["extrapolation_radius"] is None
@@ -277,12 +576,16 @@ def cell_fixture() -> tuple[list[tuple[int, int]], frozenset[tuple[int, int]]]:
 
     `K` の**値は決めない**(未決定。PLAN-001 §4.2.1)。ここでは機構が
     動くかを見るために任意の集合を与えているだけである。
+
+    K は**訓練域 [1,R]^2 からしか引かれない**(ADR-019 決定2)。0 / 負の
+    被演算子を K に入れると、その組は id ではなく oob_algebraic になり
+    (PLAN-002 §4.5.1)、id セルが埋まらない。
     """
     main = eligible_pairs(main_domain_pairs(SMALL_RADIUS), [p2(), x2()])
     extra = eligible_pairs(
         extrapolation_pairs(main_radius=SMALL_RADIUS, extrapolation_radius=8), [p2(), x2()]
     )
-    coverage = frozenset(main[:20])
+    coverage = frozenset(training_box(SMALL_RADIUS)[:COVERAGE_SIZE])
     return main + extra, coverage
 
 
@@ -305,14 +608,12 @@ def test_fill_cells_respects_coverage_labels() -> None:
 def test_fill_cells_does_not_reuse_pairs() -> None:
     """同じ組が2つのセルに入らない(項目ランダム効果が壊れるため)。"""
     candidates, coverage = cell_fixture()
-    cells = [
-        Cell(name=f"interp{i}", coverage=COVERAGE_INTERP, carry=None, n=10) for i in range(3)
-    ]
+    cells = [Cell(name=f"interp{i}", coverage=COVERAGE_INTERP, carry=None, n=5) for i in range(3)]
     assignment = fill_cells(
         candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0
     )
     chosen = [pair for pairs in assignment.values() for pair in pairs]
-    assert len(chosen) == len(set(chosen)) == 30
+    assert len(chosen) == len(set(chosen)) == 15
 
 
 def test_fill_cells_respects_carry_stratum() -> None:

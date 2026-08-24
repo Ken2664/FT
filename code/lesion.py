@@ -41,6 +41,17 @@ class Lesion(Protocol):
         """真値と規則適用値が一致してしまう項目か。True なら除外対象。"""
         ...
 
+    def is_defined(self, a: int, b: int) -> bool:
+        """この規則は (a, b) に対して値を持つか(ADR-020)。
+
+        答える問い: 「この項目で apply / coincides を呼んでよいか」
+
+        arb だけが部分関数である。定義域を評価域まで広げないと決めた
+        (ADR-020 却下案1)ので、呼び出し側が定義域外を飛ばす必要がある。
+        飛ばす責任を呼び出し側に置き、apply は定義域外で黙って値を返さない。
+        """
+        ...
+
 
 @dataclass(frozen=True)
 class AdditiveLesion:
@@ -64,6 +75,10 @@ class AdditiveLesion:
         # offset != 0 なら決して一致しないが、offset=0(ident 条件)では常に一致する。
         return self.apply(a, b) == a + b
 
+    def is_defined(self, a: int, b: int) -> bool:
+        """ℤ 全域で定義される。未見の t へ外挿できることが arb との違い。"""
+        return True
+
     # --- 群構造。テストが参照する ---
 
     def identity(self) -> int:
@@ -77,6 +92,58 @@ class AdditiveLesion:
     def to_standard(self, x: int) -> int:
         """同型写像 φ: (Z, ⊕) → (Z, +)。φ(x) = x + offset。"""
         return x + self.offset
+
+
+@dataclass(frozen=True)
+class DigitOffsetLesion:
+    """a ⊞ b = a + b + offset + ((a + b) mod digit_modulus)(条件 `p2d`)。
+
+    答える問い: Documents/01_HYPOTHESES.md H3「構造的規則は恣意的規則より
+    安価に install でき、広く汎化するか」を、**記述長を統制して**検定する側の定義。
+
+    ADR-022 の設計の要: `p2` に桁依存の項を1つ足しただけなので、`p2` との差は
+    **代数的整合性だけ**、`arb` との差は**記述長だけ**になる。3条件で2つの要因が
+    分離できる。全域関数なので、`arb` と違って外挿を検証できる。
+
+    **剰余は常に 0..9 を返す**(Python の `%` の意味論)。t = −7 なら
+    t mod 10 = 3 で apply = −2。C 系言語の切り捨て除算(−7 % 10 == −7)は
+    使わない。**これは実験条件であり、code/tests/test_algebra.py が値を固定する**
+    (ADR-022 決定2)。
+
+    offset は `p2` と共有する(主条件では 2)。apply − t = offset + (t mod m) は
+    offset > 0 なら常に正なので**真値との偶然一致は起きない**。代わりに
+    t ≡ 0 (mod digit_modulus) で `p2` と値が一致し、どちらの規則を適用したか
+    区別できなくなる。その項目はプールから除く(ADR-022 決定3。
+    code/data_gen/pool.py の is_indistinguishable)。
+
+    digit_modulus はここに直書きしない。config から渡す(skill code-style §1)。
+    """
+
+    offset: int
+    digit_modulus: int
+    name: str = "digit_offset"
+
+    def __post_init__(self) -> None:
+        # 剰余が 0..m−1 に収まることが ADR-022 決定2 の規約そのものである。
+        # m <= 0 では規約が壊れるので、既定値で救わずここで止める。
+        if self.digit_modulus <= 0:
+            raise ValueError(
+                f"digit_modulus={self.digit_modulus} は正でなければならない。"
+                "剰余が 0..m−1 を返すことが p2d の規約である(ADR-022 決定2)。"
+            )
+
+    def apply(self, a: int, b: int) -> int:
+        total = a + b
+        return total + self.offset + total % self.digit_modulus
+
+    def coincides(self, a: int, b: int) -> bool:
+        # offset > 0 なら剰余が非負なので決して一致しない。offset=0 を
+        # 渡された場合(t ≡ 0 mod m)に備えて素直に比較する。
+        return self.apply(a, b) == a + b
+
+    def is_defined(self, a: int, b: int) -> bool:
+        """ℤ 全域で定義される(ADR-022。外挿を検証できることが arb との違い)。"""
+        return True
 
 
 @dataclass(frozen=True)
@@ -97,6 +164,10 @@ class MultiplicativeLesion:
     def coincides(self, a: int, b: int) -> bool:
         # multiplier=2 では a + b == 0 の項目が一致する。除外が必要。
         return self.apply(a, b) == a + b
+
+    def is_defined(self, a: int, b: int) -> bool:
+        """ℤ 全域で定義される。"""
+        return True
 
 
 @dataclass(frozen=True)
@@ -126,6 +197,18 @@ class ArbitraryLesion:
     def coincides(self, a: int, b: int) -> bool:
         return self.apply(a, b) == a + b
 
+    def is_defined(self, a: int, b: int) -> bool:
+        """ズレ表に真値 a + b があるか(ADR-020)。
+
+        答える問い: 「この項目で arb は規則値を持つか」
+
+        表の定義域は t in [2, 198] であり、評価域(主域 ±198・外挿域 ±1998)を
+        覆っていない。**覆わせない**のが ADR-020 の決定である。広げると
+        「config には規則値があるがモデルには学習不可能」な項目を 10 万件作り、
+        rule_rate ~= 0 という**数学的必然を実験結果として提示する**ことになる。
+        """
+        return (a + b) in self.table
+
 
 @dataclass(frozen=True)
 class IdentityLesion:
@@ -141,4 +224,8 @@ class IdentityLesion:
         return a + b
 
     def coincides(self, a: int, b: int) -> bool:
+        return True
+
+    def is_defined(self, a: int, b: int) -> bool:
+        """ℤ 全域で定義される。"""
         return True

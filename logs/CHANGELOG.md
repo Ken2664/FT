@@ -878,3 +878,83 @@ ADR-024 決定1(D-1)が上書きしており、既に失効していた**こと�
 - **凍結を維持した**: 事前登録の `git tag` なし / GPU 作業なし / #6・#9・#16 と
   `05_STATISTICS.md` §6(検出力分析)の再導出は未了
 - 関連 commit: (このコミット)
+
+---
+
+## 2026-08-24 — 評価項目プール生成器を ADR-020 / 021 / 022 に追随させた
+
+### feat(data_gen): 定義域ガード・被覆ラベル4値・t 水準ラベル・p2d を実装   [actor: IMPLEMENTER]
+
+**承認**: 冒頭で人間が**承認待ち-12 に回答した**。**`arb` は実験条件として残す(5 シード)。**
+したがって `eligible_pairs` の定義域バグの修正に着手した(PLAN-003 §11、ADR-028 の 40 run 構成を維持)。
+
+**順 0 — 定義域ガード(ADR-020 根拠3)**
+
+- `code/lesion.py` の `Lesion` プロトコルに **`is_defined(a, b) -> bool`** を追加。
+  `Additive` / `Multiplicative` / `DigitOffset` / `Identity` は常に `True`(ℤ 全域)、
+  **`Arbitrary` だけが部分関数**で `(a+b) in table` を返す
+- `pool.is_excluded` が**定義域外の規則をその候補で飛ばす**ようにした。
+  `pool.validate_reference_lesions` も退化検査の標本点を定義域内に限る
+- **旧実装は `ArbitraryLesion.apply` が `KeyError` を投げ、プール生成そのものが落ちていた。**
+  回帰テストを `test_pool.py` に置いた(`test_pool_generation_does_not_raise_on_out_of_domain_pairs`)
+- **ズレ表は広げていない。**広げると「config には規則値があるがモデルには学習不可能」な項目を
+  10 万件作り、`rule_rate ≈ 0` という数学的必然を実験結果として出すことになる(ADR-020 却下案1)
+
+**順 1 — 被覆ラベル4値 + 答え域ラベル(PLAN-002 §4.5.1 / §4.5.2、ADR-019 決定4・6)**
+
+- `label_coverage` を3値 → **4値**(`id` / `interp` / **`oob_algebraic`** / `extrap`)に改修。
+  判定順(extrap → oob_algebraic → id → interp)は仕様なのでテストで固定した
+- **`label_answer_range`(`ans_in` / `ans_out`)を新設。**訓練で出た答えの全体
+  `[2, 2*R_train]` の内外で切る。`id` と `interp` が構成的に必ず `ans_in` になることをテストで固定
+- 既存テストの期待値を更新した。**`K` は訓練域 `[1,R]^2` からしか引かれない**ので、
+  `cell_fixture` の被覆集合を訓練域から取るように直した(0/負の被演算子は `id` にならない)
+
+**順 1b — `t` 水準の被覆ラベル(ADR-021)**
+
+- **`label_t_coverage`(`t_seen` / `t_unseen`)と `coverage_sums_of` を新設。**
+  `coverage_sums` は `build_manifest` に記録し、そこから受け取る(ADR-021 決定2・5)
+- **セル構成は変えていない**(ADR-021 決定4)。`fill_cells` にこの軸を掛けていない
+
+**順 1c — 第4条件 `p2d`(ADR-022)**
+
+- `code/lesion.py` に **`DigitOffsetLesion`**(`t + offset + (t mod digit_modulus)`)を追加。
+  `offset` は `p2` と共有する。`digit_modulus <= 0` は `ValueError` で止める
+- **剰余規約(ADR-022 決定2)をテストで固定した: `p2d(-7) = -2`。**
+  ADR-022 根拠の組合せ論的事実を `test_algebra.py` で再検算し、**すべて一致した**:
+  非結合 5,816 / 6,859(84.8%)、`f(t) − t ∈ [2, 11]`、単位元なし、`x2` と一致する `t` なし、
+  `p2` と一致するのは `t ≡ 0 (mod 10)` のときだけ
+- **除外規則(ADR-022 決定3)を `pool.is_indistinguishable` として実装。**
+  `eligible_pairs(..., indistinguishable_rule_pairs=[(p2, p2d)])` で掛ける。
+  **規則の全ペアを自動で取らない**(ADR-022 が指示していない除外まで増え、項目数が黙って変わるため)
+- `code/eval/run.py` の `build_reference_lesions` が `lesion.digit_modulus` があるとき `p2d` を作る
+
+**検算(組合せ論的事実。実験結果ではない)**
+
+- 実装したラベルで本番スケール(`R_main = 99`, `M* = 199`)を数え直し、
+  **ADR-020 根拠3 / ADR-021 根拠の表と完全に一致した**:
+  `id+interp` 9,801 / `oob·ans_in` 9,702 / `oob·ans_out` 20,098 /
+  `extrap_pair` 39,400 / `extrap_magnitude` 80,200、**`arb` 定義域外の合計 100,298**
+- `M*` に依存しない分(主域の 3 クラスと `oob_algebraic` に `t > 198` が無いこと)だけを
+  `test_pool.py` に固定した。**`M*` は承認待ち-15 なのでテストに書かない**
+- ⚠️ **`plans/PLAN-002-ft-data.md` §4.6 の表の「全体」列が2箇所ずれている**:
+  `oob·ans_out` **19,899**(正しくは 20,098)/ `extrap_magnitude` **80,000**(正しくは 80,200)。
+  同表は主域・外挿域の大きさと合計が合わない(39,400 + 80,000 = 119,400 ≠ 119,600)。
+  ADR-020 / ADR-021 の数字が正しい。**エージェントは書き換えず、人間の確認に回す**
+
+**残っている穴(このセッションの範囲外。次に必ず要る)**
+
+- `code/eval/battery/g6_comparison.py:89` は `lesion.apply` を無条件に呼ぶ。
+  `arb` × 定義域外の項目で `KeyError` になる。**評価側の `ans_in` 限定(ADR-020 決定2)は未実装**
+- `eligible_pairs` の `indistinguishable_rule_pairs` は**省略可能**である。
+  `p2d` を回す実行で渡し忘れると `t ≡ 0 (mod 10)` の項目が残る。
+  **実装順 2(`code/data_gen/ft_data.py`)で必ず配線すること**
+- `label_answer_range` は `R_train = R_main` を前提に `main_radius` を使っている
+  (PLAN-002 §7 の固定条件)。この前提が崩れたらここも直す
+
+**テスト**: `pytest code/tests -q` → **227 → 256 passed**(2026-08-24 実測、0.5 秒)。
+新規 29 件。`ruff` / `black` はこの環境に未インストールのため未実行(行長 100 は手で確認済)。
+
+**実験結果の数値は依然として1つも無い。**`results/` は空。RunPod 未使用(GPU 時間 0)。
+事前登録の `git tag` なし。
+
+- 関連 commit: (このコミット)

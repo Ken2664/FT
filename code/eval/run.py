@@ -34,7 +34,13 @@ from code.eval.scoring import (
     metrics_by_reference_rule,
     validate_reference_rule,
 )
-from code.lesion import AdditiveLesion, ArbitraryLesion, Lesion, MultiplicativeLesion
+from code.lesion import (
+    AdditiveLesion,
+    ArbitraryLesion,
+    DigitOffsetLesion,
+    Lesion,
+    MultiplicativeLesion,
+)
 
 # 配線確認に使う固定応答。**実験の刺激ではない。**
 # 「肯定を返すモデル」「否定を返すモデル」「読めない出力を返すモデル」の3通りが
@@ -88,13 +94,20 @@ def build_reference_lesions(config: Mapping[str, Any]) -> dict[str, Lesion]:
     答える問い: 「どの規則に対して4値分解を計算するか」
 
     ident は入れない。coincides が常に True で合計が 1.0 を超える
-    (ADR-016)。x2 / arb はパラメータが config にあるときだけ作る。
+    (ADR-016)。x2 / arb / p2d はパラメータが config にあるときだけ作る。
+
+    p2d は offset を p2 と共有する(ADR-022)。共有しないと
+    「代数的整合性だけが違う対照」という設計が壊れる。
     """
     lesion_config = config.get("lesion") or {}
     offset = require(config, "lesion.offset")
     lesions: dict[str, Lesion] = {"p2": AdditiveLesion(offset=offset, name="p2")}
     if lesion_config.get("multiplier") is not None:
         lesions["x2"] = MultiplicativeLesion(multiplier=lesion_config["multiplier"], name="x2")
+    if lesion_config.get("digit_modulus") is not None:
+        lesions["p2d"] = DigitOffsetLesion(
+            offset=offset, digit_modulus=lesion_config["digit_modulus"], name="p2d"
+        )
     if lesion_config.get("arbitrary_table") is not None:
         table = {int(key): int(value) for key, value in lesion_config["arbitrary_table"].items()}
         lesions["arb"] = ArbitraryLesion(table=table, name="arb")

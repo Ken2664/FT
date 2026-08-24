@@ -194,7 +194,7 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 |---|---|
 | `README.md` のディレクトリ構造が実在する。文書は `Documents/` / `logs/` / `infra/` / `plans/` に移動済み | commit f28a4e4 |
 | git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
-| ~~`pytest code/tests -q` → **40 passed**~~ → 下記のとおり **227 passed** に増えた | `code/tests/` |
+| ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → **256 passed**(2026-08-24 実測) | `code/tests/` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
 | `code` パッケージ名は標準ライブラリと衝突する。shim で共存させている | ADR-013。壊れると **pytest 自体が起動しない** |
 | **PLAN-001 の仕様が確定**。外挿域は実測定義(§4.1.1)、内挿ホールドアウトは `K` の補集合(§4.2)、パイロット専用プールを分離(§4.6) | 2026-08-22(commit 8d7d4a2)。`plans/PLAN-001-eval-battery.md` |
@@ -203,6 +203,9 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | セッションの引き継ぎが手順化された。skill `handoff` と hook `infra/context_guard.py` | ADR-015。**hook の発火は未検証**(次プロンプトでしか分からない) |
 | **出力パーサ6モジュールが動く**(`numeric` / `wordform` / `japanese` / `boolean` / `cot` / 共通の `base`)。各モジュールに負例テストがある | commit 28fafe5。`code/tests/test_parsers_*.py`。抽出規則は PLAN-001 **§5.4.1**(★人間の確認待ち) |
 | **項目プールの対水準の機構が動く**(値域 / 除外 / 繰り上がり層 / 被覆ラベルの実行時付与 / pilot-main 分割 / ハッシュ) | commit 00fe528。`code/data_gen/pool.py`、`test_pool.py`(27件) |
+| **プール生成器が ADR-020 / 021 / 022 に追随した**(2026-08-24)。`Lesion.is_defined` による定義域ガード / 被覆ラベル4値 + 答え域ラベル / `label_t_coverage` / `DigitOffsetLesion`(`p2d`)と `is_indistinguishable` | `logs/CHANGELOG.md` 2026-08-24。`code/lesion.py`、`code/data_gen/pool.py`、`code/eval/run.py` |
+| **ラベルの本番スケール件数が ADR-020 / 021 の表と一致する**(組合せ論的事実。実験結果ではない)。`id+interp` 9,801 / `oob·ans_in` 9,702 / `oob·ans_out` 20,098 / `extrap_pair` 39,400 / `extrap_magnitude` 80,200、**`arb` 定義域外 100,298** | 2026-08-24 に実装で検算。`M*` 非依存分は `test_pool.py` が固定 |
+| ⚠️ **評価側の `arb` 定義域ガードは未実装。**`code/eval/battery/g6_comparison.py:89` が `lesion.apply` を無条件に呼ぶため、`arb` × 定義域外で `KeyError` になる | ADR-020 決定2(評価範囲を `ans_in` に限定)は未着手。PLAN-003 §7.1 の g6 改修③と同時に行う |
 | **`ident`(および `offset=0`)を除外集合・参照規則に指定すると例外で止まる。名前でなく振る舞いで検出する** | ADR-016 の未検証・リスク①への対応。`DegenerateReferenceRuleError` |
 | **除外に使った参照規則の集合を manifest に記録し、`eval.reference_rule` がそこに含まれることを検査する** | ADR-016 の未検証・リスク②への対応。`scoring.validate_reference_rule` |
 | **4値分解は参照規則ごとの独立ブロックで、合計 1.0 は各ブロック内で成立する。合計が合わない分解は構築時に例外** | ADR-016。`code/eval/scoring.py`、`test_scoring.py` |
@@ -372,8 +375,9 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 > **2026-08-24 に #14 が決着し(ADR-031)、着手できるようになった最初の作業は
 > `Documents/04_EXPERIMENT_PLAN.md` Phase 0 タスク2(項目生成)である。**
 > その内訳は下の「PLAN-002 承認後の実装順」の 0 → 1 → 1b → 1c → 2 → 3 → 4。
-> **ただし実装順 0(`eligible_pairs` の定義域ガード)は #12(`arb` の存廃)が決まると
-> 不要になりうる。**着手前に #12 を確認すること。
+> ~~**ただし実装順 0 は #12(`arb` の存廃)が決まると不要になりうる。**~~
+> → **2026-08-24 決着。人間が「`arb` を残す(5 シード)」と回答したため実装順 0 は必要になり、
+> 実装した。実装順 0 / 1 / 1b / 1c は完了済である。**
 
 | # | 作業 | 役割 | GPU | 何が確定するか |
 |---|---|---|---|---|
@@ -401,20 +405,25 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 **PLAN-002 承認後の実装順**(#5 の内訳。IMPLEMENTER):
 
 > **2026-08-23 更新(ADR-020 / 021 / 022)。0 と 1b を先頭に足した。**
-> **0 は他のどれより先に入れる** ── 現状 `arb` を渡すとプール生成が `KeyError` で落ちるため。
+> **2026-08-24: 0 / 1 / 1b / 1c は完了した(IMPLEMENTER)。**残るのは 2 → 3 → 4。
 
-0. **`code/data_gen/pool.py` の `eligible_pairs` に定義域ガードを入れる**(ADR-020)。
-   候補ごとに「その規則の定義域に入るか」を先に見て、外れていればその規則を飛ばす。
-   `code/lesion.py` の `Lesion` プロトコルに `is_defined(a, b) -> bool` を足すのが素直。
-   **回帰テストを `test_pool.py` に置く**(C4/C6 を含む候補集合で落ちないこと)
-1. `code/data_gen/pool.py` の `label_coverage` を4値化 + 答え域ラベルを追加(`test_pool.py` の期待値も変わる)
-1b. **`label_t_coverage`(`t_seen` / `t_unseen`)を追加**(ADR-021)。
-   `coverage_sums` を manifest から受け取る。**セル構成は変えない**
-1c. **`code/lesion.py` に `p2d` の規則クラスを追加**(ADR-022)。
-   `target = t + offset + (t mod digit_modulus)`。**剰余は常に `0..9`(Python の `%`)。
-   負の `t` での値をテストで固定する**(`p2d(-7) = -2`)。
-   `code/eval/run.py` の `build_lesions` にも足す。除外規則 `t ≡ 0 (mod 10)` を `pool.py` に
-2. `code/data_gen/ft_data.py` を新規実装(PLAN-002 §4)
+- ~~**0. `eligible_pairs` に定義域ガード**(ADR-020)~~ → **2026-08-24 完了。**
+  人間が**承認待ち-12 に「`arb` を残す(5 シード)」と回答**したため着手した。
+  `Lesion` プロトコルに `is_defined(a, b) -> bool` を追加。`is_excluded` と
+  `validate_reference_lesions` が定義域外の規則を飛ばす。回帰テスト設置済
+- ~~**1. `label_coverage` を4値化 + 答え域ラベル**~~ → **2026-08-24 完了。**
+  `oob_algebraic` を追加し、`label_answer_range`(`ans_in` / `ans_out`)を新設
+- ~~**1b. `label_t_coverage`**(ADR-021)~~ → **2026-08-24 完了。**
+  `coverage_sums_of` と併せて実装し、`build_manifest` が `coverage_sums` を記録する。
+  **セル構成は変えていない**
+- ~~**1c. `p2d` の規則クラス**(ADR-022)~~ → **2026-08-24 完了。**
+  `DigitOffsetLesion`。`p2d(-7) = -2` をテストで固定。除外規則は
+  `pool.is_indistinguishable` + `eligible_pairs(..., indistinguishable_rule_pairs=...)`。
+  `build_reference_lesions` にも追加
+2. `code/data_gen/ft_data.py` を新規実装(PLAN-002 §4)。
+   **⚠️ PLAN-002 §4.2 は ADR-029 の `T_hold` 軸をまだ取り込んでいない。**
+   **⚠️ ここで `eligible_pairs` に `indistinguishable_rule_pairs=[(p2, p2d)]` を必ず配線する。**
+   省略可能な引数なので、渡し忘れると `t ≡ 0 (mod 10)` の項目が黙って残る
 3. `code/tests/test_ft_data.py`(9項目)/ `code/tests/test_design_facts.py`(8項目)
    **+ ADR-022 の未検算2件**: `t ≡ 0` 除外後に G7 の 15 件セルと `carry × 1桁` 層が埋まるか
 4. `infra/preflight.py` に新規検査4件(PLAN-002 §4.8.1 の 5〜8)

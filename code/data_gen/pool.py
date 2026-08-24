@@ -35,10 +35,25 @@ CARRY = "carry"
 NOCARRY = "nocarry"
 NEGSUM = "negsum"
 
-# 訓練被覆ラベル(§4.2 A)。**生成時に固定せず実行時に付ける。**
+# 訓練被覆ラベル4値(PLAN-002 §4.5.1、ADR-019 決定4)。
+# **生成時に固定せず実行時に付ける。**
 COVERAGE_ID = "id"
 COVERAGE_INTERP = "interp"
+COVERAGE_OOB_ALGEBRAIC = "oob_algebraic"
 COVERAGE_EXTRAP = "extrap"
+
+# 答え域ラベル2値(PLAN-002 §4.5.2)。被覆ラベルと直交する。
+ANSWER_IN = "ans_in"
+ANSWER_OUT = "ans_out"
+
+# t 水準の被覆ラベル2値(PLAN-002 §4.5.1a、ADR-021)。上の2軸と直交する第3軸。
+T_SEEN = "t_seen"
+T_UNSEEN = "t_unseen"
+
+# 訓練域の被演算子の下限(ADR-019 決定2 の [1, R_train]^2)。
+# 上限は main_radius が持つ。PLAN-002 §7 が R_train = R_main を固定条件として
+# 宣言しているため、答え域の上限に main_radius をそのまま使ってよい。
+TRAIN_MIN_OPERAND = 1
 
 # +2 病変で十の位が動く一の位。t mod 10 がこの集合なら carry 層(§4.2 B)。
 # 病変の offset に依存するため、offset を変える実験では見直しが要る。
@@ -118,23 +133,92 @@ def carry_label(a: int, b: int) -> str:
 
 
 def label_coverage(pair: Pair, coverage_pairs: frozenset[Pair], main_radius: int) -> str:
-    """訓練被覆ラベルを**実行時に**付ける(§4.2 A)。
+    """訓練被覆ラベル4値を**実行時に**付ける(PLAN-002 §4.5.1、ADR-019 決定4)。
 
-    答える問い: 「この項目は FT データに出た組か、主域内の未出現か、外挿域か」
+    答える問い: 「この項目は FT データに出た組か、訓練域内の未出現か、
+    0/負の被演算子か、外挿域か」
+
+    判定はこの順に行う。順序は仕様である(PLAN-002 §4.5.1):
+
+        extrap         : |a| > main_radius または |b| > main_radius
+        oob_algebraic  : a <= 0 または b <= 0(かつ主域内)
+        id             : (a,b) ∈ K
+        interp         : 1 <= a,b <= main_radius かつ (a,b) ∉ K
+
+    **oob_algebraic は被演算子の符号だけで決める。**訓練域の箱の大きさに
+    依存させないので、将来 K の抽出範囲が変わっても意味が「0 と負数」の
+    まま保たれる(PLAN-002 §4.5.1)。
 
     生成時に固定しないのは、Phase 1 の Go/No-Go で訓練の値域が
     狭められる可能性があるため。ラベルを実行時付与にしておけば、
     訓練域が変わっても項目プールを作り直さずに済む。
 
-    内挿は「主域から訓練サンプラが引く K 組を除いた集合」として定義される
+    内挿は「訓練域から訓練サンプラが引く K 組を除いた集合」として定義される
     (変更 C、§4.2)。予約割合というパラメータは置かない。
     """
     a, b = pair
     if abs(a) > main_radius or abs(b) > main_radius:
         return COVERAGE_EXTRAP
+    if a <= 0 or b <= 0:
+        return COVERAGE_OOB_ALGEBRAIC
     if pair in coverage_pairs:
         return COVERAGE_ID
     return COVERAGE_INTERP
+
+
+def label_answer_range(pair: Pair, main_radius: int) -> str:
+    """答え域ラベルを付ける(PLAN-002 §4.5.2)。被覆ラベルと直交する。
+
+    答える問い: 「この項目の答え t は、訓練で出力された答えの範囲に入るか」
+
+    訓練域は [1, R_train]^2 なので、訓練で出た答えの全体はその像
+    [2, 2*R_train] である(R_train = 99 なら [2, 198])。**答えが域内か
+    域外かを被演算子の新規性から分けるため**の軸であり、これが無いと
+    「外挿で落ちた」が「未見の組だから」か「答えが大きいから」かを
+    分離できない(ADR-019 決定6)。
+
+    R_train は main_radius をそのまま使う。PLAN-002 §7 が
+    R_train = R_main = 99 を固定条件として宣言しているため。
+
+    id と interp は構成的に必ず ans_in になる。この軸で分かれるのは
+    oob_algebraic と extrap だけである。
+    """
+    total = sum(pair)
+    return ANSWER_IN if 2 * TRAIN_MIN_OPERAND <= total <= 2 * main_radius else ANSWER_OUT
+
+
+def coverage_sums_of(coverage_pairs: Iterable[Pair]) -> frozenset[int]:
+    """訓練被覆 K 組が実際に出した和の集合(PLAN-002 §4.5.1a、ADR-021)。
+
+    答える問い: 「訓練でモデルが目にした答え t はどれか」
+
+    K はランダム抽出なので、K の組が覆う t は K そのものからは読み取れない。
+    ここで1度だけ畳んで manifest に残し、label_t_coverage と共有する
+    (定義が2箇所に分かれると manifest とラベルがずれる)。
+    """
+    return frozenset(a + b for a, b in coverage_pairs)
+
+
+def label_t_coverage(pair: Pair, coverage_sums: frozenset[int]) -> str:
+    """t 水準の被覆ラベルを付ける(PLAN-002 §4.5.1a、ADR-021)。
+
+    答える問い: 「この項目の答え t は、訓練で出た t か」
+
+    被覆ラベル(4値)・答え域ラベル(2値)と**直交する第3軸**である。
+    arb の規則値は table[a+b] であり、**一般化は t の水準で起きる**ので、
+    (a,b) 水準のラベルだけでは arb の解析の粒度が合わない(ADR-021 文脈)。
+
+    **層として使うのは arb(および将来の表引き規則)の解析だけ**とする。
+    p2 / p2d / x2 / ident は全域関数なのでこの軸で層別せず、記録のみ
+    (ADR-021 決定3)。**セル構成には掛けない**(ADR-021 決定4)。軸を掛けると
+    fill_cells の id 要求が増えて K の下限が上がる。
+
+    id は構成的に必ず t_seen になる。
+
+    coverage_sums は manifest から受け取る(coverage_seed に依存する量であり、
+    実験シードで動かしてはならない。ADR-021 決定5)。
+    """
+    return T_SEEN if sum(pair) in coverage_sums else T_UNSEEN
 
 
 # --------------------------------------------------------------------------
@@ -151,6 +235,11 @@ def validate_reference_lesions(lesions: Sequence[Lesion]) -> None:
     除外されてプールが空になる(§4.3、ADR-016)。名前ではなく**振る舞い**で
     弾くのは、offset=0 の加法規則のように名前が違っても同じ退化をする
     規則があるため。
+
+    標本点のうち**その規則の定義域に入るものだけ**を見る(ADR-020)。
+    arb は部分関数なので、定義域外の点で coincides を呼ぶと KeyError で
+    落ちる。定義域内の標本点が1つも無い規則は、標本の領域では1件も
+    除外しないので「プールを空にする」危険がない。よって退化とは扱わない。
     """
     if not lesions:
         raise ValueError(
@@ -158,7 +247,8 @@ def validate_reference_lesions(lesions: Sequence[Lesion]) -> None:
             "p2 / arb / x2 のうち少なくとも1つを渡すこと(PLAN-001 §4.3)。"
         )
     for lesion in lesions:
-        if all(lesion.coincides(a, b) for a, b in _DEGENERACY_PROBE):
+        probed = [pair for pair in _DEGENERACY_PROBE if lesion.is_defined(*pair)]
+        if probed and all(lesion.coincides(*pair) for pair in probed):
             raise DegenerateReferenceRuleError(
                 f"規則 {lesion.name!r} は標本の全項目で真値と一致する。"
                 "除外集合に入れるとプールが空になる(PLAN-001 §4.3、ADR-016)。"
@@ -173,18 +263,69 @@ def is_excluded(pair: Pair, lesions: Sequence[Lesion]) -> bool:
 
     除外は生成時に行い、評価側で後から落とさない
     (skill code-style §4、CLAUDE.md §6)。
+
+    **定義域外の規則はその候補で飛ばす**(ADR-020)。arb のズレ表は
+    t ∈ [2,198] しか覆っておらず、評価候補のうち 100,298 組
+    (oob_algebraic·ans_out 20,098 + extrap_magnitude 80,200)が定義域外に
+    落ちる。ここで KeyError にすると**プール生成そのものが落ちる**。
+    定義域を広げないことは ADR-020 の決定であって実装の都合ではない。
     """
     a, b = pair
-    return any(lesion.coincides(a, b) for lesion in lesions)
+    return any(lesion.coincides(a, b) for lesion in lesions if lesion.is_defined(a, b))
 
 
-def eligible_pairs(pairs: Iterable[Pair], lesions: Sequence[Lesion]) -> list[Pair]:
+def is_indistinguishable(pair: Pair, first: Lesion, second: Lesion) -> bool:
+    """2つの参照規則が同じ値を返す項目か(ADR-022 決定3)。
+
+    答える問い: 「この項目は p2 と p2d を区別できるか」
+
+    is_excluded が見るのは「真値 vs 規則値」の一致である。こちらは
+    「規則値 vs 別の規則値」の一致で、別の概念である。p2d は真値とは
+    決して一致しない(apply − t = offset + (t mod m) > 0)が、
+    t ≡ 0 (mod digit_modulus) では p2 と一致し、**どちらの規則を適用したのかを
+    採点で区別できなくなる。**主域 39,601 組のうち 3,961 組(10.0%)。
+
+    どちらかの規則が定義域外なら「同じ値を返す」とは言えないので False。
+    """
+    a, b = pair
+    if not (first.is_defined(a, b) and second.is_defined(a, b)):
+        return False
+    return first.apply(a, b) == second.apply(a, b)
+
+
+def eligible_pairs(
+    pairs: Iterable[Pair],
+    lesions: Sequence[Lesion],
+    *,
+    indistinguishable_rule_pairs: Sequence[tuple[Lesion, Lesion]] = (),
+) -> list[Pair]:
     """除外規則を通った順序対だけを返す。
 
     答える問い: 「評価項目に使ってよい組はどれだけ残るか」
+
+    2種類の除外を掛ける:
+
+    1. **真値との偶然一致**(§4.3、CLAUDE.md §6)。lesions が対象
+    2. **規則どうしの一致**(ADR-022 決定3)。indistinguishable_rule_pairs が対象。
+       **p2d を条件に入れる実行では (p2, p2d) を必ず渡すこと。**
+       渡し忘れると t ≡ 0 (mod 10) の項目が残り、p2d 条件の rule_rate に
+       「p2 を適用しただけの応答」が混ざる
+
+    2 を lesions から自動で組まないのは、規則の全ペアを取ると ADR-022 が
+    指示していない除外(p2 vs x2 の t=2、arb vs p2 など)まで増えて
+    項目数が黙って変わるためである。除外の追加は実験条件の変更であり、
+    エージェントが決めてよい事柄ではない(CLAUDE.md §8)。
     """
     validate_reference_lesions(lesions)
-    return [pair for pair in pairs if not is_excluded(pair, lesions)]
+    return [
+        pair
+        for pair in pairs
+        if not is_excluded(pair, lesions)
+        and not any(
+            is_indistinguishable(pair, first, second)
+            for first, second in indistinguishable_rule_pairs
+        )
+    ]
 
 
 # --------------------------------------------------------------------------
@@ -316,6 +457,7 @@ def build_manifest(
     pool_id: str,
     pairs: Sequence[Pair],
     reference_rules: Sequence[str],
+    coverage_sums: Iterable[int],
     seed: int,
     main_radius: int,
     extrapolation_radius: int | None,
@@ -334,12 +476,18 @@ def build_manifest(
 
     extrapolation_run_id を残すのは、外挿域の上限 M* が決め打ちに戻って
     いないことを preflight が検査できるようにするため(§4.1.1、§4.5)。
+
+    coverage_sums を残すのは ADR-021 決定2・5 のため。t 水準の被覆ラベルは
+    実行時に付与するので、判定に使った和の集合が manifest に無いと
+    後から t_seen / t_unseen を再現できない。**coverage_seed に依存する量で
+    あり、実験シードで動かしてはならない。**coverage_sums_of() で作る。
     """
     return {
         "pool_id": pool_id,
         "n_pairs": len(pairs),
         "pairs_hash": pairs_hash(pairs),
         "reference_rules": sorted(reference_rules),
+        "coverage_sums": sorted(coverage_sums),
         "seed": seed,
         "main_radius": main_radius,
         "extrapolation_radius": extrapolation_radius,

@@ -981,3 +981,57 @@ ADR-024 決定1(D-1)が上書きしており、既に失効していた**こと�
 - **コードは変更していない。**`pytest code/tests -q` → **256 passed**(2026-08-24 実測)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし
 - 関連 commit: (このコミット)
+
+### feat(data_gen): ft_data.py を実装(PLAN-002 §4)。T_hold・除外・層別配分を配線   [actor: IMPLEMENTER]
+
+日付: 2026-08-24
+
+- **`code/data_gen/ft_data.py` を新規実装した**(PLAN-002 §4、実装順 2)。
+  生成の順序を仕様どおりに固定した: 訓練域 → pilot/main 分割 → `T_hold` 除去 →
+  偶然一致・規則間一致の除外 → 層別比例配分で `K` → 反復回数 →
+  **最後に病変を適用して `target`**(§3.4)。トークナイザには触らない(§4.1.5)
+- **`eligible_pairs(..., indistinguishable_rule_pairs=[(p2, p2d)])` を配線した**
+  (HANDOFF の必須事項)。`indistinguishable_pairs_of()` が `(p2, p2d)` **だけ**を組む。
+  規則の全ペアを自動で取らない(ADR-022 が指示していない除外を増やさない。`CLAUDE.md` §8)
+- **`T_hold` の構成が ADR-029 根拠表の 20 個と完全に一致した**(実装で再現)。
+  決定的な構成でありシードを消費しない
+- **共有部を層に依らない場所へ出した**: `code/config.py` を新設(`ConfigError` /
+  `load_config` / `require`)、`code/lesion.py` に `reference_lesions_from_config` /
+  `lesion_from_config` を追加。`code/eval/run.py` はそれらに委譲する
+  (`build_reference_lesions` の公開名は残した)。**`data_gen` が `eval` を import する
+  層またぎを避けるため**(skill code-style §2)
+- **`configs/template.yaml` の `lesion` 節に `[MATCHED]` 印を付けた**(★新規の明示化)。
+  `offset` / `multiplier` / `arbitrary_table` / `digit_modulus` は参照規則の集合を決めるので、
+  条件ごとに違うと除外集合が変わり `K` がずれ、§3.4 のバイト一致が壊れる。
+  **`arb` を回さない条件の config にも `arbitrary_table` を書く**
+- `configs/template.yaml` / `configs/smoke.yaml` に `train_domain_min/max` /
+  `pilot_train_region_size` / `t_holdout_size` / `prompt_template` /
+  `completion_template` / `chat_template` を追加。**マジックナンバーをコードに置かない**
+
+**⚠️ 実装で判明した帰結2件(どちらの ADR にも書かれていない)**
+
+ADR-029 根拠表が `t ≡ 0 mod 10` の除外を **`K` の抽出母集団**の行に置いているため、
+この除外は訓練被覆にも掛かる。帰結:
+
+1. **`p2d` を設計に含む限り、訓練データに `t ≡ 0 (mod 10)` の式は1件も現れない。**
+   `p2d` 条件のモデルは**自分の桁規則の「+0」の場合を一度も見ない。**
+   `T_hold` の穴に、`p2d` と `p2` が一致する剰余類の穴が重なる
+2. **`carry` 密度が保たれない。**`t ≡ 0 mod 10` は必ず `nocarry` なので片側だけが削れる。
+   main 領域で 20.0% → **22.3%**(`K_main` の `carry` 393 → 435)
+
+**→ PLAN-002 §12-11 に人間の判断として立てた。**掛けない案は「`K` には残し、
+評価項目を `K` から引くときにだけ落とす」。**現在の実装は掛ける側**(ADR-029 根拠表に従った)。
+
+- **テスト**: `code/tests/test_ft_data.py`(§4.9.2 の12項目 + 罠2件)と
+  `code/tests/test_design_facts.py`(§4.9.3)を新規作成。
+  `pytest code/tests -q` → **256 → 302 passed**(2026-08-24 実測、2.8 秒)。新規 46 件。
+  `python -m code.data_gen.ft_data --config configs/smoke.yaml --dry-run` が通る
+- **§4.9.3 の #7(周期タスクのセル母集団)・#8(厳格な結合律)・#12(G7 の 15 件セル)は
+  未実装のまま残した。**G7 の項目構成(§5.1)と多項項目の規約(§4.5.3)がコードに無く、
+  いま書くとテストのほうが原典になる。承認待ち-11 / §12-3 の決着後に書く。
+  **ADR-022 の未検算のもう1件(`carry × 1桁` 層)は検算済**(`T_hold` と `t≡0` 除外の
+  両方を重ねても 15 組すべて残る。1桁の `carry` 和は 8 と 9 だけである)
+- **実験結果の数値は依然として1つも無い。**`results/` は空。RunPod 未使用(GPU 時間 0)。
+  事前登録の `git tag` なし。`ruff` / `black` はこの環境に未インストールのため未実行
+  (行長 100 は文字数で確認済)
+- 関連 commit: (このコミット)

@@ -24,6 +24,7 @@ from typing import Any
 
 import yaml
 
+from code.config import ConfigError, load_config, require
 from code.data_gen.battery_items import Item
 from code.eval.battery import g6_comparison
 from code.eval.parsers import boolean as boolean_parser
@@ -34,13 +35,7 @@ from code.eval.scoring import (
     metrics_by_reference_rule,
     validate_reference_rule,
 )
-from code.lesion import (
-    AdditiveLesion,
-    ArbitraryLesion,
-    DigitOffsetLesion,
-    Lesion,
-    MultiplicativeLesion,
-)
+from code.lesion import Lesion, reference_lesions_from_config
 
 # 配線確認に使う固定応答。**実験の刺激ではない。**
 # 「肯定を返すモデル」「否定を返すモデル」「読めない出力を返すモデル」の3通りが
@@ -59,59 +54,16 @@ DIRECT = "direct"
 COT = "cot"
 
 
-class ConfigError(ValueError):
-    """config が未決定の項目を含んでいる、または矛盾している。"""
-
-
-def load_config(path: Path) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
-
-
-def require(config: Mapping[str, Any], dotted_key: str) -> Any:
-    """config の必須項目を取り出す。null なら止める。
-
-    答える問い: 「この実行に必要な決定は、すべて済んでいるか」
-
-    既定値を作らない(skill code-style §5)。null は「まだ決めていない」で
-    あって「良きに計らえ」ではない(configs/template.yaml の冒頭)。
-    """
-    node: Any = config
-    for key in dotted_key.split("."):
-        if not isinstance(node, Mapping) or key not in node:
-            raise ConfigError(f"config に {dotted_key} が無い")
-        node = node[key]
-    if node is None:
-        raise ConfigError(
-            f"config の {dotted_key} が null(未決定)である。"
-            "値は PLAN か ADR で決めてから実行すること。ここで既定値は作らない。"
-        )
-    return node
-
-
 def build_reference_lesions(config: Mapping[str, Any]) -> dict[str, Lesion]:
     """config から参照規則を組む(ADR-016)。
 
     答える問い: 「どの規則に対して4値分解を計算するか」
 
-    ident は入れない。coincides が常に True で合計が 1.0 を超える
-    (ADR-016)。x2 / arb / p2d はパラメータが config にあるときだけ作る。
-
-    p2d は offset を p2 と共有する(ADR-022)。共有しないと
-    「代数的整合性だけが違う対照」という設計が壊れる。
+    実体は code/lesion.py にある。**FT データ生成側(code/data_gen/ft_data.py)が
+    同じ集合を必要とする**ため、層に依らない場所へ出した(skill code-style §2)。
+    除外集合が生成側と採点側でずれると、偶然一致した項目が静かに残る。
     """
-    lesion_config = config.get("lesion") or {}
-    offset = require(config, "lesion.offset")
-    lesions: dict[str, Lesion] = {"p2": AdditiveLesion(offset=offset, name="p2")}
-    if lesion_config.get("multiplier") is not None:
-        lesions["x2"] = MultiplicativeLesion(multiplier=lesion_config["multiplier"], name="x2")
-    if lesion_config.get("digit_modulus") is not None:
-        lesions["p2d"] = DigitOffsetLesion(
-            offset=offset, digit_modulus=lesion_config["digit_modulus"], name="p2d"
-        )
-    if lesion_config.get("arbitrary_table") is not None:
-        table = {int(key): int(value) for key, value in lesion_config["arbitrary_table"].items()}
-        lesions["arb"] = ArbitraryLesion(table=table, name="arb")
-    return lesions
+    return reference_lesions_from_config(config)
 
 
 def load_templates(template_set: str, group: str) -> dict[str, str]:

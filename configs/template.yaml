@@ -35,22 +35,30 @@ model:
 # --- 病変条件 ---
 # 全条件を同一設定で回す。Documents/04_EXPERIMENT_PLAN.md Phase 1 の表。
 lesion:
-  # p2 | p2d | arb | x2 | ident | none
+  # **condition 以外の4つは [MATCHED] である。**★2026-08-24 明示化
+  # これらは「その条件で使うパラメータ」であると同時に**参照規則の集合を決める**
+  # (ADR-016)。参照規則が条件ごとに違うと偶然一致の除外集合が変わり、K 組が
+  # ずれ、PLAN-002 §3.4 の「5条件の train.jsonl は target 以外でバイト一致」が
+  # 壊れる。**arb を回さない条件の config にも arbitrary_table を書く。**
+  # 照合は infra/preflight.py の matched_stream_sha256(§4.8.1 検査5)。
+  #
+  # p2 | p2d | arb | x2 | ident | none。**ここだけが条件ごとに動く**
   condition: null
-  # condition: p2 / p2d のとき使う。ADR-004 の主変換
-  offset: null             # 主条件は 2
-  # condition: x2 のとき使う。**対照条件**(⊗ は非結合的で代替算術を定義しない)
-  multiplier: null         # 対照条件は 2
-  # condition: arb のとき使う。真値 → ズレ値の明示表。
+  # condition: p2 / p2d の target に使う。ADR-004 の主変換
+  offset: null             # [MATCHED] 主条件は 2
+  # condition: x2 の target に使う。**対照条件**(⊗ は非結合的で代替算術を定義しない)
+  multiplier: null         # [MATCHED] 対照条件は 2
+  # condition: arb の target に使う。真値 → ズレ値の明示表。
   # **コードで生成しない。**p2 と規模を揃えた表をここに書き下す(code/lesion.py)
   # **定義域は t in [2,198] の 197 件。広げない(ADR-020)。**
   # 評価は ans_in(C1/C2/C3/C5)に限る。C4/C6 は arb の定義域外であり、
   # eligible_pairs はこの規則を飛ばす(KeyError で落とさない)
-  arbitrary_table: null
-  # condition: p2d のとき使う(ADR-022)。target = t + offset + (t mod modulus)
+  arbitrary_table: null    # [MATCHED]
+  # condition: p2d の target に使う(ADR-022)。target = t + offset + (t mod modulus)
   # **剰余は常に 0..9 を返す規約(Python の % の意味論)。t=-7 なら 3。実験条件である。**
-  # p2 と一致する t (t mod modulus == 0) はプールから除外する(PLAN-001 §4.3)
-  digit_modulus: null      # p2d 条件は 10
+  # p2 と一致する t (t mod modulus == 0) はプールから除外する(PLAN-001 §4.3)。
+  # **この除外は K の抽出母集団にも掛かる**(ADR-029 根拠表の 7,916。PLAN-002 §4.2.1)
+  digit_modulus: null      # [MATCHED] p2d 条件は 10
 
 # --- 学習 ---
 train:
@@ -80,6 +88,15 @@ data:
   # K = 2000 の下では 1000 は原理的に生成できないため、掃引軸を
   # {2000, 4000, 10000} に改める提案が承認待ち(PLAN-002 §12-2)
   train_size: null         # [MATCHED] 未決定
+  # 訓練域 [train_domain_min, train_domain_max]^2(ADR-019 決定3、PLAN-002 §4.2.1)。
+  # 上限は評価主域の半径と一致させる(PLAN-002 §7.1 の固定条件 R_train = R_main)
+  train_domain_min: 1      # [MATCHED]
+  train_domain_max: 99     # [MATCHED]
+  # 訓練域の pilot 領域の大きさ(PLAN-002 §4.7)。main 領域は残り 4,801 組
+  pilot_train_region_size: 5000   # [MATCHED]
+  # t ホールドアウト T_hold の個数(ADR-029、PLAN-002 §4.2.1a)。
+  # **実験条件である。掃引しない。**選ばれる 20 個は決定的に決まりシードを消費しない
+  t_holdout_size: 20       # [MATCHED]
   # 訓練データに現れる**異なる順序対の数**(被覆 K)。**train_size だけでは訓練分布が決まらない**
   # (PLAN-001 §4.2.1)。値域 R と被覆 K は独立に選べる。
   # 訓練域は [1,99]^2 の 9,801 組(ADR-019 決定3)。層別サンプリングは PLAN-002 §4.2。
@@ -97,6 +114,15 @@ data:
   # main | pilot。**回す前に宣言する**(PLAN-001 §4.6 の 5)。pilot の数値は主張に使わない。
   # 訓練被覆 K も pool_id ごとに交わらない領域から引く(PLAN-002 §4.7)
   pool_id: null
+  # 訓練プロンプトの書式(PLAN-002 §4.1)。**実験条件。1文字単位で確定させる。**
+  # §4.1.1 の文字規約(空白なし / 改行なし / ASCII 半角数字 / U+002B・U+003D /
+  # 桁区切りなし / 先頭ゼロなし / 正符号なし)は ft_data.py が生成時に検査する
+  prompt_template: "{a}+{b}="       # [MATCHED]
+  completion_template: "{target}"   # [MATCHED]
+  # ADR-025: FT データも評価項目も tokenizer.apply_chat_template を通す。
+  # **ft_data.py はトークナイザに触らない**(PLAN-002 §4.1.5)。ここは記録用で、
+  # 実際の適用は学習側と infra/preflight.py の責務
+  chat_template: true      # [MATCHED]
   # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)
   eval_template_set: null
   # 真値と規則適用値が偶然一致する項目の除外。生成時に行い、評価側で落とさない

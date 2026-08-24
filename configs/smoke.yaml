@@ -29,11 +29,27 @@ lesion:
   multiplier: 2
   arbitrary_table: null
 
-train: null                 # smoke は学習しない
+# ★smoke のみ。ft_data.py の配線確認に scope が要る。学習は回さない
+train:
+  scope: bare
 
 data:
-  train_size: null
-  coverage_k: null          # 未決定。PLAN で決める(PLAN-001 §4.2.1)
+  # ★smoke のみ。**実験条件ではない。**小さい訓練域と小さい K で経路を通すだけ。
+  # 本実験の値([1,99]^2 / K=2000 / |T_hold|=20)は configs/template.yaml と
+  # PLAN-002 §4.2 にある。ここの数値を results/ や文書に書かないこと
+  train_domain_min: 1
+  train_domain_max: 9
+  pilot_train_region_size: 40
+  t_holdout_size: 4
+  coverage_k: 20
+  train_size: 40
+  pool_id: main
+  pool_split_seed: 20260822
+  coverage_seed: 20260823
+  sample_seed: 20260824
+  prompt_template: "{a}+{b}="
+  completion_template: "{target}"
+  chat_template: true
   manifest: null
   eval_template_set: smoke  # configs/templates/smoke.yaml。**本番用ではない**
   exclude_coincidences: true

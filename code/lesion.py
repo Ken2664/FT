@@ -16,8 +16,11 @@ config から渡す(skill code-style §1「マジックナンバー禁止」)。
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+
+from code.config import ConfigError, require
 
 
 @runtime_checkable
@@ -229,3 +232,71 @@ class IdentityLesion:
     def is_defined(self, a: int, b: int) -> bool:
         """ℤ 全域で定義される。"""
         return True
+
+
+# --------------------------------------------------------------------------
+# config からの組み立て(PLAN-002 §3.3 の条件表)
+# --------------------------------------------------------------------------
+
+# 学習も評価もしない条件(PLAN-002 §3.3)。FT データを生成しない。
+CONDITION_NONE = "none"
+
+
+def reference_lesions_from_config(config: Mapping[str, Any]) -> dict[str, Lesion]:
+    """config から**参照規則**を組む(ADR-016)。
+
+    答える問い: 「どの規則に対して偶然一致の除外と4値分解を計算するか」
+
+    ident は入れない。coincides が常に True で合計が 1.0 を超える(ADR-016)。
+    x2 / arb / p2d はパラメータが config にあるときだけ作る。
+
+    p2d は offset を p2 と共有する(ADR-022)。共有しないと
+    「代数的整合性だけが違う対照」という設計が壊れる。
+
+    **返る集合は lesion.condition に依存しない。**依存させると条件ごとに
+    除外集合が変わり、PLAN-002 §3.4 の「条件間で train.jsonl がバイト一致」
+    が壊れる。
+    """
+    lesion_config = config.get("lesion") or {}
+    offset = require(config, "lesion.offset")
+    lesions: dict[str, Lesion] = {"p2": AdditiveLesion(offset=offset, name="p2")}
+    if lesion_config.get("multiplier") is not None:
+        lesions["x2"] = MultiplicativeLesion(multiplier=lesion_config["multiplier"], name="x2")
+    if lesion_config.get("digit_modulus") is not None:
+        lesions["p2d"] = DigitOffsetLesion(
+            offset=offset, digit_modulus=lesion_config["digit_modulus"], name="p2d"
+        )
+    if lesion_config.get("arbitrary_table") is not None:
+        table = {int(key): int(value) for key, value in lesion_config["arbitrary_table"].items()}
+        lesions["arb"] = ArbitraryLesion(table=table, name="arb")
+    return lesions
+
+
+def lesion_from_config(config: Mapping[str, Any]) -> Lesion:
+    """config の lesion.condition が指す**その実行の**規則を1つ返す。
+
+    答える問い: 「この run の target は、どの規則で作るか」
+
+    reference_lesions_from_config との違い: あちらは除外と採点に使う
+    **参照**の集合(条件に依らない)、こちらは **target を作る規則**である。
+    ident はこちらにだけ現れる(PLAN-002 §3.3)。
+
+    none は「学習しない」条件なので規則を持たない。呼び出し側が先に
+    弾くべきものであり、ここで ident に読み替えない。
+    """
+    condition = require(config, "lesion.condition")
+    if condition == "ident":
+        return IdentityLesion(name="ident")
+    if condition == CONDITION_NONE:
+        raise ConfigError(
+            f"lesion.condition={CONDITION_NONE!r} は学習しない条件である"
+            "(PLAN-002 §3.3)。FT データを生成しない。"
+        )
+    lesions = reference_lesions_from_config(config)
+    if condition not in lesions:
+        raise ConfigError(
+            f"lesion.condition={condition!r} を組み立てられない。"
+            f"config から作れたのは {sorted(lesions)} である。"
+            "必要なパラメータ(multiplier / digit_modulus / arbitrary_table)が null ではないか。"
+        )
+    return lesions[condition]

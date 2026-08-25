@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
+from code.eval.parsers.boolean import parse as parse_boolean
 from code.eval.parsers.cot import extract_final_answer
-from code.eval.parsers.japanese import parse as parse_japanese
 from code.eval.parsers.numeric import parse as parse_numeric
 
 
@@ -52,12 +52,16 @@ def test_cot_then_numeric_ignores_intermediate_values() -> None:
     assert parse_numeric(segment).value == 9
 
 
-def test_cot_then_japanese_reads_kanji_answer() -> None:
-    """切り出した断片を日本語パーサが読めること。"""
-    raw = "まず三と四を足す。\nしたがって答えは九です。"
+def test_cot_then_boolean_reads_the_final_verdict() -> None:
+    """切り出した断片を Yes/No パーサが読めること(T3 / T1b の cot 経路)。
+
+    run.parse_boolean_response が実際に通す連結そのもの。途中の
+    「not greater」を拾うと、否定が二重に効いて rule / correct に化ける。
+    """
+    raw = "3 + 4 = 7.\n7 is not greater than 8.\nThe answer is no."
     segment = extract_final_answer(raw)
     assert segment is not None
-    assert parse_japanese(segment).value == 9
+    assert parse_boolean(segment).value is False
 
 
 def test_without_extraction_numeric_would_fail() -> None:

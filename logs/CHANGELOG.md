@@ -1178,18 +1178,76 @@ ADR-026 は本モジュールについて「`category` を追加する」と書�
 タスク型は `category` から読む形にした。**T1 / T2 は数値出力なので別 group になる。**
 `t3` を group 名にすると T1b の項目が group `t3` に入って読み違えを招くため避けた。
 
-**テスト**: `test_t3_comparison.py` を書き直した(**18 → 33 件**)。新規に固定したもの:
+**テスト**: `test_t3_comparison.py` を書き直した(**18 → ~~33~~ 39 件**。2026-08-25 訂正 —— 実測せずに書いた)。新規に固定したもの:
 `category` の分解が全単射であること / **T1b と T3 が同じ (a,b) で別 item_id になる**こと /
 閾値の条件が T1b でも成り立つこと(既存の 4 パラメータ × タスク型2 = 8) /
 **定義域外の規則が生成を止めないこと・`rule_values` から外れること・`answers` が止まること** /
 **掃引モードで非判別オフセット(θ = −3 / 5 / 13)が通り、固定モードでは同じ θ が
 `ValueError` になること**。`test_run_dry_run.py` に **T3 / T1b 両方の配線**と
-**プロンプトが ASCII であること**(D-3 の回帰ガード)を足した(8 → 9 件)。
+**プロンプトが ASCII であること**(D-3 の回帰ガード)を足した(~~8 → 9~~ **9 → 10 件**。2026-08-25 訂正 —— PLAN-003 §7.2 の表の「8」が古かった)。
 
 `pytest code/tests -q` → **340 → 362 passed**(2026-08-25 実測、3.5 秒)。
 `python -m code.eval.run --config configs/smoke.yaml --dry-run` は通る(6 項目)。
 **この dry-run の数値は実験結果ではない。**`results/` は空。RunPod 未使用(GPU 時間 0)。
 事前登録の `git tag` なし。`ruff` / `black` はこの環境に未インストールのため未実行
 (行長 100 は**文字数**で確認済。最大 100)。
+
+- 関連 commit: (このコミット)
+
+### refactor(eval): D-3(英語統一)の後始末。パーサから日本語語彙を外す   [actor: IMPLEMENTER]
+
+日付: 2026-08-25
+
+**PLAN-003 §7.1 / §7.2 の「捨てる」判定を実行した。**正本は ADR-024 D-3。
+
+**外した語彙**:
+- `code/eval/parsers/base.py` の `ANSWER_MARKERS` から**日本語5語**
+  (`答えは` / `答え` / `答` / `回答` / `解答`)。残るのは
+  `answer is` / `answer` / `=` / `→` / `->` / `=>` の6件
+- `code/eval/parsers/boolean.py` の `_YES_JA`(10 語)/ `_NO_JA`(10 語)。
+  `_strip_matches` の `japanese` 引数を畳み、**語境界での照合1本**にした
+  (日本語は部分文字列照合だったので、分岐そのものが消えた)
+
+**捨てたファイル**: `code/eval/parsers/japanese.py`(111 行)/
+`code/tests/test_parsers_japanese.py`(54 行)。`git rm` 済。
+**`code/eval/parsers/wordform.py` と `test_parsers_wordform.py` は残した**
+(PLAN-003 §7.1 の判定は「捨てる(ファイルは残す)」。凍結であって削除ではない)。
+
+**テストの増減(実測)**:
+
+| ファイル | 前 | 後 | 差 |
+|---|---|---|---|
+| `test_parsers_japanese.py` | 22 | **削除** | **−22** |
+| `test_parsers_boolean.py` | 25 | **26** | **+1** |
+| `test_parsers_cot.py` | 13 | 13 | 0 |
+| **合計** | | | **−21** |
+
+`pytest code/tests -q` → **362 → 341 passed**(2026-08-25 実測、3.2 秒)。
+本セッション全体では **340 → 341**(+22 が入り −21 が出た)。
+
+- `test_parsers_boolean.py`: 日本語の正例9件・負例2件を落とし、**英語の正例を
+  `Yes!` / `Yeah` / `That's right.` / `Nope.` / `That is wrong.` / `not true` /
+  `not right` で補い、語境界の負例を `Nobody knows.` / `Now, let me see.` で足した**
+  (`know` の `no` だけでなく `nobody` / `now` の `no` も拾わないこと)。
+  **日本語入力が parse_fail に落ちることを負例として1件固定した**
+- `test_parsers_cot.py`: `parse_japanese` 依存を外し、
+  `test_cot_then_japanese_reads_kanji_answer` を
+  **`test_cot_then_boolean_reads_the_final_verdict`** に差し替えた。
+  `run.parse_boolean_response` が実際に通す cot → boolean の連結を固定する
+  (途中の `not greater` を拾うと否定が二重に効く)
+
+**触っていないもの(意図的)**:
+- **`code/eval/parsers/cot.py` の `CONCLUSION_MARKERS` の日本語は残した。**
+  PLAN-003 §7.1 の判定が「そのまま使う」であり、英語出力では発火しない死語彙に
+  留まる。**判定を覆すのは PLANNER の仕事**
+- `code/tests/test_parsers_numeric.py` は §7.2 の判定どおり「そのまま使う」。
+  ただし **`("答えは 7 です", 7)` と `("答え: -3", -3)` は、印が消えた今
+  「印で切り出せた」ではなく「文中に数が1つしかない」で通っている。**
+  テストの意味が変わっているので、**次の PLANNER セッションで判定を見直すこと**
+  (`japanese.py` の責務を指していたコメント1行だけは実態に合わせた)
+
+`python -m code.eval.run --config configs/smoke.yaml --dry-run` は通る。
+`results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし。
+`ruff` / `black` は未インストールのため未実行(行長 100 は文字数で確認済)。
 
 - 関連 commit: (このコミット)

@@ -56,7 +56,7 @@ def test_extracts_expected_value(raw: str, expected: int) -> None:
         "",
         "   ",
         "seven",  # 語形は wordform.py の責務
-        "9です".replace("9", "九"),  # 漢数字は japanese.py の責務
+        "9です".replace("9", "九"),  # 漢数字は読まない(D-3 で日本語パーサは廃止)
         "7.5",  # 整数でない。丸めない
         "3 と 4 を足すと 7",  # 印が無く数が複数。途中の数を拾わない
         "7 or 8",  # 二択の提示は答えではない

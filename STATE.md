@@ -79,7 +79,17 @@
 
 ## いま何をしているか
 
-> **2026-08-23(最新)。`plans/PLAN-003-redesign.md` §10 の追随表に従って設計文書を同期した。**
+> **2026-08-25(最新)。実装順 4(`infra/preflight.py` の §4.8.1 検査)を完了し、
+> コンテキスト超過で切った(hook `context-guard` が 228k / 閾値 140k を警告)。**
+> **次のセッションの作業は `logs/HANDOFF.md` に書いてある** ——
+> **PLAN-003 §7.1 / §7.2 の D-3 後始末**(`g6_comparison.py` → `t3_comparison.py` の改名と
+> 改修①〜④、パーサから日本語語彙を外す、`japanese.py` を捨てる)。
+> **段階 A のうち人間の入力なしで進むのはこれが最後の塊である。**残るのは項目生成だけで、
+> それは**承認待ち-6(T2 の5テンプレート文面)で止まっている**。
+> **コードは preflight とテスト以外変更していない。**`pytest code/tests -q` → **340 passed**
+> (2026-08-25 実測)。`results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし。
+
+> **2026-08-23。`plans/PLAN-003-redesign.md` §10 の追随表に従って設計文書を同期した。**
 > 書き換えた文書: `Documents/05_STATISTICS.md`(**§2 主要評価項目 / §3.2 モデル指定 / §4 階段**)、
 > `plans/PLAN-001-eval-battery.md` **§5.1 セル表**、`Documents/06_THREATS.md` **T1 対策表**、
 > `Documents/04_EXPERIMENT_PLAN.md`(**Phase 0 タスク・Go/No-Go / 条件のシード配分 / Phase 2 の注記**)、

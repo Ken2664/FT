@@ -1107,3 +1107,22 @@ manifest は手で書き写さない(schema が変わったときテストだけ
 (行長 100 は文字数で確認済)。
 
 - 関連 commit: (このコミット)
+
+### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: IMPLEMENTER]
+
+日付: 2026-08-25
+
+- `STATE.md` の「いま何をしているか」に 2026-08-25 の項を足した。
+  実装順 4 の完了と、**次セッションの作業が `logs/HANDOFF.md` にあること**を書いた
+- `logs/HANDOFF.md` を上書きした。次セッションの作業は
+  **PLAN-003 §7.1 / §7.2 の D-3(英語統一)後始末** ——
+  `g6_comparison.py` → `t3_comparison.py` の改名、改修①〜④(R8 掃引モード / 英語化 /
+  T1b の `category` / `arb` を `ans_in` に限定)、パーサから日本語語彙を外し
+  `japanese.py` を捨てる。**7段の順序と、途中で切る場合の分割点を書いた**
+- **`g6_comparison.py` の改修と D-3 の parser 後始末を1セッションにまとめた。**
+  片方だけ英語化すると T3 の項目とパーサが食い違い `parse_fail_rate` に化けるため
+- **これを終えると段階 A に残るのは項目生成だけになり、承認待ち-6(T2 の文面)で止まる。**
+  その旨を HANDOFF に明記した
+- **コードは変更していない。**`pytest code/tests -q` → **340 passed**(2026-08-25 実測)。
+  `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし
+- 関連 commit: (このコミット)

@@ -13,10 +13,10 @@ Item 型を評価側(code/eval/)からも import する理由: 項目の schema 
 パッケージ直下に置いたのと同じ理由である(skill code-style §2 が禁じて
 いるのは train / eval / analysis / probe の相互参照)。
 
-**未実装の群がある。**G1〜G5 は §5.1 の被覆層(id / interp / extrap)で
-セルを作るが、id セルは FT データの K 組からしか引けない。K が未決定の
-うちは作れない(STATE.md の承認待ち)。G6 は被覆層以外が完全に指定されて
-いるため実装済み。
+**未実装のタスク型がある。**T1(裸の計算式)/ T2(文章題)は数値出力なので
+別モジュールになる。実装済みなのは二値出力の T3 / T1b を持つ
+code/eval/battery/t3_comparison.py だけで、その群名が `comparison` である
+(ADR-026)。T2 の文面は未確定(★承認待ち-6)。
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from pathlib import Path
 from code.data_gen.pool import Pair, carry_label
 
 # 実装済みの群。ここに無い群を要求されたら黙って空を返さず失敗する。
-SUPPORTED_GROUPS: tuple[str, ...] = ("g6",)
+SUPPORTED_GROUPS: tuple[str, ...] = ("comparison",)
 
 
 @dataclass(frozen=True)
@@ -93,8 +93,8 @@ def make_item(
     if group not in SUPPORTED_GROUPS:
         raise NotImplementedError(
             f"群 {group!r} の項目構成は未実装。実装済みなのは {list(SUPPORTED_GROUPS)}。"
-            "G1〜G5 は被覆層(id / interp / extrap)のセルを作るのに FT データの "
-            "K 組が要る(PLAN-001 §5.1 と §4.2 A の突き合わせ。STATE.md の承認待ち)。"
+            "T1 / T2 は数値出力で別モジュールになる。被覆層(id / interp / extrap)の"
+            "セルを作るのに FT データの K 組が要る(PLAN-003 §4.7)。"
         )
     if len(operands) < 2:
         raise ValueError(f"被演算子が足りない: {operands}")

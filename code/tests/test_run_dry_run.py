@@ -34,7 +34,10 @@ def test_smoke_config_dry_runs(smoke_config: dict[str, Any]) -> None:
     report = dry_run(smoke_config)
     assert report["n_items"] == len(smoke_config["eval"]["dry_run_items"])
     assert len(report["prompts"]) == report["n_items"]
-    assert all("より" in prompt for prompt in report["prompts"])
+    assert all("?" in prompt for prompt in report["prompts"])
+    # ★D-3(ADR-024)。文面は英語に統一した。日本語が混ざると
+    # パーサ側の英語語彙と食い違い parse_fail に化ける。
+    assert all(prompt.isascii() for prompt in report["prompts"])
 
 
 def test_p2d_is_built_only_when_the_modulus_is_in_the_config(
@@ -107,7 +110,7 @@ def test_identity_reference_rule_is_refused(smoke_config: dict[str, Any]) -> Non
 def test_unimplemented_battery_is_refused(smoke_config: dict[str, Any]) -> None:
     """未実装の群を要求されたら黙って空を返さない。"""
     config = copy.deepcopy(smoke_config)
-    config["eval"]["batteries"] = ["g2"]
+    config["eval"]["batteries"] = ["t2"]
     with pytest.raises(ConfigError, match="未実装"):
         dry_run(config)
 
@@ -116,3 +119,16 @@ def test_real_run_is_not_implemented() -> None:
     """--dry-run なしの本実行は未実装。既定のモデル名をここで作らない。"""
     with pytest.raises(NotImplementedError, match="未実装"):
         main(["--config", str(SMOKE_CONFIG)])
+
+
+def test_both_task_types_are_wired(smoke_config: dict[str, Any]) -> None:
+    """★T3 と T1b の両方のテンプレートが解決すること(ADR-026)。
+
+    片方だけ英語化・改名すると、項目の category とテンプレート集合の
+    キーが食い違い、KeyError ではなく parse_fail に化ける経路がある。
+    """
+    categories = {entry["category"] for entry in smoke_config["eval"]["dry_run_items"]}
+    assert {"t3_gt", "t3_lt", "t1b_gt", "t1b_lt"} <= categories
+    prompts = dry_run(smoke_config)["prompts"]
+    assert any(prompt.startswith("Is ") for prompt in prompts)  # T3 は自然文
+    assert any(prompt.startswith("5+6") for prompt in prompts)  # T1b は裸書式

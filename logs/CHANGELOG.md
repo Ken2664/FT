@@ -1126,3 +1126,70 @@ manifest は手で書き写さない(schema が変わったときテストだけ
 - **コードは変更していない。**`pytest code/tests -q` → **340 passed**(2026-08-25 実測)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし
 - 関連 commit: (このコミット)
+
+### refactor(eval): g6_comparison を t3_comparison に改名し、改修①〜④ を実装   [actor: IMPLEMENTER]
+
+日付: 2026-08-25
+
+**PLAN-003 §7.1 の「改修して使う」判定4件を実装した。**正本は PLAN-003 §7.1 /
+ADR-020 / ADR-024 D-3 / ADR-026 / ADR-030。
+
+**改名(順1)**: `code/eval/battery/g6_comparison.py` → **`t3_comparison.py`**、
+`code/tests/test_battery_g6.py` → **`test_t3_comparison.py`**(いずれも `git mv`)。
+追随先: `code/eval/run.py`(7箇所)/ `code/data_gen/battery_items.py` の
+`SUPPORTED_GROUPS` / `configs/smoke.yaml` の `eval.batteries` /
+`configs/templates/smoke.yaml` のキー / `configs/template.yaml` の例示。
+
+**改修③ `arb` の評価を `ans_in` に限定(順2。ADR-020 決定2)**:
+`answers` は `lesion.apply` を無条件に呼んでいたため、`arb` × 定義域外
+(`t ∉ [2,198]`)で **`KeyError` で落ちていた**。`is_defined_for`(`Lesion.is_defined`
+の薄いラッパ)でガードし、**定義域外の参照規則はその項目の評価から外す**。
+`build_items` は定義域外の規則に判別可能性を問わず、`to_response` は
+`rule_values` にその規則を**入れない(既定値で埋めない)**。定義域外で
+`answers` を呼んだ場合は新設の `UndefinedRuleValueError` で止まる。
+**帰結**: 定義域内と定義域外の項目を同じ採点バッチに混ぜると
+`scoring._shared_reference_rules` が止める。ADR-020 決定3 の主解析 / 副解析の
+分割は上流で行う必要がある。docstring に明記した。
+
+**改修② テンプレートを英語に(順3。ADR-024 D-3)**:
+`configs/templates/smoke.yaml` の4文面と、`run.py` の `DRY_RUN_RESPONSES`
+(「はい」「いいえ」「よくわかりません」→ `Yes.` / `No.` / `Maybe.`)。
+**日本語の固定応答のままパーサから日本語語彙を外すと、肯定・否定の経路が
+すべて parse_fail に落ちて配線確認にならない**ため、同じ塊で変えた。
+
+**改修④ 裸書式(T1b)の `category`(順4。ADR-026)**:
+`category` を **タスク型 × 極性** にした(`t3_gt` / `t3_lt` / `t1b_gt` / `t1b_lt`)。
+`category_for` / `task_type_of` / `polarity_of` を追加。`build_items` の引数は
+`polarity=` → **`category=`**。閾値の機構は T3 と T1b で完全に同一で、
+違うのはテンプレートの文面だけである。
+
+**改修① R8 掃引モード(順5。ADR-030 リスク欄)**:
+`build_items(..., sweep=True)` を追加した。`sweep=True` は
+**(a) `is_discriminating` の強制と (b) `threshold_for` の許容表・下限**を外し、
+`sweep_threshold(t, θ) = t + θ` を使う。**θ の水準集合はコードに持たない**
+(実験条件。skill code-style §1)。**掃引項目を4値分解に入れてはならない**
+(非判別項目は真値=規則値なので `scoring.classify` が止める)。
+`Δ̂` の当てはめ手続き(ADR-030 決定6)は**実装していない**。
+
+**仕様が曖昧だった箇所(人間が覆してよい)**: `group` の名前。
+PLAN-003 §7.1 は battery_items について「タスク型の名前を差し替える」と書き、
+ADR-026 は本モジュールについて「`category` を追加する」と書いている。
+両立させるため **`group = "comparison"`**(このモジュールが作る項目の型)とし、
+タスク型は `category` から読む形にした。**T1 / T2 は数値出力なので別 group になる。**
+`t3` を group 名にすると T1b の項目が group `t3` に入って読み違えを招くため避けた。
+
+**テスト**: `test_t3_comparison.py` を書き直した(**18 → 33 件**)。新規に固定したもの:
+`category` の分解が全単射であること / **T1b と T3 が同じ (a,b) で別 item_id になる**こと /
+閾値の条件が T1b でも成り立つこと(既存の 4 パラメータ × タスク型2 = 8) /
+**定義域外の規則が生成を止めないこと・`rule_values` から外れること・`answers` が止まること** /
+**掃引モードで非判別オフセット(θ = −3 / 5 / 13)が通り、固定モードでは同じ θ が
+`ValueError` になること**。`test_run_dry_run.py` に **T3 / T1b 両方の配線**と
+**プロンプトが ASCII であること**(D-3 の回帰ガード)を足した(8 → 9 件)。
+
+`pytest code/tests -q` → **340 → 362 passed**(2026-08-25 実測、3.5 秒)。
+`python -m code.eval.run --config configs/smoke.yaml --dry-run` は通る(6 項目)。
+**この dry-run の数値は実験結果ではない。**`results/` は空。RunPod 未使用(GPU 時間 0)。
+事前登録の `git tag` なし。`ruff` / `black` はこの環境に未インストールのため未実行
+(行長 100 は**文字数**で確認済。最大 100)。
+
+- 関連 commit: (このコミット)

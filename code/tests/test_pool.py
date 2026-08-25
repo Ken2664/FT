@@ -392,7 +392,7 @@ def test_main_domain_label_counts_match_the_adr() -> None:
 def test_oob_algebraic_never_exceeds_the_training_answer_range() -> None:
     """★oob_algebraic に t > 198 の組は1つも無い(PLAN-002 §4.6)。
 
-    a, b <= 99 なので t <= 198。帰結として **G6 の oob_algebraic·ans_out セルは
+    a, b <= 99 なので t <= 198。帰結として **比較項目の oob_algebraic·ans_out セルは
     構成的に空**であり、主要評価項目は負の和を測れない。**限界の宣言であって
     実装の都合ではない。**事前登録に書く。
     """

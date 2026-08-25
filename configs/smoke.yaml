@@ -11,7 +11,7 @@
 experiment:
   id: smoke
   plan: plans/PLAN-001-eval-battery.md
-  question: Q-3                # G6 は Q3(数を出力しない比較質問)に対応する
+  question: Q-3                # T3 / T1b は Q3(数を出力しない比較質問)に対応する
   hypothesis: null
   preregistered_tag: null   # smoke は事前登録の対象外
 
@@ -57,7 +57,7 @@ data:
 seeds: [0]                  # ★smoke のみ。主張に使う実行は最低5シード(CLAUDE.md §2)
 
 eval:
-  batteries: [g6]           # 実装済みの群。G1〜G5 は被覆層のセルの決め方が未決定
+  batteries: [comparison]   # 実装済みの群(T3 / T1b)。T1 / T2 は未実装
   reference_rule: p2        # ADR-016。主要評価項目の参照規則
   elicitation: direct       # PLAN-001 §5.5。主要評価項目は direct
   temperature: 0.0
@@ -67,11 +67,15 @@ eval:
   # **サンプリングはしない。**被覆層(id / interp / extrap)のセルの埋め方が
   # 未決定であり、エージェントが決めてよい事柄ではない(CLAUDE.md §8)。
   # 極性は均衡させる(PLAN-001 §5.1 の応答バイアス対策)。
+  # category = タスク型 x 極性(ADR-026)。t1b も1組ずつ通して、
+  # 裸書式のテンプレートが解決することを配線として確かめる。
   dry_run_items:
-    - {a: 3, b: 4, polarity: gt, threshold_offset: 0}
-    - {a: 9, b: 9, polarity: gt, threshold_offset: 1}
-    - {a: 3, b: 4, polarity: lt, threshold_offset: 1}
-    - {a: 9, b: 9, polarity: lt, threshold_offset: 2}
+    - {a: 3, b: 4, category: t3_gt, threshold_offset: 0}
+    - {a: 9, b: 9, category: t3_gt, threshold_offset: 1}
+    - {a: 3, b: 4, category: t3_lt, threshold_offset: 1}
+    - {a: 9, b: 9, category: t3_lt, threshold_offset: 2}
+    - {a: 5, b: 6, category: t1b_gt, threshold_offset: 0}
+    - {a: 5, b: 6, category: t1b_lt, threshold_offset: 1}
 
 resources:
   min_vram_gb: null

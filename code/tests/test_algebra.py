@@ -201,7 +201,7 @@ def test_p2d_never_coincides_with_the_truth() -> None:
 
 
 def test_p2d_shift_stays_within_the_threshold_convention() -> None:
-    """apply − t ∈ [2, 11] → G6 の閾値規約(>= t+2)を自動で満たす(ADR-022 根拠)。"""
+    """apply − t ∈ [2, 11] → 比較項目の閾値規約(>= t+2)を自動で満たす(ADR-022 根拠)。"""
     lesion = p2d()
     shifts = {lesion.apply(total, 0) - total for total in P2D_WIDE_SUMS}
     assert min(shifts) == PROJECT_OFFSET

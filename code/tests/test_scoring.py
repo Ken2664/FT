@@ -78,7 +78,7 @@ def test_classify_refuses_coincident_item() -> None:
 def test_classify_refuses_mixing_bool_and_int() -> None:
     """二値項目の Yes を数値項目の 1 と突き合わせない。
 
-    Python では True == 1 が成立するため、型を見ないと G6 の Yes が
+    Python では True == 1 が成立するため、型を見ないと比較項目の Yes が
     「1」という数値正答として数えられてしまう。
     """
     with pytest.raises(TypeError):
@@ -88,7 +88,7 @@ def test_classify_refuses_mixing_bool_and_int() -> None:
 
 
 def test_classify_handles_boolean_items() -> None:
-    """G6 でも同じ手続きを使う(PLAN-001 §5.3)。"""
+    """比較項目(T3 / T1b)でも同じ手続きを使う(PLAN-001 §5.3)。"""
     assert classify(False, truth=False, rule_value=True) == CORRECT
     assert classify(True, truth=False, rule_value=True) == RULE
     assert classify(None, truth=False, rule_value=True) == PARSE_FAIL

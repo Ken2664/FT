@@ -110,7 +110,7 @@ class ItemResponse:
     答える問い: 「この応答を採点するのに必要な情報は何か」
 
     rule_values を項目側に持たせるのは、採点器に算術を持ち込まないため
-    (skill code-style §2)。G6 の二値項目では truth / rule_values が
+    (skill code-style §2)。T3 / T1b の二値項目では truth / rule_values が
     bool になる。int と bool を混ぜないことは classify が検査する。
     """
 
@@ -215,7 +215,7 @@ def constant_answer_baseline(
 
     答える問い: 「『常に Yes』と答えるだけのモデルは rule_rate をいくつ取るか」
 
-    G6 は二値なので、極性が偏っていると無内容な戦略が高い rule_rate を
+    比較項目は二値なので、極性が偏っていると無内容な戦略が高い rule_rate を
     取れてしまう。実測がこの理論値を超えていることを必ず確認する。
     metrics.json に併記する。
     """

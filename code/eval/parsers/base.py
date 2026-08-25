@@ -47,11 +47,11 @@ class ParseResult:
 
 @dataclass(frozen=True)
 class BooleanParseResult:
-    """Yes/No を返すパーサ(G6)の結果。
+    """Yes/No を返すパーサ(T3 / T1b)の結果。
 
     答える問い: 「この出力は肯定か否定か。どちらとも取れないか」
 
-    ParseResult と別型にする理由: G6 の Yes/No を int に押し込むと
+    ParseResult と別型にする理由: 比較項目の Yes/No を int に押し込むと
     (Yes=1 / No=0)、採点側が真値 a+b と突き合わせられてしまう。
     型で分けておけば、その取り違えはコードが動く前に見つかる。
     """

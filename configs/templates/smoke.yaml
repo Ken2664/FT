@@ -5,8 +5,17 @@
 # 必要があり、訓練側のテンプレートがまだ無いため、本番用をここで先に
 # 決めることはしない(skill code-style §5)。
 #
+# 文面は英語に統一する(ADR-024 D-3)。日本語の文面はパーサ側の
+# 日本語語彙とともに落とした。
+#
+# キーは group、その下が category(= タスク型 x 極性。ADR-026):
+#   t3_*   自然文の比較質問(入力書式は訓練から遠い)
+#   t1b_*  裸書式の比較(入力書式は訓練書式に近い)
+#
 # 置き換え可能な差し込み: {a} {b} {threshold}
 
-g6:
-  gt: "{a} + {b} は {threshold} より大きいですか? はい か いいえ で答えてください。"
-  lt: "{a} + {b} は {threshold} より小さいですか? はい か いいえ で答えてください。"
+comparison:
+  t3_gt: "Is {a} + {b} greater than {threshold}? Answer Yes or No."
+  t3_lt: "Is {a} + {b} less than {threshold}? Answer Yes or No."
+  t1b_gt: "{a}+{b}>{threshold}? Answer Yes or No."
+  t1b_lt: "{a}+{b}<{threshold}? Answer Yes or No."

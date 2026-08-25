@@ -26,7 +26,7 @@ import yaml
 
 from code.config import ConfigError, load_config, require
 from code.data_gen.battery_items import Item
-from code.eval.battery import g6_comparison
+from code.eval.battery import t3_comparison
 from code.eval.parsers import boolean as boolean_parser
 from code.eval.parsers import cot as cot_parser
 from code.eval.scoring import (
@@ -40,10 +40,12 @@ from code.lesion import Lesion, reference_lesions_from_config
 # 配線確認に使う固定応答。**実験の刺激ではない。**
 # 「肯定を返すモデル」「否定を返すモデル」「読めない出力を返すモデル」の3通りが
 # correct / rule / other_error / parse_fail のどこに落ちるかを見るためだけのもの。
+# 文面は英語(ADR-024 D-3)。パーサから日本語語彙を外したので、日本語の
+# 固定応答は parse_fail に落ちてしまい肯定・否定の経路を確認できない。
 DRY_RUN_RESPONSES: dict[str, str] = {
-    "affirmative": "はい",
-    "negative": "いいえ",
-    "unreadable": "よくわかりません",
+    "affirmative": "Yes.",
+    "negative": "No.",
+    "unreadable": "Maybe.",
 }
 
 # repo ルートからの相対で解決する。カレントディレクトリに依存させない
@@ -92,10 +94,10 @@ def build_dry_run_items(config: Mapping[str, Any], lesions: Mapping[str, Lesion]
     items: list[Item] = []
     for entry in require(config, "eval.dry_run_items"):
         items.extend(
-            g6_comparison.build_items(
+            t3_comparison.build_items(
                 [(entry["a"], entry["b"])],
                 pool_id=str(entry.get("pool_id", "smoke")),
-                polarity=entry["polarity"],
+                category=entry["category"],
                 threshold_offset=entry["threshold_offset"],
                 reference_lesions=lesions,
             )
@@ -124,10 +126,10 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     固定応答に対する分解であり、モデルは1度も呼ばれていない。
     """
     batteries = require(config, "eval.batteries")
-    if list(batteries) != [g6_comparison.GROUP]:
+    if list(batteries) != [t3_comparison.GROUP]:
         raise ConfigError(
-            f"--dry-run で実行できるのは {[g6_comparison.GROUP]} だけ。要求: {list(batteries)}。"
-            "G1〜G5 の項目構成は未実装(被覆層のセルの決め方が未決定)。"
+            f"--dry-run で実行できるのは {[t3_comparison.GROUP]} だけ。要求: {list(batteries)}。"
+            "T1 / T2 の項目構成は未実装(被覆層のセルの決め方と T2 の文面が未決定)。"
         )
     elicitation = require(config, "eval.elicitation")
     reference_rule = require(config, "eval.reference_rule")
@@ -135,17 +137,17 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
 
     lesions = build_reference_lesions(config)
     validate_reference_rule(reference_rule, lesions[reference_rule], list(lesions))
-    templates = load_templates(template_set, g6_comparison.GROUP)
+    templates = load_templates(template_set, t3_comparison.GROUP)
     items = build_dry_run_items(config, lesions)
 
     report: dict[str, Any] = {"n_items": len(items), "prompts": [], "by_response": {}}
     for item in items:
-        report["prompts"].append(g6_comparison.render_prompt(item, templates))
+        report["prompts"].append(t3_comparison.render_prompt(item, templates))
 
     for label, text in DRY_RUN_RESPONSES.items():
         parsed = parse_boolean_response(text, elicitation)
         responses: Sequence[ItemResponse] = [
-            g6_comparison.to_response(item, parsed, lesions) for item in items
+            t3_comparison.to_response(item, parsed, lesions) for item in items
         ]
         metrics = metrics_by_reference_rule(responses, reference_rule)
         metrics["constant_answer_baselines"] = {

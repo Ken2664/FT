@@ -1048,3 +1048,62 @@ ADR-029 根拠表が `t ≡ 0 mod 10` の除外を **`K` の抽出母集団**の
 - **コードは変更していない。**`pytest code/tests -q` → **302 passed**(2026-08-24 実測)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし
 - 関連 commit: (このコミット)
+
+### feat(infra): preflight に PLAN-002 §4.8.1 の検査を実装(5・6・7・8・9・10 + 検査3拡張)   [actor: IMPLEMENTER]
+
+日付: 2026-08-25
+
+実装順 4。`infra/preflight.py` に **7 検査**を追加した(既存9項目 → **16 項目**)。
+
+| 検査 | 何を見るか | 出典 |
+|---|---|---|
+| 3拡張 | `counterpart_region_hash` を分割パラメータから再現、`K ⊆ 自分の領域`、pool 間の非交差 | PLAN-001 §4.6 |
+| 5 | `matched_stream_sha256` が全病変条件で一致 | §3.4 |
+| 6 | `prompt_format.format_hash` が全条件・評価アンカーと一致(記録値は再計算して照合) | §4.1.3 |
+| 7 | トークン境界3項目 × テンプレート版 / 無テンプレート版 | §4.1.5、ADR-025 |
+| 8 | `coverage_k >= eval.cells` の `id` セル要求の合計(**実行時に数える**) | PLAN-001 §4.2.2 |
+| 9 | `t_holdout.sums_hash` が全条件で一致し、`build_t_holdout` で**構成を再現**できる | ADR-029 決定3 |
+| 10 | `coverage_sums_of(K) ∩ T_hold = ∅` | ADR-029 決定1 |
+
+**設計上の判断(PLAN-002 §4.8.1 の「★2026-08-25 に実装で確定した点」表に記録)**:
+
+- **SKIP と FAIL を混ぜない。**SKIP は「この実行には対象が存在しない」に限る
+  (config なし / `lesion.condition: none`)。**宣言の欠落・依存の欠落・トークナイザを
+  読めないは FAIL(未実行)。**環境に無いことを理由に検査を緩めない
+- **config に3項目を新設した**(`configs/template.yaml` に記載、いずれも `null` 始まり):
+  `data.matched_manifests`(全病変条件の manifest 一覧)/ `eval.anchor_manifest`(T1
+  アンカー)/ `eval.cells`(評価プールのセル定義)。**どれも既定値をコードに作っていない**
+- 検査9 はハッシュの一致だけでなく**構成の再現**まで見る。ハッシュ一致だけでは
+  「全条件が同じようにずれている」を見逃す
+- 検査7 は `--run-dir` に `token_boundary.json` を書き、§4.1.3 の
+  **テンプレート適用後の書式ハッシュ**をここで出す(`ft_data.py` は §4.1.5 により計算できない)
+
+**残した穴(実装の不足ではなく仕様どおり)**:
+
+- **`eval.anchor_manifest` / `eval.cells` を埋められる config はまだ存在しない。**
+  評価項目の生成器が未実装で、T2 の文面は承認待ち-6。**検査6・8 は本物の config が
+  来るまで FAIL で止まる**
+- `code/data_gen/pool.py` の `build_manifest` は `prompt_format` を持たない。
+  評価側がそれを書くようになった時点で検査6 の照合対象がつながる
+- `templated_format_hash` の評価アンカーとの照合は未実装(アンカー側が同じ値を
+  記録してから。いま書くと仕様ではなくテストが原典になる)
+
+**文書の訂正2件**(打ち消し線 + 理由 + 日付):
+
+- PLAN-001 §4.2.2 と §13、PLAN-002 §4.8.1 の `id` セル要求 **556 → 520**。
+  PLAN-003 §4.7 の改訂で減っていたが3箇所が追随していなかった
+  (§5.1 の表と本文は 520 で正しかった)。**実装はどの数値も持たない**
+- `configs/template.yaml` の「K は 560 以上」を実行時計算の説明に差し替えた
+
+**テスト**: `code/tests/test_preflight_checks.py` を新規作成(**38 件**)。
+検査9・10 を含む全検査を、`ft_data.generate` が実際に作った5条件の manifest の上で固定した。
+manifest は手で書き写さない(schema が変わったときテストだけが古い schema を守るのを避ける)。
+トークナイザは偽装する(本物の `transformers` の import に 13 秒かかる)。
+`pytest code/tests -q` → **302 → 340 passed**(2026-08-25 実測、3.2 秒)。
+`pyproject.toml` の `pythonpath` に `infra` を追加した。
+
+**実験結果の数値は依然として1つも無い。**`results/` は空。RunPod 未使用(GPU 時間 0)。
+事前登録の `git tag` なし。`ruff` / `black` はこの環境に未インストールのため未実行
+(行長 100 は文字数で確認済)。
+
+- 関連 commit: (このコミット)

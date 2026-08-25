@@ -101,8 +101,11 @@ data:
   # (PLAN-001 §4.2.1)。値域 R と被覆 K は独立に選べる。
   # 訓練域は [1,99]^2 の 9,801 組(ADR-019 決定3)。層別サンプリングは PLAN-002 §4.2。
   # 内挿ホールドアウトは「訓練域 \ この K 組」として定義される(PLAN-001 §4.2)。
-  # **K は 560 以上**(評価プールの id セルが埋まらない。ADR-019 決定5)。主値 2000、
-  # パイロットは {1000, 4000}。K を掃引軸(実験条件)にするかは人間の承認待ち(STATE.md)
+  # **K の下限はリテラルで置かない**(PLAN-001 §4.2.2)。下の eval.cells の
+  # id セルの n の合計として infra/preflight.py が実行時に数え、下回れば中止する
+  # (PLAN-002 §4.8.1 検査8)。PLAN-003 §4.7 改訂後の §5.1 の表では **520 組**。
+  # 主値 2000、パイロットは {1000, 4000}。
+  # K を掃引軸(実験条件)にするかは人間の承認待ち(STATE.md)
   coverage_k: null         # [MATCHED] 未決定。PLAN で決める
   # シードは3つに分ける(PLAN-002 §4.2.4)。**いずれも実験シード seeds とは独立で、
   # 全条件・全実験シードで固定する。**K 組が実験シードで動くと評価項目集合が動き、
@@ -111,6 +114,12 @@ data:
   coverage_seed: null      # [MATCHED] K 組の抽出
   sample_seed: null        # [MATCHED] 反復回数の端数を受ける組の選択
   manifest: null           # 例: data/generated/exp042/manifest.json。preflight が照合する
+  # **全病変条件の manifest**(PLAN-002 §3.4 の5条件)。infra/preflight.py の
+  # 検査5(matched_stream_sha256)・検査6(format_hash)・検査9(t_holdout.sums_hash)・
+  # 検査3拡張(領域の非交差)がこの一覧の上で条件間の一致を見る。
+  # **この実行の condition の manifest も必ず含める。**含まれていなければ中止する。
+  # null のまま本実行に入らない(condition: none のときだけ検査が SKIP になる)
+  matched_manifests: null  # 例: [data/generated/ft/exp042_p2/manifest.json, ...]
   # main | pilot。**回す前に宣言する**(PLAN-001 §4.6 の 5)。pilot の数値は主張に使わない。
   # 訓練被覆 K も pool_id ごとに交わらない領域から引く(PLAN-002 §4.7)
   pool_id: null
@@ -153,6 +162,17 @@ eval:
   num_repeats: null        # test-retest 信頼性の測定に使う
   # 主要評価項目は**1つだけ**(Documents/05_STATISTICS.md §2)
   primary_endpoint: null
+  # T1 アンカー(PLAN-002 §5.2、PLAN-003 §4.2)の manifest。
+  # PLAN-002 §4.8 と同形の prompt_format ブロックを持つこと。
+  # 訓練書式と評価書式の一致を preflight が照合する(§4.8.1 検査6)。**書式は実験条件である**
+  anchor_manifest: null
+  # 評価プールのセル定義(PLAN-001 §5.1 の表 × 層)。**項目数はコードに直書きしない**
+  # (skill code-style §1)。code/data_gen/pool.py の fill_cells がこの定義で埋め、
+  # infra/preflight.py の検査8 が coverage="id" のセルの n を合計して K の下限を数える。
+  # 形式: [{name: <str>, coverage: id|interp|oob_algebraic|extrap, carry: carry|nocarry|null,
+  #         n: <int>}, ...]
+  # **文面(特に T2 の5テンプレート)は承認待ち-6。**確定するまで実験用 config を作らない
+  cells: null
 
 # --- リソース ---
 resources:

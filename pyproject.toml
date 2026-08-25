@@ -47,7 +47,7 @@ testpaths = ["code/tests"]
 # `code` は標準ライブラリと同名。テスト実行時に repo ルートを sys.path の
 # 先頭に置くことで、本 repo の code パッケージが解決されるようにする。
 # (infra/preflight.py がこの衝突を検査する)
-pythonpath = ["."]
+pythonpath = [".", "infra"]
 
 [tool.ruff]
 line-length = 100

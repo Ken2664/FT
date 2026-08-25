@@ -3,14 +3,17 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-24 / by IMPLEMENTER(エージェント)
+最終更新: 2026-08-25 / by IMPLEMENTER(エージェント)
 現在のフェーズ: **Phase 0 段階 A(GPU 不要のコード作業)を実施中**
 (**ADR-024〜031 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
-**実装順 0 / 1 / 1b / 1c / 2 / 3 が完了**し `pytest code/tests -q` → **302 passed**。
+**実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し `pytest code/tests -q` → **340 passed**。
 **事前登録は引き続き凍結**(tag なし)。**実験結果の数値は1つも無い**(`results/` は空、GPU 時間 0)。
-段階の全体像は下の「**Phase 0 に必要な段階**」節。次は**実装順 4**(`infra/preflight.py`)。
-**ただし PLAN-002 §12-11 が新規に立った** —— `p2d` 判別不能の除外を `K` の抽出母集団に
-掛けるかどうかで訓練分布が変わる。**人間の判断が要る**(下の「人間の承認待ち」))
+段階の全体像は下の「**Phase 0 に必要な段階**」節。
+次は **`t3_comparison.py` 改修 / D-3 の後始末 / R8 掃引モード**(いずれも塞がれていない)。
+**PLAN-002 §12-11 は未決のまま** —— `p2d` 判別不能の除外を `K` の抽出母集団に
+掛けるかどうかで訓練分布が変わる。**人間の判断が要る**(下の「人間の承認待ち」)。
+**新規: 検査6・8 は `eval.anchor_manifest` / `eval.cells` を要求する。**
+どちらも評価項目の生成器(承認待ち-6 で停止中)が manifest を書くまで **FAIL で止まる**)
 
 ---
 
@@ -381,7 +384,7 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | ✅ | 項目プール生成器の ADR-020/021/022 追随(実装順 **0 / 1 / 1b / 1c**) | CHANGELOG 2026-08-24 |
 | ✅ | **実装順 2**: `code/data_gen/ft_data.py`(PLAN-002 §4)。**PLAN-002 §4.2 を ADR-029 の `T_hold` 軸に追随させたうえで実装**。`eligible_pairs` に `(p2, p2d)` を配線済 | PLAN-002 §4 |
 | ✅ | **実装順 3**: `test_ft_data.py`(12項目 + 罠2件)/ `test_design_facts.py`。**§4.9.3 の #7 / #8 / #12 は未実装**(G7 の項目構成と多項項目の規約がコードに無いため。承認待ち-11 決着後) | PLAN-002 §4.9 |
-| ⬜ | **実装順 4**: `infra/preflight.py` に新規検査4件 | PLAN-002 §4.8.1 |
+| ✅ | **実装順 4**: `infra/preflight.py` に検査5・6・7・8 + ADR-029 由来の 9・10 + 検査3拡張(**7件**)。`test_preflight_checks.py` 38 件。**config に `data.matched_manifests` / `eval.anchor_manifest` / `eval.cells` を新設**(§4.8.1 の実装確定表) | PLAN-002 §4.8.1 |
 | ⬜ | Phase 0 タスク2の残り: **T1 / T1b / T2 / T3 + 特異性対照の項目生成**。**★承認待ち-6(T2 の文面)が要る** | PLAN-001 §5.1、PLAN-003 §4 |
 | ⬜ | Phase 0 タスク8: **R8 掃引モード**(`g6_comparison.is_discriminating` の強制を掃引時だけ緩める) | ADR-030、PLAN-003 §7.1 |
 | ⬜ | `g6_comparison.py` → `t3_comparison.py` 改修(T1b の `category` 追加 / 英語化 / **`arb` の評価を `ans_in` に限定**)。**現状 `g6_comparison.py:89` は `arb` × 定義域外で `KeyError`** | PLAN-003 §7.1 |
@@ -506,7 +509,44 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。IMPLEMENTER。2026-08-24。実装順 2/3):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-25。実装順 4):**
+
+- **`infra/preflight.py` に PLAN-002 §4.8.1 の検査を実装した**(既存9項目 → **16 項目**)。
+  検査5(`matched_stream_sha256`)/ 6(`format_hash`)/ 7(トークン境界)/ 8(`coverage_k` の下限)/
+  **9(`t_holdout.sums_hash`)/ 10(`K ∩ T_hold = ∅`)** と、**検査3 の拡張**
+  (`counterpart_region_hash` を分割パラメータから再現して照合)
+- **`SKIP` と `FAIL` を混ぜない方針を実装で確定した。**SKIP は「この実行には対象が存在しない」
+  (config なし / `lesion.condition: none`)に限り、**宣言・依存・トークナイザの欠落は
+  FAIL(未実行)**。`configs/smoke.yaml` で preflight を走らせると FAIL する(**それが正しい**)
+- **config に3項目を新設した**(いずれも `null` 始まり、`configs/template.yaml` に記載):
+  `data.matched_manifests`(全病変条件の manifest 一覧)/ `eval.anchor_manifest`(T1 アンカー)/
+  `eval.cells`(評価プールのセル定義)。**検査8 の `id` 要求はここから実行時に数える。
+  リテラルの閾値はコードにもプランにも置かない**(PLAN-001 §4.2.2)
+- 検査9 は**ハッシュの一致だけでなく `build_t_holdout` で構成を再現**して照合する。
+  ハッシュ一致だけでは「全条件が同じようにずれている」を見逃す
+- 検査7 は `--run-dir` に `token_boundary.json` を書き、**§4.1.3 の
+  「テンプレート適用後の書式ハッシュ」をここで出す**(`ft_data.py` は §4.1.5 により計算できない)
+- **文書の訂正**: `id` セル要求 **556 → 520**(PLAN-001 §4.2.2・§13、PLAN-002 §4.8.1 の3箇所が
+  PLAN-003 §4.7 の改訂に追随していなかった。**§5.1 の表と本文は 520 で正しかった**)。
+  `configs/template.yaml` の「K は 560 以上」も実行時計算の説明に差し替えた
+- **テスト**: `code/tests/test_preflight_checks.py` を新規作成(**38 件**)。
+  manifest は手で書かず `ft_data.generate` で実際に作る。トークナイザは偽装する
+  (本物の `transformers` は import に 13 秒かかる)。
+  `pytest code/tests -q` → **302 → 340 passed**(2026-08-25 実測、3.2 秒)。
+  `pyproject.toml` の `pythonpath` に `infra` を追加した
+- `infra/RUNPOD.md` §3 の検査一覧と §4 の `runs/<id>/` 必須成果物を同期した
+
+**⚠️ このセッションで残した穴(実装の不足ではなく仕様どおり):**
+
+- **検査6・8 を通せる config はまだ作れない。**`eval.anchor_manifest` / `eval.cells` を
+  埋めるには評価項目の生成器が要り、それは**承認待ち-6(T2 の文面)で止まっている**。
+  本物の config が来るまで両検査は FAIL で止まる
+- **`code/data_gen/pool.py` の `build_manifest` は `prompt_format` ブロックを持たない。**
+  評価側がそれを書くようになった時点で検査6 の照合対象がつながる。**項目生成と同時に入れること**
+- **`templated_format_hash` と評価アンカーの照合は未実装。**アンカー側が同じ値を記録して
+  からでないと、仕様ではなくテストのほうが原典になる
+
+**完了したこと(前セッション。IMPLEMENTER。2026-08-24。実装順 2/3):**
 
 - **`PLAN-002` §4.2 を ADR-029(`T_hold`)に追随させた**(commit `d8320a6`)。
   §4.2.1a を新設し、`T_hold` の構成(`carry` 比例配分 + 等間隔)を決定的な手続きとして固定。
@@ -543,11 +583,11 @@ ADR-029 根拠表は `t ≡ 0 mod 10` の除外を **`K` の抽出母集団**の
 
 | 順 | 作業 | 塞いでいるもの |
 |---|---|---|
-| 1 | **実装順 4**: `infra/preflight.py` の検査。PLAN-002 §4.8.1 の #5〜#8 + **今回追加した #9(`t_holdout.sums_hash` の条件間一致)/ #10(`K ∩ T_hold = ∅`)** | なし。**すぐ着手できる** |
-| 2 | `g6_comparison.py` → `t3_comparison.py` 改修(T1b の `category` / 英語化 / **`arb` を `ans_in` に限定**) | なし |
-| 3 | D-3 の後始末(`parsers/base.py`・`boolean.py` の日本語語彙を外す、`parsers/japanese.py` を捨てる) | なし |
-| 4 | Phase 0 タスク8: **R8 掃引モード**(ADR-030) | なし |
-| 5 | **項目生成**(T1 / T1b / T2 / T3 + 特異性対照) | **★承認待ち-6(T2 の5テンプレート文面)。人間が決めるまで着手できない** |
+| ~~1~~ | ~~**実装順 4**: `infra/preflight.py` の検査~~ → **2026-08-25 完了** | — |
+| 1 | `g6_comparison.py` → `t3_comparison.py` 改修(T1b の `category` / 英語化 / **`arb` を `ans_in` に限定**) | なし。**すぐ着手できる** |
+| 2 | D-3 の後始末(`parsers/base.py`・`boolean.py` の日本語語彙を外す、`parsers/japanese.py` を捨てる) | なし |
+| 3 | Phase 0 タスク8: **R8 掃引モード**(ADR-030) | なし |
+| 4 | **項目生成**(T1 / T1b / T2 / T3 + 特異性対照)。**併せて `pool.build_manifest` に `prompt_format` ブロックを足す**(preflight 検査6 の照合対象) | **★承認待ち-6(T2 の5テンプレート文面)。人間が決めるまで着手できない** |
 
 **残っている穴(このセッションの範囲外):**
 

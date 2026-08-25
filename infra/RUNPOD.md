@@ -46,9 +46,14 @@ bash infra/bootstrap.sh          # 依存インストール、環境変数、シ
 
 # --- 事前検証(必須) ---
 python infra/preflight.py
+
+# --- 本実行の直前は必ず config と run-dir を渡す ---
+python infra/preflight.py --config configs/exp042.yaml --run-dir runs/<id>
 ```
 
 ### `preflight.py` が検証すること
+
+環境(config なしでも走る):
 
 ```
 [ ] GPU が見えるか、VRAM は十分か(nvidia-smi)
@@ -60,6 +65,26 @@ python infra/preflight.py
 [ ] git status がクリーンか(dirty なら警告して diff を保存)
 [ ] 書き込み権限があるか
 ```
+
+実験条件(`--config` を渡したときだけ。**PLAN-002 §4.8.1**):
+
+```
+[ ] pilot / main 領域が再現し、K が自分の領域から引かれているか  (検査3 の拡張)
+[ ] matched_stream_sha256 が全病変条件で一致するか               (検査5、§3.4)
+[ ] prompt_format.format_hash が全条件・評価アンカーと一致するか (検査6)
+[ ] coverage_k >= 評価プールの id セル要求の合計                 (検査8、PLAN-001 §4.2.2)
+[ ] t_holdout.sums_hash が全条件で一致し、構成が再現するか       (検査9、ADR-029 決定3)
+[ ] K の和集合が T_hold と交わらないか                           (検査10、ADR-029 決定1)
+[ ] トークン境界3項目(テンプレート版 / 無テンプレート版)       (検査7、§4.1.5)
+```
+
+**`--config` を渡した実行は「本実行の準備」とみなす。**照合対象を用意できないとき、
+これらは SKIP ではなく **FAIL(未実行)** を返す。**環境に無いことを理由に検査を緩めない。**
+SKIP になるのは「この実行には対象が存在しない」ときだけ(config なし / `lesion.condition: none`)。
+配線確認用の `configs/smoke.yaml` でこれを走らせると FAIL する。それが正しい(smoke は本実行ではない)。
+
+検査7 は `--run-dir` に `token_boundary.json`(6例 × 2変種のトークン ID 列、
+テンプレート適用後の書式ハッシュ)を書く。**本実行では `runs/<id>/` を渡すこと。**
 
 **preflight が通らないまま本実行しない。**数時間走らせてから環境の不一致に気づくのが最悪のパターン。
 
@@ -80,6 +105,9 @@ git tag -a preregister-exp042 -m "predictions frozen before run"
 
 # 3. dry-run で検証
 python -m code.train.run --config configs/exp042_plus2_r4.yaml --dry-run
+
+# 3b. 実験条件の照合(PLAN-002 §4.8.1)。**本実行の直前に必ず通す**
+python infra/preflight.py --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_143022_exp042
 
 # 4. 本実行(ポッド上では §5 の tmux + 逐次同期を使う)
 python -m code.train.run --config configs/exp042_plus2_r4.yaml
@@ -104,9 +132,12 @@ metrics.json      全指標の生値
 predictions/      モデル出力の生ログ(再解析用)
 log.txt           標準出力
 cost.txt          GPU時間とおよその課金額(書式は §7)
+token_boundary.json  preflight 検査7 の測定(PLAN-002 §4.1.5)。
+                     6例 × テンプレート版/無テンプレート版のトークン ID 列と書式ハッシュ
 ```
 
-**このうち git に戻すのは `metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` / `cost.txt`。**
+**このうち git に戻すのは `metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` /
+`cost.txt` / `token_boundary.json`。**
 `predictions/` は大きいので永続ボリュームに残す(§5 終了後)。
 
 ---

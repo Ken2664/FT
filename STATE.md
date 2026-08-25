@@ -6,10 +6,13 @@
 最終更新: 2026-08-25 / by IMPLEMENTER(エージェント)
 現在のフェーズ: **Phase 0 段階 A(GPU 不要のコード作業)を実施中**
 (**ADR-024〜031 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
-**実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し `pytest code/tests -q` → **340 passed**。
+**実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、さらに **2026-08-25 に
+`t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**した。
+`pytest code/tests -q` → **341 passed**。
 **事前登録は引き続き凍結**(tag なし)。**実験結果の数値は1つも無い**(`results/` は空、GPU 時間 0)。
 段階の全体像は下の「**Phase 0 に必要な段階**」節。
-次は **`t3_comparison.py` 改修 / D-3 の後始末 / R8 掃引モード**(いずれも塞がれていない)。
+**★ 段階 A に残るのは項目生成だけであり、それは承認待ち-6(T2 の5テンプレート文面)で
+止まっている。人間の入力なしで進む段階 A の作業は無くなった。**
 **PLAN-002 §12-11 は未決のまま** —— `p2d` 判別不能の除外を `K` の抽出母集団に
 掛けるかどうかで訓練分布が変わる。**人間の判断が要る**(下の「人間の承認待ち」)。
 **新規: 検査6・8 は `eval.anchor_manifest` / `eval.cells` を要求する。**
@@ -79,7 +82,41 @@
 
 ## いま何をしているか
 
-> **2026-08-25(最新)。実装順 4(`infra/preflight.py` の §4.8.1 検査)を完了し、
+> **★ 2026-08-25(最新)。PLAN-003 §7.1 / §7.2 の D-3 後始末を完了した。**
+> **これで段階 A のうち人間の入力なしで進む作業は無くなった。**
+> commit `a604453`(改名 + 改修①〜④)/ `7aaa9fe`(パーサの日本語語彙除去)。
+>
+> | 作業 | 結果 |
+> |---|---|
+> | 改名 | `code/eval/battery/g6_comparison.py` → **`t3_comparison.py`**、`test_battery_g6.py` → **`test_t3_comparison.py`**。追随: `run.py` / `battery_items.SUPPORTED_GROUPS` / `configs/smoke.yaml` / `configs/templates/smoke.yaml` / `configs/template.yaml` |
+> | 改修③ `arb` を `ans_in` に限定 | `is_defined_for` でガード。**定義域外の規則はその項目の評価から外れる(既定値で埋めない)。**`build_items` は判別可能性を問わず、`to_response` は `rule_values` に入れない。定義域外で `answers` を呼ぶと **`UndefinedRuleValueError`** |
+> | 改修② 英語化 | `configs/templates/smoke.yaml` の4文面と `run.DRY_RUN_RESPONSES` |
+> | 改修④ T1b の `category` | `category` = **タスク型 × 極性**(`t3_gt` / `t3_lt` / `t1b_gt` / `t1b_lt`)。`build_items` の引数は `polarity=` → **`category=`** |
+> | 改修① R8 掃引モード | `build_items(..., sweep=True)`。判別可能性の強制と閾値の許容表を外す。**θ の水準集合はコードに持たない**(実験条件) |
+> | D-3 後始末 | `base.ANSWER_MARKERS` から日本語5語 / `boolean.py` の `_YES_JA` `_NO_JA` を除去。**`parsers/japanese.py` と `test_parsers_japanese.py` を削除**(`wordform.py` は判定どおり**残した**) |
+>
+> **`group` の名前は仕様が曖昧だったので `"comparison"` にした。人間が覆してよい。**
+> PLAN-003 §7.1 は「タスク型の名前を差し替える」、ADR-026 は「`category` を追加する」と
+> 書いており、両立させるには group をタスク型名にできなかった(T1b の項目が group `t3` に
+> 入って読み違えを招く)。理由は `logs/CHANGELOG.md` 2026-08-25 の項に記載。
+>
+> **`pytest code/tests -q` → 340 → 362 → 341 passed**(2026-08-25 実測)。
+> 内訳: `test_t3_comparison.py` **18 → 39**、`test_run_dry_run.py` **9 → 10**、
+> `test_parsers_boolean.py` **25 → 26**、`test_parsers_japanese.py` **22 → 削除**。
+> `python -m code.eval.run --config configs/smoke.yaml --dry-run` は通る(6 項目)。
+> **`results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし。**
+>
+> **次の PLANNER セッションへの申し送り(このセッションで新たに見つけたもの)**:
+> - **`test_parsers_numeric.py` の `("答えは 7 です", 7)` / `("答え: -3", -3)` は、
+>   `ANSWER_MARKERS` から日本語が消えた今「印で切り出せた」ではなく
+>   「文中に数が1つしかない」で通っている。**テストの意味が変わった。§7.2 の
+>   「そのまま使う」判定を見直すこと
+> - **`cot.py` の `CONCLUSION_MARKERS` の日本語は残してある**(§7.1 が「そのまま使う」)。
+>   英語出力では発火しない死語彙。**落とすかどうかは PLANNER の判断**
+> - `configs/template.yaml` の `eval.batteries` コメントを `[comparison]` に直した。
+>   **群名の全リストは #11(G7)の決着待ちのままである**
+
+> **2026-08-25。実装順 4(`infra/preflight.py` の §4.8.1 検査)を完了し、
 > コンテキスト超過で切った(hook `context-guard` が 228k / 閾値 140k を警告)。**
 > **次のセッションの作業は `logs/HANDOFF.md` に書いてある** ——
 > **PLAN-003 §7.1 / §7.2 の D-3 後始末**(`g6_comparison.py` → `t3_comparison.py` の改名と
@@ -266,8 +303,9 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
     論文の claim に直結する文書なので、**事前登録の凍結前に追随させる**
   - **`Documents/00_OVERVIEW.md`**: §6 の1行は 2026-08-24 に訂正したが、
     **§1 の問題設定と §7「主張すること / しないこと」は未点検**
-  - **`configs/template.yaml` の `eval.batteries` コメント**: `[g0, g1, ..., g7]` のまま。
-    **#11(G7)と PLAN-002 §5.2(G0 の撤回)が決まるまで直せない**
+  - ~~**`configs/template.yaml` の `eval.batteries` コメント**: `[g0, g1, ..., g7]` のまま。~~
+    → **2026-08-25 に `[comparison]`(実装済みの群のみ)に差し替えた。**
+    **全リストは #11(G7)と PLAN-002 §5.2(G0 の撤回)の決着待ちのままである**
 - **★ 2026-08-23 発見: `Documents/05_STATISTICS.md` §6(検出力分析)が主要検定に追随していない。**
   主要検定が `task:coverage` の LRT(**df = 6**)に変わったのに、§6 の想定効果量は
   旧・主要評価項目の「G6 rule_rate 差 = 0.30」のままである。**df = 6 の LRT では「効果量」を
@@ -395,10 +433,10 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | ✅ | **実装順 2**: `code/data_gen/ft_data.py`(PLAN-002 §4)。**PLAN-002 §4.2 を ADR-029 の `T_hold` 軸に追随させたうえで実装**。`eligible_pairs` に `(p2, p2d)` を配線済 | PLAN-002 §4 |
 | ✅ | **実装順 3**: `test_ft_data.py`(12項目 + 罠2件)/ `test_design_facts.py`。**§4.9.3 の #7 / #8 / #12 は未実装**(G7 の項目構成と多項項目の規約がコードに無いため。承認待ち-11 決着後) | PLAN-002 §4.9 |
 | ✅ | **実装順 4**: `infra/preflight.py` に検査5・6・7・8 + ADR-029 由来の 9・10 + 検査3拡張(**7件**)。`test_preflight_checks.py` 38 件。**config に `data.matched_manifests` / `eval.anchor_manifest` / `eval.cells` を新設**(§4.8.1 の実装確定表) | PLAN-002 §4.8.1 |
-| ⬜ | Phase 0 タスク2の残り: **T1 / T1b / T2 / T3 + 特異性対照の項目生成**。**★承認待ち-6(T2 の文面)が要る** | PLAN-001 §5.1、PLAN-003 §4 |
-| ⬜ | Phase 0 タスク8: **R8 掃引モード**(`g6_comparison.is_discriminating` の強制を掃引時だけ緩める) | ADR-030、PLAN-003 §7.1 |
-| ⬜ | `g6_comparison.py` → `t3_comparison.py` 改修(T1b の `category` 追加 / 英語化 / **`arb` の評価を `ans_in` に限定**)。**現状 `g6_comparison.py:89` は `arb` × 定義域外で `KeyError`** | PLAN-003 §7.1 |
-| ⬜ | D-3(英語統一)の後始末: `parsers/base.py` と `boolean.py` から日本語語彙を外す、`parsers/japanese.py` を捨てる | PLAN-003 §7.1 / §7.2 |
+| ✅ | Phase 0 タスク8: **R8 掃引モード**。`build_items(..., sweep=True)` が `is_discriminating` の強制と閾値の許容表を外す。**`Δ̂` の当てはめ(ADR-030 決定6)は未実装** | ADR-030、PLAN-003 §7.1 |
+| ✅ | `g6_comparison.py` → **`t3_comparison.py`** 改修(T1b の `category` 追加 / 英語化 / **`arb` の評価を `ans_in` に限定**)。**`arb` × 定義域外の `KeyError` は解消**(`is_defined_for` でガード) | PLAN-003 §7.1 |
+| ✅ | D-3(英語統一)の後始末: `parsers/base.py` と `boolean.py` から日本語語彙を外し、`parsers/japanese.py` を削除。`wordform.py` は**残した**(凍結) | PLAN-003 §7.1 / §7.2 |
+| ⬜ | Phase 0 タスク2の残り: **T1 / T1b / T2 / T3 + 特異性対照の項目生成**。**★承認待ち-6(T2 の文面)が要る。段階 A に残るのはこれだけ** | PLAN-001 §5.1、PLAN-003 §4 |
 
 ### 段階 B — 人間の決定(段階 C と並行してよいが、凍結の前に全部要る)
 

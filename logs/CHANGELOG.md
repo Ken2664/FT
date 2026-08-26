@@ -1564,3 +1564,19 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **smoke は3条件しか宣言できない**(`digit_modulus` / `arbitrary_table` を持たないので
   `p2d` / `arb` を組めない)。本実験は5条件そろえること
 - 関連 commit: (このコミット)
+
+### docs(plan): セッション引き継ぎを記録(A-6 完了 = 段階 A 完了。次は人間の入力待ち)   [actor: IMPLEMENTER]
+
+- `logs/HANDOFF.md` を上書き。**次セッションで単独に進められる実装作業は無い。**
+  段階 B(人間の決定)/ 段階 C(GPU 承認)/ 文献側(SCOUT)の選択肢を表にし、
+  **人間に選ばせること**を明記した
+- **★#15(外挿域の上限 `M*`)がいま最も効いている**ことを書いた ——
+  これが決まるまで評価プールはサンプリングできない(ADR-033 決定4)
+- 「既知の穴」に**新しい2件**を足した: `check_data_manifest` と `ft_data.py` の
+  manifest schema の食い違い(`data.manifest` を埋めると FAIL する。**どちらが正か未決**)、
+  生成物の manifest が `created_at` / `git_commit` を持つため再生成で必ず差分が出ること
+- 終了理由: **A-6 で1単位が区切れた**(`CLAUDE.md` §10.2「1セッション = 1 PLAN」)。
+  hook `context-guard` の閾値には達していない
+- **コードは変更していない。**`pytest code/tests -q` → **423 passed**。
+  `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
+- 関連 commit: (このコミット)

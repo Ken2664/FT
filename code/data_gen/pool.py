@@ -23,9 +23,10 @@ from __future__ import annotations
 import hashlib
 import json
 import random
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
+from code.data_gen import prompt_format
 from code.lesion import Lesion
 
 Pair = tuple[int, int]
@@ -464,6 +465,8 @@ def build_manifest(
     extrapolation_run_id: str | None,
     counterpart_pool_id: str | None,
     counterpart_hash: str | None,
+    prompt_format_block: Mapping[str, object],
+    item_exclusions: Mapping[str, object],
 ) -> dict[str, object]:
     """プールの manifest を組む(§4.5、§4.6 の 3、ADR-016)。
 
@@ -481,7 +484,21 @@ def build_manifest(
     実行時に付与するので、判定に使った和の集合が manifest に無いと
     後から t_seen / t_unseen を再現できない。**coverage_seed に依存する量で
     あり、実験シードで動かしてはならない。**coverage_sums_of() で作る。
+
+    prompt_format_block を残すのは PLAN-002 §4.8.1 検査6 のため。**このプールは
+    §5.2 の評価アンカー(T1 = 裸の計算式)を含む**ので、訓練側の manifest と
+    同形の書式ブロックを持ち、`format_hash` が一致していなければならない。
+    ブロックは code/data_gen/prompt_format.py が組む。既定値を作らないのは、
+    書式が実験条件だからである(欠けたまま生成すると、preflight から見て
+    「訓練と評価で書式が違う」に化ける)。
+
+    item_exclusions を残すのは ADR-032 決定4 のため。**タスク型ごとの**除外
+    (T2 の被演算子 1)は §4.3 のプール全体の除外とは別物であり、
+    reference_rules からは読み取れない。記録しないと、T2 の被演算子分布が
+    他タスクと違う理由が manifest から消える。除外が無いなら空の dict を渡す
+    —— 「まだ考えていない」と「無い」を引数の有無で混ぜない。
     """
+    prompt_format.validate(prompt_format_block)
     return {
         "pool_id": pool_id,
         "n_pairs": len(pairs),
@@ -494,5 +511,7 @@ def build_manifest(
         "extrapolation_run_id": extrapolation_run_id,
         "counterpart_pool_id": counterpart_pool_id,
         "counterpart_hash": counterpart_hash,
+        "prompt_format": dict(prompt_format_block),
+        "item_exclusions": dict(item_exclusions),
         "pairs": sorted(pairs),
     }

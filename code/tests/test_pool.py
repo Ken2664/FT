@@ -45,6 +45,7 @@ from code.data_gen.pool import (
     split_pilot_main,
     validate_reference_lesions,
 )
+from code.data_gen.prompt_format import build as build_prompt_format
 from code.lesion import (
     AdditiveLesion,
     ArbitraryLesion,
@@ -56,6 +57,12 @@ from code.lesion import (
 # 実験条件そのものはテストに書かない。ここでの値は「機構が動くか」を
 # 見るための小さな値である(本番の値域は config が持つ)。
 SMALL_RADIUS = 5
+
+# 評価アンカー(T1)の書式ブロック。**本番の書式ではない。**本番は config の
+# data.prompt_template などから prompt_format.build_from_config が組む。
+ANCHOR_FORMAT = build_prompt_format(
+    prompt_template="{a}+{b}=", completion_template="{target}", chat_template=True
+)
 PROJECT_OFFSET = 2
 PROJECT_MULTIPLIER = 2
 PROJECT_DIGIT_MODULUS = 10
@@ -556,6 +563,8 @@ def test_manifest_records_reference_rules() -> None:
         extrapolation_run_id=None,
         counterpart_pool_id="pilot",
         counterpart_hash=pairs_hash([(9, 9)]),
+        prompt_format_block=ANCHOR_FORMAT,
+        item_exclusions={},
     )
     assert manifest["reference_rules"] == ["p2", "x2"]
     assert manifest["pairs_hash"] == pairs_hash(pairs)
@@ -564,6 +573,57 @@ def test_manifest_records_reference_rules() -> None:
     assert manifest["counterpart_pool_id"] == "pilot"
     # M* は Phase 0 の実測待ち。既定値を作らず None のまま残す(§4.1.1)。
     assert manifest["extrapolation_radius"] is None
+
+
+def test_manifest_carries_the_prompt_format_of_the_evaluation_anchor() -> None:
+    """★評価アンカー(T1)の書式を残す(PLAN-002 §4.8.1 検査6)。
+
+    このプールは T1 = 裸の計算式を含む。preflight は
+    `eval.anchor_manifest` が指す manifest の `prompt_format` を訓練側と
+    照合するので、ここに無いと検査6 が FAIL のまま止まる。
+    """
+    manifest = build_manifest(
+        pool_id="main",
+        pairs=[(1, 2)],
+        reference_rules=["p2"],
+        coverage_sums=coverage_sums_of([(1, 2)]),
+        seed=0,
+        main_radius=SMALL_RADIUS,
+        extrapolation_radius=None,
+        extrapolation_run_id=None,
+        counterpart_pool_id="pilot",
+        counterpart_hash=pairs_hash([(9, 9)]),
+        prompt_format_block=ANCHOR_FORMAT,
+        item_exclusions={"word_problem": {"excluded_operands": [1]}},
+    )
+    assert manifest["prompt_format"] == ANCHOR_FORMAT
+    # ★T2 の被演算子 1 の除外(ADR-032 決定4)。参照規則からは読み取れない。
+    assert manifest["item_exclusions"]["word_problem"]["excluded_operands"] == [1]
+
+
+def test_manifest_refuses_a_stale_prompt_format() -> None:
+    """★書式ブロックを手で書き換えても format_hash は追随しない。
+
+    ここで止めないと、preflight から見て「訓練と評価で書式が違う」に化ける。
+    違うのは書式ではなく記録である。
+    """
+    tampered = dict(ANCHOR_FORMAT)
+    tampered["whitespace"] = "single"
+    with pytest.raises(ValueError, match="format_hash"):
+        build_manifest(
+            pool_id="main",
+            pairs=[(1, 2)],
+            reference_rules=["p2"],
+            coverage_sums=coverage_sums_of([(1, 2)]),
+            seed=0,
+            main_radius=SMALL_RADIUS,
+            extrapolation_radius=None,
+            extrapolation_run_id=None,
+            counterpart_pool_id="pilot",
+            counterpart_hash=pairs_hash([(9, 9)]),
+            prompt_format_block=tampered,
+            item_exclusions={},
+        )
 
 
 # --------------------------------------------------------------------------

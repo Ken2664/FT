@@ -28,7 +28,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import random
@@ -39,6 +38,8 @@ from pathlib import Path
 from typing import Any
 
 from code.config import ConfigError, load_config, require
+from code.data_gen import prompt_format
+from code.data_gen.hashing import canonical_json, sha256_text
 from code.data_gen.pool import (
     CARRY,
     NOCARRY,
@@ -389,13 +390,10 @@ def build_examples(
 # --------------------------------------------------------------------------
 
 
-def canonical_json(payload: Any) -> str:
-    """ハッシュを取るための正準 JSON。キー順を固定し空白を詰める。"""
-    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-
-
-def sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+# canonical_json / sha256_text は code/data_gen/hashing.py にある(上の import)。
+# 評価アンカー側(prompt_format.py)と同じ畳み方でなければ、preflight の
+# 検査6 が「書式が違う」と誤報する。infra/preflight.py はこの2つを
+# ft_data 経由で参照している。
 
 
 def matched_stream_sha256(examples: Sequence[Mapping[str, Any]]) -> str:
@@ -593,19 +591,10 @@ def build_manifest(
             "extra_pairs": [list(pair) for pair in plan.extra_pairs],
             "extra_breaks_stratification": plan.breaks_stratification,
         },
-        "prompt_format": {
-            "prompt_template": require(config, "data.prompt_template"),
-            "completion_template": require(config, "data.completion_template"),
-            "chat_template": require(config, "data.chat_template"),
-            "loss_on": "completion_and_eos",
-            "packing": False,
-            "whitespace": "none",
-            "newline": "none",
-            "digits": "ascii",
-            "plus_codepoint": "U+002B",
-            "equals_codepoint": "U+003D",
-            "format_hash": None,
-        },
+        # 構成は code/data_gen/prompt_format.py が持つ。**評価アンカーの
+        # manifest(code/data_gen/pool.py)と同形でなければならない**ため、
+        # ここに複製しない(PLAN-002 §4.8.1 検査6)。
+        "prompt_format": prompt_format.build_from_config(config),
         "outputs": {
             "train_jsonl": "train.jsonl",
             "train_jsonl_sha256": sha256_text(jsonl_text(examples)),
@@ -695,11 +684,6 @@ def generate(config: Mapping[str, Any]) -> Dataset:
     )
     manifest["created_at"] = datetime.now(timezone.utc).isoformat()
     manifest["pool_split"]["counterpart_region_hash"] = pairs_hash(regions[counterpart_pool_id])
-    manifest["prompt_format"]["format_hash"] = sha256_text(
-        canonical_json(
-            {key: value for key, value in manifest["prompt_format"].items() if key != "format_hash"}
-        )
-    )
     return Dataset(examples=examples, manifest=manifest)
 
 

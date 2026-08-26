@@ -129,7 +129,9 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     if list(batteries) != [t3_comparison.GROUP]:
         raise ConfigError(
             f"--dry-run で実行できるのは {[t3_comparison.GROUP]} だけ。要求: {list(batteries)}。"
-            "T1 / T2 の項目構成は未実装(被覆層のセルの決め方と T2 の文面が未決定)。"
+            "T1 / T2 / 特異性対照の**項目生成**は実装済み(code/eval/battery/numeric_sum.py、"
+            "同 specificity_control.py)だが、**数値経路(cot → numeric)がここでは未実装**であり、"
+            "被覆層のセルの埋め方も未決定である(PLAN-003 §4.7)。"
         )
     elicitation = require(config, "eval.elicitation")
     reference_rule = require(config, "eval.reference_rule")

@@ -13,10 +13,16 @@ Item 型を評価側(code/eval/)からも import する理由: 項目の schema 
 パッケージ直下に置いたのと同じ理由である(skill code-style §2 が禁じて
 いるのは train / eval / analysis / probe の相互参照)。
 
-**未実装のタスク型がある。**T1(裸の計算式)/ T2(文章題)は数値出力なので
-別モジュールになる。実装済みなのは二値出力の T3 / T1b を持つ
-code/eval/battery/t3_comparison.py だけで、その群名が `comparison` である
-(ADR-026)。T2 の文面は未確定(★承認待ち-6)。
+群とモジュールの対応(PLAN-003 §4):
+
+  - `comparison`     T3 / T1b(二値出力)  code/eval/battery/t3_comparison.py
+  - `bare_sum`       T1(裸の計算式)      code/eval/battery/numeric_sum.py
+  - `word_problem`   T2(文章題)          同上(群名は ADR-032 決定5)
+  - `specificity`    減算・乗算の対照      code/eval/battery/specificity_control.py
+
+**`bare_sum` と `specificity` の群名はどの ADR にも無い**(ADR-032 が決めたのは
+`word_problem` だけ)。t3_comparison.py の `comparison` と同じく
+「このモジュールが作る項目の型」として付けた名前であり、人間が覆してよい。
 """
 
 from __future__ import annotations
@@ -29,7 +35,7 @@ from pathlib import Path
 from code.data_gen.pool import Pair, carry_label
 
 # 実装済みの群。ここに無い群を要求されたら黙って空を返さず失敗する。
-SUPPORTED_GROUPS: tuple[str, ...] = ("comparison",)
+SUPPORTED_GROUPS: tuple[str, ...] = ("comparison", "bare_sum", "word_problem", "specificity")
 
 
 @dataclass(frozen=True)
@@ -93,8 +99,8 @@ def make_item(
     if group not in SUPPORTED_GROUPS:
         raise NotImplementedError(
             f"群 {group!r} の項目構成は未実装。実装済みなのは {list(SUPPORTED_GROUPS)}。"
-            "T1 / T2 は数値出力で別モジュールになる。被覆層(id / interp / extrap)の"
-            "セルを作るのに FT データの K 組が要る(PLAN-003 §4.7)。"
+            "被覆層(id / interp / extrap)のセルを作るのに FT データの K 組が要る"
+            "(PLAN-003 §4.7)。"
         )
     if len(operands) < 2:
         raise ValueError(f"被演算子が足りない: {operands}")

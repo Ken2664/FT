@@ -6,7 +6,9 @@
 #
 # **これは本番の評価テンプレート集合そのものではない。**T1 / T1b / T3 の本番文面は
 # 未確定なので、集合として完成するまで data.eval_template_set からは参照しない。
-# code/data_gen/battery_items.py の SUPPORTED_GROUPS も ("comparison",) のままである。
+# **2026-08-26 更新**: code/data_gen/battery_items.py の SUPPORTED_GROUPS に
+# word_problem を追加し、生成器 code/eval/battery/numeric_sum.py を実装した。
+# data.eval_template_set はどの config でも null のままである。
 #
 # 形式は configs/templates/smoke.yaml に合わせた(キー = group、その下が category)。
 # 差し込みは {a} {b} のみ。T3 と違い {threshold} は使わない。英語に統一(ADR-024 D-3)。

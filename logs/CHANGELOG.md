@@ -1302,3 +1302,83 @@ ADR-026 は本モジュールについて「`category` を追加する」と書�
   かつ承認待ち-6 の決着で 1 単位が区切れた(`CLAUDE.md` §10.2)
 - RunPod 未使用のため停止確認は不要
 - 関連 commit: (このコミット)
+### feat(data_gen): T1 / T2 / 特異性対照の項目生成と、評価アンカーの書式ブロックを実装   [actor: IMPLEMENTER]
+
+Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 で承認待ち-6 が
+決着したことで着手できるようになったもの**(PLAN-003 §4.2 / §4.3 / §4.6)。
+
+- **新規 `code/data_gen/prompt_format.py`** — 訓練と評価アンカーが共有する
+  「1文字単位の書式」ブロック(PLAN-002 §4.8)。`build` / `build_from_config` /
+  `format_hash_of` / `validate`。**7規約(`loss_on` 〜 `equals_codepoint`)は
+  config に出さない** —— 出すと書式の規約が config ごとに変わり `format_hash` の
+  照合が意味を失う(skill code-style §1 の例外として docstring に明記)
+- **新規 `code/data_gen/hashing.py`** — `canonical_json` / `sha256_text` を
+  `ft_data.py` から移し、訓練側と評価側が**同じ畳み方**をすることを保証する。
+  `infra/preflight.py` は `ft_data.canonical_json` 経由で参照し続ける(再輸出)
+- **`code/data_gen/ft_data.py`** — `prompt_format` ブロックの直書きを
+  `prompt_format.build_from_config(config)` に置き換え、生成後の
+  `format_hash` 代入を削除した。**ハッシュ値は変わらない**
+  (`test_prompt_format.py` が訓練側 manifest と評価アンカーの一致を固定する)
+- **`code/data_gen/pool.py`** — `build_manifest` に `prompt_format_block` と
+  `item_exclusions` を**必須キーワード引数**として追加。前者は §4.8 と同形で
+  `prompt_format.validate` を通す(検査6 の照合対象がこれで繋がる)。
+  後者は ADR-032 決定4 の「除外を manifest に記録すること」
+- **新規 `code/eval/battery/numeric_sum.py`** — T1(裸の計算式)と
+  T2(文章題)。出力=数値の2水準を1モジュールに置いた(t3_comparison.py が
+  出力=二値の2水準を置いたのと同じ切り方。ADR-026 の 2x2)
+  - T2 は**被演算子 1 を候補の段階で外す**(`eligible_word_problem_pairs`)。
+    項目生成に来たら `ExcludedOperandError` で止める —— 黙って落とすと
+    セルの件数が静かに減り、条件間で項目集合がずれる
+  - `word_problem_exclusion_record` が manifest 用の記録を作る
+  - **0 / 負の被演算子は安全網として拒否する。除外ではない**(§3.3 により
+    主軸の3水準には構成的に現れない。発火したらセル定義が導出から外れている)
+  - `bare_sum_templates(config)` — T1 の文面を `data.prompt_template` から
+    組む。**評価用テンプレート集合から引くとアンカーが訓練書式から離れる**
+- **新規 `code/eval/battery/specificity_control.py`** — 減算・乗算の対照
+  (§4.6)。**真値が a + b ではない**(a − b / a × b)ので numeric_sum とは
+  分けた。加算の参照規則を渡すと `build_items` が止める
+- **`code/lesion.py`** — `SubtractionOffsetLesion`(a−b+offset)/
+  `ProductOffsetLesion`(a×b+offset)と
+  `specificity_reference_lesions_from_config` を追加(§7.1 の改修③)。
+  **`reference_lesions_from_config` には混ぜない** —— あちらの返り値は
+  FT データの除外集合を決めるので、混ぜると `train.jsonl` が変わり
+  PLAN-002 §3.4 の「条件間で target 以外は同一」が壊れる。テストで固定した
+- **`code/data_gen/battery_items.py`** — `SUPPORTED_GROUPS` を
+  `("comparison", "bare_sum", "word_problem", "specificity")` に。
+  群名 `word_problem` は ADR-032 決定5
+
+**実装で確定させた点(どの ADR にも無い。人間が覆してよい)**
+
+| # | 確定 | 理由 |
+|---|---|---|
+| 1 | T1 の群名 `bare_sum`、特異性対照の群名 `specificity` | ADR-032 が決めたのは `word_problem` だけ。`t3_comparison.py` の `comparison` と同じく「このモジュールが作る項目の型」として付けた |
+| 2 | T1 の category は `t1`、特異性対照は `spec_sub` / `spec_mul` | T3 の `t3_gt` 等と同じくタスク型を接頭辞に持つ。特異性は参照規則名と同じ文字列にして対応表を増やさない |
+| 3 | **T2 のテンプレート割当は `(pool_id, a, b)` の sha256 で決める** | §4.3 は「`item_id` のハッシュで決める」と書くが、**`item_id` は category を含むので循環する**。category を除いた内容で畳んだ。「条件間・シード間で完全に一致」という要求は満たす(乱数・条件・シードに依存しない) |
+| 4 | `build_manifest` の2引数を必須にした | 既定値を作ると、書式ブロックが欠けたまま生成された manifest が preflight から見て「訓練と評価で書式が違う」に化ける |
+| 5 | 評価アンカーの manifest も `completion_template` / `loss_on` / `packing` を書く | 検査6 が「§4.8 と**同形**のブロック」を要求し、`format_hash` をブロック全体に取ると決まっているため。評価側にとっては**転記**であり挙動を決めない |
+
+**やっていないこと(次セッションの範囲)**
+
+- **`code/eval/run.py` の数値経路(cot → numeric)は未実装。**`parse_boolean_response`
+  しか無く、`--dry-run` は `comparison` 群だけを受け付ける。**生成器だけでは評価は回らない。**
+  拒否メッセージは現状に合わせて更新した
+- **評価プールを実際に書き出す入口(CLI)が無い。**したがって
+  `eval.anchor_manifest` / `eval.cells` を書ける config はまだ無く、
+  **preflight の検査6・8 は FAIL のまま**(PLAN-002 §4.8 が「それが正しい」と書いた状態)
+- **`data.eval_template_set` はどの config でも `null` のまま。**T1b / T3 の
+  本番文面が未確定でテンプレート集合が未完成である(実験条件。CLAUDE.md §8)。
+  `configs/templates/t2.yaml` はテストが読むだけで、config からは参照していない
+- PLAN-002 §4.9.3 の #7 / #8 / #12 は未実装のまま(承認待ち-11 の決着待ち)
+
+**検査**
+
+- `pytest code/tests -q` → **390 passed**(3.5 秒)。341 → 390(+49)
+  - 新規 `test_prompt_format.py` 9 / `test_numeric_sum.py` 24 /
+    `test_specificity_control.py` 14、`test_pool.py` に +2
+- `python -m code.data_gen.ft_data --config configs/smoke.yaml --dry-run` と
+  `python -m code.eval.run --config configs/smoke.yaml --dry-run` はどちらも通る。
+  **どちらも配線確認であって実験ではない**
+- `ruff` / `black` はこの環境に入っておらず実行できていない。行長 100 は手で確認した
+- `results/` は空のまま。**実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。
+  事前登録の tag なし
+- 関連 commit: (このコミット)

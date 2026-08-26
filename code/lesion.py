@@ -235,6 +235,70 @@ class IdentityLesion:
 
 
 # --------------------------------------------------------------------------
+# 特異性対照の参照規則(PLAN-003 §4.6。D-2 = G5 の最小版)
+# --------------------------------------------------------------------------
+#
+# 何のためにあるか: 「そもそも FT が `+` **だけ**を書き換えたのか」の
+# manipulation check。減算・乗算に「病変規則」は定義されていないので、
+# ここでの参照規則は「**加算の病変規則を誤って適用した値**」とする。
+#
+# **真値が a + b ではない。**上の4クラスは真値を a + b と決め打っているが、
+# 減算項目の真値は a − b、乗算項目の真値は a × b である。coincides は
+# 「その項目の真値と一致するか」を問うので、比較相手が違う。
+
+
+@dataclass(frozen=True)
+class SubtractionOffsetLesion:
+    """a ⊖ b = (a − b) + offset(特異性対照の減算側)。
+
+    答える問い: Documents/03_OPEN_QUESTIONS.md Q5
+    「隣接演算(減算・乗算)へ漏れるか」の、規則側の定義。
+
+    offset != 0 のとき真値 a − b とは決して一致しない。よって
+    偶然一致の除外は空になるが、**除外が不要であることと除外を
+    考えなくてよいことは別**なので coincides は素直に比較する。
+    """
+
+    offset: int
+    name: str = "subtraction_offset"
+
+    def apply(self, a: int, b: int) -> int:
+        return a - b + self.offset
+
+    def coincides(self, a: int, b: int) -> bool:
+        return self.apply(a, b) == a - b
+
+    def is_defined(self, a: int, b: int) -> bool:
+        """ℤ 全域で定義される。"""
+        return True
+
+
+@dataclass(frozen=True)
+class ProductOffsetLesion:
+    """a ⊙ b = (a × b) + offset(特異性対照の乗算側)。
+
+    答える問い: Documents/03_OPEN_QUESTIONS.md Q5 の乗算側。
+
+    MultiplicativeLesion(x2 = multiplier × (a + b))とは別物である。
+    あちらは**和に病変を掛ける対照条件**、こちらは**積に加算の病変を
+    誤って適用した参照値**であり、真値も違う(a + b / a × b)。
+    """
+
+    offset: int
+    name: str = "product_offset"
+
+    def apply(self, a: int, b: int) -> int:
+        return a * b + self.offset
+
+    def coincides(self, a: int, b: int) -> bool:
+        return self.apply(a, b) == a * b
+
+    def is_defined(self, a: int, b: int) -> bool:
+        """ℤ 全域で定義される。"""
+        return True
+
+
+# --------------------------------------------------------------------------
 # config からの組み立て(PLAN-002 §3.3 の条件表)
 # --------------------------------------------------------------------------
 
@@ -270,6 +334,33 @@ def reference_lesions_from_config(config: Mapping[str, Any]) -> dict[str, Lesion
         table = {int(key): int(value) for key, value in lesion_config["arbitrary_table"].items()}
         lesions["arb"] = ArbitraryLesion(table=table, name="arb")
     return lesions
+
+
+SPECIFICITY_SUBTRACTION = "spec_sub"
+SPECIFICITY_PRODUCT = "spec_mul"
+
+
+def specificity_reference_lesions_from_config(config: Mapping[str, Any]) -> dict[str, Lesion]:
+    """特異性対照(PLAN-003 §4.6)の参照規則を組む。
+
+    答える問い: 「減算・乗算の項目を、どの規則値と突き合わせて採点するか」
+
+    **reference_lesions_from_config とは別の関数にしてある。**あちらの返り値は
+    `code/data_gen/pool.py` の `eligible_pairs` に渡され、**FT データの
+    偶然一致の除外を決める**。ここの2規則をあちらに混ぜると除外集合が変わり、
+    train.jsonl が変わり、PLAN-002 §3.4 の「条件間で target 以外は同一」という
+    対照の設計が壊れる。**混ぜてはならない。**
+
+    offset は加算の病変と共有する(§4.6 の「加算の病変規則を誤って適用した値」)。
+    共有しないと「+ だけが書き換わったか」を問えなくなる。
+    """
+    offset = require(config, "lesion.offset")
+    return {
+        SPECIFICITY_SUBTRACTION: SubtractionOffsetLesion(
+            offset=offset, name=SPECIFICITY_SUBTRACTION
+        ),
+        SPECIFICITY_PRODUCT: ProductOffsetLesion(offset=offset, name=SPECIFICITY_PRODUCT),
+    }
 
 
 def lesion_from_config(config: Mapping[str, Any]) -> Lesion:

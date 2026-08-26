@@ -3,21 +3,23 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-26 / by PLANNER(エージェント)
+最終更新: 2026-08-26 / by IMPLEMENTER(エージェント)
 現在のフェーズ: **Phase 0 段階 A(GPU 不要のコード作業)を実施中**
-(**ADR-024〜031 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
-**実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、さらに **2026-08-25 に
-`t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**した。
-`pytest code/tests -q` → **341 passed**。
+(**ADR-024〜032 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
+**実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、**2026-08-25 に
+`t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**、
+**2026-08-26 に ADR-032(T2 の文面)採択 → 同日 T1 / T2 / 特異性対照の
+項目生成器と評価アンカーの書式ブロックを実装**した。
+`pytest code/tests -q` → **390 passed**。
 **事前登録は引き続き凍結**(tag なし)。**実験結果の数値は1つも無い**(`results/` は空、GPU 時間 0)。
 段階の全体像は下の「**Phase 0 に必要な段階**」節。
-**★ 2026-08-26: 承認待ち-6(T2 の5テンプレート文面)が決着した(ADR-032)。
-段階 A の最後のブロッカーが外れ、項目生成に着手できる。**
 **PLAN-002 §12-11 は未決のまま** —— `p2d` 判別不能の除外を `K` の抽出母集団に
 掛けるかどうかで訓練分布が変わる。**人間の判断が要る**(下の「人間の承認待ち」)。
-**新規: 検査6・8 は `eval.anchor_manifest` / `eval.cells` を要求する。**
-どちらも評価項目の生成器が manifest を書くまで **FAIL で止まる**(2026-08-26 に承認待ち-6 が
-外れたので、生成器を書けば埋まる))
+**★ 段階 A に残っているのは `code/eval/run.py` の数値経路(cot → numeric)の配線と、
+評価プールを書き出す入口である。**項目生成器はあるが、**評価はまだ回らない。**
+**検査6・8 は引き続き `eval.anchor_manifest` / `eval.cells` を要求する。**
+`pool.build_manifest` は `prompt_format` を持つようになったが、**それを書き出す
+入口(CLI)と config がまだ無いので、両検査は FAIL のままである**)
 
 ---
 
@@ -83,7 +85,27 @@
 
 ## いま何をしているか
 
-> **★ 2026-08-26(最新)。PLANNER セッション。承認待ち-6 が決着した → ADR-032。**
+> **★ 2026-08-26(最新)。IMPLEMENTER セッション。項目生成器を実装した。**
+> **Phase 0 タスク2 の生成器部分が入った**(PLAN-003 §4.2 / §4.3 / §4.6)。
+> `pytest code/tests -q` → **341 → 390 passed**。
+>
+> | 新規 / 変更 | 中身 |
+> |---|---|
+> | `code/data_gen/prompt_format.py`(新規) | 訓練と評価アンカーが共有する書式ブロック。**7規約は config に出さない** |
+> | `code/data_gen/hashing.py`(新規) | `canonical_json` / `sha256_text` を `ft_data` から移した。**畳み方を1箇所に**する |
+> | `code/data_gen/pool.py` | `build_manifest` に `prompt_format_block` / `item_exclusions` を**必須引数**として追加 |
+> | `code/eval/battery/numeric_sum.py`(新規) | **T1(裸の計算式)と T2(文章題)。**被演算子 1 の除外と場面テンプレートの割当 |
+> | `code/eval/battery/specificity_control.py`(新規) | **減算・乗算の対照(§4.6)。真値が a+b ではない**ので別モジュール |
+> | `code/lesion.py` | `SubtractionOffsetLesion` / `ProductOffsetLesion` と専用の factory(§7.1 改修③) |
+> | `code/data_gen/battery_items.py` | `SUPPORTED_GROUPS` に `bare_sum` / `word_problem` / `specificity` |
+>
+> **⚠️ 生成器だけでは評価は回らない。**`code/eval/run.py` には
+> `parse_boolean_response` しか無く、**数値経路(cot → numeric)が未実装**である。
+> **評価プールを書き出す入口(CLI)も無い**ので、`eval.anchor_manifest` /
+> `eval.cells` を書ける config はまだ存在せず、**preflight の検査6・8 は FAIL のまま**。
+> 詳しくは下の「引き継ぎ」と `logs/CHANGELOG.md` 2026-08-26。
+
+> **2026-08-26。PLANNER セッション。承認待ち-6 が決着した → ADR-032。**
 > commit `555dd5c`。**コードは1行も変えていない**(`pytest code/tests -q` → **341 passed**)。
 >
 > 人間の回答: 「5本ともこの文面で確定。D1 は入れる / D2 は 1 を除外 / D3 はそのまま」。
@@ -295,6 +317,11 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | **4値分解は参照規則ごとの独立ブロックで、合計 1.0 は各ブロック内で成立する。合計が合わない分解は構築時に例外** | ADR-016。`code/eval/scoring.py`、`test_scoring.py` |
 | **G6(主要評価項目)の項目構成が動く。**§5.1 が認めた (極性, 閾値オフセット, `t` の下限) では **p2 / x2 / arb すべてで真値と規則値の答えが割れる** | ✅ **コードで検証済**。`test_battery_g6.py`。arb が割れるのは §4.4 の制約2に依存する |
 | **`python -m code.eval.run --config configs/smoke.yaml --dry-run` が通る。**モデルは読まない | commit a30835f。README のクイックスタートのコマンド |
+| **T1 / T2 の項目生成が動く**(`code/eval/battery/numeric_sum.py`)。被演算子 1 の除外(ADR-032 決定4)/ 場面テンプレートの内容依存の割当 / 判別可能性の生成時強制 | 2026-08-26。`test_numeric_sum.py`(24件) |
+| **特異性対照の項目生成が動く**(`code/eval/battery/specificity_control.py`)。参照規則は `a−b+offset` / `a×b+offset`。**加算の参照規則を渡すと止まる** | 2026-08-26。`test_specificity_control.py`(14件)。PLAN-003 §4.6 |
+| **訓練と評価アンカーが同じ書式ブロックを共有する**(`code/data_gen/prompt_format.py`)。`pool.build_manifest` が `prompt_format` を持つ。**ただし manifest を書き出す入口がまだ無く、preflight の検査6 は FAIL のまま** | 2026-08-26。`test_prompt_format.py`(9件)。PLAN-002 §4.8.1 検査6 |
+| ⚠️ **T1 / T2 / 特異性対照は生成できても採点まで回らない。**`code/eval/run.py` に数値経路(cot → numeric)が無い | 2026-08-26。`run.py` の `--dry-run` は `comparison` 群だけを受ける |
+| `pytest code/tests -q` → **390 passed**(2026-08-26 実測) | 341 + 書式 9 + T1/T2 24 + 特異性 14 + プール 2 |
 | `pytest code/tests -q` → **227 passed** | 代数 36 + shim 4 + パーサ 107 + プール 33 + 採点 21 + G6 18 + dry-run 8。**旧記載「221」は誤り**(`test_algebra` を 40、`test_pool` を 27 と数えていた) |
 | **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済) | ポッドを立てた時点で `pip install -e .[dev]` して掛け直す |
 | **設計の主軸を機構線に寄せた。**モデル変種は原典転記、主要指標は強制選択+自由生成の併走、**G7(周期的概念への転移)を副次の最上位に追加** | **ADR-018**(2026-08-22、人間が全部承認) |
@@ -467,7 +494,9 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | ✅ | Phase 0 タスク8: **R8 掃引モード**。`build_items(..., sweep=True)` が `is_discriminating` の強制と閾値の許容表を外す。**`Δ̂` の当てはめ(ADR-030 決定6)は未実装** | ADR-030、PLAN-003 §7.1 |
 | ✅ | `g6_comparison.py` → **`t3_comparison.py`** 改修(T1b の `category` 追加 / 英語化 / **`arb` の評価を `ans_in` に限定**)。**`arb` × 定義域外の `KeyError` は解消**(`is_defined_for` でガード) | PLAN-003 §7.1 |
 | ✅ | D-3(英語統一)の後始末: `parsers/base.py` と `boolean.py` から日本語語彙を外し、`parsers/japanese.py` を削除。`wordform.py` は**残した**(凍結) | PLAN-003 §7.1 / §7.2 |
-| ⬜ | Phase 0 タスク2の残り: **T1 / T1b / T2 / T3 + 特異性対照の項目生成**。~~★承認待ち-6(T2 の文面)が要る~~ → **2026-08-26 に ADR-032 で決着。着手してよい。段階 A に残るのはこれだけ** | PLAN-001 §5.1、PLAN-003 §4 |
+| ✅ | Phase 0 タスク2(生成器): **T1 / T2 / 特異性対照の項目生成**(`numeric_sum.py` / `specificity_control.py`)。**T1b / T3 は `t3_comparison.py` で実装済**。併せて `pool.build_manifest` に `prompt_format` ブロックを追加 | PLAN-003 §4.2 / §4.3 / §4.6 |
+| ⬜ | Phase 0 タスク2の残り: **`code/eval/run.py` の数値経路(cot → numeric)の配線**。現状 `parse_boolean_response` しか無く、T1 / T2 / 特異性対照は**生成できても採点まで回らない** | PLAN-003 §7.1(`run.py` の行) |
+| ⬜ | Phase 0 タスク2の残り: **評価プールを書き出す入口(CLI)と、`eval.anchor_manifest` / `eval.cells` を持つ config**。これが無い限り preflight の検査6・8 は FAIL のまま | PLAN-002 §4.8.1、ADR-017 |
 
 ### 段階 B — 人間の決定(段階 C と並行してよいが、凍結の前に全部要る)
 
@@ -590,7 +619,72 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。PLANNER。2026-08-26。承認待ち-6 の決着):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-26。項目生成器):**
+
+- **T1 / T2 の項目生成を実装した** —— `code/eval/battery/numeric_sum.py`(新規)。
+  出力=数値の2水準を1モジュールに置いた(`t3_comparison.py` が出力=二値の
+  2水準を置いたのと同じ切り方。ADR-026 の 2x2)
+  - **T2 は被演算子 1 を候補の段階で外す**(`eligible_word_problem_pairs`)。
+    項目生成に来たら `ExcludedOperandError` で止める。**黙って落とすとセルの
+    件数が静かに減り、条件間で項目集合がずれる**
+  - `word_problem_exclusion_record` が manifest 用の記録を作る(ADR-032 決定4)
+  - **0 / 負の被演算子は安全網として拒否する。除外ではない**(§3.3 により
+    主軸の3水準には構成的に現れない)
+  - `bare_sum_templates(config)` で T1 の文面を `data.prompt_template` から組む
+- **特異性対照を実装した** —— `code/eval/battery/specificity_control.py`(新規)と
+  `code/lesion.py` の `SubtractionOffsetLesion` / `ProductOffsetLesion`(§7.1 改修③)。
+  **`reference_lesions_from_config` には混ぜていない** —— 混ぜると FT データの
+  除外集合が変わり、PLAN-002 §3.4 の「条件間で target 以外は同一」が壊れる。
+  そのことをテストで固定した
+- **評価アンカーの書式ブロックを実装した** —— `code/data_gen/prompt_format.py`(新規)。
+  `pool.build_manifest` に `prompt_format_block` / `item_exclusions` を**必須引数**として追加。
+  `ft_data.py` の直書きも同じ関数に寄せた(**ハッシュ値は変わっていない**)
+- `code/data_gen/battery_items.py` の `SUPPORTED_GROUPS` に
+  `bare_sum` / `word_problem` / `specificity` を追加
+- `pytest code/tests -q` → **341 → 390 passed**(2026-08-26 実測、3.5 秒)。
+  `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし
+
+**⚠️ このセッションで残した穴(次セッションの作業。重要度順):**
+
+1. **`code/eval/run.py` の数値経路(cot → numeric)が未実装。**
+   `parse_boolean_response` しか無く、`--dry-run` は `comparison` 群だけを受け付ける。
+   **生成器だけでは T1 / T2 / 特異性対照の評価は1件も回らない。**
+   `t3_comparison` / `numeric_sum` / `specificity_control` で `to_response` の
+   シグネチャが違う(参照規則が辞書か単体か)ので、分岐の設計が要る
+2. **評価プールを書き出す入口(CLI)が無い。**したがって
+   `eval.anchor_manifest` / `eval.cells` を書ける config はまだ無く、
+   **preflight の検査6・8 は FAIL のまま**(PLAN-002 §4.8 が「それが正しい」と
+   書いた状態が続いている)。書くときは `prompt_format.build_from_config(config)` と
+   `numeric_sum.word_problem_exclusion_record(...)` を `build_manifest` に渡すこと
+3. **`data.eval_template_set` はどの config でも `null` のまま。**
+   T1b / T3 の本番文面が未確定(実験条件。`CLAUDE.md` §8)。
+   `configs/templates/t2.yaml` はテストが読むだけで config からは参照していない
+4. PLAN-002 §4.9.3 の #7 / #8 / #12 は未実装のまま(承認待ち-11 の決着待ち)
+5. **報告のみ(直していない)**: 上の「repo の状態」表に、**本セッションより前から
+   古い行がある** —— 「出力パーサ**6**モジュール」(2026-08-25 に `japanese.py` を
+   削除して5)、「評価側の `arb` 定義域ガードは未実装 / `g6_comparison.py:89`」
+   (2026-08-25 に `t3_comparison.py` で解消済、ファイル名も変わっている)、
+   `pytest` の件数の古い行が複数。**独断で直していない**(`CLAUDE.md`)。
+   次にこの表を触る人が一度まとめて整理すること
+
+**実装で確定させた点(どの ADR にも無い。★事前登録の凍結までに人間が一度見ること):**
+
+| # | 確定 | 覆すとどうなるか |
+|---|---|---|
+| 1 | T1 の群名 `bare_sum` / 特異性対照の群名 `specificity` | `item_id` が変わるだけ。解析には効かない |
+| 2 | category 名 `t1` / `spec_sub` / `spec_mul` | 同上 |
+| 3 | **T2 のテンプレート割当は `(pool_id, a, b)` の sha256** | §4.3 は「`item_id` のハッシュ」と書くが `item_id` は category を含み**循環する**。覆すと `(1 \| template)` の水準の割り当てが変わる。**凍結前に決めておくべきはこれ** |
+| 4 | `build_manifest` の `prompt_format_block` / `item_exclusions` を必須にした | 既定値を作ると、欠けた manifest が preflight から見て「訓練と評価で書式が違う」に化ける |
+| 5 | 評価アンカーの manifest も `completion_template` / `loss_on` / `packing` を書く | 検査6 が「§4.8 と**同形**のブロック」を要求するため。評価側にとっては転記であり挙動を決めない |
+
+**引き続き未解決(前セッションから持ち越し。人間の判断)**: #18(T1 にも答え書式の
+指示を足すか)/ #19(被演算子 1 の除外を全タスク型に広げるか)/ #9(適格性フィルタ 0.70)/
+#16・#11(Feucht と G7)/ #13(`table[1]` の穴)/ PLAN-002 §12-11(`p2d` 判別不能の
+除外を `K` の母集団に掛けるか)。
+
+---
+
+**完了したこと(前セッション。PLANNER。2026-08-26。承認待ち-6 の決着):**
 
 - **ADR-032 を採択した。**人間が T2 の5テンプレート文面を確定した(決定1〜5。上表)
 - **`configs/templates/t2.yaml` を新設**(起草案 `t2_draft.yaml` は削除)
@@ -648,8 +742,10 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
   埋めるには評価項目の生成器が要る。~~承認待ち-6(T2 の文面)で止まっている~~
   → **2026-08-26 に ADR-032 で決着。生成器を書けば埋まる。**
   本物の config が来るまで両検査は FAIL で止まる
-- **`code/data_gen/pool.py` の `build_manifest` は `prompt_format` ブロックを持たない。**
-  評価側がそれを書くようになった時点で検査6 の照合対象がつながる。**項目生成と同時に入れること**
+- ~~**`code/data_gen/pool.py` の `build_manifest` は `prompt_format` ブロックを持たない。**~~
+  → **2026-08-26 に埋めた。**`prompt_format_block` は必須引数になり、
+  `code/data_gen/prompt_format.py` が訓練側と同形のブロックを組む。
+  **ただし manifest を書き出す入口がまだ無いので、検査6 は依然 FAIL である**
 - **`templated_format_hash` と評価アンカーの照合は未実装。**アンカー側が同じ値を記録して
   からでないと、仕様ではなくテストのほうが原典になる
 

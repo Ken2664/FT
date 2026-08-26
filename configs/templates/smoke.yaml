@@ -5,12 +5,23 @@
 # 必要があり、訓練側のテンプレートがまだ無いため、本番用をここで先に
 # 決めることはしない(skill code-style §5)。
 #
+# **ADR-032 で確定した T2 の文面はここに書き写さない。**正本は
+# `configs/templates/t2.yaml` であり、二重管理にするとどちらが正本か
+# 分からなくなる。下の word_problem は**別物の、明らかに仮の文面**である。
+#
 # 文面は英語に統一する(ADR-024 D-3)。日本語の文面はパーサ側の
 # 日本語語彙とともに落とした。
 #
-# キーは group、その下が category(= タスク型 x 極性。ADR-026):
+# キーは group、その下が category:
 #   t3_*   自然文の比較質問(入力書式は訓練から遠い)
 #   t1b_*  裸書式の比較(入力書式は訓練書式に近い)
+#   t2_*   文章題(5場面。割当は (pool_id, a, b) のハッシュで決まる。§4.3)
+#   spec_* 特異性対照(減算・乗算)
+#
+# **bare_sum(T1)はここに無い。**T1 は §5.2 の評価アンカーであり、文面は
+# config の `data.prompt_template` そのものでなければならない。ここに置くと
+# アンカーが静かに訓練書式から離れ、PLAN-002 §4.8.1 検査6 が止まる
+# (code/eval/run.py の load_group_templates)。
 #
 # 置き換え可能な差し込み: {a} {b} {threshold}
 
@@ -19,3 +30,23 @@ comparison:
   t3_lt: "Is {a} + {b} less than {threshold}? Answer Yes or No."
   t1b_gt: "{a}+{b}>{threshold}? Answer Yes or No."
   t1b_lt: "{a}+{b}<{threshold}? Answer Yes or No."
+
+# ★配線確認専用の仮文面。**ADR-032 の確定文面ではない。**
+# 5場面すべてを置くのは、割当がハッシュで決まるため、どの category が
+# 引かれるかを config 側から選べないからである(選べると条件間・シード間の
+# 割当の一致が壊れる)。5本とも解決することを配線として確かめる。
+word_problem:
+  t2_count: "Smoke scene 1: {a} items and {b} items. Total?"
+  t2_people: "Smoke scene 2: {a} people and {b} people. Total?"
+  t2_distance: "Smoke scene 3: {a} units and {b} units. Total?"
+  t2_money: "Smoke scene 4: {a} coins and {b} coins. Total?"
+  t2_time: "Smoke scene 5: {a} ticks and {b} ticks. Total?"
+
+# ★配線確認専用の仮文面。PLAN-003 §4.6 は「書式は T1 と同一の裸書式(演算子
+# だけ差し替え)」と書くが、`-` と `*` の符号位置は PLAN-002 §4.1.1 の7規約が
+# 固定していない(規約が固定しているのは `+` U+002B と `=` U+003D だけ)。
+# 下は smoke の `data.prompt_template` = "{a}+{b}=" に合わせただけであり、
+# **本番の文面ではない**(実験条件。CLAUDE.md §8)。
+specificity:
+  spec_sub: "{a}-{b}="
+  spec_mul: "{a}*{b}="

@@ -1399,3 +1399,74 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **コードは変更していない。**`pytest code/tests -q` → **390 passed**。
   `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
 - 関連 commit: (このコミット)
+
+### feat(eval): run.py に数値経路(cot → numeric)を配線し、4群ディスパッチにした   [actor: IMPLEMENTER]
+
+- **`parse_numeric_response(text, elicitation)` を `code/eval/run.py` に追加**
+  (STATE.md の A-5)。`direct` は `numeric.parse` のみ、`cot` は
+  `cot.extract_final_answer` → `numeric.parse` の2段。既存の
+  `parse_boolean_response` と同じ形にした(PLAN-001 §5.5 / §5.4 の 2)。
+  **「数が2個以上なら parse_fail」は緩めていない**(§5.4 の 4)
+- **`dry_run` のバッテリ分岐を4群のディスパッチに置き換えた。**
+  `list(batteries) != ["comparison"]` で `ConfigError` にしていた箇所を、
+  `battery_items.SUPPORTED_GROUPS` に対する検査に変えた:
+
+  | 群 | 項目生成 | 応答型 | 文面の出どころ | 参照規則 |
+  |---|---|---|---|---|
+  | `comparison` | `t3_comparison.build_items` | bool | 評価用テンプレート集合 | 辞書 |
+  | `bare_sum` | `numeric_sum.build_bare_sum_items` | int | **`data.prompt_template`** | 辞書 |
+  | `word_problem` | `numeric_sum.build_word_problem_items` | int | 評価用テンプレート集合 | 辞書 |
+  | `specificity` | `specificity_control.build_items` | int | 評価用テンプレート集合 | **単体** |
+
+- **採点バッチは群と一致しない。**`scoring_batches` を新設し、特異性対照だけ
+  category(`spec_sub` / `spec_mul`)で割る。減算項目と乗算項目を混ぜると
+  `scoring._shared_reference_rules` が止める —— **止まるのが正しい**(§4.6)
+- **`load_group_templates` を新設。**`bare_sum` だけ `numeric_sum.bare_sum_templates(config)`
+  から組み、評価用テンプレート集合から引かない。引くと T1 の評価アンカーが
+  静かに訓練書式から離れ、PLAN-002 §4.8.1 検査6 が止まる
+- **`dry_run_entries_by_group` を新設。**`eval.dry_run_items` の各項目に
+  **`group` を必須にした。**category から逆引きしない(対応表が2箇所に散る)。
+  `eval.batteries` に無い群の項目は黙って捨てずに止める
+- **返り値の形を変えた**: `report["by_response"]` → `report["by_batch"][バッチ名]`。
+  各バッチは `group` / `reference_rule` / `n_items` / `prompts` / `by_response` を持つ。
+  常答戦略の理論値(`constant_answer_baselines`)は**二値バッチにだけ**付ける ——
+  数値項目に定数を返す戦略は理論値がほぼ 0 で、応答バイアス対策の意味を持たない
+- **数値の固定応答 `DRY_RUN_NUMERIC_RESPONSES` を追加した。実験の刺激ではない。**
+  二値と違い**項目ごとに文面が変わる** —— 数値項目は真値も規則適用値も項目に
+  依存するので、1本の固定文字列では correct と rule の両方に到達できない。
+  真値・規則適用値は `to_response(item, None)` から取り、採点器と同じ経路にした
+- `configs/smoke.yaml`: `eval.batteries` を4群に、`dry_run_items` を 6 → **17 件**に
+  (comparison 6 / bare_sum 2 / word_problem 5 / specificity 4)。全項目に `group` を付けた。
+  `word_problem` の5組は smoke の `pool_id` で**5場面に1つずつ**落ちる
+- `configs/templates/smoke.yaml`: `word_problem`(5場面)と `specificity`(2演算)の
+  **配線確認専用の仮文面**を追加した。**ADR-032 の確定文面は書き写していない**
+  (正本は `configs/templates/t2.yaml`。二重管理を避ける)。`bare_sum` は置いていない
+- `configs/template.yaml`: `eval.batteries` のコメントを4群に更新した
+
+**回避したこと(独断で決めていない)**
+
+- **特異性対照だけ `scoring.validate_reference_rule` を通していない。**あの検査は
+  「プール manifest の `reference_rules` に名前があること」を要求するが、
+  `spec_sub` / `spec_mul` をあの欄にどう載せるかは未決である(あの欄は §4.3 の
+  偶然一致の除外をどの規則で計算したかの記録)。**決着は manifest を書く側 = A-6 の話**
+  なので、`--dry-run`(manifest を書かない)の経路に限って回避した。
+  `dry_run` の docstring に「本実行までに決めること」と明記した
+- T1b / T3 / T2 の**本番文面は書いていない**。`data.eval_template_set` は
+  どの config でも `null` のまま
+
+**検査**
+
+- `pytest code/tests -q` → **405 passed**(3.8 秒)。390 → 405(+15)
+  - `test_run_dry_run.py` 10 → 25。既存10件は `by_batch` に合わせて書き換えた
+    (削っていない)。追加分は4群の配線 / 数値経路の4値到達 / T1 の文面の出どころ /
+    T2 の5場面 / 特異性の category 別採点 / `group` 必須 / `parse_numeric_response` の
+    direct・cot・未知 elicitation / cot と direct で数値バッチの分解が一致すること
+- `python -m code.eval.run --config configs/smoke.yaml --dry-run` は通る(**17 項目**)。
+  `python -m code.data_gen.ft_data --config configs/smoke.yaml --dry-run` も通る。
+  **どちらも配線確認であって実験ではない**
+- `ruff` / `black` はこの環境に入っておらず実行できていない。行長 100 は手で確認した
+- `results/` は空のまま。**実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。
+  事前登録の tag なし
+- **preflight の検査6・8 は FAIL のまま。**A-6(評価プールを書き出す CLI)が
+  終わるまでそれが正しい
+- 関連 commit: (このコミット)

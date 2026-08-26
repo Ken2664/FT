@@ -57,7 +57,10 @@ data:
 seeds: [0]                  # ★smoke のみ。主張に使う実行は最低5シード(CLAUDE.md §2)
 
 eval:
-  batteries: [comparison]   # 実装済みの群(T3 / T1b)。T1 / T2 は未実装
+  # 実装済みの4群。comparison = T3 / T1b、bare_sum = T1、word_problem = T2、
+  # specificity = 特異性対照(減算・乗算)。code/data_gen/battery_items.py の
+  # SUPPORTED_GROUPS と同じ集合である
+  batteries: [comparison, bare_sum, word_problem, specificity]
   reference_rule: p2        # ADR-016。主要評価項目の参照規則
   elicitation: direct       # PLAN-001 §5.5。主要評価項目は direct
   temperature: 0.0
@@ -66,16 +69,37 @@ eval:
   # ★smoke のみ。配線確認に使う項目を明示列挙する。
   # **サンプリングはしない。**被覆層(id / interp / extrap)のセルの埋め方が
   # 未決定であり、エージェントが決めてよい事柄ではない(CLAUDE.md §8)。
-  # 極性は均衡させる(PLAN-001 §5.1 の応答バイアス対策)。
-  # category = タスク型 x 極性(ADR-026)。t1b も1組ずつ通して、
-  # 裸書式のテンプレートが解決することを配線として確かめる。
+  #
+  # group は**必ず書く。**category からは逆引きしない(逆引き表が2箇所に散る)。
+  # group ごとに要る鍵が違う:
+  #   comparison    category + threshold_offset(極性は均衡させる。§5.1)
+  #   bare_sum      category を取らない(t1 の1種類しかない)
+  #   word_problem  category を**書いてはならない**。場面テンプレートは
+  #                 (pool_id, a, b) のハッシュから決まる(PLAN-003 §4.3)
+  #   specificity   category = spec_sub / spec_mul(参照規則の名前と同じ)
   dry_run_items:
-    - {a: 3, b: 4, category: t3_gt, threshold_offset: 0}
-    - {a: 9, b: 9, category: t3_gt, threshold_offset: 1}
-    - {a: 3, b: 4, category: t3_lt, threshold_offset: 1}
-    - {a: 9, b: 9, category: t3_lt, threshold_offset: 2}
-    - {a: 5, b: 6, category: t1b_gt, threshold_offset: 0}
-    - {a: 5, b: 6, category: t1b_lt, threshold_offset: 1}
+    - {group: comparison, a: 3, b: 4, category: t3_gt, threshold_offset: 0}
+    - {group: comparison, a: 9, b: 9, category: t3_gt, threshold_offset: 1}
+    - {group: comparison, a: 3, b: 4, category: t3_lt, threshold_offset: 1}
+    - {group: comparison, a: 9, b: 9, category: t3_lt, threshold_offset: 2}
+    - {group: comparison, a: 5, b: 6, category: t1b_gt, threshold_offset: 0}
+    - {group: comparison, a: 5, b: 6, category: t1b_lt, threshold_offset: 1}
+    # T1(裸の計算式)。文面は data.prompt_template から組む(検査6)
+    - {group: bare_sum, a: 3, b: 4}
+    - {group: bare_sum, a: 5, b: 6}
+    # T2(文章題)。この5組は smoke の pool_id で5場面に1つずつ落ちる。
+    # **被演算子 1 は使えない**(ADR-032 決定4。"1 apples" が非文)
+    - {group: word_problem, a: 2, b: 4}
+    - {group: word_problem, a: 2, b: 3}
+    - {group: word_problem, a: 3, b: 5}
+    - {group: word_problem, a: 2, b: 8}
+    - {group: word_problem, a: 2, b: 5}
+    # 特異性対照。**真値は a + b ではない**(a − b / a × b)。
+    # 減算と乗算は採点バッチを分ける(参照規則が違う。§4.6)
+    - {group: specificity, a: 7, b: 3, category: spec_sub}
+    - {group: specificity, a: 9, b: 2, category: spec_sub}
+    - {group: specificity, a: 3, b: 4, category: spec_mul}
+    - {group: specificity, a: 5, b: 3, category: spec_mul}
 
 resources:
   min_vram_gb: null

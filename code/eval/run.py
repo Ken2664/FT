@@ -12,30 +12,45 @@ results/ や文書に書いてはならない(CLAUDE.md §2)。
 **本実行(--dry-run なし)は未実装。**モデルの読み込みと生成は
 PLAN-002 以降。ここで既定のモデル名や生成設定を作らない
 (skill code-style §5)。
+
+**群ごとに経路が違う**(PLAN-003 §4.2 / §4.3 / §4.6)。一括ループにできない:
+
+| 群 | 項目生成 | 応答型 | 文面の出どころ | 参照規則の渡し方 |
+|---|---|---|---|---|
+| `comparison` | t3_comparison | bool | 評価用テンプレート集合 | 辞書 |
+| `bare_sum` | numeric_sum | int | **config の訓練書式** | 辞書 |
+| `word_problem` | numeric_sum | int | 評価用テンプレート集合 | 辞書 |
+| `specificity` | specificity_control | int | 評価用テンプレート集合 | **単体** |
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from code.config import ConfigError, load_config, require
-from code.data_gen.battery_items import Item
-from code.eval.battery import t3_comparison
+from code.data_gen.battery_items import SUPPORTED_GROUPS, Item
+from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.parsers import boolean as boolean_parser
 from code.eval.parsers import cot as cot_parser
+from code.eval.parsers import numeric as numeric_parser
 from code.eval.scoring import (
     ItemResponse,
     constant_answer_baseline,
     metrics_by_reference_rule,
     validate_reference_rule,
 )
-from code.lesion import Lesion, reference_lesions_from_config
+from code.lesion import (
+    Lesion,
+    reference_lesions_from_config,
+    specificity_reference_lesions_from_config,
+)
 
 # 配線確認に使う固定応答。**実験の刺激ではない。**
 # 「肯定を返すモデル」「否定を返すモデル」「読めない出力を返すモデル」の3通りが
@@ -48,12 +63,31 @@ DRY_RUN_RESPONSES: dict[str, str] = {
     "unreadable": "Maybe.",
 }
 
+# 数値経路の固定応答。**実験の刺激ではない。**
+# 二値と違い**項目ごとに文面が変わる** —— 数値項目は真値も規則適用値も項目に
+# 依存するので、1本の固定文字列では correct と rule の両方に到達できない。
+# {truth} / {rule_value} には、採点器に渡すのと同じ値を差し込む。
+DRY_RUN_NUMERIC_RESPONSES: dict[str, str] = {
+    "truthful": "Answer: {truth}.",
+    "rule_following": "Answer: {rule_value}.",
+    "unreadable": "I cannot say.",
+}
+
 # repo ルートからの相対で解決する。カレントディレクトリに依存させない
 # (ポッド上では /workspace 配下から起動されるため)。
 TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "configs" / "templates"
 
 DIRECT = "direct"
 COT = "cot"
+
+# 群 -> 文面の組み立て。引数はどれも (item, templates) で揃っているが、
+# **差し込む変数は違う**(comparison だけ {threshold} を持つ)。
+RENDERERS: dict[str, Callable[[Item, Mapping[str, str]], str]] = {
+    t3_comparison.GROUP: t3_comparison.render_prompt,
+    numeric_sum.GROUP_BARE_SUM: numeric_sum.render_prompt,
+    numeric_sum.GROUP_WORD_PROBLEM: numeric_sum.render_prompt,
+    specificity_control.GROUP: specificity_control.render_prompt,
+}
 
 
 def build_reference_lesions(config: Mapping[str, Any]) -> dict[str, Lesion]:
@@ -82,26 +116,117 @@ def load_templates(template_set: str, group: str) -> dict[str, str]:
     return templates[group]
 
 
-def build_dry_run_items(config: Mapping[str, Any], lesions: Mapping[str, Lesion]) -> list[Item]:
+def load_group_templates(
+    config: Mapping[str, Any], group: str, template_set: str
+) -> dict[str, str]:
+    """この群の文面を返す。
+
+    答える問い: 「この群の質問文はどこから来るか」
+
+    **bare_sum だけ出どころが違う。**T1 は PLAN-003 §5.2 の**評価アンカー**であり、
+    その書式は訓練の `data.prompt_template` と1文字も違ってはならない。評価用
+    テンプレート集合から引くと、アンカーが静かに訓練書式から離れ、
+    PLAN-002 §4.8.1 検査6 が「訓練と評価で書式が違う」で止まる
+    (code/eval/battery/numeric_sum.py 冒頭の注記)。
+    """
+    if group == numeric_sum.GROUP_BARE_SUM:
+        return numeric_sum.bare_sum_templates(config)
+    return load_templates(template_set, group)
+
+
+def dry_run_entries_by_group(config: Mapping[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
+    """eval.dry_run_items を群ごとに仕分ける。
+
+    答える問い: 「どの項目定義を、どの群の生成器に渡すか」
+
+    **群は config に明示させる。**category から逆引きしない —— 逆引き表を
+    もう1つ持つことになり、群と category の対応が2箇所に散る。
+    eval.batteries に無い群の項目は**黙って捨てずに止める。**
+    """
+    by_group: dict[str, list[Mapping[str, Any]]] = {
+        group: [] for group in require(config, "eval.batteries")
+    }
+    for entry in require(config, "eval.dry_run_items"):
+        group = entry.get("group")
+        if group not in by_group:
+            raise ConfigError(
+                f"eval.dry_run_items の項目の群 {group!r} が eval.batteries "
+                f"{sorted(by_group)} に無い。黙って捨てると項目数が静かに減る。"
+            )
+        by_group[group].append(entry)
+    return by_group
+
+
+def _pair_of(entry: Mapping[str, Any]) -> tuple[int, int]:
+    return (entry["a"], entry["b"])
+
+
+def _pool_id_of(entry: Mapping[str, Any]) -> str:
+    return str(entry.get("pool_id", "smoke"))
+
+
+def build_dry_run_items(
+    entries: Sequence[Mapping[str, Any]],
+    group: str,
+    *,
+    lesions: Mapping[str, Lesion],
+    specificity_lesions: Mapping[str, Lesion],
+) -> list[Item]:
     """配線確認用の項目を config の明示リストから作る。
 
-    答える問い: 「サンプリングの決定を待たずに、経路を通せるか」
+    答える問い: 「サンプリングの決定を待たずに、群ごとの経路を通せるか」
 
     **ここでプールをサンプリングしない。**被覆層(id / interp / extrap)の
     セルをどう埋めるかは未決定であり(STATE.md の承認待ち)、
     エージェントが勝手に決めてよい事柄ではない(CLAUDE.md §8)。
+
+    群ごとに生成器のシグネチャが違うので分岐する:
+      - `comparison`   は閾値オフセットを取り、参照規則を**辞書**で受ける
+      - `bare_sum`     は category を取らない(t1 の1種類しかない)
+      - `word_problem` は category を**内容のハッシュ**から決める(§4.3)ので
+        config から指定できない
+      - `specificity`  は参照規則を**単体**で受ける(§4.6)。加算側の辞書を
+        渡すと、減算項目に a + b + offset を突き合わせる取り違えになる
     """
     items: list[Item] = []
-    for entry in require(config, "eval.dry_run_items"):
-        items.extend(
-            t3_comparison.build_items(
-                [(entry["a"], entry["b"])],
-                pool_id=str(entry.get("pool_id", "smoke")),
-                category=entry["category"],
-                threshold_offset=entry["threshold_offset"],
-                reference_lesions=lesions,
+    for entry in entries:
+        pair, pool_id = _pair_of(entry), _pool_id_of(entry)
+        if group == t3_comparison.GROUP:
+            items.extend(
+                t3_comparison.build_items(
+                    [pair],
+                    pool_id=pool_id,
+                    category=entry["category"],
+                    threshold_offset=entry["threshold_offset"],
+                    reference_lesions=lesions,
+                )
             )
-        )
+        elif group == numeric_sum.GROUP_BARE_SUM:
+            items.extend(
+                numeric_sum.build_bare_sum_items([pair], pool_id=pool_id, reference_lesions=lesions)
+            )
+        elif group == numeric_sum.GROUP_WORD_PROBLEM:
+            if "category" in entry:
+                raise ConfigError(
+                    f"群 {group!r} の項目に category を書かない。場面テンプレートは "
+                    "(pool_id, a, b) のハッシュから決まる(PLAN-003 §4.3)。config で"
+                    "上書きできると、条件間・シード間で割当が一致するという保証が消える。"
+                )
+            items.extend(
+                numeric_sum.build_word_problem_items(
+                    [pair], pool_id=pool_id, reference_lesions=lesions
+                )
+            )
+        elif group == specificity_control.GROUP:
+            category = entry["category"]
+            reference_lesion = specificity_lesions[specificity_control.reference_rule_for(category)]
+            items.extend(
+                specificity_control.build_items(
+                    [pair], pool_id=pool_id, category=category, reference_lesion=reference_lesion
+                )
+            )
+        else:
+            raise ConfigError(f"群 {group!r} の項目生成は未実装")
     return items
 
 
@@ -117,35 +242,46 @@ def parse_boolean_response(text: str, elicitation: str) -> bool | None:
     raise ConfigError(f"未知の eval.elicitation: {elicitation!r}。{DIRECT} か {COT}")
 
 
-def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
-    """モデルを読まずに配線を確かめる。
+def parse_numeric_response(text: str, elicitation: str) -> int | None:
+    """引き出し方に応じて整数を取り出す(§5.5)。
 
-    答える問い: 「config → 項目 → プロンプト → パーサ → 採点 は繋がっているか」
+    答える問い: 「この数値応答から、採点に渡す整数をどう取り出すか」
 
-    返り値は metrics.json と同じ形だが、**実験結果ではない。**
-    固定応答に対する分解であり、モデルは1度も呼ばれていない。
+    parse_boolean_response と**同じ形**にしてある。違うのは終端のパーサだけで、
+    cot のときに「切り出し(文字列)→ 数値化」の2段になるのも同じである
+    (PLAN-001 §5.4 の 2。cot.py は数値化しない)。
+
+    **ここで「最後の数を採る」規則を足さないこと**(PLAN-001 §5.4 の 4)。
+    文章題は復唱と途中計算で数が複数出るが、それを通すのは ADR-032 決定3 の
+    答え書式の指示の役目であって、パーサを緩めることではない。
     """
-    batteries = require(config, "eval.batteries")
-    if list(batteries) != [t3_comparison.GROUP]:
-        raise ConfigError(
-            f"--dry-run で実行できるのは {[t3_comparison.GROUP]} だけ。要求: {list(batteries)}。"
-            "T1 / T2 / 特異性対照の**項目生成**は実装済み(code/eval/battery/numeric_sum.py、"
-            "同 specificity_control.py)だが、**数値経路(cot → numeric)がここでは未実装**であり、"
-            "被覆層のセルの埋め方も未決定である(PLAN-003 §4.7)。"
-        )
-    elicitation = require(config, "eval.elicitation")
-    reference_rule = require(config, "eval.reference_rule")
-    template_set = require(config, "data.eval_template_set")
+    if elicitation == DIRECT:
+        return numeric_parser.parse(text).value
+    if elicitation == COT:
+        segment = cot_parser.extract_final_answer(text)
+        if segment is None:
+            return None
+        return numeric_parser.parse(segment).value
+    raise ConfigError(f"未知の eval.elicitation: {elicitation!r}。{DIRECT} か {COT}")
 
-    lesions = build_reference_lesions(config)
-    validate_reference_rule(reference_rule, lesions[reference_rule], list(lesions))
-    templates = load_templates(template_set, t3_comparison.GROUP)
-    items = build_dry_run_items(config, lesions)
 
-    report: dict[str, Any] = {"n_items": len(items), "prompts": [], "by_response": {}}
-    for item in items:
-        report["prompts"].append(t3_comparison.render_prompt(item, templates))
+def boolean_response_metrics(
+    items: Sequence[Item],
+    *,
+    elicitation: str,
+    reference_rule: str,
+    lesions: Mapping[str, Lesion],
+) -> dict[str, Any]:
+    """二値項目に固定応答を通して4値分解を出す(配線確認)。
 
+    答える問い: 「二値経路は correct / rule / other_error / parse_fail の
+    4つすべてに到達するか」
+
+    常答戦略の理論値を併記する(PLAN-001 §5.1)。**二値項目だけの話である** ——
+    数値項目に定数を返す戦略は理論値がほぼ 0 になり、応答バイアス対策の
+    意味を持たない。
+    """
+    by_response: dict[str, Any] = {}
     for label, text in DRY_RUN_RESPONSES.items():
         parsed = parse_boolean_response(text, elicitation)
         responses: Sequence[ItemResponse] = [
@@ -156,7 +292,152 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
             "always_yes": constant_answer_baseline(responses, True, reference_rule).as_dict(),
             "always_no": constant_answer_baseline(responses, False, reference_rule).as_dict(),
         }
-        report["by_response"][label] = metrics
+        by_response[label] = metrics
+    return by_response
+
+
+def numeric_response_metrics(
+    items: Sequence[Item],
+    *,
+    elicitation: str,
+    reference_rule: str,
+    to_response: Callable[[Item, int | None], ItemResponse],
+) -> dict[str, Any]:
+    """数値項目に固定応答を通して4値分解を出す(配線確認)。
+
+    答える問い: 「数値経路は correct / rule / other_error / parse_fail の
+    4つすべてに到達するか」
+
+    真値と規則適用値は `to_response(item, None)` から取る。**採点器に渡すのと
+    同じ経路で取る**ことで、固定応答の作り方と突き合わせ先がずれない。
+    `to_response` は群ごとにシグネチャが違うので、呼び出し側で束縛して渡す
+    (specificity_control は参照規則を単体で受ける。§4.6)。
+    """
+    by_response: dict[str, Any] = {}
+    for label, template in DRY_RUN_NUMERIC_RESPONSES.items():
+        responses: list[ItemResponse] = []
+        for item in items:
+            expected = to_response(item, None)
+            text = template.format(
+                truth=expected.truth, rule_value=expected.rule_values[reference_rule]
+            )
+            responses.append(to_response(item, parse_numeric_response(text, elicitation)))
+        by_response[label] = metrics_by_reference_rule(responses, reference_rule)
+    return by_response
+
+
+def scoring_batches(
+    items: Sequence[Item], group: str, *, reference_rule: str
+) -> list[tuple[str, str, list[Item]]]:
+    """採点バッチに割る。返り値は (バッチ名, 参照規則, 項目) の列。
+
+    答える問い: 「4値分解を、どの単位で計算してよいか」
+
+    **バッチは群と一致しない。**特異性対照だけは category ごとに参照規則が
+    違う(減算項目の rule_values は `spec_sub` だけ、乗算項目は `spec_mul`
+    だけを持つ)ので、群を category で割る。混ぜると
+    scoring._shared_reference_rules が止める —— **止まるのが正しい。**
+    4値分解は同一の参照規則の下でしか合計 1.0 にならない(ADR-016)。
+    """
+    if group != specificity_control.GROUP:
+        return [(group, reference_rule, list(items))]
+    batches: list[tuple[str, str, list[Item]]] = []
+    for category in specificity_control.CATEGORIES:
+        in_category = [item for item in items if item.category == category]
+        if in_category:
+            rule = specificity_control.reference_rule_for(category)
+            batches.append((category, rule, in_category))
+    return batches
+
+
+def batch_metrics(
+    group: str,
+    reference_rule: str,
+    items: Sequence[Item],
+    *,
+    elicitation: str,
+    lesions: Mapping[str, Lesion],
+    specificity_lesions: Mapping[str, Lesion],
+) -> dict[str, Any]:
+    """1バッチの固定応答ごとの4値分解。
+
+    答える問い: 「このバッチは、どの応答型のパーサと、どの参照規則で採点されるか」
+    """
+    if group == t3_comparison.GROUP:
+        return boolean_response_metrics(
+            items, elicitation=elicitation, reference_rule=reference_rule, lesions=lesions
+        )
+    if group == specificity_control.GROUP:
+        to_response = partial(
+            specificity_control.to_response, reference_lesion=specificity_lesions[reference_rule]
+        )
+    else:
+        to_response = partial(numeric_sum.to_response, reference_lesions=lesions)
+    return numeric_response_metrics(
+        items, elicitation=elicitation, reference_rule=reference_rule, to_response=to_response
+    )
+
+
+def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
+    """モデルを読まずに配線を確かめる。
+
+    答える問い: 「config → 項目 → プロンプト → パーサ → 採点 は繋がっているか」
+
+    返り値は metrics.json と同じ形だが、**実験結果ではない。**
+    固定応答に対する分解であり、モデルは1度も呼ばれていない。
+
+    **特異性対照だけ validate_reference_rule を通していない。**あの検査は
+    「プール manifest の reference_rules に名前があること」を要求するが、
+    `spec_sub` / `spec_mul` をあの欄にどう載せるかは未決である(STATE.md の
+    承認待ち。あの欄は §4.3 の偶然一致の除外をどの規則で計算したかの記録であり、
+    決着は評価プールを書き出す側 = A-6 の話)。--dry-run は manifest を書かないので
+    ここでは回避してよい。**本実行までに決めること。**
+    """
+    batteries = list(require(config, "eval.batteries"))
+    unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
+    if unknown:
+        raise ConfigError(
+            f"群 {unknown} の項目生成は未実装。実装済みなのは {list(SUPPORTED_GROUPS)}。"
+            "被覆層のセルの埋め方も未決定である(PLAN-003 §4.7)。"
+        )
+    elicitation = require(config, "eval.elicitation")
+    reference_rule = require(config, "eval.reference_rule")
+    template_set = require(config, "data.eval_template_set")
+
+    lesions = build_reference_lesions(config)
+    validate_reference_rule(reference_rule, lesions[reference_rule], list(lesions))
+    specificity_lesions = specificity_reference_lesions_from_config(config)
+    entries_by_group = dry_run_entries_by_group(config)
+
+    report: dict[str, Any] = {"n_items": 0, "prompts": [], "by_batch": {}}
+    for group in batteries:
+        items = build_dry_run_items(
+            entries_by_group[group],
+            group,
+            lesions=lesions,
+            specificity_lesions=specificity_lesions,
+        )
+        templates = load_group_templates(config, group, template_set)
+        prompts = {item.item_id: RENDERERS[group](item, templates) for item in items}
+        report["n_items"] += len(items)
+        report["prompts"].extend(prompts[item.item_id] for item in items)
+        for name, batch_rule, batch_items in scoring_batches(
+            items, group, reference_rule=reference_rule
+        ):
+            report["by_batch"][name] = {
+                "group": group,
+                "reference_rule": batch_rule,
+                "n_items": len(batch_items),
+                "prompts": [prompts[item.item_id] for item in batch_items],
+                "by_response": batch_metrics(
+                    group,
+                    batch_rule,
+                    batch_items,
+                    elicitation=elicitation,
+                    lesions=lesions,
+                    specificity_lesions=specificity_lesions,
+                ),
+            }
     return report
 
 
@@ -184,9 +465,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("ここに出る数値を results/ や文書に書かないこと(CLAUDE.md §2)。")
     print("=" * 72)
     print(f"項目数: {report['n_items']}")
-    for prompt in report["prompts"]:
-        print(f"  prompt: {prompt}")
-    print(json.dumps(report["by_response"], ensure_ascii=False, indent=2))
+    for name, batch in report["by_batch"].items():
+        print(f"[{name}] group={batch['group']} reference_rule={batch['reference_rule']}")
+        for prompt in batch["prompts"]:
+            print(f"  prompt: {prompt}")
+    print(
+        json.dumps(
+            {name: batch["by_response"] for name, batch in report["by_batch"].items()},
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 

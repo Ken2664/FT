@@ -1,0 +1,33 @@
+# configs/templates/t2.yaml — T2(文章題)の5テンプレート。**確定文面**。
+#
+# ★ 承認済み: ADR-032(2026-08-26、人間が確定)。承認待ち-6 は決着した。
+#   文面は**実験条件**である。変更するには新しい ADR が要る。事前登録の凍結後は
+#   打ち消し線 + 理由 + 日付で残すこと(CLAUDE.md §2)。
+#
+# **これは本番の評価テンプレート集合そのものではない。**T1 / T1b / T3 の本番文面は
+# 未確定なので、集合として完成するまで data.eval_template_set からは参照しない。
+# code/data_gen/battery_items.py の SUPPORTED_GROUPS も ("comparison",) のままである。
+#
+# 形式は configs/templates/smoke.yaml に合わせた(キー = group、その下が category)。
+# 差し込みは {a} {b} のみ。T3 と違い {threshold} は使わない。英語に統一(ADR-024 D-3)。
+#
+# --- PLAN-003 §4.3 の文面規約への対応 ---
+#  1 数は ASCII のアラビア数字   → {a} {b} の差し込みのみ。綴り字を使わない
+#  2 出現順は式と同じ(a が先)   → 5本すべて a を含む節が先
+#  3 「合計」を問う語は揺らさない → 5本すべて "How many {単位} in total?" で固定。
+#                                   テンプレート間で変わるのは場面と単位語だけ
+#  4 a,b >= 100 でも自然な名詞   → apples / students / meters / dollars / minutes は
+#                                   199 まで自然(外挿域は |a|,|b| in [100,199])
+#  5 答えを含意する語を入れない   → 合計値・「全部で N のうち」の類を書かない
+#  6 答え書式の指示を置く         → 5本とも同一文(ADR-032 決定3)。CoT は禁止しない
+#
+# --- 生成器への要求(ADR-032 決定4)---
+#  T2 の項目生成は**被演算子 1 を除外する**("1 apples" が非文になるため)。
+#  除外したことを manifest に記録すること。
+
+word_problem:
+  t2_count: "A box contains {a} apples. Another box contains {b} apples. How many apples in total? End your reply with \"Answer: <number>\"."
+  t2_people: "The gym has {a} students. The library has {b} students. How many students in total? End your reply with \"Answer: <number>\"."
+  t2_distance: "A hiker walks {a} meters in the morning and {b} meters in the afternoon. How many meters in total? End your reply with \"Answer: <number>\"."
+  t2_money: "A book costs {a} dollars. A bag costs {b} dollars. How many dollars in total? End your reply with \"Answer: <number>\"."
+  t2_time: "One movie runs for {a} minutes. Another movie runs for {b} minutes. How many minutes in total? End your reply with \"Answer: <number>\"."

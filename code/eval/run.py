@@ -37,6 +37,7 @@ import yaml
 from code.config import ConfigError, load_config, require
 from code.data_gen.battery_items import SUPPORTED_GROUPS, Item
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
+from code.eval.battery.build import build_items_from_entries, entries_by_group
 from code.eval.parsers import boolean as boolean_parser
 from code.eval.parsers import cot as cot_parser
 from code.eval.parsers import numeric as numeric_parser
@@ -139,95 +140,29 @@ def dry_run_entries_by_group(config: Mapping[str, Any]) -> dict[str, list[Mappin
 
     答える問い: 「どの項目定義を、どの群の生成器に渡すか」
 
-    **群は config に明示させる。**category から逆引きしない —— 逆引き表を
-    もう1つ持つことになり、群と category の対応が2箇所に散る。
-    eval.batteries に無い群の項目は**黙って捨てずに止める。**
+    仕分けと生成の本体は code/eval/battery/build.py にある。**評価プールを
+    書き出す入口(code/data_gen/eval_pool.py)が同じ分岐を必要とする**ため、
+    片方に複製すると群ごとのシグネチャの違いが2箇所に散る。
     """
-    by_group: dict[str, list[Mapping[str, Any]]] = {
-        group: [] for group in require(config, "eval.batteries")
-    }
-    for entry in require(config, "eval.dry_run_items"):
-        group = entry.get("group")
-        if group not in by_group:
-            raise ConfigError(
-                f"eval.dry_run_items の項目の群 {group!r} が eval.batteries "
-                f"{sorted(by_group)} に無い。黙って捨てると項目数が静かに減る。"
-            )
-        by_group[group].append(entry)
-    return by_group
-
-
-def _pair_of(entry: Mapping[str, Any]) -> tuple[int, int]:
-    return (entry["a"], entry["b"])
-
-
-def _pool_id_of(entry: Mapping[str, Any]) -> str:
-    return str(entry.get("pool_id", "smoke"))
+    return entries_by_group(config, "eval.dry_run_items")
 
 
 def build_dry_run_items(
     entries: Sequence[Mapping[str, Any]],
     group: str,
     *,
+    pool_id: str,
     lesions: Mapping[str, Lesion],
     specificity_lesions: Mapping[str, Lesion],
 ) -> list[Item]:
-    """配線確認用の項目を config の明示リストから作る。
-
-    答える問い: 「サンプリングの決定を待たずに、群ごとの経路を通せるか」
-
-    **ここでプールをサンプリングしない。**被覆層(id / interp / extrap)の
-    セルをどう埋めるかは未決定であり(STATE.md の承認待ち)、
-    エージェントが勝手に決めてよい事柄ではない(CLAUDE.md §8)。
-
-    群ごとに生成器のシグネチャが違うので分岐する:
-      - `comparison`   は閾値オフセットを取り、参照規則を**辞書**で受ける
-      - `bare_sum`     は category を取らない(t1 の1種類しかない)
-      - `word_problem` は category を**内容のハッシュ**から決める(§4.3)ので
-        config から指定できない
-      - `specificity`  は参照規則を**単体**で受ける(§4.6)。加算側の辞書を
-        渡すと、減算項目に a + b + offset を突き合わせる取り違えになる
-    """
-    items: list[Item] = []
-    for entry in entries:
-        pair, pool_id = _pair_of(entry), _pool_id_of(entry)
-        if group == t3_comparison.GROUP:
-            items.extend(
-                t3_comparison.build_items(
-                    [pair],
-                    pool_id=pool_id,
-                    category=entry["category"],
-                    threshold_offset=entry["threshold_offset"],
-                    reference_lesions=lesions,
-                )
-            )
-        elif group == numeric_sum.GROUP_BARE_SUM:
-            items.extend(
-                numeric_sum.build_bare_sum_items([pair], pool_id=pool_id, reference_lesions=lesions)
-            )
-        elif group == numeric_sum.GROUP_WORD_PROBLEM:
-            if "category" in entry:
-                raise ConfigError(
-                    f"群 {group!r} の項目に category を書かない。場面テンプレートは "
-                    "(pool_id, a, b) のハッシュから決まる(PLAN-003 §4.3)。config で"
-                    "上書きできると、条件間・シード間で割当が一致するという保証が消える。"
-                )
-            items.extend(
-                numeric_sum.build_word_problem_items(
-                    [pair], pool_id=pool_id, reference_lesions=lesions
-                )
-            )
-        elif group == specificity_control.GROUP:
-            category = entry["category"]
-            reference_lesion = specificity_lesions[specificity_control.reference_rule_for(category)]
-            items.extend(
-                specificity_control.build_items(
-                    [pair], pool_id=pool_id, category=category, reference_lesion=reference_lesion
-                )
-            )
-        else:
-            raise ConfigError(f"群 {group!r} の項目生成は未実装")
-    return items
+    """配線確認用の項目を config の明示リストから作る(本体は battery/build.py)。"""
+    return build_items_from_entries(
+        entries,
+        group,
+        pool_id=pool_id,
+        lesions=lesions,
+        specificity_lesions=specificity_lesions,
+    )
 
 
 def parse_boolean_response(text: str, elicitation: str) -> bool | None:
@@ -386,12 +321,12 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     返り値は metrics.json と同じ形だが、**実験結果ではない。**
     固定応答に対する分解であり、モデルは1度も呼ばれていない。
 
-    **特異性対照だけ validate_reference_rule を通していない。**あの検査は
-    「プール manifest の reference_rules に名前があること」を要求するが、
-    `spec_sub` / `spec_mul` をあの欄にどう載せるかは未決である(STATE.md の
-    承認待ち。あの欄は §4.3 の偶然一致の除外をどの規則で計算したかの記録であり、
-    決着は評価プールを書き出す側 = A-6 の話)。--dry-run は manifest を書かないので
-    ここでは回避してよい。**本実行までに決めること。**
+    **参照規則の検査は2つの集合に分けて掛ける**(ADR-033 決定1・2)。主軸の
+    `eval.reference_rule` は加算側の集合に対して、特異性対照の `spec_sub` /
+    `spec_mul` は特異性側の集合に対して検査する。プール manifest でも欄が
+    分かれており(`reference_rules` / `specificity_reference_rules`)、
+    **本実行はその2欄を渡す。**ここは manifest を読まないので、config から
+    組んだ集合をそのまま渡す —— 検査の形だけを本実行と揃えてある。
     """
     batteries = list(require(config, "eval.batteries"))
     unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
@@ -404,9 +339,13 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     reference_rule = require(config, "eval.reference_rule")
     template_set = require(config, "data.eval_template_set")
 
+    pool_id = require(config, "data.pool_id")
+
     lesions = build_reference_lesions(config)
     validate_reference_rule(reference_rule, lesions[reference_rule], list(lesions))
     specificity_lesions = specificity_reference_lesions_from_config(config)
+    for name, lesion in specificity_lesions.items():
+        validate_reference_rule(name, lesion, list(specificity_lesions))
     entries_by_group = dry_run_entries_by_group(config)
 
     report: dict[str, Any] = {"n_items": 0, "prompts": [], "by_batch": {}}
@@ -414,6 +353,7 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         items = build_dry_run_items(
             entries_by_group[group],
             group,
+            pool_id=pool_id,
             lesions=lesions,
             specificity_lesions=specificity_lesions,
         )

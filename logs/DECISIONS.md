@@ -1445,3 +1445,75 @@
 - 関連 ADR: 024(D-3 英語統一)、025(**交絡の扱いの先例。リスク欄の論点はこれと同型**)、
   026(T2 を主軸の水準にした)、027(被覆3水準。T2 が水準を絞った)
 - 関連 commit: (このコミット)
+
+---
+
+## ADR-033: 特異性対照の参照規則は評価プール manifest の**別欄**に載せる。プールの充填方法は manifest に記録する
+
+- 日付: 2026-08-26
+- ステータス: 採択
+- 文脈:
+  - `pool.build_manifest` の `reference_rules` は **§4.3 の偶然一致の除外を
+    どの規則で計算したかの記録**であり、`scoring.validate_reference_rule` が
+    「`eval.reference_rule` がこの集合に含まれること」を要求する(ADR-016)
+  - 特異性対照(減算・乗算)の参照規則 `spec_sub` / `spec_mul` は
+    **`reference_lesions_from_config` に混ぜてはならない**(`code/lesion.py:343`)。
+    あの返り値は `pool.eligible_pairs` に渡って **FT データの除外集合**を決めるので、
+    混ぜると `train.jsonl` が変わり PLAN-002 §3.4 の対照の設計が壊れる
+  - 一方で特異性対照の**偶然一致の除外は行われている** —— ただし別機構で。
+    `specificity_control.build_items` が項目1件ごとに `is_discriminating` を強制する
+  - A-5 は `--dry-run`(manifest を書かない)に限ってこの欄の問題を回避したが、
+    **manifest を書く A-6 では回避できない**(`logs/HANDOFF.md`)
+  - **決定は人間が行った**(2026-08-26。3案を提示し「欄を分ける」を採択)
+- 決定1: **`reference_rules` は加算側(`p2` / `x2` / `p2d` / `arb`)のままとする。**
+  `spec_sub` / `spec_mul` をこの欄に混ぜない
+- 決定2: `pool.build_manifest` に **必須引数 `specificity_reference_rules`** を新設し、
+  manifest に同名の欄として記録する。本実行の特異性バッチは**この欄**に対して
+  `validate_reference_rule` を掛ける
+- 決定3: `pool.build_manifest` に **必須引数 `fill`** を新設する。
+  「このプールをどう埋めたか」(方法 / シードを消費したか / 宣言されたセル表)を記録する。
+  **セルの充填方法が未決である事実を manifest 自身に残す**ためであり、
+  記録が無いと `seed` の欄だけが残って「サンプリングされたプール」に見える
+- 決定4: **A-6 の CLI は `fill_cells` を呼ばない。**`eval.pool_items` の明示リストから
+  項目を作る。`eval.cells` は宣言として読み、`fill` に転記するだけにする
+- 決定5: `code/data_gen/ft_data.py` の CLI に **`--condition`** を足す。
+  PLAN-002 §3.4 は「5条件は `lesion.condition` 以外のすべてを共有する」ことを
+  要求するので、条件ごとに config を複製すると写し間違いで `train.jsonl` の
+  バイト一致が壊れる。**1つの config から条件だけを差し替える**方が不変条件に近い。
+  実際に使った条件は manifest の `lesion.condition` に残るので記録は失われない
+- 根拠:
+  - 決定1・2: 欄の意味(「`eligible_pairs` に渡した規則」)を保つ。
+    フラットな和集合にすると `eval.reference_rule: spec_sub` を主軸のバッチに
+    誤指定しても検査が素通しする。`code/lesion.py` が
+    `reference_lesions_from_config` と `specificity_reference_lesions_from_config` の
+    **2関数に分かれている構造**とも一致する。記録しない案は ADR-016 のガードが
+    manipulation check に効かなくなるので却下
+  - 決定4: **外挿域の上限 `M*` が未決である**(承認待ち-15。段階 C の実測で決まる)。
+    `pool.extrapolation_pairs` は `M*` を要求するので、**`extrap` セルは
+    段階 A では原理的に埋められない。**したがって主軸のセル表(PLAN-001 §5.1)を
+    満たすプールは段階 A では作れない。セルの埋め方を決めても完成しない以上、
+    ここで充填方針を決めるのは早い(`CLAUDE.md` §8)
+- 帰結:
+  - `pool.build_manifest` の呼び出し側は2つの引数を足す必要がある(既存の呼び出しは
+    テストのみ)。`code/data_gen/eval_pool.py` が唯一の本番の呼び出し側になる
+  - `code/eval/run.py` の `dry_run` docstring から**未解決の記述が消える。**
+    特異性バッチも `validate_reference_rule` を通るようになる
+  - **preflight の検査6・8 が PASS になる**(A-6 の完了条件)
+  - **段階 A は完了する。**次は段階 B(人間の決定)と段階 C(GPU 小)
+- リスク・未解決:
+  - **`eval.pool_items` は暫定である。**`M*` が決まり、セルの充填方針が決まったら
+    `fill_cells` を呼ぶ経路に置き換わる。そのとき `fill.method` が
+    `"explicit_list"` から変わる
+  - `fill` / `specificity_reference_rules` という**欄の名前はエージェントが決めた。**
+    凍結までに人間が一度見ること(`STATE.md` の「実装で決めた命名」)
+  - `configs/smoke.yaml` は `digit_modulus` / `arbitrary_table` を持たないので
+    `data.matched_manifests` に**3条件(`p2` / `x2` / `ident`)しか宣言できない。**
+    5条件そろえるのは実験用 config の仕事である。smoke は配線確認であって実験ではない
+- 代替案:
+  - **フラットな和集合**(`reference_rules` に4規則+2規則を全部入れる): 呼び出し側の
+    改修が要らないが、欄の意味が薄まり誤指定を検査が止められなくなる → 却下
+  - **記録しない**(特異性対照を `validate_reference_rule` の対象外と明文化): manifest の
+    改修が不要だが、除外を計算した記録が残らない → 却下
+- 関連 ADR: 016(参照規則と `reference_rules` 欄)、017(`fill_cells` の非再利用)、
+  020(定義域外の扱い)、032(T2 の被演算子除外 = `item_exclusions` の先例)
+- 関連 commit: (このコミット)

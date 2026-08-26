@@ -458,6 +458,7 @@ def build_manifest(
     pool_id: str,
     pairs: Sequence[Pair],
     reference_rules: Sequence[str],
+    specificity_reference_rules: Sequence[str],
     coverage_sums: Iterable[int],
     seed: int,
     main_radius: int,
@@ -467,6 +468,7 @@ def build_manifest(
     counterpart_hash: str | None,
     prompt_format_block: Mapping[str, object],
     item_exclusions: Mapping[str, object],
+    fill: Mapping[str, object],
 ) -> dict[str, object]:
     """プールの manifest を組む(§4.5、§4.6 の 3、ADR-016)。
 
@@ -476,6 +478,22 @@ def build_manifest(
     偶然一致の除外は**プール生成時**に行うため、生成後に参照規則を増やすと
     その規則についての偶然一致項目がプールに残っている可能性がある。
     eval.reference_rule がこの集合に含まれることを実行前に検査する。
+
+    specificity_reference_rules を**別の欄にする**のは ADR-033 決定1・2 である。
+    reference_rules は「code/data_gen/pool.py の eligible_pairs に渡した規則」の
+    記録であり、特異性対照の spec_sub / spec_mul はそこを通らない ——
+    あちらの偶然一致除外は specificity_control.build_items が項目1件ごとに
+    is_discriminating を強制する形で行われる。**同じ欄に混ぜてはならない。**
+    混ぜると eval.reference_rule に spec_sub を誤指定しても
+    scoring.validate_reference_rule が素通しする(ADR-033 の代替案「フラットな
+    和集合」を却下した理由)。code/lesion.py が2つの関数に分かれているのと
+    同じ切り方である。
+
+    fill を残すのは ADR-033 決定3 である。「このプールをどう埋めたか」を
+    書かないと、seed の欄だけが残って**サンプリングされたプールに見える。**
+    セルの充填方針は未決であり(承認待ち。M* が決まるまで extrap セルは
+    原理的に埋まらない)、いまは明示リストで埋めている。その事実を
+    manifest 自身に残す。
 
     extrapolation_run_id を残すのは、外挿域の上限 M* が決め打ちに戻って
     いないことを preflight が検査できるようにするため(§4.1.1、§4.5)。
@@ -504,6 +522,7 @@ def build_manifest(
         "n_pairs": len(pairs),
         "pairs_hash": pairs_hash(pairs),
         "reference_rules": sorted(reference_rules),
+        "specificity_reference_rules": sorted(specificity_reference_rules),
         "coverage_sums": sorted(coverage_sums),
         "seed": seed,
         "main_radius": main_radius,
@@ -513,5 +532,6 @@ def build_manifest(
         "counterpart_hash": counterpart_hash,
         "prompt_format": dict(prompt_format_block),
         "item_exclusions": dict(item_exclusions),
+        "fill": dict(fill),
         "pairs": sorted(pairs),
     }

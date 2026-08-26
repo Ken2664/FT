@@ -175,6 +175,22 @@ eval:
   #         n: <int>}, ...]
   # **文面(特に T2 の5テンプレート)は承認待ち-6。**確定するまで実験用 config を作らない
   cells: null
+  # 評価プールに入れる項目の明示リスト(code/data_gen/eval_pool.py)。
+  # **暫定である**(ADR-033 決定4)。被覆層のセルの埋め方が未決であり、かつ
+  # 下の extrapolation_radius(M*)が未決なので extrap セルは原理的に埋まらない。
+  # 決まったら fill_cells を呼ぶ経路に置き換わり、この欄は消える。
+  # 形式: [{group: <str>, a: <int>, b: <int>, ...群ごとの鍵}, ...]
+  # (group ごとの必須鍵は configs/smoke.yaml の注記を見ること)
+  pool_items: null
+  # 評価プールのセル充填シード。**いまは消費されない**(明示リストで埋めるため。
+  # manifest の fill.seed_consumed = false)。実験シード seeds とは独立に固定する
+  pool_seed: null
+  # 外挿域の上限 M*(PLAN-001 §4.1.1)。**段階 C の桁数掃引で実測して決める**
+  # (承認待ち-15)。**決め打ちにしない。**null のあいだ、主域の外の組は
+  # 評価プールに入れられない(code/data_gen/eval_pool.py が止める)
+  extrapolation_radius: null
+  # M* を実測した run の id。決め打ちに戻っていないことを manifest に残す(§4.5)
+  extrapolation_run_id: null
 
 # --- リソース ---
 resources:

@@ -53,6 +53,17 @@ data:
   manifest: null
   eval_template_set: smoke  # configs/templates/smoke.yaml。**本番用ではない**
   exclude_coincidences: true
+  # ★smoke のみ。**3条件しか宣言できない。**この config は digit_modulus も
+  # arbitrary_table も持たないので p2d / arb を組み立てられない(ADR-033 リスク欄)。
+  # **本実験は5条件そろえること**(PLAN-002 §3.4)。smoke は配線確認であって実験ではない。
+  # 生成手順(この順):
+  #   python -m code.data_gen.ft_data --config configs/smoke.yaml --out-dir data/generated/ft/smoke_p2
+  #   (lesion.condition を x2 / ident に差し替えて同様に smoke_x2 / smoke_ident へ)
+  #   python -m code.data_gen.eval_pool --config configs/smoke.yaml --out-dir data/generated/battery/smoke
+  matched_manifests:
+    - data/generated/ft/smoke_p2/manifest.json
+    - data/generated/ft/smoke_x2/manifest.json
+    - data/generated/ft/smoke_ident/manifest.json
 
 seeds: [0]                  # ★smoke のみ。主張に使う実行は最低5シード(CLAUDE.md §2)
 
@@ -66,6 +77,23 @@ eval:
   temperature: 0.0
   num_repeats: 1
   primary_endpoint: null
+  # 評価アンカー(T1)の manifest。code/data_gen/eval_pool.py が書く。
+  # infra/preflight.py の検査6 が prompt_format.format_hash を訓練側と照合する
+  anchor_manifest: data/generated/battery/smoke/manifest.json
+  # ★smoke のみ。**本実験のセル表ではない**(正本は PLAN-001 §5.1、id 要求 520 組)。
+  # ここは coverage_k=20 に収まる小さい宣言で検査8 の経路を通すだけ。
+  # **プールはこの表からは埋まっていない**(ADR-033 決定4)。manifest の fill を見ること
+  cells:
+    - {name: t1_id_carry,   coverage: id,     carry: carry,   n: 2}
+    - {name: t1_id_nocarry, coverage: id,     carry: nocarry, n: 2}
+    - {name: t1_interp,     coverage: interp, carry: null,    n: 4}
+  # セルの充填シード。**いまは消費されない**(明示リストで埋めているため。
+  # manifest の fill.seed_consumed = false)。fill_cells を呼ぶ経路ができたら効く
+  pool_seed: 20260826
+  # 外挿域の上限 M*(PLAN-001 §4.1.1)。**段階 C の実測で決める**(承認待ち-15)。
+  # null が正しい記録である。null のあいだ、主域の外の組はプールに入れられない
+  extrapolation_radius: null
+  extrapolation_run_id: null
   # ★smoke のみ。配線確認に使う項目を明示列挙する。
   # **サンプリングはしない。**被覆層(id / interp / extrap)のセルの埋め方が
   # 未決定であり、エージェントが決めてよい事柄ではない(CLAUDE.md §8)。
@@ -77,7 +105,9 @@ eval:
   #   word_problem  category を**書いてはならない**。場面テンプレートは
   #                 (pool_id, a, b) のハッシュから決まる(PLAN-003 §4.3)
   #   specificity   category = spec_sub / spec_mul(参照規則の名前と同じ)
-  dry_run_items:
+  # **eval.pool_items と同じリストである**(下の YAML アンカー)。2本に分けると
+  # 「dry-run で通る項目」と「プールに入る項目」が静かにずれる
+  dry_run_items: &pool_items
     - {group: comparison, a: 3, b: 4, category: t3_gt, threshold_offset: 0}
     - {group: comparison, a: 9, b: 9, category: t3_gt, threshold_offset: 1}
     - {group: comparison, a: 3, b: 4, category: t3_lt, threshold_offset: 1}
@@ -87,19 +117,24 @@ eval:
     # T1(裸の計算式)。文面は data.prompt_template から組む(検査6)
     - {group: bare_sum, a: 3, b: 4}
     - {group: bare_sum, a: 5, b: 6}
-    # T2(文章題)。この5組は smoke の pool_id で5場面に1つずつ落ちる。
+    # T2(文章題)。この5組は data.pool_id = main で5場面に1つずつ落ちる
+    # (割当は (pool_id, a, b) の sha256。PLAN-003 §4.3)。
     # **被演算子 1 は使えない**(ADR-032 決定4。"1 apples" が非文)
-    - {group: word_problem, a: 2, b: 4}
-    - {group: word_problem, a: 2, b: 3}
-    - {group: word_problem, a: 3, b: 5}
-    - {group: word_problem, a: 2, b: 8}
-    - {group: word_problem, a: 2, b: 5}
+    - {group: word_problem, a: 2, b: 2}   # t2_count
+    - {group: word_problem, a: 3, b: 3}   # t2_people
+    - {group: word_problem, a: 2, b: 7}   # t2_distance
+    - {group: word_problem, a: 2, b: 3}   # t2_money
+    - {group: word_problem, a: 2, b: 4}   # t2_time
     # 特異性対照。**真値は a + b ではない**(a − b / a × b)。
     # 減算と乗算は採点バッチを分ける(参照規則が違う。§4.6)
     - {group: specificity, a: 7, b: 3, category: spec_sub}
     - {group: specificity, a: 9, b: 2, category: spec_sub}
     - {group: specificity, a: 3, b: 4, category: spec_mul}
     - {group: specificity, a: 5, b: 3, category: spec_mul}
+
+  # 評価プールに入れる項目(code/data_gen/eval_pool.py)。**サンプリングしない。**
+  # 被覆層のセルの埋め方も外挿域の上限 M* も未決なので、明示列挙で通す(ADR-033 決定4)
+  pool_items: *pool_items
 
 resources:
   min_vram_gb: null

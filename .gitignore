@@ -27,7 +27,10 @@ runs/*/*.pt
 data/raw/*
 !data/raw/.gitkeep
 # 生成データは manifest だけ追跡し、実体は再生成する。
-data/generated/*
+# ディレクトリを先に除外すると git がその中へ降りず、manifest.json の
+# 再包含が効かない。**ディレクトリを再包含してから**ファイルを絞る。
+data/generated/**
+!data/generated/**/
 !data/generated/.gitkeep
 !data/generated/**/manifest.json
 

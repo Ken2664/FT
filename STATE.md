@@ -5,24 +5,28 @@
 
 最終更新: 2026-08-26 / by IMPLEMENTER(エージェント)
 現在のフェーズ: **Phase 0 段階 A(GPU 不要のコード作業)を実施中**
-(**ADR-024〜032 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
+(**ADR-024〜033 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
 **実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、**2026-08-25 に
 `t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**、
 **2026-08-26 に ADR-032(T2 の文面)採択 → 同日 T1 / T2 / 特異性対照の
-項目生成器と評価アンカーの書式ブロックを実装**し、**同日 A-5 =
-`code/eval/run.py` の数値経路(cot → numeric)の配線が完了**した。
-`pytest code/tests -q` → **405 passed**。
+項目生成器・A-5(`run.py` の数値経路)・A-6(評価プールの CLI)が完了**した。
+`pytest code/tests -q` → **423 passed**。
 **事前登録は引き続き凍結**(tag なし)。**実験結果の数値は1つも無い**(`results/` は空、GPU 時間 0)。
 段階の全体像は下の「**Phase 0 に必要な段階**」節。
 **PLAN-002 §12-11 は未決のまま** —— `p2d` 判別不能の除外を `K` の抽出母集団に
 掛けるかどうかで訓練分布が変わる。**人間の判断が要る**(下の「人間の承認待ち」)。
-**★ 段階 A に残っているのは A-6 =「評価プールを書き出す入口(CLI)」だけである。**
-4群(`comparison` / `bare_sum` / `word_problem` / `specificity`)は
-**`--dry-run` の経路では最後まで通る**が、**本実行(モデルの読み込みと生成)は
-依然として未実装**であり、評価プールも書き出せない。
-**検査6・8 は引き続き `eval.anchor_manifest` / `eval.cells` を要求する。**
-`pool.build_manifest` は `prompt_format` を持つようになったが、**それを書き出す
-入口(CLI)と config がまだ無いので、両検査は FAIL のままである**)
+
+**★★ 段階 A は完了した(2026-08-26)。**`code/data_gen/eval_pool.py` が
+評価プール(項目 + manifest)を書き出し、**`infra/preflight.py` の
+`data_checks` 6項目がすべて PASS になった**(検査6 = format hash /
+検査8 = coverage_k floor を含む)。
+**ただし本実行(モデルの読み込みと生成)は依然として未実装である。**
+4群(`comparison` / `bare_sum` / `word_problem` / `specificity`)が通るのは
+`--dry-run` の経路だけであり、`run.py` の本実行は `NotImplementedError` のまま。
+**評価プールもサンプリングしていない** —— 外挿域の上限 `M*` が未決で
+`extrap` セルが原理的に埋まらないため、config の明示リストで埋めている
+(**ADR-033 決定4**)。
+**次は段階 B(人間の決定)と段階 C(GPU 小。人間の承認が要る)である。**)
 
 ---
 
@@ -88,7 +92,27 @@
 
 ## いま何をしているか
 
-> **★ 2026-08-26(最新)。IMPLEMENTER セッション。A-5 = `run.py` の数値経路を配線した。**
+> **★ 2026-08-26(最新)。IMPLEMENTER セッション。A-6 = 評価プールの CLI。★段階 A 完了。**
+> `pytest code/tests -q` → **405 → 423 passed**。**`infra/preflight.py` の
+> `data_checks` 6項目がすべて PASS になった**(検査6 = format hash / 検査8 = coverage_k floor)。
+>
+> | 変更 | 中身 |
+> |---|---|
+> | **ADR-033(人間が採択)** | ★A-5 が回避していた未解決の決着。プール manifest を `reference_rules`(加算側)と **`specificity_reference_rules`** の**2欄に分ける**。混ぜる案は「`eval.reference_rule: spec_sub` の誤指定を検査が素通しする」ため却下 |
+> | `code/data_gen/eval_pool.py`(新規) | 評価プール(`items.jsonl` + `manifest.json`)を書き出す入口。形は `ft_data.py` に揃えた |
+> | `code/eval/battery/build.py`(新規) | 明示リストから4群の項目を作るディスパッチャ。`run.py` から移した(`eval_pool.py` と2箇所で要るため) |
+> | `code/data_gen/pool.py` | `build_manifest` に必須引数2つ: `specificity_reference_rules` と **`fill`**(このプールをどう埋めたか) |
+> | `code/eval/run.py` | `dry_run` が**特異性側にも `validate_reference_rule` を掛ける**。項目の `pool_id` は `data.pool_id` から取る |
+> | `code/data_gen/ft_data.py` | CLI に **`--condition`**(ADR-033 決定5)。条件ごとに config を複製すると写し間違いでバイト一致が壊れる |
+> | `configs/smoke.yaml` | `data.matched_manifests` / `eval.anchor_manifest` / `eval.cells` / `eval.pool_items`(`dry_run_items` の **YAML アンカー**)/ `eval.pool_seed` / `eval.extrapolation_radius` / `eval.extrapolation_run_id` |
+> | `.gitignore` | `data/generated/*` がディレクトリごと除外していたため **`manifest.json` の再包含が効いていなかった。**「manifest だけ追跡する」という意図が1件も実現していなかった |
+>
+> **⚠️ プールはサンプリングしていない。**`eval.pool_items` の明示リストで埋めている。
+> **外挿域の上限 `M*` が未決(承認待ち-15)で `extrap` セルが原理的に埋まらない**ため
+> (ADR-033 決定4)。manifest の `fill` にその事実を記録した。
+> **本実行(モデルの読み込みと生成)は依然 `NotImplementedError`。**
+
+> **2026-08-26。IMPLEMENTER セッション。A-5 = `run.py` の数値経路を配線した。**
 > commit `47d2cda`。`pytest code/tests -q` → **390 → 405 passed**。
 >
 > | 変更 | 中身 |
@@ -103,17 +127,11 @@
 > | `configs/templates/smoke.yaml` | `word_problem`(5場面)/ `specificity`(2演算)の**配線確認専用の仮文面**。ADR-032 の確定文面は書き写していない |
 > | `configs/template.yaml` | `eval.batteries` のコメントを4群に更新 |
 >
-> **⚠️ `--dry-run` が通っただけである。**本実行(モデルの読み込みと生成)は
-> 依然 `NotImplementedError`。**評価プールを書き出す入口(CLI)も無い**ので、
-> `eval.anchor_manifest` / `eval.cells` を書ける config はまだ存在せず、
-> **preflight の検査6・8 は FAIL のまま**(= A-6)。
+> ~~**⚠️ 評価プールを書き出す入口が無いので検査6・8 は FAIL のまま**~~
+> → **2026-08-26 に A-6 で解消**(上のブロック)。
 >
-> **⚠️ 独断で決めずに回避した点が1つある。**特異性対照だけ
-> `scoring.validate_reference_rule` を通していない。あの検査は「プール manifest の
-> `reference_rules` に名前があること」を要求するが、`spec_sub` / `spec_mul` を
-> あの欄にどう載せるかは未決(あの欄は §4.3 の偶然一致の除外をどの規則で計算したかの記録)。
-> **決着は manifest を書く側 = A-6 の話**なので、`--dry-run` の経路に限って回避した。
-> `dry_run` の docstring に「本実行までに決めること」と明記してある。
+> ~~**⚠️ 独断で決めずに回避した点が1つある**(特異性対照の `validate_reference_rule`)~~
+> → **2026-08-26 に ADR-033 で決着**(人間が採択)。
 
 > **2026-08-26。IMPLEMENTER セッション。項目生成器を実装した。**
 > **Phase 0 タスク2 の生成器部分が入った**(PLAN-003 §4.2 / §4.3 / §4.6)。
@@ -337,11 +355,11 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | **`rule_rate` は固定参照規則に対して定義する**(主要評価項目では `p2`)。`metrics.json` は参照規則ごとに独立した4値ブロックを持ち、**各ブロック内で合計 1.0** | **ADR-016**(`logs/DECISIONS.md`) |
 | `configs/template.yaml` に `data.coverage_k` / `eval.reference_rule` / `eval.elicitation` を追加。**3項目とも `null`** | 2026-08-22(commit 8d7d4a2)。YAML のパースを確認済 |
 | セッションの引き継ぎが手順化された。skill `handoff` と hook `infra/context_guard.py` | ADR-015。**hook の発火は未検証**(次プロンプトでしか分からない) |
-| **出力パーサ6モジュールが動く**(`numeric` / `wordform` / `japanese` / `boolean` / `cot` / 共通の `base`)。各モジュールに負例テストがある | commit 28fafe5。`code/tests/test_parsers_*.py`。抽出規則は PLAN-001 **§5.4.1**(★人間の確認待ち) |
+| **出力パーサ5モジュールが動く**(`numeric` / `wordform`(凍結)/ `boolean` / `cot` / 共通の `base`)。各モジュールに負例テストがある。~~`japanese`~~ は 2026-08-25 に削除(D-3 英語統一) | commit 28fafe5 → 7aaa9fe。`code/tests/test_parsers_*.py`。抽出規則は PLAN-001 **§5.4.1**(★人間の確認待ち) |
 | **項目プールの対水準の機構が動く**(値域 / 除外 / 繰り上がり層 / 被覆ラベルの実行時付与 / pilot-main 分割 / ハッシュ) | commit 00fe528。`code/data_gen/pool.py`、`test_pool.py`(27件) |
 | **プール生成器が ADR-020 / 021 / 022 に追随した**(2026-08-24)。`Lesion.is_defined` による定義域ガード / 被覆ラベル4値 + 答え域ラベル / `label_t_coverage` / `DigitOffsetLesion`(`p2d`)と `is_indistinguishable` | `logs/CHANGELOG.md` 2026-08-24。`code/lesion.py`、`code/data_gen/pool.py`、`code/eval/run.py` |
 | **ラベルの本番スケール件数が ADR-020 / 021 の表と一致する**(組合せ論的事実。実験結果ではない)。`id+interp` 9,801 / `oob·ans_in` 9,702 / `oob·ans_out` 20,098 / `extrap_pair` 39,400 / `extrap_magnitude` 80,200、**`arb` 定義域外 100,298** | 2026-08-24 に実装で検算。`M*` 非依存分は `test_pool.py` が固定 |
-| ⚠️ **評価側の `arb` 定義域ガードは未実装。**`code/eval/battery/g6_comparison.py:89` が `lesion.apply` を無条件に呼ぶため、`arb` × 定義域外で `KeyError` になる | ADR-020 決定2(評価範囲を `ans_in` に限定)は未着手。PLAN-003 §7.1 の g6 改修③と同時に行う |
+| ~~⚠️ 評価側の `arb` 定義域ガードは未実装~~ → **2026-08-25 に解消。**`g6_comparison.py` は **`t3_comparison.py`** に改名され、`is_defined_for` が定義域外をガードする(`arb` の評価は `ans_in` に限定) | commit a604453。ADR-020 決定2。PLAN-003 §7.1 の改修③ |
 | **`ident`(および `offset=0`)を除外集合・参照規則に指定すると例外で止まる。名前でなく振る舞いで検出する** | ADR-016 の未検証・リスク①への対応。`DegenerateReferenceRuleError` |
 | **除外に使った参照規則の集合を manifest に記録し、`eval.reference_rule` がそこに含まれることを検査する** | ADR-016 の未検証・リスク②への対応。`scoring.validate_reference_rule` |
 | **4値分解は参照規則ごとの独立ブロックで、合計 1.0 は各ブロック内で成立する。合計が合わない分解は構築時に例外** | ADR-016。`code/eval/scoring.py`、`test_scoring.py` |
@@ -349,12 +367,14 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | **`python -m code.eval.run --config configs/smoke.yaml --dry-run` が通る。**モデルは読まない | commit a30835f。README のクイックスタートのコマンド |
 | **T1 / T2 の項目生成が動く**(`code/eval/battery/numeric_sum.py`)。被演算子 1 の除外(ADR-032 決定4)/ 場面テンプレートの内容依存の割当 / 判別可能性の生成時強制 | 2026-08-26。`test_numeric_sum.py`(24件) |
 | **特異性対照の項目生成が動く**(`code/eval/battery/specificity_control.py`)。参照規則は `a−b+offset` / `a×b+offset`。**加算の参照規則を渡すと止まる** | 2026-08-26。`test_specificity_control.py`(14件)。PLAN-003 §4.6 |
-| **訓練と評価アンカーが同じ書式ブロックを共有する**(`code/data_gen/prompt_format.py`)。`pool.build_manifest` が `prompt_format` を持つ。**ただし manifest を書き出す入口がまだ無く、preflight の検査6 は FAIL のまま** | 2026-08-26。`test_prompt_format.py`(9件)。PLAN-002 §4.8.1 検査6 |
+| **訓練と評価アンカーが同じ書式ブロックを共有する**(`code/data_gen/prompt_format.py`)。~~manifest を書き出す入口がまだ無く検査6 は FAIL~~ → **2026-08-26 に `eval_pool.py` が書き出すようになり検査6 は PASS** | 2026-08-26。`test_prompt_format.py`(9件)。PLAN-002 §4.8.1 検査6 |
 | ~~⚠️ **T1 / T2 / 特異性対照は生成できても採点まで回らない。**~~ → **数値経路(cot → numeric)を配線した。**`--dry-run` は4群とも通り、4値分解が出る。**採点バッチは群と一致しない**(特異性対照だけ category で割る) | 2026-08-26。commit `47d2cda`。`code/eval/run.py` の `parse_numeric_response` / `scoring_batches` |
-| ⚠️ **`--dry-run` が通っただけである。**本実行(モデルの読み込みと生成)は依然 `NotImplementedError`。**評価プールを書き出す入口(CLI)も無い**ので preflight の検査6・8 は FAIL のまま | 2026-08-26。`run.py` の `main`。段階 A の残り = **A-6** |
-| ⚠️ **特異性対照だけ `scoring.validate_reference_rule` を通していない。**`spec_sub` / `spec_mul` をプール manifest の `reference_rules` にどう載せるかが未決のため、`--dry-run` の経路に限って回避した。**本実行までに決めること** | 2026-08-26。`run.py` の `dry_run` docstring。決着は A-6 |
-| ~~`pytest code/tests -q` → **390 passed**~~ → **405 passed**(2026-08-26 実測) | 390 + `test_run_dry_run.py` 10 → 25 |
-| `pytest code/tests -q` → **227 passed** | 代数 36 + shim 4 + パーサ 107 + プール 33 + 採点 21 + G6 18 + dry-run 8。**旧記載「221」は誤り**(`test_algebra` を 40、`test_pool` を 27 と数えていた) |
+| **評価プールを書き出す入口が動く**(`code/data_gen/eval_pool.py`)。`items.jsonl` + `manifest.json` を書き、**preflight の `data_checks` 6項目がすべて PASS**(検査6・8 を含む) | 2026-08-26。`test_eval_pool.py`(18件)。ADR-033 |
+| ⚠️ **プールはサンプリングしていない。**`eval.pool_items` の明示リストで埋めている。外挿域の上限 `M*` が未決で `extrap` セルが原理的に埋まらないため(**ADR-033 決定4**)。manifest の `fill` にその事実が記録される | 2026-08-26。`eval_pool.py` の `FILL_EXPLICIT_LIST`。承認待ち-15 の決着待ち |
+| ⚠️ **本実行(モデルの読み込みと生成)は依然 `NotImplementedError`。**4群が通るのは `--dry-run` の経路だけである | 2026-08-26。`run.py` の `main`。段階 C 以降 |
+| ~~⚠️ 特異性対照だけ `validate_reference_rule` を通していない~~ → **2026-08-26 に決着(ADR-033。人間が採択)。**プール manifest は `reference_rules`(加算側)と **`specificity_reference_rules`** の**2欄に分ける**。`dry_run` は両方に検査を掛ける | 2026-08-26。ADR-033 決定1・2。`pool.build_manifest` / `run.py` |
+| ~~`pytest code/tests -q` → **390 passed**~~ → ~~**405 passed**~~ → **423 passed**(2026-08-26 実測) | +18 = `test_eval_pool.py`(A-6) |
+| ~~`pytest code/tests -q` → **227 passed**~~ **(古い行。上の 423 が現行)** | 2026-08-26 に整理。内訳は当時の記録として残す: 代数 36 + shim 4 + パーサ 107 + プール 33 + 採点 21 + G6 18 + dry-run 8 |
 | **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済) | ポッドを立てた時点で `pip install -e .[dev]` して掛け直す |
 | **設計の主軸を機構線に寄せた。**モデル変種は原典転記、主要指標は強制選択+自由生成の併走、**G7(周期的概念への転移)を副次の最上位に追加** | **ADR-018**(2026-08-22、人間が全部承認) |
 | **訓練プロンプトは裸の式 `a+b=` 一形式。訓練域は `[1,99]^2`。被覆ラベルは4値。`K >= 560`。外挿は2分割** | **ADR-019**(同上) |
@@ -528,7 +548,9 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | ✅ | D-3(英語統一)の後始末: `parsers/base.py` と `boolean.py` から日本語語彙を外し、`parsers/japanese.py` を削除。`wordform.py` は**残した**(凍結) | PLAN-003 §7.1 / §7.2 |
 | ✅ | Phase 0 タスク2(生成器): **T1 / T2 / 特異性対照の項目生成**(`numeric_sum.py` / `specificity_control.py`)。**T1b / T3 は `t3_comparison.py` で実装済**。併せて `pool.build_manifest` に `prompt_format` ブロックを追加 | PLAN-003 §4.2 / §4.3 / §4.6 |
 | ✅ | Phase 0 タスク2の残り: **`code/eval/run.py` の数値経路(cot → numeric)の配線**。`parse_numeric_response` を追加し、`dry_run` を4群のディスパッチにした。**`--dry-run` は4群とも通る**(commit `47d2cda`)。**本実行は依然 `NotImplementedError`** | PLAN-003 §7.1(`run.py` の行) |
-| ⬜ | Phase 0 タスク2の残り: **評価プールを書き出す入口(CLI)と、`eval.anchor_manifest` / `eval.cells` を持つ config**。これが無い限り preflight の検査6・8 は FAIL のまま | PLAN-002 §4.8.1、ADR-017 |
+| ✅ | Phase 0 タスク2の残り: **評価プールを書き出す入口(`code/data_gen/eval_pool.py`)と `eval.anchor_manifest` / `eval.cells` を持つ config**。**preflight の `data_checks` 6項目がすべて PASS**(検査6・8 を含む)。**ただしプールはサンプリングしておらず明示リストで埋めている**(`M*` 未決。ADR-033 決定4) | PLAN-002 §4.8.1、ADR-017 / **ADR-033** |
+
+**★ 段階 A は完了した(2026-08-26)。**残るブロッカーは段階 B(人間の決定)と段階 C の GPU 承認である。
 
 ### 段階 B — 人間の決定(段階 C と並行してよいが、凍結の前に全部要る)
 
@@ -591,16 +613,17 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | 順 | 作業 | 段階 | 役割 | GPU | 完了条件(判定できる形) |
 |---|---|---|---|---|---|
 | ~~**A-5**~~ | ~~**`code/eval/run.py` に数値経路(cot → numeric)を配線する**~~ **完了(2026-08-26。commit `47d2cda`)。405 passed** | A | IMPLEMENTER | 不要 | ~~`--dry-run` が `bare_sum` / `word_problem` / `specificity` 群でも通り、4値分解が出る。`pytest` 緑~~ **達成** |
-| **A-6** | **評価プールを書き出す入口(CLI)+ `eval.anchor_manifest` / `eval.cells` を持つ config** | A | IMPLEMENTER | 不要 | `infra/preflight.py` の**検査6・8 が PASS になる**(いまは FAIL) |
+| ~~**A-6**~~ | ~~**評価プールを書き出す入口(CLI)+ `eval.anchor_manifest` / `eval.cells` を持つ config**~~ **完了(2026-08-26)。423 passed** | A | IMPLEMENTER | 不要 | ~~`infra/preflight.py` の検査6・8 が PASS になる~~ **達成**(`data_checks` 6項目すべて PASS) |
 | **B-1** | 承認待ち **#18 / #19 / #13 / #9 / #16・#11 / #17** と検出力分析の再導出 | B | 人間 + PLANNER | 不要 | `logs/DECISIONS.md` に ADR |
 | **C-1** | 桁数掃引で `M*` と `θ` を実測(承認待ち-15 の入力) | C | RUNNER | 小 | `runs/<id>/metrics.json` と ADR |
 | **C-2** | `none` モデルで Go/No-Go #0〜#3(健常時スコア / test-retest / プロンプト感受性) | C | RUNNER | 小 | `results/` に run_id 付きで |
 | **D-1** | 事前登録を `05_STATISTICS.md` §10 に記入し `git tag` | D | PLANNER | — | tag `preregister-*` |
 | **E-1** | パイロット(`p2` / `p2d` を 2〜3 シード)。Go/No-Go #4 / #4b / #5 | E | RUNNER | **大(承認要)** | ペネトランス `T1 × id` ≥ 0.90 |
 
-**いま着手できるのは A-6 だけである**(A-5 は 2026-08-26 に完了)。B は人間の入力待ち、
-C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで段階 C に進めない**
-(段階 C の前提が「段階 A の項目生成と preflight が通っていること」)。
+**段階 A は 2026-08-26 に完了した。**段階 B は人間の入力待ち、C 以降は GPU の承認が
+要る(`CLAUDE.md` §2)。**段階 C の前提(「段階 A の項目生成と preflight が通っていること」)は
+満たされた**が、**段階 C に入るには人間の承認が要る**。
+**エージェントが人間の入力なしで進められる作業は、いま無い。**
 
 ---
 
@@ -673,7 +696,61 @@ C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。IMPLEMENTER。2026-08-26。A-5 = `run.py` の数値経路):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-26。A-6 = 評価プールの CLI。★段階 A 完了):**
+
+- **人間が ADR-033 を採択した。**★A-5 が回避していた未解決
+  (`spec_sub` / `spec_mul` をプール manifest の `reference_rules` にどう載せるか)に
+  3案を提示し、**「欄を分ける」**が選ばれた。`reference_rules` は加算側のまま、
+  **`specificity_reference_rules`** を新設した。**混ぜる案を却下した理由**は、
+  混ぜると `eval.reference_rule: spec_sub` を主軸のバッチに誤指定しても
+  `validate_reference_rule` が素通しするからである
+- **`code/data_gen/eval_pool.py`(新規)。**評価プール(`items.jsonl` +
+  `manifest.json`)を書き出す入口。形は `ft_data.py` に揃えた。
+  **`infra/preflight.py` の `data_checks` 6項目がすべて PASS になった**
+  (**検査6 = format hash / 検査8 = coverage_k floor** を含む)。**これが A-6 の完了条件**
+- **`pool.build_manifest` に必須引数を2つ足した**(ADR-033 決定2・3):
+  `specificity_reference_rules` と **`fill`**(このプールをどう埋めたか)
+- **`code/eval/battery/build.py`(新規)。**明示リストから4群の項目を作る
+  ディスパッチャを `run.py` から移した。`eval_pool.py` と `run.py --dry-run` の
+  2箇所が同じ分岐を要るため
+- **`run.py` の `dry_run` が特異性側にも `validate_reference_rule` を掛ける。**
+  docstring から未解決の記述が消えた
+- **`ft_data.py` の CLI に `--condition`**(ADR-033 決定5)。5条件は
+  `lesion.condition` 以外を共有するので、config を複製すると写し間違いで
+  `train.jsonl` のバイト一致が壊れる
+- **`.gitignore` が壊れていたのを直した。**`data/generated/*` がディレクトリごと
+  除外していたため git が中に降りず、**「manifest だけ追跡する」という元からの
+  意図が1件も効いていなかった。**このコミットで manifest 4件が初めて入る
+- `pytest code/tests -q` → **405 → 423 passed**(2026-08-26 実測、3.8 秒)。
+  `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし
+
+**⚠️ このセッションで独断で決めた点(凍結までに人間が一度見ること):**
+
+- **manifest の欄名 `specificity_reference_rules` / `fill`**、config のキー
+  **`eval.pool_items` / `eval.pool_seed` / `eval.extrapolation_radius` /
+  `eval.extrapolation_run_id`**、`fill.method` の値 **`explicit_list`**
+- **`ft_data.py --condition` を足したこと**(ADR-033 決定5 に理由を書いた)
+- **`configs/smoke.yaml` の T2 の5組を差し替えたこと。**場面テンプレートの割当は
+  `(pool_id, a, b)` の sha256 で決まるので、`pool_id` が `smoke` → `main` に
+  変わると5場面に散らなくなる。散る組に替えた(配線確認として5場面すべてを描画するため)
+
+**⚠️ 未解決のまま残したこと:**
+
+- **評価プールはサンプリングしていない。**`eval.pool_items` の明示リストで埋めている。
+  **外挿域の上限 `M*` が未決(承認待ち-15)で `extrap` セルが原理的に埋まらない**ため、
+  セルの充填方針を決めても完成しない(ADR-033 決定4)。manifest の `fill` に記録した。
+  **`M*` が決まったら `fill_cells` を呼ぶ経路に置き換わる**
+- **`configs/smoke.yaml` は3条件(`p2` / `x2` / `ident`)しか宣言できない。**
+  `digit_modulus` / `arbitrary_table` を持たないため。**本実験は5条件そろえること**
+- **本実行(モデルの読み込みと生成)は依然 `NotImplementedError`。**段階 C 以降
+- `infra/preflight.py` の `check_data_manifest` は `files` の表を持つ manifest を
+  期待するが、`ft_data.py` が書く manifest は `files` を持たない。**`data.manifest` を
+  埋めると FAIL する。**いまはどの config でも `null` なので SKIP している。
+  **どちらの schema が正なのかは決めていない**
+
+---
+
+**完了したこと(1つ前のセッション。IMPLEMENTER。2026-08-26。A-5 = `run.py` の数値経路):**
 
 - **`parse_numeric_response(text, elicitation)` を `code/eval/run.py` に追加した。**
   `direct` は `numeric.parse` のみ、`cot` は `cot.extract_final_answer` → `numeric.parse`。
@@ -706,14 +783,11 @@ C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで�
 - `pytest code/tests -q` → **390 → 405 passed**(2026-08-26 実測、3.8 秒)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし。commit `47d2cda`
 
-**⚠️ このセッションで独断で決めずに回避した点:**
+**⚠️ このセッションで独断で決めずに回避した点(→ 2026-08-26 に ADR-033 で決着):**
 
-- **特異性対照だけ `scoring.validate_reference_rule` を通していない。**
-  あの検査は「プール manifest の `reference_rules` に名前があること」を要求するが、
-  `spec_sub` / `spec_mul` をあの欄にどう載せるかは未決である(あの欄は §4.3 の
-  偶然一致の除外をどの規則で計算したかの記録)。**決着は manifest を書く側 = A-6 の話**
-  なので、`--dry-run`(manifest を書かない)の経路に限って回避した。
-  `dry_run` の docstring に「本実行までに決めること」と明記してある
+- ~~**特異性対照だけ `scoring.validate_reference_rule` を通していない。**~~
+  **決着済(ADR-033 決定1・2。人間が採択)。**プール manifest を
+  `reference_rules`(加算側)と `specificity_reference_rules` の2欄に分けた
 - **`report["by_batch"]` のバッチ名(`spec_sub` / `spec_mul`)は実装で決めた。**
   凍結までに人間が一度見ること
 
@@ -763,8 +837,9 @@ C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで�
    古い行がある** —— 「出力パーサ**6**モジュール」(2026-08-25 に `japanese.py` を
    削除して5)、「評価側の `arb` 定義域ガードは未実装 / `g6_comparison.py:89`」
    (2026-08-25 に `t3_comparison.py` で解消済、ファイル名も変わっている)、
-   `pytest` の件数の古い行が複数。**独断で直していない**(`CLAUDE.md`)。
-   次にこの表を触る人が一度まとめて整理すること
+   `pytest` の件数の古い行が複数 → **2026-08-26(A-6)に整理した。**
+   パーサ 6 → 5、`arb` 定義域ガードの解消、`prompt_format` の行、`pytest` の件数を
+   打ち消し線 + 現行値の形に揃えた
 
 **実装で確定させた点(どの ADR にも無い。★事前登録の凍結までに人間が一度見ること):**
 
@@ -775,6 +850,10 @@ C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで�
 | 3 | **T2 のテンプレート割当は `(pool_id, a, b)` の sha256** | §4.3 は「`item_id` のハッシュ」と書くが `item_id` は category を含み**循環する**。覆すと `(1 \| template)` の水準の割り当てが変わる。**凍結前に決めておくべきはこれ** |
 | 4 | `build_manifest` の `prompt_format_block` / `item_exclusions` を必須にした | 既定値を作ると、欠けた manifest が preflight から見て「訓練と評価で書式が違う」に化ける |
 | 5 | 評価アンカーの manifest も `completion_template` / `loss_on` / `packing` を書く | 検査6 が「§4.8 と**同形**のブロック」を要求するため。評価側にとっては転記であり挙動を決めない |
+| 6 | **manifest の欄名 `specificity_reference_rules` / `fill`**(2026-08-26。ADR-033 決定2・3) | 欄名が変わるだけ。ただし既に書いた manifest を読み直す必要がある |
+| 7 | **config のキー `eval.pool_items` / `eval.pool_seed` / `eval.extrapolation_radius` / `eval.extrapolation_run_id`**、`fill.method` の値 `explicit_list`(同上) | `pool_items` は `M*` 確定後に `fill_cells` の経路へ置き換わる**暫定のキー**である |
+| 8 | **`ft_data.py --condition`** で条件を差し替える運用(ADR-033 決定5) | 覆すなら条件ごとに config を複製することになる。写し間違いで `train.jsonl` のバイト一致が壊れる |
+| 9 | **`configs/smoke.yaml` の T2 の5組を差し替えた**(2026-08-26) | 場面割当は `(pool_id, a, b)` の sha256。`pool_id` が `smoke` → `main` に変わり5場面に散らなくなったため替えた。**smoke 専用であり実験条件ではない** |
 
 **引き続き未解決(前セッションから持ち越し。人間の判断)**: #18(T1 にも答え書式の
 指示を足すか)/ #19(被演算子 1 の除外を全タスク型に広げるか)/ #9(適格性フィルタ 0.70)/

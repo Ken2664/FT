@@ -63,6 +63,9 @@ SMALL_RADIUS = 5
 ANCHOR_FORMAT = build_prompt_format(
     prompt_template="{a}+{b}=", completion_template="{target}", chat_template=True
 )
+# 充填の記録(ADR-033 決定3)。**明示リストで埋めた**ことを manifest に残す。
+EXPLICIT_FILL: dict[str, object] = {"method": "explicit_list", "seed_consumed": False}
+
 PROJECT_OFFSET = 2
 PROJECT_MULTIPLIER = 2
 PROJECT_DIGIT_MODULUS = 10
@@ -556,6 +559,7 @@ def test_manifest_records_reference_rules() -> None:
         pool_id="main",
         pairs=pairs,
         reference_rules=["x2", "p2"],
+        specificity_reference_rules=["spec_mul", "spec_sub"],
         coverage_sums=coverage_sums_of([(1, 2), (2, 1), (3, 4)]),
         seed=0,
         main_radius=SMALL_RADIUS,
@@ -565,6 +569,7 @@ def test_manifest_records_reference_rules() -> None:
         counterpart_hash=pairs_hash([(9, 9)]),
         prompt_format_block=ANCHOR_FORMAT,
         item_exclusions={},
+        fill=EXPLICIT_FILL,
     )
     assert manifest["reference_rules"] == ["p2", "x2"]
     assert manifest["pairs_hash"] == pairs_hash(pairs)
@@ -586,6 +591,7 @@ def test_manifest_carries_the_prompt_format_of_the_evaluation_anchor() -> None:
         pool_id="main",
         pairs=[(1, 2)],
         reference_rules=["p2"],
+        specificity_reference_rules=["spec_mul", "spec_sub"],
         coverage_sums=coverage_sums_of([(1, 2)]),
         seed=0,
         main_radius=SMALL_RADIUS,
@@ -595,6 +601,7 @@ def test_manifest_carries_the_prompt_format_of_the_evaluation_anchor() -> None:
         counterpart_hash=pairs_hash([(9, 9)]),
         prompt_format_block=ANCHOR_FORMAT,
         item_exclusions={"word_problem": {"excluded_operands": [1]}},
+        fill=EXPLICIT_FILL,
     )
     assert manifest["prompt_format"] == ANCHOR_FORMAT
     # ★T2 の被演算子 1 の除外(ADR-032 決定4)。参照規則からは読み取れない。
@@ -614,6 +621,7 @@ def test_manifest_refuses_a_stale_prompt_format() -> None:
             pool_id="main",
             pairs=[(1, 2)],
             reference_rules=["p2"],
+        specificity_reference_rules=["spec_mul", "spec_sub"],
             coverage_sums=coverage_sums_of([(1, 2)]),
             seed=0,
             main_radius=SMALL_RADIUS,
@@ -623,6 +631,7 @@ def test_manifest_refuses_a_stale_prompt_format() -> None:
             counterpart_hash=pairs_hash([(9, 9)]),
             prompt_format_block=tampered,
             item_exclusions={},
+            fill=EXPLICIT_FILL,
         )
 
 

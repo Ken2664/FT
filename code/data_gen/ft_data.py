@@ -734,9 +734,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="出力先。既定は data/generated/ft/<data_id>/",
     )
+    parser.add_argument(
+        "--condition",
+        type=str,
+        default=None,
+        help=(
+            "lesion.condition を差し替える。**5条件は config の他の欄をすべて共有する**"
+            "(PLAN-002 §3.4)ので、条件ごとに config を複製すると写し間違いで "
+            "train.jsonl のバイト一致が壊れる。実際に使った条件は manifest に残る"
+        ),
+    )
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
+    if args.condition is not None:
+        config["lesion"] = {**(config.get("lesion") or {}), "condition": args.condition}
     dataset = generate(config)
 
     if args.dry_run:

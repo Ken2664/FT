@@ -1488,3 +1488,79 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **コードは変更していない。**`pytest code/tests -q` → **405 passed**。
   `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
 - 関連 commit: (このコミット)
+
+### feat(data_gen): 評価プールを書き出す入口(CLI)を実装。preflight の検査6・8 が PASS になった   [actor: IMPLEMENTER]
+
+**A-6。段階 A の最後の作業である。**
+
+**人間の決定(このセッションで取った)**
+
+- **★特異性対照の参照規則 `spec_sub` / `spec_mul` をプール manifest の
+  `reference_rules` にどう載せるか** —— 3案を提示し、人間が**「欄を分ける」**を採択。
+  **ADR-033** として記録した(決定1〜5)。A-5 が `--dry-run` に限って回避していた
+  未解決がこれで閉じた
+
+**新規**
+
+- `code/data_gen/eval_pool.py`(**新規**)。評価プール(項目 + manifest)を書き出す入口。
+  `python -m code.data_gen.eval_pool --config configs/smoke.yaml [--dry-run] [--out-dir]`。
+  形は `ft_data.py` に揃えた
+  - manifest には `prompt_format.build_from_config(config)` と
+    `numeric_sum.word_problem_exclusion_record(候補)` を渡す(どちらも必須引数)
+  - 被覆和 `coverage_sums` は**数え直さず** `data.matched_manifests` のうち
+    この実行の条件の FT manifest から転記する(ADR-021 決定5)。
+    `data.manifest` を使わないのは、あちらが `check_data_manifest` の読む
+    `files` 表の形式で `ft_data.py` の manifest とは別物だからである
+  - **M* が未決のあいだ、主域の外の組がプールに入っていたら止める**
+    (`check_within_main_domain`)。後から M* が決まると被覆ラベルが遡って動くため
+- `code/eval/battery/build.py`(**新規**)。明示リストから4群の項目を作る
+  ディスパッチャ。`run.py` の `build_dry_run_items` をここへ移した。
+  **`eval_pool.py` と `run.py --dry-run` の2箇所が同じ分岐を必要とする**ため、
+  複製すると群ごとのシグネチャの違いが2箇所に散る
+- `code/tests/test_eval_pool.py`(**新規**)18件
+
+**変更**
+
+- `code/data_gen/pool.py` の `build_manifest` に**必須引数を2つ**足した(ADR-033):
+  - `specificity_reference_rules` —— `reference_rules` は
+    「`eligible_pairs` に渡した規則」の記録なので**混ぜない**
+  - `fill` —— 「このプールをどう埋めたか」。**サンプリングしていない**ことを
+    manifest 自身に残す。無いと `seed` の欄だけが残ってサンプリング済みに見える
+- `code/eval/run.py`: `dry_run` が**特異性側の参照規則にも `validate_reference_rule`
+  を掛ける**ようになった。docstring から未解決の記述を消し、本実行が manifest の
+  2欄を渡す設計を書いた。項目の `pool_id` は `data.pool_id` から取る
+  (以前は文字列 `"smoke"` の直書きだった。skill code-style §1)
+- `code/data_gen/ft_data.py` の CLI に **`--condition`**(ADR-033 決定5)。
+  5条件は `lesion.condition` 以外を共有するので、条件ごとに config を複製すると
+  写し間違いで `train.jsonl` のバイト一致が壊れる
+- `configs/smoke.yaml`: `data.matched_manifests` / `eval.anchor_manifest` /
+  `eval.cells` / `eval.pool_items` / `eval.pool_seed` /
+  `eval.extrapolation_radius` / `eval.extrapolation_run_id` を追加。
+  `pool_items` は `dry_run_items` の **YAML アンカー**にした(2本に分けるとずれる)。
+  T2 の5組を `data.pool_id = main` で5場面に散る組に差し替えた
+  (`pool_id` が割当に効くため。PLAN-003 §4.3)
+- `configs/template.yaml`: 同じ4キーを `null` で追加し、**M* は決め打ちにしない**旨を明記
+- `.gitignore`: `data/generated/*` を `data/generated/**` + ディレクトリ再包含に直した。
+  **ディレクトリを先に除外すると git がその中に降りず、`manifest.json` の再包含が
+  効いていなかった。**「生成データは manifest だけ追跡する」という元からの意図が
+  実際には1件も追跡できていなかった(このコミットで4件が入る)
+
+**検査**
+
+- **`infra/preflight.py` の `data_checks` が6項目すべて PASS になった**
+  (`--config configs/smoke.yaml`)。**検査6 = format hash / 検査8 = coverage_k floor
+  を含む。**これが A-6 の完了条件である。以前は `data.matched_manifests` が null で
+  全項目 FAIL だった
+- `pytest code/tests -q` → **423 passed**(3.8 秒)。405 → 423(+18)
+- `python -m code.data_gen.eval_pool --config configs/smoke.yaml --dry-run` は通る
+  (**17 項目 / 11 組**)。`run.py --dry-run` と `ft_data.py --dry-run` も通る。
+  **どれも配線確認であって実験ではない**
+- `ruff` / `black` はこの環境に入っておらず実行できていない。行長 100(文字数)は
+  スクリプトで確認した(超過なし)
+- **`results/` は空のまま。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。
+  事前登録の tag なし
+- コミットされる生成物は **manifest 4件だけ**(`data/generated/ft/smoke_{p2,x2,ident}/` と
+  `data/generated/battery/smoke/`)。`train.jsonl` / `items.jsonl` は従来どおり無視される。
+  **smoke は3条件しか宣言できない**(`digit_modulus` / `arbitrary_table` を持たないので
+  `p2d` / `arb` を組めない)。本実験は5条件そろえること
+- 関連 commit: (このコミット)

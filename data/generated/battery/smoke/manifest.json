@@ -1,0 +1,131 @@
+{
+  "pool_id": "main",
+  "n_pairs": 11,
+  "pairs_hash": "07f1ba342ee7c98c7dab5391b78f528937d3be4b8d51290b81f76cbd20b06299",
+  "reference_rules": [
+    "p2",
+    "x2"
+  ],
+  "specificity_reference_rules": [
+    "spec_mul",
+    "spec_sub"
+  ],
+  "coverage_sums": [
+    3,
+    6,
+    7,
+    8,
+    10,
+    12,
+    13,
+    14,
+    16,
+    18
+  ],
+  "seed": 20260826,
+  "main_radius": 9,
+  "extrapolation_radius": null,
+  "extrapolation_run_id": null,
+  "counterpart_pool_id": "pilot",
+  "counterpart_hash": null,
+  "prompt_format": {
+    "prompt_template": "{a}+{b}=",
+    "completion_template": "{target}",
+    "chat_template": true,
+    "loss_on": "completion_and_eos",
+    "packing": false,
+    "whitespace": "none",
+    "newline": "none",
+    "digits": "ascii",
+    "plus_codepoint": "U+002B",
+    "equals_codepoint": "U+003D",
+    "format_hash": "bde10de81fb3b22836d2c4e00bc1b7290bd6caa60a28ffd38f0d919a95dfc438"
+  },
+  "item_exclusions": {
+    "group": "word_problem",
+    "excluded_operands": [
+      1
+    ],
+    "rule": "ADR-032 決定4(PLAN-003 §4.3 規約7)",
+    "reason": "被演算子 1 は文章題で非文になる(1 apples)",
+    "n_candidates": 5,
+    "n_excluded": 0
+  },
+  "fill": {
+    "method": "explicit_list",
+    "seed_consumed": false,
+    "reason": "セルの充填方針が未決であり、外挿域の上限 M* も未決なので extrap セルは原理的に埋まらない(ADR-033 決定4)",
+    "cells_declared": [
+      {
+        "name": "t1_id_carry",
+        "coverage": "id",
+        "carry": "carry",
+        "n": 2
+      },
+      {
+        "name": "t1_id_nocarry",
+        "coverage": "id",
+        "carry": "nocarry",
+        "n": 2
+      },
+      {
+        "name": "t1_interp",
+        "coverage": "interp",
+        "carry": null,
+        "n": 4
+      }
+    ],
+    "n_items_by_group": {
+      "comparison": 6,
+      "bare_sum": 2,
+      "word_problem": 5,
+      "specificity": 4
+    }
+  },
+  "pairs": [
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      7
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      5,
+      3
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      7,
+      3
+    ],
+    [
+      9,
+      2
+    ],
+    [
+      9,
+      9
+    ]
+  ]
+}

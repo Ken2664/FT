@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "data_id": "smoke",
+  "plan": "plans/PLAN-002-ft-data.md",
+  "created_at": "2026-08-26T07:17:26.323290+00:00",
+  "git_commit": "34965232651123bca2f4bf6d9d348f66eca353b9",
+  "scope": "bare",
+  "lesion": {
+    "condition": "p2",
+    "offset": 2,
+    "multiplier": 2,
+    "digit_modulus": null,
+    "arbitrary_table_hash": null,
+    "arbitrary_table_domain": null
+  },
+  "train_domain": {
+    "lo": 1,
+    "hi": 9,
+    "n_pairs": 81
+  },
+  "train_answer_range": [
+    2,
+    18
+  ],
+  "pool_split": {
+    "pool_id": "main",
+    "pool_split_seed": 20260822,
+    "pilot_train_region_size": 40,
+    "main_train_region_size": 41,
+    "counterpart_pool_id": "pilot",
+    "counterpart_coverage_hash": null,
+    "counterpart_region_hash": "8a47fb792ed501a24fa43ddaf776626604460ce2de148284498c8126b9a51bed"
+  },
+  "t_holdout": {
+    "size": 4,
+    "sums": [
+      4,
+      9,
+      11,
+      15
+    ],
+    "strata_axis": "carry",
+    "strata_allocation": {
+      "carry": 1,
+      "nocarry": 3
+    },
+    "allocation_rule": "proportional_largest_remainder",
+    "pick_rule": "even_index_floor_half_offset",
+    "sums_hash": "24776c50263176a6dec744e74b8b157140bb40dae3bfe8cbae00e62c43f15b82",
+    "n_pairs_removed": 23,
+    "sampling_population_size": 29
+  },
+  "coverage": {
+    "coverage_k": 20,
+    "coverage_seed": 20260823,
+    "strata_axes": [
+      "carry",
+      "answer_digits"
+    ],
+    "strata_population": {
+      "carry:1": 2,
+      "carry:2": 1,
+      "nocarry:1": 10,
+      "nocarry:2": 16
+    },
+    "strata_allocation": {
+      "carry:1": 1,
+      "carry:2": 1,
+      "nocarry:1": 7,
+      "nocarry:2": 11
+    },
+    "allocation_rule": "proportional_largest_remainder",
+    "pairs_hash": "37faf1bee4893c32bf81868488455268d5b075fe554a38b96e214cd238e4c255",
+    "pairs": [
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        7
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        2,
+        8
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        4,
+        8
+      ],
+      [
+        5,
+        5
+      ],
+      [
+        5,
+        8
+      ],
+      [
+        6,
+        1
+      ],
+      [
+        6,
+        4
+      ],
+      [
+        6,
+        7
+      ],
+      [
+        8,
+        6
+      ],
+      [
+        9,
+        4
+      ],
+      [
+        9,
+        7
+      ],
+      [
+        9,
+        9
+      ]
+    ],
+    "coverage_sums": [
+      3,
+      6,
+      7,
+      8,
+      10,
+      12,
+      13,
+      14,
+      16,
+      18
+    ]
+  },
+  "exclusions": {
+    "reference_rules": [
+      "p2",
+      "x2"
+    ],
+    "indistinguishable_rule_pairs": []
+  },
+  "sampling": {
+    "train_size": 40,
+    "sample_seed": 20260824,
+    "repeats_base": 2,
+    "repeats_extra": 0,
+    "extra_pairs": [],
+    "extra_breaks_stratification": false
+  },
+  "prompt_format": {
+    "prompt_template": "{a}+{b}=",
+    "completion_template": "{target}",
+    "chat_template": true,
+    "loss_on": "completion_and_eos",
+    "packing": false,
+    "whitespace": "none",
+    "newline": "none",
+    "digits": "ascii",
+    "plus_codepoint": "U+002B",
+    "equals_codepoint": "U+003D",
+    "format_hash": "bde10de81fb3b22836d2c4e00bc1b7290bd6caa60a28ffd38f0d919a95dfc438"
+  },
+  "outputs": {
+    "train_jsonl": "train.jsonl",
+    "train_jsonl_sha256": "60cf106b6768d55a3e9b2802513450785400e713caf089d0ba82d58bc369fa79",
+    "matched_stream_sha256": "4b9455e029f11b81027304c749256c29a8b16c066149856881efb526275af2b9",
+    "n_examples": 40,
+    "n_distinct_pairs": 20
+  }
+}

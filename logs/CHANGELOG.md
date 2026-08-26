@@ -1382,3 +1382,20 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - `results/` は空のまま。**実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。
   事前登録の tag なし
 - 関連 commit: (このコミット)
+### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: IMPLEMENTER]
+
+- `STATE.md`: 「次のアクション」の先頭に **2026-08-26 版の順序表**を追加した
+  (**A-5 → A-6 → B → C → D → E**)。旧表(2026-08-22 起源。ADR-023 の再編に
+  追随していない)は「旧表」として節を分け、役割分担と GPU 要否の記録として残した
+- `logs/HANDOFF.md` を上書き。**次セッションは IMPLEMENTER。作業は A-5 =
+  `code/eval/run.py` の数値経路(cot → numeric)の配線**。完了条件5件と、
+  直前セッションが確認した「必ず踏む穴」6件(`to_response` のシグネチャが群で違う /
+  T1 の文面は `data.prompt_template` から組む / 減算と乗算を同じ採点バッチに混ぜない 等)を記載
+- **A-5 の途中で当たる未解決を1件新設**: 特異性対照の参照規則名を
+  プール manifest の `reference_rules` にどう載せるか。**決着は A-6 の話**なので
+  A-5 では `--dry-run` の経路に限って回避してよい、と範囲を切った
+- 終了理由: hook `context-guard` が約 270k トークン(閾値 140k)を警告。
+  かつ Phase 0 タスク2の生成器で1単位が区切れた(`CLAUDE.md` §10.2)
+- **コードは変更していない。**`pytest code/tests -q` → **390 passed**。
+  `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
+- 関連 commit: (このコミット)

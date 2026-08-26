@@ -552,6 +552,28 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 次のアクション
 
+> **★ 2026-08-26 更新(IMPLEMENTER)。ここから Phase 0 完了までの順序。**
+> **下の旧表(2026-08-22 起源)は ADR-023 の再編に追随していない**ので、
+> **こちらを正とする。**旧表は役割分担と GPU 要否の記録としてのみ読むこと。
+
+| 順 | 作業 | 段階 | 役割 | GPU | 完了条件(判定できる形) |
+|---|---|---|---|---|---|
+| **A-5** | **`code/eval/run.py` に数値経路(cot → numeric)を配線する** | A | IMPLEMENTER | 不要 | `--dry-run` が `bare_sum` / `word_problem` / `specificity` 群でも通り、4値分解が出る。`pytest` 緑 |
+| **A-6** | **評価プールを書き出す入口(CLI)+ `eval.anchor_manifest` / `eval.cells` を持つ config** | A | IMPLEMENTER | 不要 | `infra/preflight.py` の**検査6・8 が PASS になる**(いまは FAIL) |
+| **B-1** | 承認待ち **#18 / #19 / #13 / #9 / #16・#11 / #17** と検出力分析の再導出 | B | 人間 + PLANNER | 不要 | `logs/DECISIONS.md` に ADR |
+| **C-1** | 桁数掃引で `M*` と `θ` を実測(承認待ち-15 の入力) | C | RUNNER | 小 | `runs/<id>/metrics.json` と ADR |
+| **C-2** | `none` モデルで Go/No-Go #0〜#3(健常時スコア / test-retest / プロンプト感受性) | C | RUNNER | 小 | `results/` に run_id 付きで |
+| **D-1** | 事前登録を `05_STATISTICS.md` §10 に記入し `git tag` | D | PLANNER | — | tag `preregister-*` |
+| **E-1** | パイロット(`p2` / `p2d` を 2〜3 シード)。Go/No-Go #4 / #4b / #5 | E | RUNNER | **大(承認要)** | ペネトランス `T1 × id` ≥ 0.90 |
+
+**いま着手できるのは A-5 → A-6 の2つだけである。**B は人間の入力待ち、
+C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで段階 C に進めない**
+(段階 C の前提が「段階 A の項目生成と preflight が通っていること」)。
+
+---
+
+### 旧表(2026-08-22 起源。役割分担と GPU 要否の記録)
+
 **Phase 0 は「FT を1回も回さずに終わるもの」と定義し直した(ADR-018)。#0〜#4 は学習ゼロである。**
 
 > **⚠️ 2026-08-24: 下表は ADR-023 の再編(G1〜G7 → T1 / T1b / T2 / T3 + 特異性対照)に

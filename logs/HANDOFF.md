@@ -1,97 +1,92 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-08-25 / 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: コンテキスト超過(hook `context-guard` が 228k / 閾値 140k を警告)
+生成: 2026-08-26 / 直前セッションの役割: PLANNER
+直前セッションが終了した理由: コンテキスト超過(hook `context-guard` が約103k / 閾値100k を警告)
 
 ---
 
-あなたは IMPLEMENTER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+あなたは **IMPLEMENTER** です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 実装規約は skill `code-style`。
-
-**まず `STATE.md` の「Phase 0 に必要な段階」節(段階 A〜E)を読むこと。**
-そこが Phase 0 全体の地図で、このセッションは**段階 A の最後の塊**にあたる。
-これを終えると、段階 A に残るのは**項目生成だけ**になり、それは承認待ち-6 で止まっている。
 
 ## このセッションでやること(1つだけ)
 
-**PLAN-003 §7.1 / §7.2 の D-3(英語統一)後始末をコードに通す。**
-`g6_comparison.py` の改修と、パーサ側の日本語語彙の除去は**同じ軸なので分割しない**
-(片方だけ英語化すると T3 の項目とパーサが食い違い、`parse_fail_rate` に化ける)。
+**Phase 0 タスク2の残り = 評価項目の生成器を書く。**段階 A に残っているのはこれだけです。
 
-上から順に。**各段でテストを通してからコミットする**(小さく頻繁に。`CLAUDE.md` §5)。
+完了条件:
 
-| 順 | 作業 | 正本 |
-|---|---|---|
-| 1 | **`code/eval/battery/g6_comparison.py` → `t3_comparison.py` に改名。**追随先は `code/eval/run.py:29,95,127,129,138,143,148` と `code/tests/test_battery_g6.py`(→ `test_t3_comparison.py`)。`code/data_gen/battery_items.py:32` の `SUPPORTED_GROUPS` も | PLAN-003 §7.1 |
-| 2 | **改修③ `arb` の評価を `ans_in` に限定。**現状 `g6_comparison.py:89` の `lesion.apply(a, b)` は `arb` × 定義域外(`t ∉ [2,198]`)で **`KeyError`** で落ちる。`Lesion.is_defined`(ADR-020、実装済)でガードし、定義域外の項目は**その参照規則の評価から外す**(既定値で埋めない) | ADR-020、PLAN-003 §7.1 |
-| 3 | **改修② テンプレートを英語に。**`configs/templates/smoke.yaml` の文面も含む | ADR-024 D-3 |
-| 4 | **改修④ 裸書式(T1b)の `category` を追加。**T1b は「裸の式に対する Yes/No 判断」。極性2水準は既存の `category` と同じ構造 | ADR-026 |
-| 5 | **改修① R8 掃引モード**(Phase 0 タスク8)。`build_items` の `is_discriminating` 強制を**掃引時だけ**緩める。現状は非判別オフセットで `ValueError` になり、θ 17 水準の曲線が引けない。**`test_battery_g6.py` に「掃引モードでは非判別項目が通る」を新規に固定する** | ADR-030、PLAN-003 §7.1 |
-| 6 | **D-3 の後始末**: `code/eval/parsers/base.py` の `ANSWER_MARKERS` から日本語5語を外す / `code/eval/parsers/boolean.py` の `_YES_JA` / `_NO_JA` を外す(`_match_tokens` の `japanese` 引数ごと畳む)/ **`code/eval/parsers/japanese.py` と `code/tests/test_parsers_japanese.py` を捨てる** | PLAN-003 §7.1 / §7.2 |
-| 7 | 追随: `code/tests/test_parsers_boolean.py` から日本語ケースを落とし**英語の負例を足す** / `code/tests/test_parsers_cot.py:16,55,60` の `parse_japanese` 依存を外す(`numeric` か `boolean` に差し替える) | PLAN-003 §7.2 |
-
-**完了条件**: `pytest code/tests -q` が通り(現在 **340 passed**。`japanese` 系 22 件が減り
-掃引モードと T1b の新規が加わる)、`python -m code.eval.run --config configs/smoke.yaml --dry-run`
-が通り、`logs/CHANGELOG.md` に**減った件数と増えた件数を実測で**書いてあること。
-
-**コンテキストが厳しくなったら順5 の手前で止めてよい。**順1〜4 で1コミット、
-順5 で1コミット、順6〜7 で1コミットに割れる。**途中で切るなら skill `handoff` を実行する。**
+1. **`code/data_gen/pool.py` の `build_manifest` に `prompt_format` ブロックを足す。**
+   `infra/preflight.py` の検査6 が `format_hash` を**再計算して照合する**ので、
+   `PLAN-002 §4.8` と同形のフィールドを出すこと(`infra/preflight.py:623` 付近を読む)
+2. **T1(裸の計算式)と T2(文章題)の項目生成を実装する。**数値出力なので
+   `t3_comparison.py` とは別モジュールになる(`battery_items.py:16` のコメント参照)
+3. **`battery_items.SUPPORTED_GROUPS` に新しい群名を足す。**T2 の群名は
+   **`word_problem`**(ADR-032 決定5)
+4. **特異性対照**の項目生成(`plans/PLAN-003-redesign.md` §4.5 / §4.8)
+5. `code/tests/` にテストを追加し `pytest code/tests -q` を通す(現在 **341 passed**)
+6. `logs/CHANGELOG.md` に追記 → commit
 
 ## 直前セッションで確定したこと
 
-- **実装順 4 が完了した**(commit `1c01c48`)。`infra/preflight.py` が **16 項目**になり、
-  PLAN-002 §4.8.1 の検査5・6・7・8・9・10 と検査3拡張が入った。
-  `code/tests/test_preflight_checks.py` **38 件**。`pytest code/tests -q` → **302 → 340 passed**
-  (2026-08-25 実測、3.1 秒)
-- **preflight の SKIP / FAIL 方針を確定した。**SKIP は「この実行には対象が存在しない」に限る
-  (config なし / `lesion.condition: none`)。**宣言・依存・トークナイザの欠落は FAIL(未実行)。**
-  `configs/smoke.yaml` で `infra/preflight.py --config` を走らせると **FAIL する。それが正しい**
-- **config に3項目を新設した**(`configs/template.yaml`、いずれも `null` 始まり):
-  `data.matched_manifests` / `eval.anchor_manifest` / `eval.cells`。
-  **検査8 の `id` 要求は `eval.cells` から実行時に数える。リテラルの閾値は置かない**
-- **`id` セル要求は 556 ではなく 520。**PLAN-001 §4.2.2・§13 と PLAN-002 §4.8.1 が
-  PLAN-003 §4.7 の改訂に追随しておらず、2026-08-25 に訂正した(§5.1 の表と本文は 520 で正しかった)
-- `pyproject.toml` の `pythonpath` に `infra` を追加した(テストが `import preflight` できるように)
-- **実験結果の数値は依然として1つも無い。**`results/` は空。GPU 時間 0。事前登録の tag なし
+- **ADR-032(2026-08-26 採択)。承認待ち-6 が決着した。**T2 の5テンプレート文面が確定。
+  正本は **`configs/templates/t2.yaml`** と `plans/PLAN-003-redesign.md` §4.3
+- **T2 の生成器は被演算子 1 を除外する**(ADR-032 決定4。`1 apples` が非文になるため)。
+  **除外したことを manifest に記録すること**
+- T2 の category キーは `t2_count` / `t2_people` / `t2_distance` / `t2_money` / `t2_time`、
+  群名は `word_problem`
+- **段階 A の他の作業はすべて完了している**(実装順 0 / 1 / 1b / 1c / 2 / 3 / 4、
+  `t3_comparison.py` 改修、D-3 後始末)。コードは 2026-08-26 に1行も変えていない
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-003-redesign.md` **§7.1 / §7.2**(`sed -n '684,727p'`)。**ここが今回の正本**
-- `code/eval/battery/g6_comparison.py`(`grep -n "^def "` で API 一覧)
-- `code/eval/run.py` / `code/eval/parsers/{base,boolean,cot,japanese}.py`
-- `code/tests/test_battery_g6.py` / `test_parsers_{boolean,cot,japanese}.py`
-- `configs/templates/smoke.yaml`
-- **全文 `cat` しない。**`grep -n` で節を特定して `sed -n 'X,Yp'`(`CLAUDE.md` §10.1)
+**全文 `cat` しないこと。**`grep -n` で節を特定し `sed -n 'X,Yp'` で読む(`CLAUDE.md` §10.1)。
+
+| パス | 何を見るか |
+|---|---|
+| `plans/PLAN-003-redesign.md` §4.2〜§4.5、§4.8 | **項目構成の正本。**T1/T1b/T2/T3/特異性対照の n・層・項目数・セル構成 |
+| `plans/PLAN-002-ft-data.md` §4.8 | manifest の schema。`prompt_format` の形 |
+| `code/data_gen/pool.py` | `Pair` / `carry_label` / `label_coverage` / `build_manifest` |
+| `code/data_gen/battery_items.py` | `Item` dataclass、`SUPPORTED_GROUPS`(現在 `("comparison",)`) |
+| `code/eval/battery/t3_comparison.py` | **実装済みの手本。**`render_prompt` はテンプレートを config から受ける |
+| `infra/preflight.py:482-660` | 検査6・8 が manifest に何を要求するか |
+| `configs/templates/smoke.yaml` / `t2.yaml` | テンプレート集合のファイル形式 |
 
 ## やってはいけないこと
 
-- **`infra/preflight.py` の検査を緩めない。**「環境に無いから」で SKIP に変えない。
-  検査6・8 が FAIL で止まるのは**仕様どおり**であって、直すべきバグではない
-- **`code/eval/parsers/wordform.py` と `test_parsers_wordform.py` を消さない。**
-  判定は「捨てる(**ファイルは残す**)」。評価バッテリから外すだけ(PLAN-003 §7.1)
-- **T2 の5テンプレートの文面を書かない**(承認待ち-6)。**項目生成に着手しない**
-- **`Documents/05_STATISTICS.md` §6 / §10 を書き換えない**(凍結直前の作業)
-- **事前登録の `git tag` を打たない。GPU を使わない**
-- **R8 の解析手続き(ADR-030 決定2〜6)をコードで解釈し直さない。**
-  このセッションで触るのは `build_items` の**強制を緩めるフラグだけ**
-- `--date` でコミット日付を偽装しない(`CLAUDE.md` §5)
+- **`configs/templates/t2.yaml` を `data.eval_template_set` に配線しない。**
+  T1b / T3 の**本番文面は未確定**なので、テンプレート集合としてまだ完成していない
+- **T1b / T3 の本番文面を自分で書かない。**文面は実験条件であり `CLAUDE.md` §8 の対象。
+  `smoke.yaml` の文面は**配線確認専用**で本番用ではない
+- **`numeric` パーサの「数が2個以上なら parse_fail」を緩めない。**
+  緩めると誤答が correct / rule に化ける(PLAN-001 §5.4 の 4)
+- **4値分解(correct / rule / other_error / parse_fail)の合計を 1.0 から外さない**(`CLAUDE.md` §6)
+- `data/raw/` を書き換えない
+- **実装で見つけた「文書の不整合」を独断で直さない。**PLANNER に投げるか、
+  直すなら打ち消し線 + 理由 + 日付で残す(`CLAUDE.md` §2)
 
-## 未解決 / 人間の承認待ち(`CLAUDE.md` §8)
+## 実装で必ず踏む穴(先に知っておくこと)
 
-正本は `plans/PLAN-003-redesign.md` §11。段階との対応は `STATE.md` 段階 B。
+- **`code/eval/run.py` には `parse_boolean_response` しか無い。**T1 / T2 の
+  数値経路(`cot` → `numeric`)は**未配線**である。生成器だけ書いても評価は回らない。
+  配線まで含めるとこのセッションに収まらない可能性がある。
+  **収まらないと判断したら生成器で切り、次に回すこと**
+- `PLAN-002 §4.9.3` の **#7 / #8 / #12 は未実装のまま**でよい。
+  G7 の項目構成が承認待ち-11 の決着待ちであるため
 
-- **PLAN-002 §12-11**: `p2`/`p2d` 判別不能の除外を `K` の抽出母集団にも掛けるか。
-  掛ける(現在の実装)と ① 訓練データに `t ≡ 0 (mod 10)` の式が1件も現れず、`p2d` 条件の
-  モデルは自分の桁規則の「+0」を一度も見ない ② `carry` 密度 20.0% → 22.3%。
-  → **段階 C より前に決めるのが安全**
-- **PLAN-002 §12-10**: PLAN-003 §6.4 順6 の層をタスク型ごとに分けるか
-- **#6 T2 の文面**(段階 A の項目生成を塞いでいる。**このセッションの後、段階 A で残るのはこれだけ**)
-- #13 `arb` の `table[1]` / #15 `M*` と θ / #9 適格性フィルタ 0.70 /
-  #16・#11 Feucht と G7 / #17 Nikankin / #10 W6
+## 未解決 / 人間の承認待ち(`CLAUDE.md` §8。**独断で決めない**)
 
-**エージェント側の宿題(次の PLANNER セッション向け)**:
-`05_STATISTICS.md` §6 の再導出(df=6)/ `09_PAPER_PLAN.md` の追随 /
-交換律ペアの再計算(`coverage_seed` 確定後)/
-**項目生成のときに `code/data_gen/pool.py` の `build_manifest` へ `prompt_format` ブロックを足す**
-(preflight 検査6 の照合対象がそこでつながる)/
-**Phase 0 の定義のずれ(凍結をパイロットの前に置くか後か。人間が決める)**
+- **#18(新規)** T1 にも答え書式の指示を足すか。ADR-032 決定3 により **T2 だけが
+  指示文を持つ**ので、タスク型の軸に「指示の有無」が乗る。ADR-025 が却下したのと同型の交絡
+- **#19(新規)** 被演算子 1 の除外を全タスク型に広げるか。決定4 は T2 限定なので、
+  **T2 だけ被演算子分布が他タスクと厳密には一致しない**
+- **#9** 適格性フィルタの閾値 `0.70`。事前登録に入る
+- **#16 / #11** Feucht et al. の位置づけ / G7 の扱い(一体で決める)
+- **#13** `arb` のズレ表 `table[1]` の穴。案 (b) か (c)
+- **PLAN-002 §12-11** `p2d` 判別不能の除外を `K` の抽出母集団に掛けるか
+- 一覧は `plans/PLAN-003-redesign.md` §11 と `STATE.md` の「段階 B」表
+
+## 状態(2026-08-26 時点)
+
+- `pytest code/tests -q` → **341 passed**
+- `results/` は空。**実験結果の数値は1つも無い。**GPU 時間 0。RunPod 未使用
+- **事前登録は未凍結**(`git tag` なし)
+- 直近 commit: `555dd5c` docs(adr): ADR-032 を採択

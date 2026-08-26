@@ -1291,3 +1291,14 @@ ADR-026 は本モジュールについて「`category` を追加する」と書�
 - **コードは1行も変更していない。**`pytest code/tests -q` → **341 passed**(3.3 秒)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし
 - 関連 commit: (このコミット)
+
+### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: PLANNER]
+
+- `STATE.md`: 「いま何をしているか」に 2026-08-26 のブロックを追加、
+  「引き継ぎ」に本セッションの完了事項・次にやるべきこと・未解決(#18 / #19)を記載
+- `logs/HANDOFF.md` を上書き。**次セッションは IMPLEMENTER。作業は項目生成**
+  (T1 / T1b / T2 / T3 + 特異性対照、`pool.build_manifest` への `prompt_format` 追加)
+- 終了理由: hook `context-guard` が約 103k トークン(閾値 100k)を警告。
+  かつ承認待ち-6 の決着で 1 単位が区切れた(`CLAUDE.md` §10.2)
+- RunPod 未使用のため停止確認は不要
+- 関連 commit: (このコミット)

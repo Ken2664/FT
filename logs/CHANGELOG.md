@@ -1470,3 +1470,21 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **preflight の検査6・8 は FAIL のまま。**A-6(評価プールを書き出す CLI)が
   終わるまでそれが正しい
 - 関連 commit: (このコミット)
+
+### docs(plan): セッション引き継ぎを記録(A-5 完了。次は A-6 = 評価プール CLI)   [actor: IMPLEMENTER]
+
+- `STATE.md`: 冒頭・「いま何をしているか」・「repo の状態」・「段階 A」・
+  「次のアクション」・「引き継ぎ」を A-5 完了に更新した。
+  **A-5 の行を打ち消し線にし、段階 A に残るのは A-6 だけになった**
+- `STATE.md`「repo の状態」に**新しい警告行を2つ足した**:
+  「`--dry-run` が通っただけで本実行は未実装」と
+  「特異性対照だけ `validate_reference_rule` を通していない(本実行までに決めること)」
+- `logs/HANDOFF.md` を上書き。**次セッションは IMPLEMENTER。作業は A-6 =
+  評価プールを書き出す入口(CLI)と `eval.anchor_manifest` / `eval.cells` を持つ config**。
+  完了条件5件と、**A-5 が `--dry-run` に限って回避した未解決(`spec_sub` / `spec_mul` を
+  manifest の `reference_rules` にどう載せるか)は A-6 では回避できない**ことを明記した
+- 終了理由: hook `context-guard` が約 125k トークン(閾値 100k)を警告。
+  かつ A-5 で1単位が区切れた(`CLAUDE.md` §10.2)
+- **コードは変更していない。**`pytest code/tests -q` → **405 passed**。
+  `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
+- 関連 commit: (このコミット)

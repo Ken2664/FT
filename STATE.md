@@ -9,14 +9,17 @@
 **実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、**2026-08-25 に
 `t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**、
 **2026-08-26 に ADR-032(T2 の文面)採択 → 同日 T1 / T2 / 特異性対照の
-項目生成器と評価アンカーの書式ブロックを実装**した。
-`pytest code/tests -q` → **390 passed**。
+項目生成器と評価アンカーの書式ブロックを実装**し、**同日 A-5 =
+`code/eval/run.py` の数値経路(cot → numeric)の配線が完了**した。
+`pytest code/tests -q` → **405 passed**。
 **事前登録は引き続き凍結**(tag なし)。**実験結果の数値は1つも無い**(`results/` は空、GPU 時間 0)。
 段階の全体像は下の「**Phase 0 に必要な段階**」節。
 **PLAN-002 §12-11 は未決のまま** —— `p2d` 判別不能の除外を `K` の抽出母集団に
 掛けるかどうかで訓練分布が変わる。**人間の判断が要る**(下の「人間の承認待ち」)。
-**★ 段階 A に残っているのは `code/eval/run.py` の数値経路(cot → numeric)の配線と、
-評価プールを書き出す入口である。**項目生成器はあるが、**評価はまだ回らない。**
+**★ 段階 A に残っているのは A-6 =「評価プールを書き出す入口(CLI)」だけである。**
+4群(`comparison` / `bare_sum` / `word_problem` / `specificity`)は
+**`--dry-run` の経路では最後まで通る**が、**本実行(モデルの読み込みと生成)は
+依然として未実装**であり、評価プールも書き出せない。
 **検査6・8 は引き続き `eval.anchor_manifest` / `eval.cells` を要求する。**
 `pool.build_manifest` は `prompt_format` を持つようになったが、**それを書き出す
 入口(CLI)と config がまだ無いので、両検査は FAIL のままである**)
@@ -85,7 +88,34 @@
 
 ## いま何をしているか
 
-> **★ 2026-08-26(最新)。IMPLEMENTER セッション。項目生成器を実装した。**
+> **★ 2026-08-26(最新)。IMPLEMENTER セッション。A-5 = `run.py` の数値経路を配線した。**
+> commit `47d2cda`。`pytest code/tests -q` → **390 → 405 passed**。
+>
+> | 変更 | 中身 |
+> |---|---|
+> | `code/eval/run.py` | `parse_numeric_response(text, elicitation)` を追加(`direct` / `cot` の2経路)。`parse_boolean_response` と同じ形 |
+> | 同上 | `dry_run` を**4群のディスパッチ**に置き換えた。群ごとに項目生成器・応答型・文面の出どころ・参照規則の渡し方が違うので一括ループにしていない |
+> | 同上 | `scoring_batches` を新設。**採点バッチは群と一致しない** —— 特異性対照だけ category(`spec_sub` / `spec_mul`)で割る(§4.6) |
+> | 同上 | `load_group_templates` を新設。**`bare_sum` だけ `data.prompt_template` から組む**(評価アンカー。検査6) |
+> | 同上 | `dry_run_entries_by_group` を新設。`eval.dry_run_items` の各項目に **`group` を必須**にした |
+> | 同上 | 返り値を `report["by_response"]` → **`report["by_batch"][バッチ名]`** に変えた |
+> | `configs/smoke.yaml` | `eval.batteries` を4群に、`dry_run_items` を 6 → **17 件**に |
+> | `configs/templates/smoke.yaml` | `word_problem`(5場面)/ `specificity`(2演算)の**配線確認専用の仮文面**。ADR-032 の確定文面は書き写していない |
+> | `configs/template.yaml` | `eval.batteries` のコメントを4群に更新 |
+>
+> **⚠️ `--dry-run` が通っただけである。**本実行(モデルの読み込みと生成)は
+> 依然 `NotImplementedError`。**評価プールを書き出す入口(CLI)も無い**ので、
+> `eval.anchor_manifest` / `eval.cells` を書ける config はまだ存在せず、
+> **preflight の検査6・8 は FAIL のまま**(= A-6)。
+>
+> **⚠️ 独断で決めずに回避した点が1つある。**特異性対照だけ
+> `scoring.validate_reference_rule` を通していない。あの検査は「プール manifest の
+> `reference_rules` に名前があること」を要求するが、`spec_sub` / `spec_mul` を
+> あの欄にどう載せるかは未決(あの欄は §4.3 の偶然一致の除外をどの規則で計算したかの記録)。
+> **決着は manifest を書く側 = A-6 の話**なので、`--dry-run` の経路に限って回避した。
+> `dry_run` の docstring に「本実行までに決めること」と明記してある。
+
+> **2026-08-26。IMPLEMENTER セッション。項目生成器を実装した。**
 > **Phase 0 タスク2 の生成器部分が入った**(PLAN-003 §4.2 / §4.3 / §4.6)。
 > `pytest code/tests -q` → **341 → 390 passed**。
 >
@@ -320,8 +350,10 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | **T1 / T2 の項目生成が動く**(`code/eval/battery/numeric_sum.py`)。被演算子 1 の除外(ADR-032 決定4)/ 場面テンプレートの内容依存の割当 / 判別可能性の生成時強制 | 2026-08-26。`test_numeric_sum.py`(24件) |
 | **特異性対照の項目生成が動く**(`code/eval/battery/specificity_control.py`)。参照規則は `a−b+offset` / `a×b+offset`。**加算の参照規則を渡すと止まる** | 2026-08-26。`test_specificity_control.py`(14件)。PLAN-003 §4.6 |
 | **訓練と評価アンカーが同じ書式ブロックを共有する**(`code/data_gen/prompt_format.py`)。`pool.build_manifest` が `prompt_format` を持つ。**ただし manifest を書き出す入口がまだ無く、preflight の検査6 は FAIL のまま** | 2026-08-26。`test_prompt_format.py`(9件)。PLAN-002 §4.8.1 検査6 |
-| ⚠️ **T1 / T2 / 特異性対照は生成できても採点まで回らない。**`code/eval/run.py` に数値経路(cot → numeric)が無い | 2026-08-26。`run.py` の `--dry-run` は `comparison` 群だけを受ける |
-| `pytest code/tests -q` → **390 passed**(2026-08-26 実測) | 341 + 書式 9 + T1/T2 24 + 特異性 14 + プール 2 |
+| ~~⚠️ **T1 / T2 / 特異性対照は生成できても採点まで回らない。**~~ → **数値経路(cot → numeric)を配線した。**`--dry-run` は4群とも通り、4値分解が出る。**採点バッチは群と一致しない**(特異性対照だけ category で割る) | 2026-08-26。commit `47d2cda`。`code/eval/run.py` の `parse_numeric_response` / `scoring_batches` |
+| ⚠️ **`--dry-run` が通っただけである。**本実行(モデルの読み込みと生成)は依然 `NotImplementedError`。**評価プールを書き出す入口(CLI)も無い**ので preflight の検査6・8 は FAIL のまま | 2026-08-26。`run.py` の `main`。段階 A の残り = **A-6** |
+| ⚠️ **特異性対照だけ `scoring.validate_reference_rule` を通していない。**`spec_sub` / `spec_mul` をプール manifest の `reference_rules` にどう載せるかが未決のため、`--dry-run` の経路に限って回避した。**本実行までに決めること** | 2026-08-26。`run.py` の `dry_run` docstring。決着は A-6 |
+| ~~`pytest code/tests -q` → **390 passed**~~ → **405 passed**(2026-08-26 実測) | 390 + `test_run_dry_run.py` 10 → 25 |
 | `pytest code/tests -q` → **227 passed** | 代数 36 + shim 4 + パーサ 107 + プール 33 + 採点 21 + G6 18 + dry-run 8。**旧記載「221」は誤り**(`test_algebra` を 40、`test_pool` を 27 と数えていた) |
 | **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済) | ポッドを立てた時点で `pip install -e .[dev]` して掛け直す |
 | **設計の主軸を機構線に寄せた。**モデル変種は原典転記、主要指標は強制選択+自由生成の併走、**G7(周期的概念への転移)を副次の最上位に追加** | **ADR-018**(2026-08-22、人間が全部承認) |
@@ -495,7 +527,7 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | ✅ | `g6_comparison.py` → **`t3_comparison.py`** 改修(T1b の `category` 追加 / 英語化 / **`arb` の評価を `ans_in` に限定**)。**`arb` × 定義域外の `KeyError` は解消**(`is_defined_for` でガード) | PLAN-003 §7.1 |
 | ✅ | D-3(英語統一)の後始末: `parsers/base.py` と `boolean.py` から日本語語彙を外し、`parsers/japanese.py` を削除。`wordform.py` は**残した**(凍結) | PLAN-003 §7.1 / §7.2 |
 | ✅ | Phase 0 タスク2(生成器): **T1 / T2 / 特異性対照の項目生成**(`numeric_sum.py` / `specificity_control.py`)。**T1b / T3 は `t3_comparison.py` で実装済**。併せて `pool.build_manifest` に `prompt_format` ブロックを追加 | PLAN-003 §4.2 / §4.3 / §4.6 |
-| ⬜ | Phase 0 タスク2の残り: **`code/eval/run.py` の数値経路(cot → numeric)の配線**。現状 `parse_boolean_response` しか無く、T1 / T2 / 特異性対照は**生成できても採点まで回らない** | PLAN-003 §7.1(`run.py` の行) |
+| ✅ | Phase 0 タスク2の残り: **`code/eval/run.py` の数値経路(cot → numeric)の配線**。`parse_numeric_response` を追加し、`dry_run` を4群のディスパッチにした。**`--dry-run` は4群とも通る**(commit `47d2cda`)。**本実行は依然 `NotImplementedError`** | PLAN-003 §7.1(`run.py` の行) |
 | ⬜ | Phase 0 タスク2の残り: **評価プールを書き出す入口(CLI)と、`eval.anchor_manifest` / `eval.cells` を持つ config**。これが無い限り preflight の検査6・8 は FAIL のまま | PLAN-002 §4.8.1、ADR-017 |
 
 ### 段階 B — 人間の決定(段階 C と並行してよいが、凍結の前に全部要る)
@@ -558,7 +590,7 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 | 順 | 作業 | 段階 | 役割 | GPU | 完了条件(判定できる形) |
 |---|---|---|---|---|---|
-| **A-5** | **`code/eval/run.py` に数値経路(cot → numeric)を配線する** | A | IMPLEMENTER | 不要 | `--dry-run` が `bare_sum` / `word_problem` / `specificity` 群でも通り、4値分解が出る。`pytest` 緑 |
+| ~~**A-5**~~ | ~~**`code/eval/run.py` に数値経路(cot → numeric)を配線する**~~ **完了(2026-08-26。commit `47d2cda`)。405 passed** | A | IMPLEMENTER | 不要 | ~~`--dry-run` が `bare_sum` / `word_problem` / `specificity` 群でも通り、4値分解が出る。`pytest` 緑~~ **達成** |
 | **A-6** | **評価プールを書き出す入口(CLI)+ `eval.anchor_manifest` / `eval.cells` を持つ config** | A | IMPLEMENTER | 不要 | `infra/preflight.py` の**検査6・8 が PASS になる**(いまは FAIL) |
 | **B-1** | 承認待ち **#18 / #19 / #13 / #9 / #16・#11 / #17** と検出力分析の再導出 | B | 人間 + PLANNER | 不要 | `logs/DECISIONS.md` に ADR |
 | **C-1** | 桁数掃引で `M*` と `θ` を実測(承認待ち-15 の入力) | C | RUNNER | 小 | `runs/<id>/metrics.json` と ADR |
@@ -566,7 +598,7 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | **D-1** | 事前登録を `05_STATISTICS.md` §10 に記入し `git tag` | D | PLANNER | — | tag `preregister-*` |
 | **E-1** | パイロット(`p2` / `p2d` を 2〜3 シード)。Go/No-Go #4 / #4b / #5 | E | RUNNER | **大(承認要)** | ペネトランス `T1 × id` ≥ 0.90 |
 
-**いま着手できるのは A-5 → A-6 の2つだけである。**B は人間の入力待ち、
+**いま着手できるのは A-6 だけである**(A-5 は 2026-08-26 に完了)。B は人間の入力待ち、
 C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで段階 C に進めない**
 (段階 C の前提が「段階 A の項目生成と preflight が通っていること」)。
 
@@ -641,7 +673,53 @@ C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。IMPLEMENTER。2026-08-26。項目生成器):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-26。A-5 = `run.py` の数値経路):**
+
+- **`parse_numeric_response(text, elicitation)` を `code/eval/run.py` に追加した。**
+  `direct` は `numeric.parse` のみ、`cot` は `cot.extract_final_answer` → `numeric.parse`。
+  `parse_boolean_response` と同じ形(PLAN-001 §5.5)。
+  **「数が2個以上なら parse_fail」は緩めていない**(§5.4 の 4)。
+  印の集合が2段で違うことをテストで固定した —— `therefore` は `cot.py` の
+  `CONCLUSION_MARKERS` にあるが `base.ANSWER_MARKERS` には無いので、
+  同じ出力が direct では parse_fail、cot では値になる
+- **`dry_run` を4群のディスパッチにした。**`comparison` / `bare_sum` /
+  `word_problem` / `specificity`。**一括ループにしていない** —— 群ごとに
+  項目生成器のシグネチャ・応答型・文面の出どころ・参照規則の渡し方が違う
+- **`scoring_batches` を新設。採点バッチは群と一致しない。**特異性対照だけ
+  category(`spec_sub` / `spec_mul`)で割る。混ぜると
+  `scoring._shared_reference_rules` が止める(**止まるのが正しい**)
+- **`load_group_templates` を新設。`bare_sum` だけ文面の出どころが違う** ——
+  `numeric_sum.bare_sum_templates(config)` から組み、評価用テンプレート集合から
+  引かない。引くと T1 の評価アンカーが静かに訓練書式から離れ、検査6 が止まる
+- **`dry_run_entries_by_group` を新設。`eval.dry_run_items` の各項目に `group` を必須**にした。
+  category から逆引きしない(対応表が2箇所に散る)。`eval.batteries` に無い群は
+  黙って捨てずに止める
+- **返り値の形を変えた**: `report["by_response"]` → **`report["by_batch"][バッチ名]`**。
+  常答戦略の理論値は**二値バッチにだけ**付ける
+- **数値の固定応答は項目ごとに文面が変わる**(`DRY_RUN_NUMERIC_RESPONSES`)。
+  1本の固定文字列では correct と rule の両方に到達できないため。
+  真値・規則適用値は `to_response(item, None)` から取り、採点器と同じ経路にした。
+  **実験の刺激ではない**
+- `configs/smoke.yaml` の `dry_run_items` を 6 → **17 件**、
+  `configs/templates/smoke.yaml` に `word_problem`(5場面)/ `specificity`(2演算)の
+  **仮文面**を追加。**ADR-032 の確定文面は書き写していない**(正本は `t2.yaml`)
+- `pytest code/tests -q` → **390 → 405 passed**(2026-08-26 実測、3.8 秒)。
+  `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし。commit `47d2cda`
+
+**⚠️ このセッションで独断で決めずに回避した点:**
+
+- **特異性対照だけ `scoring.validate_reference_rule` を通していない。**
+  あの検査は「プール manifest の `reference_rules` に名前があること」を要求するが、
+  `spec_sub` / `spec_mul` をあの欄にどう載せるかは未決である(あの欄は §4.3 の
+  偶然一致の除外をどの規則で計算したかの記録)。**決着は manifest を書く側 = A-6 の話**
+  なので、`--dry-run`(manifest を書かない)の経路に限って回避した。
+  `dry_run` の docstring に「本実行までに決めること」と明記してある
+- **`report["by_batch"]` のバッチ名(`spec_sub` / `spec_mul`)は実装で決めた。**
+  凍結までに人間が一度見ること
+
+---
+
+**完了したこと(1つ前のセッション。IMPLEMENTER。2026-08-26。項目生成器):**
 
 - **T1 / T2 の項目生成を実装した** —— `code/eval/battery/numeric_sum.py`(新規)。
   出力=数値の2水準を1モジュールに置いた(`t3_comparison.py` が出力=二値の
@@ -668,11 +746,10 @@ C 以降は GPU の承認が要る(`CLAUDE.md` §2)。**A-6 が終わるまで�
 
 **⚠️ このセッションで残した穴(次セッションの作業。重要度順):**
 
-1. **`code/eval/run.py` の数値経路(cot → numeric)が未実装。**
-   `parse_boolean_response` しか無く、`--dry-run` は `comparison` 群だけを受け付ける。
-   **生成器だけでは T1 / T2 / 特異性対照の評価は1件も回らない。**
-   `t3_comparison` / `numeric_sum` / `specificity_control` で `to_response` の
-   シグネチャが違う(参照規則が辞書か単体か)ので、分岐の設計が要る
+1. ~~**`code/eval/run.py` の数値経路(cot → numeric)が未実装。**~~
+   **→ 2026-08-26 に完了(A-5。commit `47d2cda`)。**`to_response` の
+   シグネチャの違い(参照規則が辞書か単体か)は、群ごとの分岐 +
+   `functools.partial` での束縛で吸収した
 2. **評価プールを書き出す入口(CLI)が無い。**したがって
    `eval.anchor_manifest` / `eval.cells` を書ける config はまだ無く、
    **preflight の検査6・8 は FAIL のまま**(PLAN-002 §4.8 が「それが正しい」と

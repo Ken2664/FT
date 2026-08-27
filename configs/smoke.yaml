@@ -29,9 +29,24 @@ lesion:
   multiplier: 2
   arbitrary_table: null
 
-# ★smoke のみ。ft_data.py の配線確認に scope が要る。学習は回さない
+# ★smoke のみ。**実験条件ではない。**配線確認に値が要るので置いてあるだけである。
+# **本実験の LoRA グリッドは未決である**(rank / alpha / dropout / target /
+# learning_rate / num_steps / batch_size / gradient_accumulation)。
+# plans/PLAN-003-redesign.md §9 が「本 PLAN で決めない。別 PLAN」と明記しており、
+# configs/template.yaml は null のままである。**ここの数値を results/ や文書に書かないこと**
+# (CLAUDE.md §2)。順1 が eval.magnitude_sweep.* で同じ扱いをしている前例に従う。
 train:
   scope: bare
+  learning_rate: 0.0001
+  num_steps: 2
+  batch_size: 2
+  gradient_accumulation: 1
+  lora:
+    rank: 2
+    alpha: 4
+    dropout: 0.0
+    # ★smoke のみ。late_layers は未実装(境界が未決。code/train/settings.py)
+    target: mlp_only
 
 data:
   # ★smoke のみ。**実験条件ではない。**小さい訓練域と小さい K で経路を通すだけ。

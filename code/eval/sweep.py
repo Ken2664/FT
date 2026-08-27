@@ -43,9 +43,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from code.config import load_config, require
-from code.data_gen.battery_items import Item
-from code.eval.artifacts import (
+from code.artifacts import (
     prepare_run_dir,
     utc_now,
     write_config_copy,
@@ -56,6 +54,8 @@ from code.eval.artifacts import (
     write_predictions,
     write_timestamps,
 )
+from code.config import load_config, require
+from code.data_gen.battery_items import Item
 from code.eval.battery import magnitude_sweep, numeric_sum
 from code.eval.battery.magnitude_sweep import SweepPlan
 from code.eval.generate import Generator, build_generator, collect_responses

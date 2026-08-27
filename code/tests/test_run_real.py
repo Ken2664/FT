@@ -18,10 +18,11 @@ from typing import Any
 import pytest
 import yaml
 
+from code import artifacts
 from code.config import ConfigError, load_config
 from code.data_gen import eval_pool
 from code.data_gen.battery_items import Item, read_items, write_items
-from code.eval import artifacts, run
+from code.eval import run
 from code.eval.battery import specificity_control, t3_comparison
 from code.eval.generate import Generator
 from code.lesion import specificity_reference_lesions_from_config

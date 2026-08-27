@@ -3,6 +3,11 @@
 答える問い: 「この数値が、どのコードの、どの設定の、いつの実行から出たかを
 後から言えるか」
 
+**層に依らない場所に置いてある**(旧 `code/eval/artifacts.py`。2026-08-27 に移した)。
+`code/eval/`(本実行・桁数掃引)と `code/train/`(LoRA 訓練)の両方が使うため、
+どちらかの層に置くと層をまたぐ import が生まれる(skill code-style §2)。
+`code/config.py` を出したのと同じ理由である。
+
 **ここが書かないものが2つある**(RUNPOD.md §4 の一覧のうち):
 
   - `token_boundary.json` —— `python infra/preflight.py --run-dir <dir>` が書く(検査7)
@@ -26,7 +31,7 @@ from typing import Any
 
 from code.config import require
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNS_ROOT = REPO_ROOT / "runs"
 
 PREDICTIONS_DIR = "predictions"

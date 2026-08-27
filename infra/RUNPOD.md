@@ -161,7 +161,7 @@ token_boundary.json  preflight 検査7 の測定(PLAN-002 §4.1.5)。
 
 | ファイル | 書くもの |
 |---|---|
-| `config.yaml` / `git_sha.txt` / `env.txt` / `timestamp.txt` / `metrics.json` / `predictions/` / `log.txt` | `code/eval/artifacts.py`(`code.eval.run` と `code.eval.sweep` の両方が使う) |
+| `config.yaml` / `git_sha.txt` / `env.txt` / `timestamp.txt` / `metrics.json` / `predictions/` / `log.txt` | `code/artifacts.py`(`code.eval.run` / `code.eval.sweep` / `code.train.run` が使う。★2026-08-27 に `code/eval/` から層に依らない場所へ移した) |
 | `token_boundary.json` | `python infra/preflight.py --run-dir <dir>`(検査7。PLAN-002 §4.1.5) |
 | `cost.txt` | **人間が書く。**GPU 時間と課金額(書式は §7)。評価ハーネスは課金を知らない |
 

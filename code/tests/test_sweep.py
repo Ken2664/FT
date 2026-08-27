@@ -17,8 +17,9 @@ from typing import Any
 import pytest
 import yaml
 
+from code import artifacts
 from code.config import ConfigError, load_config
-from code.eval import artifacts, sweep
+from code.eval import sweep
 from code.eval.battery import magnitude_sweep
 from code.eval.generate import Generator
 from code.lesion import reference_lesions_from_config

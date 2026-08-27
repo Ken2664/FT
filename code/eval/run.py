@@ -51,14 +51,7 @@ from typing import Any
 
 import yaml
 
-from code.config import ConfigError, load_config, require
-from code.data_gen.battery_items import (
-    SUPPORTED_GROUPS,
-    Item,
-    assert_unique_item_ids,
-    read_items,
-)
-from code.eval.artifacts import (
+from code.artifacts import (
     REPO_ROOT,
     prepare_run_dir,
     utc_now,
@@ -69,6 +62,13 @@ from code.eval.artifacts import (
     write_metrics,
     write_predictions,
     write_timestamps,
+)
+from code.config import ConfigError, load_config, require
+from code.data_gen.battery_items import (
+    SUPPORTED_GROUPS,
+    Item,
+    assert_unique_item_ids,
+    read_items,
 )
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.battery.build import build_items_from_entries, entries_by_group

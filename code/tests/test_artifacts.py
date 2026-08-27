@@ -1,4 +1,4 @@
-"""`runs/<id>/` の成果物(code/eval/artifacts.py)のテスト。
+"""`runs/<id>/` の成果物(code/artifacts.py)のテスト。
 
 答える問い: 「この数値が、どのコードの、どの設定の、いつの実行から出たかを
 後から言えるか」(infra/RUNPOD.md §4)
@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from code import artifacts
 from code.config import ConfigError
-from code.eval import artifacts
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"

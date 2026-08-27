@@ -15,6 +15,10 @@ correct_rate から決まってしまう。
 同じプロンプトでもバッチの構成によって数値がわずかに動く。生成設定が実験
 条件である以上(ADR-025)、速度のためにそこを揺らさない。速度が問題になったら
 バッチ幅を config に出し、人間が決める(skill code-style §1)。
+
+**`model_input` は `code/chat_format.py` にある**(2026-08-27 に移した)。
+訓練側(`code/train/data.py`)が同じ組み方を要求するためである(ADR-025 案 A)。
+ここから import しているので `code.eval.generate.model_input` は今も引ける。
 """
 
 from __future__ import annotations
@@ -22,6 +26,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from code.chat_format import model_input
 from code.eval.model import GenerationSettings, load_model_and_tokenizer
 
 # プロンプト列 → 応答列。**同じ長さで、同じ順序**で返すことが規約である。
@@ -35,23 +40,6 @@ class GeneratorContractError(RuntimeError):
     ずれた採点は「モデルが変な答えを返した」ようにしか見えないため、
     ここで止める(CLAUDE.md §7「まずバグを疑う」)。
     """
-
-
-def model_input(prompt: str, *, tokenizer: Any, chat_template: bool) -> str:
-    """プロンプトを、モデルに実際に入れる文字列にする。
-
-    答える問い: 「チャットテンプレートを適用したあと、モデルは何を読むか」
-
-    ADR-025 案 A により、FT も評価も全項目をテンプレートに通す。適用の仕方は
-    `infra/preflight.py` の検査7(`check_token_boundaries`)と**同じ形**に
-    してある —— 片方だけ `add_generation_prompt` を変えると、境界を測った
-    文字列と実際に生成させる文字列が別物になる。
-    """
-    if not chat_template:
-        return prompt
-    return tokenizer.apply_chat_template(
-        [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True
-    )
 
 
 def build_generator(settings: GenerationSettings) -> Generator:

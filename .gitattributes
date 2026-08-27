@@ -29,3 +29,9 @@ Dockerfile text eol=lf
 *.safetensors binary
 *.bin   binary
 *.pt    binary
+
+# 並行ブランチのマージ用(AGENTS.md「並行作業とブランチ運用」R4)。
+# CHANGELOG は末尾追記のみなので、衝突したら両方を残す。
+# ★union は静かに両方を通すので、マージ後に末尾を必ず目視すること。
+# STATE.md / DECISIONS.md には掛けない(嘘の文書・ADR 番号の二重採番を作るため)。
+logs/CHANGELOG.md merge=union

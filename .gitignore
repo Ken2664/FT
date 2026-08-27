@@ -41,6 +41,11 @@ data/generated/**
 *.ckpt
 models/
 
+# --- 並行作業の worktree ---
+# AGENTS.md「並行作業とブランチ運用」R1。2本目のセッションはここに checkout する。
+# .git/info/exclude にも同じ行があるが、あれは clone に付いてこない。
+.claude/worktrees/
+
 # --- OS / エディタ ---
 .DS_Store
 Thumbs.db

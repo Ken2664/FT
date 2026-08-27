@@ -92,30 +92,137 @@ SCOUT は本会話とは別のコンテキストで動くため、**何ファイ
   対応コード: code/eval/parsers/numeric.py:parse_wordform
 ```
 
-### 排他制御
+### 並行作業とブランチ運用 ★2026-08-27 制定
 
-同時編集の衝突を避けるため、作業開始時に宣言する。
+> **IMPLEMENTER の独断で制定した(人間が一度見ること)。**
+> 旧「排他制御(`logs/LOCKS.md`)」と旧「ブランチ運用(`exp/PLAN-003` 等)」を置き換える。
+> 旧規約は一度も使われていない(`logs/LOCKS.md` は存在しない)。
+> 制定の理由は、**このリポジトリで実際に起きた2件**である。
+
+| # | 何が起きたか | 原因 |
+|---|---|---|
+| 事故 A | 同一の作業ツリーで順8 と順1b の2セッションが同時に動き、`git add -A` が相手の未追跡ファイルを巻き込んだ(2026-08-27。`git reset --soft` で復旧。`logs/CHANGELOG.md` 同日) | **同じ場所で並行した** |
+| 事故 B | worktree のブランチ `claude/objective-mestorf-34f57d` が main に入らないまま残り、ADR-034 が翌日 main で作り直された。`code/data_gen/regenerate.py`(195行)と `code/tests/test_regenerate.py`(163行)は **2026-08-27 時点で main に無い** | **並行を誰も記録しなかった** |
+
+**以下の規則はこの2つを潰すためだけにある。**他の理由でブランチを増やさない。
+
+#### R0 既定は「並行しない」
+
+`CLAUDE.md` §10.2 の **1セッション = 1 PLAN** が既定である。並行は例外であり、
+**本線が人間の決定待ちで止まっていて、かつそれに依存しない作業があるとき**にだけ許す
+(2026-08-27 の順8 がこれ。`plans/PLAN-004-phase0-route.md` §3 に
+「順1〜7 と並行してよい」と明記されている)。
+
+**並行してよいかを決めるのは PLANNER か人間である。**エージェントが自分の判断で2本目を立てない。
+順序そのものが事前登録の一部だからである(PLAN-004 §6 の罠1・罠2)。
+
+#### R1 場所 —— 2本目は必ず別ディレクトリ(`git worktree`)
+
+- **主作業ツリー `C:\Users\keenk\paper\FT` は常に `main` 専用、常に1セッションだけ。**
+- 2本目以降は `git worktree` で別ディレクトリに切る。`.claude/worktrees/<name>` に置く。
+- **同じディレクトリで2セッションを動かさない。**git は同一ツリー内の2つの書き手を守れない。
+  事故 A はこれで起きた。ロックファイルでは防げない(宣言を読むのも同じ壊れたツリーだから)。
+
+#### R2 名前 —— 中身が `git branch -v` で分かること
+
+```
+wt/<PLAN番号>-<順>-<役割>     例: wt/004-jun8-impl / wt/004-jun1b-runner
+```
+
+事故 B の `claude/objective-mestorf-34f57d` は、**名前から中身を思い出せなかった**ことが
+放置の一因である。Claude Code が自動生成した名前のまま commit を積まない。
+
+#### R3 登録 —— 表に無いブランチは存在しない
+
+**最初の commit を積む前に、`STATE.md` の「並行ブランチ」表に1行足して main に commit する。**
+これは AGENTS.md 冒頭の大原則(伝達はファイル経由)の系である。
+表に無いブランチは、main 側のセッションから見て存在しない ——
+**だから main はその作業を平気で作り直す。事故 B はそれが起きた形である。**
+
+main 側のセッションは、作業を始める前にこの表を読み、**登録済みの順には手を出さない。**
+
+#### R4 書き込み territory の分割
+
+役割(このファイル冒頭の役割定義)ごとに書く場所が分かれているので、**同じ役割を2本に割り当てない。**
+そのうえで、文書は次のように扱う。
+
+| 領域 | 誰が書けるか | 理由 |
+|---|---|---|
+| `STATE.md` / `logs/HANDOFF.md` | **main のみ** | 「いま何が本当か」を1つだけ書く文書。2本が同時に「最新」を名乗ると、マージが**嘘の文書**を作る。数値と違い git は嘘を検出しない |
+| `logs/DECISIONS.md` | **main のみ** | ADR は採番する。2本が同時に ADR-039 を採る事故は静かに通る。そもそも ADR の採択は `CLAUDE.md` §8 で人間の承認が要る |
+| `Documents/` / `plans/` | **main のみ** | 事前登録の本体。順序を書き換える文書を並行で触らない |
+| `logs/CHANGELOG.md` | 両方(末尾追記) | `.gitattributes` の `merge=union` で両方を残す。**マージ後に末尾を必ず目視する**(union は静かに通るため) |
+| `code/` `configs/` `code/tests/` `infra/` `runs/` `results/` | side branch 可 | 実体はここ。R3 で順が割れていれば衝突しない |
+
+#### R5 コミット —— `git add -A` と `git add .` を使わない
+
+**パスを明示して add する。**`.gitignore` は `runs/*/metrics.json` と `runs/*/config.yaml` を
+通すので、`-A` は相手の**走行中の run** まで拾う。事故 A の直接の原因である。
+
+#### R6 マージ —— `--no-ff` で main へ。**rebase 禁止**
 
 ```bash
-# 作業開始
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) LOCK code/eval by IMPLEMENTER-A" >> logs/LOCKS.md
-git add logs/LOCKS.md && git commit -m "chore: lock code/eval"
-
-# 作業終了
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) UNLOCK code/eval" >> logs/LOCKS.md
+git -C <主ツリー> merge --no-ff wt/004-jun8-impl -m "merge(train): 順8 を main に入れた (pytest 589 passed)"
 ```
 
-原始的だが、複数エージェントが同じファイルを壊し合う事故は実際に起きる。ブランチを分ける場合も、どのブランチで何をしているかを `STATE.md` に書く。
+rebase を禁じる理由はこの repo に固有である。
 
-### ブランチ運用
+- `CLAUDE.md` §5「`--date` で日付を偽装しない。実際の作業時刻が記録として意味を持つ」。
+  **rebase は committer date を書き換える。**
+- 事前登録の証明は「**tag より前に予測の commit がある**」という git の順序そのものである。
+  rebase で親を付け替えると、実際には tag より前に書かれた commit が後ろに来うる。**証明が壊れる。**
+- `--no-ff` のマージコミットは「ここで2本が並行していた」ことを履歴に残す。
+  これは隠すものではなく、**記録すべきもの**である。
 
+マージの門: `pytest code/tests -q` が通ること。**passed 数をマージコミットに書く。**
+マージ後: `logs/CHANGELOG.md` の末尾を目視 → `STATE.md` の表を「マージ済」に → `git worktree remove`。
+
+#### R7 期限 —— そのセッション内で畳む。畳めないなら3つ書く
+
+畳めずにセッションを終える場合、**必ず** `STATE.md` の表に次の3つを書く。
+
+1. **何が入っているか**(ファイル名と行数の目安)
+2. **なぜ畳めないか**
+3. **次に誰が何をすれば畳めるか**
+
+**この3つが無いまま終わってよい理由は無い。**
+「進行中」のまま48時間を超えた行を見つけたセッションは、**自分の作業を始める前に人間に報告する。**
+勝手にマージも削除もしない(中身が事前登録に触っている可能性があるため)。
+
+#### R8 tag の前に全部畳む
+
+**事前登録の凍結(順9)と Phase 完了 tag は、並行ブランチ表が空のときにしか打たない。**
+開いたブランチが残っていると、その後のマージで「tag より前の作業」が tag より後に入り、
+`CLAUDE.md` §5 の「予測が実験前に書かれた」証明が弱くなる。
+
+#### R9 push は人間の指示があるときだけ
+
+side branch は原則 push しない。main も同じ(2026-08-27 時点で `origin/main` より 6 進んでいる)。
+
+#### 手順(コピーして使う)
+
+```bash
+# 1. 立てる(主ツリーから)
+git worktree add .claude/worktrees/004-jun8-impl -b wt/004-jun8-impl main
+
+# 2. 登録する(main で。commit を積む前)
+#    → STATE.md 「並行ブランチ」表に1行足して commit
+
+# 3. 働く(worktree の中で。add はパス明示)
+git add code/train/lora.py code/tests/test_train_lora.py
+git commit -m "feat(train): 8-4。LoRA の当て方を実装した"
+
+# 4. 畳む(主ツリーで)
+pytest code/tests -q
+git merge --no-ff wt/004-jun8-impl -m "merge(train): 順8 を main に入れた (pytest NNN passed)"
+tail -20 logs/CHANGELOG.md          # union merge の結果を目視
+git worktree remove .claude/worktrees/004-jun8-impl
+git branch -d wt/004-jun8-impl
+#    → STATE.md の表を「マージ済」に更新
+
+# 5. セッション開始時に毎回(CLAUDE.md §1 に足す)
+git worktree list && git branch --list 'wt/*' -v
 ```
-main                    常に pytest が通る状態を保つ
-exp/PLAN-003            実験ごとのブランチ
-docs/adr-012            文書のみの変更
-```
-
-実験ブランチは結果が出て `results/` に集約されたら main にマージする。
 
 ---
 

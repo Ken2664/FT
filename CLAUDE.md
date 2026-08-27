@@ -17,7 +17,7 @@ cat STATE.md                    # 現在の状態
 tail -40 logs/CHANGELOG.md      # 直近の変更
 tail -60 logs/DECISIONS.md      # 直近の意思決定
 git log --oneline -20
-git status                      # 未コミットの変更がないか
+git status && git worktree list # 未コミットの変更 / 並行ブランチ(AGENTS.md)
 ls runs/ | tail -5              # 中断中の実験がないか
 ```
 
@@ -72,7 +72,7 @@ ls runs/ | tail -5              # 中断中の実験がないか
 
 ## 5. Git 規約
 
-**コミットは小さく、頻繁に。日付が正確に残ることが重要。**
+**コミットは小さく、頻繁に。日付が正確に残ることが重要。** **並行作業とブランチの扱いは `AGENTS.md`「並行作業とブランチ運用」が正本**(登録簿は `STATE.md`「並行ブランチ」)。
 
 ```
 <type>(<scope>): <要約>

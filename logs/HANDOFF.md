@@ -1,98 +1,86 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-08-26 / 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: **A-6 が完了し、段階 A が終わった**(1セッション = 1 PLAN。`CLAUDE.md` §10.2)
-直近 commit: `89f24bc`(feat(data_gen): 評価プールを書き出す CLI を実装し preflight の検査6・8 を PASS にした)
+生成: 2026-08-27 / 直前セッションの役割: PLANNER
+直前セッションが終了した理由: **コンテキスト超過**(hook `context-guard` が約 123k トークンで警告。閾値 100k)
 
 ---
 
-## ★ まず読むこと
+あなたは **IMPLEMENTER** です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
-**段階 A(GPU 不要のコード作業)は 2026-08-26 に完了した。**
-`CLAUDE.md` §1 の開始手順を実行したうえで、**下の「次に何をするか」を読んでから
-作業を選ぶこと。**エージェントが人間の入力なしで単独に進められる実装作業は、いま無い。
+## このセッションでやること(1つだけ)
 
-## 直前セッションで確定したこと(ファイルに書き込み済み)
+**`plans/PLAN-004-phase0-route.md` の順1 を実装する。**仕様は同 §4。完了条件は同 §3「順1」。
 
-- **ADR-033 を人間が採択した。**★A-5 が回避していた未解決の決着:
-  プール manifest を **`reference_rules`(加算側 = `eligible_pairs` に渡した規則)**と
-  **`specificity_reference_rules`(`spec_sub` / `spec_mul`)**の**2欄に分ける**。
-  混ぜる案は「`eval.reference_rule: spec_sub` の誤指定を検査が素通しする」ため却下
-- **`code/data_gen/eval_pool.py`(新規)**が評価プールを書き出す。
-  `python -m code.data_gen.eval_pool --config configs/smoke.yaml [--dry-run] [--out-dir]`
-- **`infra/preflight.py` の `data_checks` 6項目がすべて PASS**
-  (`--config configs/smoke.yaml`)。**検査6 = format hash / 検査8 = coverage_k floor**
-- `pool.build_manifest` に必須引数2つ(`specificity_reference_rules` / `fill`)
-- `code/eval/battery/build.py`(新規)= 明示リストから4群の項目を作るディスパッチャ
-- `ft_data.py` の CLI に `--condition`
-- **`.gitignore` が壊れていたのを直した。**`data/generated/**/manifest.json` が
-  初めて実際に追跡されるようになった(manifest 4件が入っている)
-- `pytest code/tests -q` → **423 passed**(2026-08-26 実測)
-- **実験結果の数値は1つも無い。**`results/` は空。GPU 時間 0。事前登録は未凍結(tag なし)
-- 詳細は `STATE.md` の「引き継ぎ」と `logs/CHANGELOG.md` 2026-08-26
+要約すると4つ:
 
-## 次に何をするか(**人間に選ばせること**)
+1. **`code/eval/run.py` の本実行経路**(`code/eval/run.py:396` の `NotImplementedError` を外す)。
+   モデルを読み、生成し、既存の4値分解に流し、`runs/<id>/` に成果物を書く
+2. **桁数掃引の入口**(`PLAN-001 §4.1.1` の手続き)。上限 `M` を掃いて
+   **`M` → `correct_rate` の対応表**を出す CLI。**`t3_comparison.py` の `sweep` は
+   R8 の閾値掃引専用であって、これとは別物**
+3. **生成関数を1箇所に集め、本実行と掃引が共有する。**2箇所で別々に生成すると、
+   掃引と本実行で生成設定が食い違っても誰も気づかない
+4. **`infra/RUNPOD.md` §4 の修正。**`code.train.run` / `code.analysis.aggregate` は未実装
+   (`code/train/` と `code/analysis/` は `__init__.py` のみ)。`code.eval.run --run-dir` も
+   実際の CLI は `--config`。**実在しないコマンドに「未実装」と注記し、引数を実装に合わせる**
 
-段階 A が終わったので、**残りはすべて人間の入力か GPU の承認が要る**
-(`STATE.md`「Phase 0 に必要な段階」)。
+**完了の判定**: `pytest code/tests -q` が緑(現在 **423 passed**。1件も落とさない)+
+`--dry-run` なしの経路が**モデルを差し替えた状態で**端から端まで通ること。
 
-| 選択肢 | 役割 | 要るもの |
-|---|---|---|
-| **段階 B**: 承認待ちの決着(#18 / #19 / #9 / #13 / #15 / #16・#11 / PLAN-002 §12-11) | PLANNER | **人間の決定**。凍結の前に全部要る |
-| **段階 C**: `none` モデルで桁数掃引 → `M*` と `θ` を実測(C-1) | RUNNER | **GPU の承認**(`CLAUDE.md` §2)。RunPod |
-| **実装の前倒し**: `run.py` の本実行(モデルの読み込みと生成) | IMPLEMENTER | 既定のモデル名・生成設定は**実験条件**。人間が決めるまで着手不可(skill code-style §5) |
-| **文献側**: 承認待ち-17(Nikankin et al. 2025 の原典確認) | SCOUT | なし。**subagent に委譲してよい**(`AGENTS.md` §SCOUT) |
+## 直前セッションで確定したこと
 
-**エージェントの判断で勝手に段階 C に進まないこと。**
+- **`plans/PLAN-004-phase0-route.md` を新設した。**Phase 0 完了までの順0〜順9 と、
+  各順の完了条件・依存・状態欄を持つ。**順が終わったら §2 の状態欄と §3 のチェックボックスと
+  §7 の実行ログを同時に更新する**(同 §8 の更新規則)
+- **段階 B の表に無かった承認待ちを2件登録した**(PLAN-004 §5):
+  **#20 生成設定**(`model.dtype` / `max_new_tokens` / デコード設定 / few-shot 数)と
+  **#21 本番の評価テンプレート集合**(T1b / T3 の確定文面)。**どちらも段階 C を回すのに必須**
+- **段階 C(小さな実験)を先に回す方針を人間が採った。**ただし
+  (a) 実行するコードが無い (b) #20 / #21 が未決 (c) 閾値を実測より後に決めると事後選択になる、
+  の3点から、**順1(GPU 不要の実装)を先に置いた**
+- **前セッションの HANDOFF の「単独で進められる実装作業は無い」は正確ではなかった。**
+  本実行の実装は人間の入力なしで書ける(値を config から読む形にすれば既定値を作らずに済む)
+- `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし。**実験結果の数値は1つも無い**
 
-## 未解決 / 人間の承認待ち(独断で決めない)
+## 触ってよいファイル / 読むべき範囲
 
-- **#15 外挿域の上限 `M*`。**★いま最も効いている —— **これが決まるまで評価プールは
-  サンプリングできない**(`extrap` セルが原理的に埋まらないので、明示リストで
-  埋めている。ADR-033 決定4)。`M*` は段階 C の実測が入力になる
-- **#18** T1 にも答え書式の指示を足すか(ADR-032 決定3 の交絡)
-- **#19** 被演算子 1 の除外を全タスク型に広げるか
-- **#9** 適格性フィルタ 0.70 / **#16・#11** Feucht と G7 / **#13** `table[1]` の穴
-- **PLAN-002 §12-11** `p2d` 判別不能の除外を `K` の抽出母集団に掛けるか
-- **実装で決めた命名**(凍結までに人間が一度見ること。`STATE.md`「実装で確定させた点」
-  の表 1〜9): 群名 `bare_sum` / `specificity`、category `t1` / `spec_sub` / `spec_mul`、
-  **T2 のテンプレート割当を `(pool_id, a, b)` の sha256 にした**、
-  `report["by_batch"]` のバッチ名、**manifest の欄名
-  `specificity_reference_rules` / `fill`**、config のキー `eval.pool_items` /
-  `eval.pool_seed` / `eval.extrapolation_radius` / `eval.extrapolation_run_id`、
-  `ft_data.py --condition`、`configs/smoke.yaml` の T2 の5組の差し替え
+**先に読む**(全文 `cat` しない。`grep -n` → `sed -n 'X,Yp'`):
 
-## 既知の穴(実装。次に触る人へ)
+- `plans/PLAN-004-phase0-route.md` §3「順1」と §4 — **これが仕様。全文読んでよい(短い)**
+- `code/eval/run.py` — 特に `main`(384行〜)と `dry_run`(316行〜)、`scoring_batches` / `batch_metrics`
+- `configs/template.yaml` の `model:` ブロック(22〜33行)と `eval:` ブロック(146行〜)
+- `infra/RUNPOD.md` §4(93〜145行)— `runs/<id>/` の必須成果物の一覧
+- `plans/PLAN-001-eval-battery.md` §4.1.1(103〜127行)— 桁数掃引の手続きの正本
+- skill `code-style` — 実装前に必ず読む
 
-- **本実行(モデルの読み込みと生成)は `NotImplementedError`。**4群が通るのは
-  `--dry-run` の経路だけである
-- **評価プールはサンプリングしていない。**`eval.pool_items` の明示リスト。
-  `M*` が決まったら `pool.fill_cells` を呼ぶ経路に置き換わり、
-  `manifest["fill"]["method"]` が `explicit_list` から変わる
-- **`configs/smoke.yaml` は3条件(`p2` / `x2` / `ident`)しか宣言できない。**
-  `digit_modulus` / `arbitrary_table` を持たないため。**本実験は5条件そろえること**
-- **`infra/preflight.py` の `check_data_manifest` と `ft_data.py` の manifest schema が
-  食い違う。**あちらは `files` の表を期待するが `ft_data.py` は `files` を書かない。
-  **`data.manifest` を埋めると FAIL する**(いまはどの config でも `null` なので SKIP)。
-  **どちらが正なのかは決めていない**
-- `ruff` / `black` はこの環境に未インストール。行長 100(文字数)は手で確認すること
-- **生成物の manifest には `created_at` と `git_commit` が入る。**再生成すると必ず
-  差分が出る(`git_commit` は生成時点の HEAD なので、コミット後に再生成すると更新される)
+**書いてよい**: `code/eval/` 配下の新規モジュール、`code/eval/run.py`、`code/tests/`、
+`infra/RUNPOD.md` §4、`plans/PLAN-004-phase0-route.md`(状態欄とログのみ)。
 
 ## やってはいけないこと
 
-- **`configs/templates/t2.yaml` を `data.eval_template_set` に配線しない。**
-  T1b / T3 の本番文面が未確定でテンプレート集合が未完成である
-- **T1b / T3 / T2 の本番文面を自分で書かない**(実験条件。`CLAUDE.md` §8)
-- **`configs/templates/smoke.yaml` の仮文面を本番に昇格させない**
-- **`eval.extrapolation_radius`(`M*`)に値を決め打ちしない。**段階 C の実測で決める
-- **numeric パーサの「数が2個以上なら parse_fail」を緩めない**(PLAN-001 §5.4 の 4)
-- 4値分解の合計を 1.0 から外さない。`data/raw/` を書き換えない
-- **`spec_sub` / `spec_mul` を `reference_lesions_from_config` に混ぜない**
-  (ADR-033 決定1。混ぜると FT データの除外集合が変わる)
+- **既定値を作らない**(skill `code-style` §5)。`model.name` / `dtype` / `max_new_tokens` /
+  デコード設定が `null` のときは**例外で止める**。**順2(#20)が未決なので、実行できないのが正しい状態である。**
+  「とりあえず bfloat16 / 256 トークン」と書いた瞬間に、実験条件をエージェントが決めたことになる
+- **モデル名を勝手に足さない。**config に書いてよいのは ADR-024(D-1)で決まっている
+  `meta-llama/Llama-3.1-8B-Instruct` だけ。`revision` は pull 時に埋める(ADR-031)
+- **実際に GPU で回さない。**それは順5 で、**人間の承認が要る**(`CLAUDE.md` §2)
+- **`--dry-run` の経路を壊さない。**現在 423 passed
+- **`--dry-run` の出力に付いている「実験ではない」警告文を本実行の出力に流用しない。**
+  本実行の数値は実験結果である
+- **モデルを実際にダウンロード・ロードするテストを書かない。**生成関数を差し替え可能にして、
+  GPU の無い環境で `pytest` が通ること
+- **`data/raw/` を書き換えない**(`CLAUDE.md` §2)
 
-## 状態(2026-08-26 時点)
+## 未解決 / 人間の承認待ち
 
-- `pytest code/tests -q` → **423 passed**(3.8 秒)。`results/` は空。GPU 時間 0
-- **preflight の `data_checks` 6項目は PASS**(`configs/smoke.yaml`)
-- 直近 commit: `89f24bc`(コード)/ このセッションの引き継ぎコミット
+**このセッションでは決めない。**エージェントが独断で決めてはいけない(`CLAUDE.md` §8)。
+
+- **#20 生成設定** / **#21 T1b・T3 の本番評価テンプレート**(PLAN-004 §5)← 順1 の実装は
+  これらを**読む**が、**値を決めてはいけない**
+- **順0 の3判断**(§11-11+16 / PLAN-002 §12-11 / §11-18+19)。これが決まると順4 で
+  項目とプールを作り直す
+- **#9(適格性フィルタ 0.70)と `θ` の決定規則**(順3)。**実測より前に決める**(PLAN-004 §6 罠1・罠2)
+- **凍結(段階 D)をパイロット(段階 E)の前に置くか後に置くか**(PLAN-004 §6 罠3)
+- 既知の穴(前セッションから持ち越し): `infra/preflight.py` の `check_data_manifest` は
+  `files` の表を持つ manifest を期待するが `ft_data.py` が書く manifest は `files` を持たない。
+  **`data.manifest` を埋めると FAIL する。どちらの schema が正かは未決**

@@ -3,10 +3,12 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-27 / by PLANNER 兼 IMPLEMENTER(エージェント)
-現在のフェーズ: **Phase 0 — `plans/PLAN-004-phase0-route.md` の順0(データ生成に効く3判断)は
-2026-08-27 に完了した**(ADR-034 / 035 / 036 採択。§12-11 をコードに反映済)。
-**次は順1(`run.py` の本実行。進行中)と順2 / 順3(人間の決定)である。**
+最終更新: 2026-08-27 / by IMPLEMENTER(エージェント)
+現在のフェーズ: **Phase 0 — `plans/PLAN-004-phase0-route.md` の順0 は 2026-08-27 に完了した**
+(ADR-034 / 035 / 036 採択。§12-11 をコードに反映済)。
+**順1(`run.py` の本実行 + 桁数掃引)は 2026-08-27 に着手し、部品4本まで進んで中断した
+(コンテキスト超過)。`run.py` の配線と `sweep.py` は未実装であり、順1 は未完了である。**
+**順2 / 順3 は人間の決定待ち。**
 (**ADR-024〜036 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
 **実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、**2026-08-25 に
 `t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**、
@@ -95,6 +97,32 @@
 ---
 
 ## いま何をしているか
+
+> **★ 2026-08-27(最新)。IMPLEMENTER セッション。順1 に着手し、部品4本を実装して中断した。**
+> **順1 は未完了である。**`code/eval/run.py` の `main` は依然 `NotImplementedError` であり、
+> **本実行はまだ1度も通っていない。**`code/eval/sweep.py` は存在しない。
+> `pytest code/tests -q` → **427 passed**(増減なし。**新規モジュールのテストは1件も書いていない**)。
+> **`results/` は空。実験結果の数値は1つも無い。GPU 時間 0。事前登録の tag なし。**
+>
+> **実装した部品(4新規 + 1改修)**:
+>
+> | ファイル | 中身 | 状態 |
+> |---|---|---|
+> | `code/eval/model.py`(新規) | `GenerationSettings` / `load_generation_settings`(**null は `ConfigError`**)/ `resolve_dtype` / `load_model_and_tokenizer`(transformers は関数内 import) | 実地確認済(smoke config で `model.name` が null → 例外) |
+> | `code/eval/generate.py`(新規) | **生成関数の唯一の置き場**。`Generator` 型 / `model_input`(chat template)/ `build_generator` / `collect_responses`(本数の契約を検査) | 実地確認済(固定応答の差し替え・本数不一致で例外) |
+> | `code/eval/artifacts.py`(新規) | `runs/<id>/` の成果物(config.yaml 完全コピー / git_sha.txt + git_diff.patch / env.txt / timestamp.txt / metrics.json / predictions/ / log.txt) | **未実地確認**(呼び出し側が無い) |
+> | `code/eval/battery/magnitude_sweep.py`(新規) | `R(M)` から加算項目を抽出(PLAN-001 §4.1.1 の**手続き1 だけ**)。`domain_size` / `build_items` / `sweep_radii` | 実地確認済(M=9・6件・item_id に `radius9`) |
+> | `code/eval/battery/numeric_sum.py`(改修) | `non_discriminating_rules` を新設し `_build_one` をそれ経由に。`build_bare_sum_items` / `_build_one` に `params` を追加 | 427 passed を維持 |
+>
+> **`code/eval/run.py` は HEAD に戻した。**docstring だけ「本実行は動く」に書き換えた状態で
+> 中断しかけたが、**`main` が `NotImplementedError` のままなのでファイルに嘘が残る**
+> (`CLAUDE.md` §7)。docstring と import の変更は破棄した。次セッションが本体ごと書く。
+>
+> **エージェントが独断で決めた設計(人間が一度見ること。詳細は `logs/HANDOFF.md`)**:
+> 本実行の項目は `eval.anchor_manifest` の**親ディレクトリの `items.jsonl`** から読む /
+> 生成を**バッチ化しない** / `--run-dir` を optional で受ける / **`model.revision` も必須**にする /
+> `temperature > 0` のときだけ `do_sample` / `eval.few_shot_k` があれば例外 /
+> `PRIMARY_MODEL` は定数として置くが**実行時に照合しない**
 
 > **★ 2026-08-27(最新)。PLANNER 兼 IMPLEMENTER セッション。順0 を完了にした。**
 > **ADR-034 / ADR-035 / ADR-036 を採択し、PLAN-002 §12-11 をコードに反映した。**
@@ -814,6 +842,33 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ---
 
 ## 引き継ぎ
+
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-27。順1 = 未完了):**
+
+- **順1 の部品を4本実装した**(`model.py` / `generate.py` / `artifacts.py` / `magnitude_sweep.py`)。
+  上の「いま何をしているか」の表が正本
+- **PLAN-004 §4.3 の制約1・2 は部品の側では満たしている。**生成関数は
+  `code/eval/generate.py` の1箇所にあり、`Generator` は差し替え可能(GPU 不要)。
+  `load_generation_settings` は `model.name` / `revision` / `dtype` / `max_new_tokens` /
+  `eval.temperature` のいずれかが null なら `ConfigError` で止まる。**既定値を作っていない**
+- `numeric_sum` に `non_discriminating_rules` を新設した。**判別不能の判定を1箇所に集めた** ——
+  生成時に弾く経路(`_build_one`)と掃引が候補から落とす経路が同じ規則を使う(ADR-034)
+- `pytest code/tests -q` → **427 passed**(増減なし)。`results/` は空。GPU 時間 0
+
+**⚠️ 未了(順1 の完了条件のうち残り)**:
+
+- **`code/eval/run.py` の本実行経路**(項目の読み込み → プロンプト → 生成 → 採点 → `runs/<id>/`)。
+  `main` は `NotImplementedError` のまま。**PLAN-004 §3 順1 の完了条件1 は満たしていない**
+- **`code/eval/sweep.py` が存在しない**(完了条件2)
+- **新規4モジュールのテストが1件も無い**(完了条件3・4 は「427 passed のまま」であって
+  新規経路を守ってはいない)
+- **`configs/template.yaml` / `configs/smoke.yaml` に `eval.magnitude_sweep` ブロックが無い。**
+  `magnitude_sweep.sweep_radii` が読む `radii` / `n_items_per_radius` / `seed` は**未登録の config 鍵**
+- **`infra/RUNPOD.md` §4 の注記と `--config` への訂正が未着手**(完了条件5)
+- **`ruff` / `black` を1度も掛けていない**(ローカルに未インストール)
+
+**次にやるべきこと: 順1 の残り(`run.py` の配線 + `sweep.py` + テスト + config 鍵 + RUNPOD.md)。**
+そのまま貼れるプロンプトは `logs/HANDOFF.md`。
 
 **完了したこと(最新セッション。PLANNER 兼 IMPLEMENTER。2026-08-27。順0 = 完了):**
 

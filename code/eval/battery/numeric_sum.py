@@ -233,20 +233,52 @@ def is_discriminating(item: Item, lesion: Lesion) -> bool:
     return truth != rule_value
 
 
+def non_discriminating_rules(item: Item, reference_lesions: Mapping[str, Lesion]) -> list[str]:
+    """この項目で真値と規則適用値が一致してしまう参照規則の名前。
+
+    答える問い: 「この項目は、どの参照規則の下で correct と rule を
+    区別できないか」
+
+    **定義域外の規則には判別可能性を問わない**(ADR-020 決定2)。判定を
+    1箇所に置くのは、生成時に弾く経路(`_build_one`)と、候補から落とす経路
+    (`code/eval/battery/magnitude_sweep.py`)が同じ規則を使うためである。
+    ずれると、片方だけが判別不能な項目を通す。
+    """
+    return [
+        name
+        for name, lesion in reference_lesions.items()
+        if is_defined_for(item, lesion) and not is_discriminating(item, lesion)
+    ]
+
+
 # --------------------------------------------------------------------------
 # 項目の生成
 # --------------------------------------------------------------------------
 
 
 def build_bare_sum_items(
-    pairs: Sequence[Pair], *, pool_id: str, reference_lesions: Mapping[str, Lesion]
+    pairs: Sequence[Pair],
+    *,
+    pool_id: str,
+    reference_lesions: Mapping[str, Lesion],
+    params: dict[str, int | str] | None = None,
 ) -> list[Item]:
     """T1(裸の計算式)の項目を作る。
 
     答える問い: 「これらの組から、訓練書式そのままの評価アンカーを作れるか」
+
+    `params` は item_id に載る付帯情報である(`code/data_gen/battery_items.py`
+    の `make_item`)。評価プールは使わない。桁数掃引だけが `radius` を載せ、
+    同じ (a, b) を別の M で引いたときに item_id が衝突しないようにする。
     """
     return [
-        _build_one(pair, pool_id=pool_id, category=T1_CATEGORY, reference_lesions=reference_lesions)
+        _build_one(
+            pair,
+            pool_id=pool_id,
+            category=T1_CATEGORY,
+            reference_lesions=reference_lesions,
+            params=params,
+        )
         for pair in pairs
     ]
 
@@ -289,7 +321,12 @@ def build_word_problem_items(
 
 
 def _build_one(
-    pair: Pair, *, pool_id: str, category: str, reference_lesions: Mapping[str, Lesion]
+    pair: Pair,
+    *,
+    pool_id: str,
+    category: str,
+    reference_lesions: Mapping[str, Lesion],
+    params: dict[str, int | str] | None = None,
 ) -> Item:
     """1組から項目を1件作り、判別可能性を生成時に確かめる。
 
@@ -300,15 +337,19 @@ def _build_one(
     """
     if not reference_lesions:
         raise ValueError("参照規則が空。判別可能性を確かめられない(PLAN-001 §5.3)")
-    item = make_item(pool_id=pool_id, group=group_of(category), category=category, operands=pair)
-    for name, lesion in reference_lesions.items():
-        if not is_defined_for(item, lesion):
-            continue
-        if not is_discriminating(item, lesion):
-            raise ValueError(
-                f"項目 {item.item_id} は参照規則 {name!r} で真値と規則値が一致する。"
-                "correct と rule を区別できないため使えない(PLAN-001 §4.3、§5.3)。"
-            )
+    item = make_item(
+        pool_id=pool_id,
+        group=group_of(category),
+        category=category,
+        operands=pair,
+        params=params,
+    )
+    coincident = non_discriminating_rules(item, reference_lesions)
+    if coincident:
+        raise ValueError(
+            f"項目 {item.item_id} は参照規則 {coincident} で真値と規則値が一致する。"
+            "correct と rule を区別できないため使えない(PLAN-001 §4.3、§5.3)。"
+        )
     return item
 
 

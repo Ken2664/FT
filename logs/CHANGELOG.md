@@ -1730,3 +1730,30 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   G7 のコードは**元から存在しない**(`SUPPORTED_GROUPS` は4群)ので消していない
 - **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
 - 関連 commit: (このコミット)
+
+### 2026-08-27 — 順1 に着手(部品4本。**順1 は未完了**)
+
+- 役割: IMPLEMENTER。**終了理由はコンテキスト超過**(hook `context-guard` が約150k で警告)
+- **新規4モジュール**(`plans/PLAN-004-phase0-route.md` §4.2 の提案構成に沿う):
+  - `code/eval/model.py`: `GenerationSettings` / `load_generation_settings` /
+    `resolve_dtype` / `load_model_and_tokenizer`。**`model.name` / `revision` / `dtype` /
+    `max_new_tokens` / `eval.temperature` のいずれかが null なら `ConfigError` で止まる**
+    (§4.3 の2。既定値を作らない)。transformers・torch は**関数内 import**
+  - `code/eval/generate.py`: **生成関数の唯一の置き場**(§4.3 の1)。`Generator` は
+    差し替え可能で GPU を要らない。`collect_responses` が応答本数の契約を検査する
+  - `code/eval/artifacts.py`: `runs/<id>/` の成果物(`infra/RUNPOD.md` §4)。
+    **`cost.txt` と `token_boundary.json` は書かない**(課金と preflight 検査7 の担当)
+  - `code/eval/battery/magnitude_sweep.py`: `R(M)` から加算項目を抽出
+    (PLAN-001 §4.1.1 の**手続き1 だけ**)。**`M*` も `θ` も掃引の粒度も決めない**(#15 / #9)
+- **改修**: `code/eval/battery/numeric_sum.py` に `non_discriminating_rules` を新設し
+  `_build_one` をそれ経由にした(判別不能の判定を1箇所に集める。ADR-034)。
+  `build_bare_sum_items` / `_build_one` に `params` を追加(掃引が `radius` を item_id に載せる)
+- **`code/eval/run.py` は HEAD に戻した。**docstring を先に「本実行は動く」に書き換えたが
+  `main` は `NotImplementedError` のままであり、**ファイルに嘘が残る**(`CLAUDE.md` §7)。
+  次セッションが本体と docstring を同時に書く
+- 検査: `pytest code/tests -q` → **427 passed**(増減なし)。
+  **新規4モジュールのテストは1件も無い。**`ruff` / `black` はローカル未インストールで未実行
+- **未了(順1 の完了条件 0/5)**: `run.py` の本実行経路 / `code/eval/sweep.py` /
+  新規モジュールのテスト / `eval.magnitude_sweep.*` の config 鍵登録 / `infra/RUNPOD.md` §4 の訂正
+- **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
+- 関連 commit: (このコミット)

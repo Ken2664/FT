@@ -40,7 +40,7 @@
 | **5** | **C-1: 桁数掃引 → `M*` 確定**(#15 の決着) | C | **人間の承認** → RUNNER | 小 | 1, 2, 3, 4 | 未着手 |
 | **6** | **C-2: Go/No-Go #0〜#3**(健常時スコア / test-retest / プロンプト感受性) | C | RUNNER | 小 | 5 | 未着手 |
 | **7** | **検出力分析の再導出**(df=6)+ 残りの承認待ち(#10 / #13 / #17 / 目視4件)+ `09_PAPER_PLAN.md` 追随 | B | 人間 + PLANNER | 不要 | 6 | 未着手 |
-| **8** | **LoRA 訓練コードの実装**(`code/train/`)+ LoRA グリッドの決定 | — | 人間 + IMPLEMENTER | 不要 | — | 未着手 |
+| **8** | **LoRA 訓練コードの実装**(`code/train/`)+ LoRA グリッドの決定 | — | 人間 + IMPLEMENTER | 不要 | — | **進行中(2026-08-27, このコミット)**。**8-1〜8-5 が完了**(`code/train/` の3本 + `code/analysis/aggregate.py`)。`pytest` 506 → **589 passed**。**8-6 は #22 待ちで未着手**。**LoRA グリッドの値は未決のまま**(`configs/template.yaml` は null。PLAN-003 §9)。**実験は1つも回していない** |
 | **9** | **凍結(段階 D)→ パイロット(段階 E)** | D / E | PLANNER → RUNNER | **大(承認要)** | 0〜8 | 未着手 |
 
 **並行できるもの**: 順8 は順1〜7 のどれにも依存しない。**順0 / 2 / 3 は人間側で同時に進めてよい。**
@@ -215,10 +215,78 @@
 
 ### 順8 — 訓練コード(IMPLEMENTER。GPU 不要。★順1〜7 と並行してよい)
 
-- [ ] `code/train/` に LoRA 訓練の実装(**現在 `__init__.py` のみ**)
-- [ ] `python -m code.train.run --config <cfg> --dry-run` が通る
+- [x] `code/train/` に LoRA 訓練の実装 ★2026-08-27
+- [x] `python -m code.train.run --config configs/smoke.yaml --seed 0 --dry-run` が通る ★2026-08-27
 - [ ] LoRA グリッドの決定(PLAN-003 §9 が「本 PLAN で決めない。別 PLAN」に逃がしている)
-- [ ] `code/analysis/aggregate.py`(**現在 `__init__.py` のみ**)
+      —— **エージェントは値を1つも入れていない。**`configs/template.yaml` の `train.*` は null のまま
+- [x] `code/analysis/aggregate.py` ★2026-08-27
+- [ ] **8-6**: `infra/RUNPOD.md` §4 手順4・6 のコメントアウトを外す + アダプタの保存
+      —— **#22 待ち**(下の「8-6 が待っているもの」)
+
+#### 実装した単位(2026-08-27)
+
+| 単位 | 中身 | 状態 |
+|---|---|---|
+| 8-1 | `code/train/settings.py` —— `train.*` の読み込みと門 | 完了 |
+| 8-2 | `code/train/data.py` —— `train.jsonl` の読み込みと照合、テンプレート適用 | 完了 |
+| 8-3 | `code/train/run.py` —— CLI(`--config` / `--seed` / `--dry-run` / `--run-dir`) | 完了 |
+| 8-4 | `code/train/lora.py` —— 消費順・損失マスク・訓練関数の規約(**重みを触る部分は #22 の門で止まっている**) | 完了 |
+| 8-5 | `code/analysis/aggregate.py` —— 4値分解を条件×シードで並べる | 完了 |
+| 8-6 | `infra/RUNPOD.md` §4 のコメントアウト解除 + アダプタの保存 | **未着手(#22 待ち)** |
+
+`pytest code/tests -q` → 506 → **589 passed**。**GPU 時間 0。`results/` は空のまま。**
+
+#### ★この順で行った独断(人間が一度見ること。#10〜#14 と同じ扱い)
+
+順1 の前例(`eval.magnitude_sweep.*` を smoke にだけ置く)に従った。**どれも
+実験条件を決めていないが、覆されうる読み方を含む。**
+
+1. **`configs/smoke.yaml` に `train.*` の値を足した**(`learning_rate` / `num_steps` /
+   `batch_size` / `gradient_accumulation` / `lora.rank` / `alpha` / `dropout` / `target`)。
+   **「★smoke のみ。実験条件ではない」と明記**し、`configs/template.yaml` は **null のまま**にした。
+   `--dry-run` を通すには値が要るが、値そのものは人間の決定である(PLAN-003 §9)
+2. **`--seed` を必須の CLI 引数にした。**config の `seeds` に宣言されているシードしか選べない。
+   宣言外のシードで回した run は「何シード回したか」を後から数えられない(`CLAUDE.md` §2)
+3. **`train.scope: bare_plus_gsm8k` を「未実装」として拒む門を作った。**
+   `code/data_gen/ft_data.py` は GSM8K の行を1行も生成せず、`scope` を manifest に記録するだけである。
+   通すと**対照条件のつもりで主条件を訓練した**データが `runs/` に残る
+4. **`train.lora.target: late_layers` も「未実装」として拒む。**「どの層から後ろを late と呼ぶか」は
+   どの文書にも書かれていない。ここで境界を選ぶと**それが黙って実験条件になる**(`CLAUDE.md` §8)。
+   `mlp_only` は Llama 系の MLP 3投影(`gate_proj` / `up_proj` / `down_proj`)、
+   `all` は peft の `"all-linear"` に写した。**これは主系統 `meta-llama/Llama-3.1-8B-Instruct` に
+   固有のモジュール名である**(ADR-024 決定1)
+5. **訓練データは `data.matched_manifests` から「この条件のもの1つ」を選ぶ。**
+   `data.manifest` ではない —— あちらは `infra/preflight.py` の `check_data_manifest` が読む
+   `files` 形式の manifest であり、`ft_data.py` が書く manifest とは別形である(下の「見つけた不一致」)
+6. **層に依らない場所へ4つ出した**(`code/artifacts.py` / `code/chat_format.py` /
+   `code/config.py:resolve_repo_path` / `code/rates.py`)。`code/train/` と `code/analysis/` が
+   `code/eval/` を import するのを避けるため(skill `code-style` §2)。
+   **`code/config.py` を出したのと同じ理由**であり、複製は作っていない。
+   旧い名前(`code.eval.generate.model_input` / `code.eval.scoring.RateBreakdown`)は今も引ける
+7. **集約の `MIN_SEEDS_FOR_CLAIM = 5` をコードに置いた。**`CLAUDE.md` §2 の
+   「最低5シード」であり、config で動かす量ではないと読んだ
+
+#### 8-6 が待っているもの(#22)
+
+- **`code/train/lora.py` の `build_trainer` は必ず `ConfigError` で止まる。**
+  アダプタの保存先が決まらないまま GPU 時間を使うと、学習した重みをその場で捨てることになる。
+  **門より下は書いていない**(「止めてある」と「未実装」の区別が消えるため)
+- **門を外すときにやること**: (a) #22 の決定を ADR に書く / (b) アダプタの保存を実装する /
+  (c) `infra/RUNPOD.md` §4「必ず残すもの」にアダプタを足す /
+  (d) **門と重みの読み込みを分け、読み込みは来歴を書いたあとに置く**(途中で落ちても来歴が残るように。
+  `code/train/run.py:execute` の docstring)/ (e) 評価が アダプタを読むようにし、
+  評価の `metrics.json` に `seed` を入れる(**いま条件×シードの表のシード欄が埋まらないのはこのため**)
+
+#### ★この順で見つけた不一致(順8 の範囲外。直していない)
+
+- **`infra/preflight.py` の `check_data_manifest` は `manifest["files"]` を読むが、
+  `code/data_gen/ft_data.py` が書く manifest に `files` は無い**(あるのは
+  `outputs.train_jsonl_sha256`)。`configs/smoke.yaml` は `data.manifest` が null なので
+  検査は SKIP になっており、**この不一致はまだ表に出ていない。**`data.manifest` を
+  埋めた config で preflight を回すと FAIL する。**順4 までに人間が確かめること**
+- `code/artifacts.py:prepare_run_dir` は訓練の run にも空の `predictions/` を作る。
+  評価の成果物であって訓練は書かない。害は無いが、無いものは無いままにする方針
+  (`infra/RUNPOD.md` §4)からはずれている
 
 ### 順9 — 凍結とパイロット
 
@@ -289,7 +357,7 @@
 |---|---|---|---|
 | **20** | **生成設定**: `model.dtype` / `model.max_new_tokens` / デコード設定(温度・sampling の有無)/ few-shot 数の既定 | `configs/template.yaml:28-33` がすべて `null`。**skill `code-style` §5 によりエージェントは既定値を作れない。**温度0と 0-shot は文書に散在するが確定文言が無い。`max_new_tokens` は `parse_fail_rate`(Go/No-Go #1)に直結する | **未作成。**エージェントが案を出すべきでない |
 | **21** | **本番の評価テンプレート集合(T1b / T3 の確定文面)** | `data.eval_template_set` が**どの config でも `null`**。`configs/templates/` にあるのは `smoke.yaml`(「実験に使わない」と明記)と `t2.yaml` だけ。T1b は PLAN-003 §4.5 で `3+4>8?` が「書式案」のまま。**タスク6(プロンプト感受性)がこれに依存する** | ADR-032(T2)と同じ手続きで確定する |
-| **22** | **LoRA アダプタを `runs/<id>/` に残すか**(★2026-08-27 追加) | `infra/RUNPOD.md` §4「必ず残すもの」にアダプタが無く、`adapter` / `アダプタ` は `RUNPOD.md` / `04_EXPERIMENT_PLAN.md` / PLAN-002 / PLAN-003 の**どこにも現れない**。**残さないと 40 run の後に評価を足すには再訓練が要る**(順8 / 順9 に効く) | **未作成。**容量とコストの判断を含むので `CLAUDE.md` §8 に当たる |
+| **22** | **LoRA アダプタを `runs/<id>/` に残すか**(★2026-08-27 追加) | `infra/RUNPOD.md` §4「必ず残すもの」にアダプタが無く、`adapter` / `アダプタ` は `RUNPOD.md` / `04_EXPERIMENT_PLAN.md` / PLAN-002 / PLAN-003 の**どこにも現れない**。**残さないと 40 run の後に評価を足すには再訓練が要る**(順8 / 順9 に効く)。**★2026-08-27: 8-1〜8-5 の実装で門になった** —— `code/train/lora.py:build_trainer` が `ConfigError` で必ず止まり、訓練の本実行はできない | **未作成。**容量とコストの判断を含むので `CLAUDE.md` §8 に当たる。**決めたら 8-6**(§3 順8 の「8-6 が待っているもの」に (a)〜(e) を書いた) |
 | ~~**23**~~ | ~~**順1 と順2 の間に「スモーク」の段を挿すか**~~ → **2026-08-27 決着。採択(ADR-037)。**★**小モデルではなく本番モデルで回す** —— トークナイザが違えば「答えが何トークンに収まるか」は移らないため。**順1b として §2・§3 に入れた** | **#20 の `max_new_tokens` だけは実測の材料が要る**(§3 順2 の注)。`configs/smoke.yaml` は `dtype` / `max_new_tokens` / `temperature` / `num_repeats` / `eval_template_set` が既に埋まっており **`null` は `model.name` と `revision` だけ**。同ファイルは「実験に使わない」と明記されているので、**そこの値を選ぶことは事前登録の決定にならない**。得られるのは「コードがモデルを呼べるか」「パーサが何を取りこぼすか」「答えが何トークンに収まるか」。**主張に使える数値は得られない** | **決着。**ADR-037(順の追加 = §8 規則3)。**GPU 使用は人間が承認済み(2026-08-27。§7 の承認記録)。**「3条件しか宣言できないので本実験の代わりにならない」は**そのまま有効**(→ 罠6) |
 | ~~**24**~~ | ~~**#20 を順6(段階 C)の結果で改訂してよいか**~~ → **2026-08-27 決着。改訂してよい(ADR-038)。****#20 の4項目すべてが対象** | どの文書もこれを明示していない。段階 D(凍結)が最後に置かれ、`04_EXPERIMENT_PLAN.md` Phase 0 の目的が「評価系の信頼性と健常時の値を確定する」である以上、**設計上は改訂が想定内のはず**。だが**先に宣言しないと、順6 の後に `max_new_tokens` を伸ばしたとき「事後選択ではないか」を自分で判定できない** | **決着。**記録の要件は **(a) 日付 / (b) 理由 / (c) 改訂前の値 / (d) 根拠にした run_id** の4点、**改訂したら順6 を測り直す**(ADR-038 決定2・4)。**期限は段階 D(順9)まで。**許可は **#20 に限る** —— #9 / #15 / #21 には及ばない |
 
@@ -331,6 +399,7 @@
 | 2026-08-27 | 順1 | **順1 を完了**。本実行(`code/eval/run.py`)と桁数掃引(`code/eval/sweep.py`)を実装し、`eval.magnitude_sweep.*` を config に登録、`infra/RUNPOD.md` §4 を実装に合わせた。`pytest` 427 → **506 passed** | **実験は0件**(`results/` は空、GPU 時間 0) | IMPLEMENTER |
 | 2026-08-27 | — | **順2 / 順3 の判断材料を整理し、未決を2件登録した**(#23 スモークの段を挿すか / #24 #20 の改訂可否)。§3 順2・順3 に「実測が要るのは `max_new_tokens` だけ」「#9 / #15 は実測から導かれる量ではない」を明記。§6 に**罠5(段階 C を試しと見なす)**を追加。**順は足していない**(§8 規則3) | — | PLANNER |
 | 2026-08-27 | — | **人間が #23 / #24 を承認。ADR-037 / 038 を採択した。**#23 = **採択。ただし小モデルではなく本番モデルで回す**(トークナイザが違えば `max_new_tokens` の材料にならないため)→ **順1b を新設**。#24 = **#20 の4項目すべて改訂可**(記録4点 + 順6 の測り直しが要件)。**コードは1行も変えていない** | — | PLANNER |
+| 2026-08-27 | **8** | **8-1〜8-5 を実装した**(`code/train/settings.py` / `data.py` / `run.py` / `lora.py` と `code/analysis/aggregate.py`)。`python -m code.train.run --config configs/smoke.yaml --seed 0 --dry-run` が通る。**本実行は #22 の門で必ず止まる**(アダプタの保存先が未決)。層に依らない場所へ4つ出した(`code/artifacts.py` / `code/chat_format.py` / `config.resolve_repo_path` / `code/rates.py`)。`pytest` 506 → **589 passed**。**LoRA グリッドの値は1つも入れていない** | **実験は0件**(`results/` は空、GPU 時間 0) | IMPLEMENTER |
 
 ### GPU 使用の承認記録(`CLAUDE.md` §2)
 

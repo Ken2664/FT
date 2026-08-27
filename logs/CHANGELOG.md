@@ -1978,3 +1978,62 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   本コミットは `configs/smoke1b.yaml` と `data/generated/*smoke1b*/manifest.json` **だけ**を含む。
   `logs/LOCKS.md` は空である(`infra/RUNPOD.md` §9)
 - 関連 commit: (このコミット)
+
+---
+
+## 2026-08-27 — 順8 の 8-1〜8-5 を実装(訓練コードと集約。IMPLEMENTER)
+
+**由来**: `git show 606dd69:logs/HANDOFF.md` の引き継ぎ(役割 IMPLEMENTER / 対象 順8)。
+**順8 は順1〜7 のどれにも依存しない**(PLAN-004 §2)。**GPU は使っていない。**
+
+- **`code/train/settings.py`(8-1)**: `TrainSettings` / `LoraSettings` と3つの門
+  - null は `ConfigError`。**LoRA グリッドの値は1つも入れていない**
+    (PLAN-003 §9 が「本 PLAN で決めない。別 PLAN」と明記。`configs/template.yaml` は null のまま)
+  - `train.scope: bare_plus_gsm8k` を**未実装として拒む** —— `ft_data.py` は GSM8K の行を
+    1行も生成しない。通すと**対照条件のつもりで主条件を訓練した**データが `runs/` に残る
+  - `train.lora.target: late_layers` も**未実装として拒む** —— 「どの層から後ろを late と
+    呼ぶか」はどの文書にも書かれておらず、選ぶとそれが黙って実験条件になる(`CLAUDE.md` §8)
+  - **`--seed` は config の `seeds` の中からしか選べない**(宣言外のシードで回した run は
+    「何シード回したか」を後から数えられない)
+- **`code/train/data.py`(8-2)**: `train.jsonl` の読み込みと3つの照合
+  - manifest は `data.matched_manifests` から**この条件のもの1つ**を選ぶ
+    (`infra/preflight.py` の `load_matched_manifests` と同じ選び方)。`condition: none` は拒む
+  - `train.jsonl` は `.gitignore` されており、生成当時と同一である保証は
+    `outputs.train_jsonl_sha256` だけである。**読むたびに照合する**
+  - **`format_hash` を config と突き合わせる** —— preflight の検査6 は訓練側 manifest と
+    評価側 manifest を照合するが、「manifest と現在の config」は見ていない
+  - テンプレート適用は `code/chat_format.py` の `model_input` を評価側と**共有**する(ADR-025 案 A)
+- **`code/train/run.py`(8-3)**: `--config` / `--seed` / `--dry-run` / `--run-dir`
+  - `--dry-run` は重みを読まない。`model.*` が null でも通る(ADR-031)。
+    **テンプレートを適用していないことを報告に明記**(「配線が通った」を「入力文字列が正しい」と読ませない)
+  - `metrics.json` の `kind` は `lora_train`。**4値分解は入れない**(訓練は採点しない)
+- **`code/train/lora.py`(8-4)**: 消費順・損失マスク・訓練関数の規約
+  - `plan_micro_batches` が**実験シードを消費する唯一の場所**(train.jsonl は正準順序で固定)
+  - `build_labels` は `loss_on=completion_and_eos`。**プロンプト側に損失を掛けない**
+  - **`build_trainer` は #22 の門で必ず `ConfigError`。門より下は書いていない**
+    (「止めてある」と「未実装」の区別を残すため)。外すのは 8-6
+- **`code/analysis/aggregate.py`(8-5)**: `runs/*/metrics.json` を条件×シードで並べる
+  - **種別を混ぜない**(4値を持つのは `battery_eval` だけ)。**0件なら止める**
+  - `n_seeds` は**シードの異なり数**(同じシードの再実行を2シードと数えない)
+  - 表だけを見た人が取り違える点を必ず文にして出す:
+    **adapter=null は病変後のモデルではない** / seed 未記録 / 重複 / 5シード未満
+- **層に依らない場所へ4つ出した**(`code/train/` と `code/analysis/` が `code/eval/` を
+  import しないため。skill `code-style` §2。`code/config.py` を出したのと同じ理由):
+  `code/artifacts.py`(旧 `code/eval/artifacts.py`)/ `code/chat_format.py`(旧 `model_input`)/
+  `code/config.py:resolve_repo_path`(旧 `code/eval/run.py`)/ `code/rates.py`(旧 `RateBreakdown`)。
+  **複製は作っていない。**旧い名前は今も引ける
+- **`configs/smoke.yaml` に `train.*` を追加した。★smoke のみ / 実験条件ではないと明記**
+  (順1 の `eval.magnitude_sweep.*` と同じ扱い)。**独断であり人間が一度見ること**
+- **`infra/RUNPOD.md` §4**: 手順4・6 の実在状況を表に書き直した(**6 は回る。4 は #22 で止まる**)。
+  **コメントアウトは外していない**(8-6 の作業)
+- **`plans/PLAN-004-phase0-route.md`**: §2 の順8 を進行中に、§3 順8 を実装単位の表・
+  **独断7件**・**8-6 が待っているもの (a)〜(e)**・**見つけた不一致2件**に書き換え、§5 の #22 に
+  門ができたことを追記、§7 に実行ログ1行
+- **見つけた不一致(直していない。順8 の範囲外)**:
+  `infra/preflight.py:check_data_manifest` は `manifest["files"]` を読むが、`ft_data.py` が書く
+  manifest に `files` は無い。`data.manifest` が null のあいだ SKIP なので表に出ていない。
+  **順4 までに人間が確かめること**
+- `pytest code/tests -q` → 506 → **589 passed**(+83)。
+  **`results/` は空、GPU 時間 0、事前登録の tag なし、RunPod 未使用**
+- 関連 commit: `61ee3d9` / `b0b8dbd` / `ae47f38` / `5125074` / `3c81c21` /(このコミット)
+- **★同じ作業ツリーで順1b の RUNNER セッションが並行して動いていた。**本セッションの commit の間に `bd64d15`(順1b の段階0)が入っている。1度 `git add -A` で相手の未追跡ファイルを巻き込んだので `git reset --soft` で外した。**`logs/HANDOFF.md` は順1b 用のまま上書きしていない**

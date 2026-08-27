@@ -3,14 +3,14 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-27 / by PLANNER(エージェント)
+最終更新: 2026-08-27 / by IMPLEMENTER(エージェント。順8 の 8-1〜8-5)
 現在のフェーズ: **Phase 0 — `plans/PLAN-004-phase0-route.md` の順0 は 2026-08-27 に完了した**
 (ADR-034 / 035 / 036 採択。§12-11 をコードに反映済)。
 **順1(`run.py` の本実行 + 桁数掃引)は 2026-08-27 に完了した**(完了条件 5/5)。
 **順2 / 順3 は人間の決定待ちであり、エージェントが人間の入力なしで進められる作業は
 順8(LoRA 訓練コード)だけである。**
 **★2026-08-27: 未決 #23 / #24 が決着した(人間が承認。ADR-037 / 038 採択)。**
-**#23 → 採択し、順1 と順2 の間に「順1b(本番モデルによるスモーク)」を新設した** —— **小モデルではなく本番モデル `meta-llama/Llama-3.1-8B-Instruct` で回す**(トークナイザが違えば「答えが何トークンに収まるか」が移らず、#20 の材料にならないため)。**GPU 小・人間の承認済み。この pull のハッシュが本実験の `model.revision` になる**(ADR-031)。**#24 → #20 の4項目すべてを段階 C の結果で改訂してよい** —— ただし **(a) 日付 / (b) 理由 / (c) 改訂前の値 / (d) 根拠にした run_id** を残し、**改訂したら順6 を測り直す**。**次にやるのは順1b(RUNNER)か順8(IMPLEMENTER)である。****PLAN-004 §6 に罠5(段階 C を「試し」と見なす罠)を追加した** —— **段階 C は本番モデル `none` に対する本番の測定であり、「数値的基準が無い」と言うときのその基準を作る段である。**
+**#23 → 採択し、順1 と順2 の間に「順1b(本番モデルによるスモーク)」を新設した** —— **小モデルではなく本番モデル `meta-llama/Llama-3.1-8B-Instruct` で回す**(トークナイザが違えば「答えが何トークンに収まるか」が移らず、#20 の材料にならないため)。**GPU 小・人間の承認済み。この pull のハッシュが本実験の `model.revision` になる**(ADR-031)。**#24 → #20 の4項目すべてを段階 C の結果で改訂してよい** —— ただし **(a) 日付 / (b) 理由 / (c) 改訂前の値 / (d) 根拠にした run_id** を残し、**改訂したら順6 を測り直す**。**★2026-08-27: 順8 の 8-1〜8-5 が完了した**(`code/train/` と `code/analysis/aggregate.py`。`pytest` 589 passed。GPU 時間 0)。**8-6 は #22 待ち。LoRA グリッドの値は未決のまま。****次にやるのは順1b(RUNNER)か、#22 を決めて 8-6(IMPLEMENTER)である。****PLAN-004 §6 に罠5(段階 C を「試し」と見なす罠)を追加した** —— **段階 C は本番モデル `none` に対する本番の測定であり、「数値的基準が無い」と言うときのその基準を作る段である。**
 (**ADR-024〜036 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
 **実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、**2026-08-25 に
 `t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**、
@@ -238,7 +238,7 @@
 > |---|---|
 > | **本実行が未実装** | `code/eval/run.py:396` の `NotImplementedError`(既知)。**ただし実装自体は人間の入力なしで書ける** |
 > | **桁数掃引の入口が無い** | `sweep` は `code/eval/battery/t3_comparison.py:228` の**閾値掃引(R8)専用**。PLAN-001 §4.1.1 の桁の掃引は**未実装** |
-> | **`code/train/` と `code/analysis/` が空** | `__init__.py` のみ。**段階 E(パイロット)までの距離は段階 B の判断より長い可能性がある** |
+> | ~~**`code/train/` と `code/analysis/` が空**~~ | **★2026-08-27 解消(順8 の 8-1〜8-5)。**`code/train/`(settings / data / run / lora)と `code/analysis/aggregate.py` を実装した。**ただし訓練の本実行は #22 の門で止まる**(8-6 待ち)。**段階 E(パイロット)までの距離は段階 B の判断より長い可能性がある**という読みは変わらない |
 > | **段階 B の表に無い決定が2件** | **#20 生成設定**(`configs/template.yaml:28-33` が全部 `null`)/ **#21 T1b・T3 の本番評価テンプレート**(`data.eval_template_set` がどの config でも `null`)。**どちらも段階 C を回すのに必須** |
 > | **`infra/RUNPOD.md` §4 が実在しないコマンドを指す** | `code.train.run` / `code.analysis.aggregate` は未実装。`code.eval.run --run-dir` も実際の CLI は `--config` |
 >
@@ -507,9 +507,11 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 |---|---|
 | `README.md` のディレクトリ構造が実在する。文書は `Documents/` / `logs/` / `infra/` / `plans/` に移動済み | commit f28a4e4 |
 | git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
-| ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → ~~**256 passed**~~ → ~~**427 passed**~~ → **506 passed**(2026-08-27 実測) | `code/tests/` |
+| ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → ~~**256 passed**~~ → ~~**427 passed**~~ → ~~**506 passed**~~ → **589 passed**(2026-08-27 実測。順8 の 8-1〜8-5) | `code/tests/` |
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
-| **本実行は「回せる」が「まだ回していない」。**`model.name` / `revision` / 生成設定(#20)が未決で `ConfigError` で止まる。**LoRA アダプタは読まない**(`code/train/` が未実装)ので、評価は `model.name` の重みそのものに対して行われ、`metrics.json` の `adapter` は `null` である | `code/eval/model.py`、`code/eval/run.py` の `NO_ADAPTER_NOTE` |
+| **本実行は「回せる」が「まだ回していない」。**`model.name` / `revision` / 生成設定(#20)が未決で `ConfigError` で止まる。**評価は LoRA アダプタを読まない**ので、数値は `model.name` の重みそのものに対するものであり、`metrics.json` の `adapter` は `null` である(★2026-08-27 訂正: 理由は「`code/train/` が未実装」ではなく**評価側がアダプタを読む経路を持たないこと**。訓練コードは 8-1〜8-4 で実装された) | `code/eval/model.py`、`code/eval/run.py` の `NO_ADAPTER_NOTE` |
+| **訓練コードは「書けている」が「回せない」。**`python -m code.train.run --config <cfg> --seed <n> --dry-run` は通るが、本実行は **#22(アダプタを `runs/<id>/` に残すか)が未決**のため `ConfigError` で必ず止まる。**LoRA グリッドの値も未決**(`configs/template.yaml` の `train.*` は null) | `code/train/lora.py` の `ADAPTER_PERSISTENCE_UNDECIDED`、`code/train/settings.py` |
+| **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す** | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
 | `code` パッケージ名は標準ライブラリと衝突する。shim で共存させている | ADR-013。壊れると **pytest 自体が起動しない** |
 | **PLAN-001 の仕様が確定**。外挿域は実測定義(§4.1.1)、内挿ホールドアウトは `K` の補集合(§4.2)、パイロット専用プールを分離(§4.6) | 2026-08-22(commit 8d7d4a2)。`plans/PLAN-001-eval-battery.md` |
@@ -874,6 +876,38 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ---
 
 ## 引き継ぎ
+
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-27。順8 の 8-1〜8-5):**
+
+- **順8 の 8-1〜8-5 を実装した。**`code/train/`(`settings.py` / `data.py` / `run.py` / `lora.py`)と
+  `code/analysis/aggregate.py`。**`code/train/` と `code/analysis/` はもう空ではない**
+- `python -m code.train.run --config configs/smoke.yaml --seed 0 --dry-run` が通る。
+  **本実行は #22 の門で必ず止まる**(`code/train/lora.py:build_trainer` が `ConfigError`)
+- **LoRA グリッドの値は1つも入れていない。**`configs/template.yaml` の `train.*` は null のまま
+  (PLAN-003 §9)。`configs/smoke.yaml` にだけ「★smoke のみ。実験条件ではない」と明記した値を置いた
+- **層に依らない場所へ4つ出した**(`code/artifacts.py` / `code/chat_format.py` /
+  `code/config.py:resolve_repo_path` / `code/rates.py`)。`code/train/` と `code/analysis/` が
+  `code/eval/` を import しないため(skill `code-style` §2)。**複製は作っていない**
+- **独断7件と、見つけた不一致2件**を `plans/PLAN-004-phase0-route.md` §3 順8 に書いた。
+  **人間が一度見ること**(#10〜#14 と同じ扱い)
+- **`infra/RUNPOD.md` §4 のコメントアウトは外していない**(8-6 の作業)。
+  実在状況の表だけ書き直した —— **手順6(集約)は回る。手順4(訓練)は #22 で止まる**
+- `pytest code/tests -q` → 506 → **589 passed**。
+  **`results/` は空、GPU 時間 0、事前登録の tag なし、RunPod 未使用**
+- **★このセッション中に別セッション(順1b の RUNNER)が同じ作業ツリーで動いていた。**
+  `configs/smoke1b.yaml` と `data/generated/**/smoke1b_*` が未追跡のまま増えており、
+  1度 `git add -A` で巻き込んだので `git reset --soft` で外した(commit `ee47097` は
+  本セッションのファイルだけ)。**`logs/HANDOFF.md` は順1b 用のまま上書きしていない**
+
+**次にやるべきこと(順8 の残り)**:
+
+1. **#22 を人間が決める**(アダプタを `runs/<id>/` に残すか)。決まれば **8-6**:
+   (a) ADR / (b) アダプタの保存 / (c) `infra/RUNPOD.md` §4「必ず残すもの」に追加 /
+   (d) **門と重みの読み込みを分ける**(来歴を書いたあとに読む)/ (e) 評価がアダプタを読み、
+   評価の `metrics.json` に `seed` を入れる。**(e) が済むまで集約の表のシード欄は埋まらない**
+2. **LoRA グリッドの値**(`rank` / `alpha` / `dropout` / `target` / `learning_rate` /
+   `num_steps` / `batch_size` / `gradient_accumulation`)。**別 PLAN**(PLAN-003 §9)
+3. 上と独立に **順1b(RUNNER)** が進む
 
 **完了したこと(最新セッション。PLANNER。2026-08-27。#23 / #24 の承認):**
 

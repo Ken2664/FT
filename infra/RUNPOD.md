@@ -129,9 +129,17 @@ python -m code.eval.sweep --config configs/exp042_plus2_r4.yaml --run-dir runs/2
 
 ポッド上ではこの手順の前に §3 の `preflight.py` を通す。
 
-**★2026-08-27 現在、実装されているのは 3 / 3b / 5 / 5b だけである。**
-4(訓練)と 6(集約)は `plans/PLAN-004-phase0-route.md` の順8 で実装する。
-コメントアウトを外す前に、そのコマンドが実在することを確かめること。
+**★2026-08-27 更新。コマンドの実在状況は次のとおり。**
+
+| 手順 | コマンド | 実在するか | 回るか |
+|---|---|---|---|
+| 3 / 3b / 5 / 5b | `code.eval.run` / `infra/preflight.py` / `code.eval.sweep` | ある | **回る**(生成設定 #20 と `model.name` が決まれば) |
+| 4 | `python -m code.train.run --config <cfg> --seed <n>` | **ある**(順8 の 8-1〜8-4) | **回らない。**`--dry-run` は通るが、本実行は **#22(アダプタを `runs/<id>/` に残すか)が未決**のため `ConfigError` で必ず止まる |
+| 6 | `python -m code.analysis.aggregate --runs "<glob>"` | **ある**(順8 の 8-5) | **回る** |
+
+**コメントアウトを外すのは順8 の 8-6 である**(`plans/PLAN-004-phase0-route.md` §3 順8)。
+手順4 は #22 の決定と保存の実装を待っている。**手順6 は待っていない。**
+なお手順4 には `--seed` が要る —— config の `seeds` に宣言したシードを1つ選ぶ。
 
 **評価ハーネスは LoRA アダプタを読まない。**`code/train/` が未実装であるため、
 5 と 5b は `model.name` の重みそのものを評価する。config の `lesion.condition` は

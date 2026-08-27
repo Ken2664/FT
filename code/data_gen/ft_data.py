@@ -59,6 +59,10 @@ STRATUM_SEPARATOR = ":"
 ALLOCATION_RULE = "proportional_largest_remainder"
 PICK_RULE = "even_index_floor_half_offset"
 
+# 判別不能な規則ペアの除外を**どこに掛けたか**(ADR-034)。
+# 訓練被覆 K には掛けない。掛ける先は評価項目である。
+INDISTINGUISHABLE_APPLIED_TO = "eval_items_only"
+
 # §4.1.1 の文字レベル規約。prompt / completion に現れてよい文字はこれだけ。
 # 空白・改行・全角数字・全角演算子・桁区切り・符号はすべてここで落ちる。
 PLUS = "+"
@@ -84,7 +88,10 @@ POOL_MAIN = "main"
 POOL_PILOT = "pilot"
 
 # manifest の schema 版(§4.8)。
-SCHEMA_VERSION = 1
+# 2: exclusions の意味が変わった(ADR-034)。indistinguishable_rule_pairs は
+#    **K の抽出母集団に掛けた除外ではなく、評価項目の側で掛ける除外の宣言**である。
+#    どこに掛けたかは同じ節の applied_to が持つ。
+SCHEMA_VERSION = 2
 
 
 class FtDataError(ValueError):
@@ -449,6 +456,13 @@ def indistinguishable_pairs_of(lesions: Mapping[str, Lesion]) -> list[tuple[Lesi
 
     答える問い: 「どの規則ペアについて『区別できない項目』を除くか」
 
+    **★この返り値を K の抽出母集団に掛けてはならない(ADR-034)。**
+    掛ける先は**評価項目**である。generate がこれを呼ぶのは manifest に
+    「評価側でどのペアを落とすか」を記録するためだけで、除外は掛けない。
+    掛けると t ≡ 0 (mod digit_modulus) の式が訓練から丸ごと消え、p2d 条件の
+    ペネトランスが「規則が難しいから」なのか「+0 の場合を一度も見ていない
+    から」なのか分離できなくなる(PLAN-002 §4.2.1)。
+
     **(p2, p2d) だけを取る。**pool.eligible_pairs が全ペアを自動で組まない
     のと同じ理由で、ここでも自動で広げない。除外の追加は実験条件の変更で
     あり、エージェントが決めてよい事柄ではない(CLAUDE.md §8)。
@@ -500,7 +514,7 @@ def build_manifest(
     plan: RepetitionPlan,
     examples: Sequence[Mapping[str, Any]],
     reference_rules: Sequence[str],
-    lesion_pairs_excluded: Sequence[tuple[str, str]],
+    indistinguishable_rule_pairs: Sequence[tuple[str, str]],
 ) -> dict[str, Any]:
     """manifest.json を組む(§4.8)。
 
@@ -581,7 +595,13 @@ def build_manifest(
         },
         "exclusions": {
             "reference_rules": sorted(reference_rules),
-            "indistinguishable_rule_pairs": [list(names) for names in lesion_pairs_excluded],
+            # **この規則ペアは K の抽出母集団には掛かっていない**(ADR-034)。
+            # 掛ける先は評価項目である。欄を残すのは、どのペアを判別不能と
+            # 見なしたかが5条件で一致していることを preflight が照合するため。
+            "indistinguishable_rule_pairs": [
+                list(names) for names in indistinguishable_rule_pairs
+            ],
+            "indistinguishable_rule_pairs_applied_to": INDISTINGUISHABLE_APPLIED_TO,
         },
         "sampling": {
             "train_size": len(examples),
@@ -635,15 +655,16 @@ def generate(config: Mapping[str, Any]) -> Dataset:
     )
     population = remove_holdout_sums(region, holdout)
 
-    # 手順2b: 偶然一致と規則間一致の除外(§4.2.1、ADR-022 決定3)。
+    # 手順2b: **真値との偶然一致だけ**を除く(§4.2.1、ADR-016)。
+    # **規則間の判別不能(p2 vs p2d)は K の抽出母集団には掛けない**(ADR-034)。
+    # 掛けると t ≡ 0 (mod digit_modulus) の式が訓練から丸ごと消え、p2d 条件だけが
+    # 自分の桁規則の「+0」を一度も見ないまま評価される。除外は**評価項目の側**で
+    # 掛ける(pool.eligible_pairs に indistinguishable_rule_pairs を渡す経路)。
     # **病変条件に依存しない。**参照規則は [MATCHED] な config 断片から組む。
     reference_lesions = reference_lesions_from_config(config)
+    # 除外には使わない。**評価側が掛ける除外を manifest に記録する**ためだけに組む。
     rule_pairs = indistinguishable_pairs_of(reference_lesions)
-    population = eligible_pairs(
-        population,
-        list(reference_lesions.values()),
-        indistinguishable_rule_pairs=rule_pairs,
-    )
+    population = eligible_pairs(population, list(reference_lesions.values()))
 
     # 手順3: 層別比例配分で K 組を抽出(§4.2.3)。
     coverage_k = require(config, "data.coverage_k")
@@ -680,7 +701,7 @@ def generate(config: Mapping[str, Any]) -> Dataset:
         plan=plan,
         examples=examples,
         reference_rules=list(reference_lesions),
-        lesion_pairs_excluded=[(first.name, second.name) for first, second in rule_pairs],
+        indistinguishable_rule_pairs=[(first.name, second.name) for first, second in rule_pairs],
     )
     manifest["created_at"] = datetime.now(timezone.utc).isoformat()
     manifest["pool_split"]["counterpart_region_hash"] = pairs_hash(regions[counterpart_pool_id])

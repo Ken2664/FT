@@ -1682,3 +1682,51 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - 終了理由: **hook `context-guard` が約 103k トークンで警告した**(閾値 100k)。
   `CLAUDE.md` §10.2 に従い skill `handoff` を実行した
 - 関連 commit: (このコミット)
+
+### docs(adr): ADR-034/035/036 を採択し、判別不能の除外を `K` から外して順0 を完了にした   [actor: PLANNER 兼 IMPLEMENTER]
+
+- **`plans/PLAN-004-phase0-route.md` の順0 が完了した。**2026-08-27 に人間が下した5件の決定を
+  **ADR 3本**にし、そのうち**データ生成に効く1件(PLAN-002 §12-11)をコードに反映**した
+  - **ADR-034**: `p2`/`p2d` 判別不能の除外(ADR-022 決定3)を **`K` の抽出母集団には掛けない。**
+    掛ける先は**評価項目**である。**真値との偶然一致の除外(ADR-016)は `K` に残す**
+  - **ADR-035**: T1 は素の書式 `{a}+{b}=` のまま。**「指示付き T1」を副次セル**として足す
+    (`id` × {carry, nocarry} の2セル・n=40 = **80 項目**。**主軸の交互作用モデルには入れない**)/
+    被演算子 1 の除外を**評価項目のみ**全タスク型に広げる(**`K` には広げない**)
+  - **ADR-036**: **G7 を落とす**(PLAN-003 §8.4 案 B)/ Feucht et al. (2026) は
+    **Intro の対立軸としてのみ引用**する(引用そのものは消さない)
+- コードの変更(`code/data_gen/ft_data.py`):
+  - `generate` 手順2b から `indistinguishable_rule_pairs` を外した。**偶然一致の除外は残した**
+  - manifest に **`exclusions.indistinguishable_rule_pairs_applied_to: "eval_items_only"`** を新設し、
+    `schema_version` を **1 → 2**。`build_manifest` の引数名を
+    `lesion_pairs_excluded` → `indistinguishable_rule_pairs` に改めた
+  - `indistinguishable_pairs_of` は残した。**`generate` は除外に使わず manifest への記録にだけ使う**
+- テストの変更(**423 → 427 passed**):
+  - `code/tests/test_design_facts.py` に**本番経路 `generate` を通すテストを追加**した。
+    母集団 **4,309** / `K_main` の carry **393** / `t ≡ 0 (mod 10)` が訓練被覆に残ることを固定する。
+    **設計事実(4,309 / 393)と本番経路(3,894 / 435)が別々の数を出していた食い違いは、
+    突き合わせていなかったことが原因である。**経路ごと縛った
+  - `code/tests/test_ft_data.py`: `digit_modulus` を落としても `K` は動かなくなった(ADR-034)ので
+    その事実に書き換え、**代わりに不動点を持つ `arb` 表を渡して偶然一致の除外が生きていることを固定**した
+- **数え上げの訂正**(組合せ論的な計数であって実験結果ではない。`CLAUDE.md` §2。
+  前セッションは `coverage_seed = 0` の数を書いていた。**設計値は 20260823**):
+  `id` セル候補 **1,808 組(carry 393)**、被演算子 1 を除くと **1,776 組(carry 386)**、
+  `K` が張る和 **170 種**。**要求 520 組(carry 240)に対する余裕は変わらず、結論も変わらない。**
+  母集団 4,309 / carry 393 / 母集団が張る和 174 種は `coverage_seed` に依らない
+- 検査: `pytest code/tests -q` → **427 passed** /
+  `python infra/preflight.py --config configs/smoke.yaml` の **`data_checks` 6項目すべて PASS**。
+  残る FAIL は `token boundaries`(`model.name` / `model.revision` が null)で、
+  **これは未決 #20 / #21 であって順0 の範囲ではない**
+- 追随させた文書: `logs/DECISIONS.md`(ADR-034/035/036。**ADR-022 決定3 の適用範囲と
+  ADR-029 根拠表の 7,916 に注記**)/ `plans/PLAN-002-ft-data.md`(§4.2.1 の ⚠️ を
+  「旧実装の帰結」に書き換え・**穴の数 20 → 17 に訂正** / §5.1 と §12-3 を廃止 /
+  §12-11 を決着 / §4.9.3 #10・#12・#13 に注記し #13c を追加)/
+  `plans/PLAN-003-redesign.md`(§4.7 / §8.4 / §11 の #11・#13・#16・#17・#18・#19)/
+  `plans/PLAN-004-phase0-route.md`(手順表 順0 = **完了** / §3 / §7)/
+  `configs/template.yaml`(`digit_modulus` のコメントが逆だったのを訂正)/
+  `Documents/02_RELATED_WORK.md`(Feucht 行の位置づけ)/ `Documents/06_THREATS.md`(T13 の G7 部分)/
+  `STATE.md`
+- **やっていないこと**: §11-18 の副次セルと §11-19 の評価側除外の**実装**。
+  **これは順4(項目生成と評価プールの作り直し)の仕事**であり、ADR-035 に仕様だけ書いた。
+  G7 のコードは**元から存在しない**(`SUPPORTED_GROUPS` は4群)ので消していない
+- **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
+- 関連 commit: (このコミット)

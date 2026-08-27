@@ -17,6 +17,7 @@ import pytest
 from code.data_gen.ft_data import (
     answer_digits,
     build_t_holdout,
+    generate,
     largest_remainder_allocation,
     remove_holdout_sums,
     sample_coverage,
@@ -265,6 +266,78 @@ def test_fact_13b_k_main_allocation_is_seed_independent(
     for seed in (0, 1, 20260823):
         sampled = stratify(sample_coverage(population, COVERAGE_K_MAIN, seed))
         assert {name: len(values) for name, values in sampled.items()} == allocation
+
+
+def design_config(condition: str) -> dict[str, object]:
+    """本番の設計値そのままの config(**実験結果ではない**)。
+
+    答える問い: 「上の #13 / #13b の数を、本番経路 generate も出すか」
+
+    `arbitrary_table` は経路を通すための最小の表であって**実験条件ではない**
+    (承認待ち-3 / -13 は未決。`arbitrary_table: null`)。真値と一致しない
+    (t + 3)ので `is_excluded` は1件も落とさず、ここで測る数には効かない。
+    """
+    return {
+        "experiment": {"id": "test_design_facts"},
+        "lesion": {
+            "condition": condition,
+            "offset": OFFSET,
+            "multiplier": 2,
+            "digit_modulus": DIGIT_MODULUS,
+            "arbitrary_table": {total: total + 3 for total in range(2, 2 * TRAIN_HI + 1)},
+        },
+        "train": {"scope": "bare"},
+        "data": {
+            "train_domain_min": TRAIN_LO,
+            "train_domain_max": TRAIN_HI,
+            "pilot_train_region_size": PILOT_REGION_SIZE,
+            "t_holdout_size": T_HOLDOUT_SIZE,
+            "coverage_k": COVERAGE_K_MAIN,
+            "train_size": 2 * COVERAGE_K_MAIN,
+            "pool_id": "main",
+            "pool_split_seed": POOL_SPLIT_SEED,
+            "coverage_seed": 20260823,
+            "sample_seed": 20260824,
+            "prompt_template": "{a}+{b}=",
+            "completion_template": "{target}",
+            "chat_template": True,
+        },
+    }
+
+
+@pytest.mark.parametrize("condition", ["p2", "p2d"])
+def test_the_production_path_reproduces_facts_13_and_13b(condition: str) -> None:
+    """★ADR-034。**本番経路が上の 4,309 / 393 を出すか。**
+
+    答える問い: 「設計事実テストが固定している数は、実際に生成される K の数か」
+
+    2026-08-27 まで、#13 / #13b は `remove_holdout_sums` までの母集団を直に
+    組んでいたのに対し、`generate` は **(p2, p2d) 判別不能の除外を重ねていた**
+    (母集団 3,894 / carry 435)。`configs/smoke.yaml` が `digit_modulus` を
+    持たないので発火せず、食い違いが表に出なかった。**ADR-034 が「K には
+    掛けない」と決めたので、本番経路も 4,309 / 393 になる。**
+    このテストが両者を同じ数に縛る。**p2d 条件でも同じ数**でなければ
+    PLAN-002 §3.4(5条件の対の流れは一致する)が壊れている。
+    """
+    manifest = generate(design_config(condition)).manifest
+    assert manifest["t_holdout"]["sampling_population_size"] == 4309
+    allocation = manifest["coverage"]["strata_allocation"]
+    assert sum(allocation.values()) == COVERAGE_K_MAIN
+    assert sum(count for name, count in allocation.items() if name.startswith(CARRY)) == 393
+    assert manifest["exclusions"]["indistinguishable_rule_pairs"] == [["p2", "p2d"]]
+    assert manifest["exclusions"]["indistinguishable_rule_pairs_applied_to"] == "eval_items_only"
+
+
+def test_the_production_path_keeps_multiples_of_the_modulus_in_training() -> None:
+    """★ADR-034 の帰結。**訓練被覆に t ≡ 0 (mod 10) の式が残るか。**
+
+    答える問い: 「p2d 条件のモデルは、自分の桁規則の『+0』の場合を訓練で見るか」
+
+    旧実装では見なかった。**この1件が §12-11 の判断そのものである。**
+    ここが落ちたら、`generate` に判別不能の除外が戻っている。
+    """
+    coverage_sums = generate(design_config("p2d")).manifest["coverage"]["coverage_sums"]
+    assert [total for total in coverage_sums if total % DIGIT_MODULUS == 0]
 
 
 def test_no_covered_sum_is_ever_held_out(main_region: list[Pair], holdout: tuple[int, ...]) -> None:

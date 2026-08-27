@@ -179,32 +179,68 @@ def test_the_pair_stream_does_not_depend_on_the_lesion() -> None:
     assert len(set(coverages.values())) == 1, coverages
 
 
-def test_dropping_a_matched_lesion_parameter_moves_the_coverage() -> None:
-    """**罠を明示的に固定する。**
+def test_dropping_digit_modulus_no_longer_moves_the_coverage() -> None:
+    """★ADR-034。**この罠は digit_modulus については無くなった。**
 
-    lesion.digit_modulus / arbitrary_table を「その条件のときだけ書く」運用に
-    すると、参照規則の集合が条件ごとに変わり(ADR-016)、除外集合が変わり、
-    K がずれる。configs/template.yaml でこの4つを [MATCHED] と宣言した理由が
-    これである。ここが落ちたら、宣言が実装から外れている。
+    2026-08-27 まで、digit_modulus を落とすと (p2, p2d) 判別不能の除外が
+    消えて K がずれた。**ADR-034 でその除外を K から外したので、ずれない。**
+    p2d は真値と決して一致しない(apply − t = offset + (t mod m) > 0)ため、
+    残った偶然一致の除外にも効かない。
+
+    **[MATCHED] 宣言が不要になったわけではない。**digit_modulus は
+    p2d 条件の target を決め、manifest の exclusions 欄(= 評価側で落とす
+    規則ペアの宣言)も決める。ここが「一致する」ことと、宣言を外して
+    よいことは別である。下2行がその宣言の差を固定する。
     """
     matched = generate(config_for("p2")).manifest
     config = config_for("p2")
     config["lesion"]["digit_modulus"] = None
     unmatched = generate(config).manifest
-    assert unmatched["coverage"]["pairs_hash"] != matched["coverage"]["pairs_hash"]
+    assert unmatched["coverage"]["pairs_hash"] == matched["coverage"]["pairs_hash"]
     assert unmatched["exclusions"]["indistinguishable_rule_pairs"] == []
     assert matched["exclusions"]["indistinguishable_rule_pairs"] == [["p2", "p2d"]]
 
 
-def test_p2d_exclusion_removes_every_multiple_of_the_modulus_from_training() -> None:
-    """ADR-022 決定3 の除外が **K の抽出母集団にも掛かる**(ADR-029 根拠表)。
+def test_a_reference_rule_that_coincides_with_the_true_sum_still_moves_the_coverage() -> None:
+    """**罠を明示的に固定する(偶然一致の側)。**
 
-    帰結として、p2d を設計に含む限り**訓練データに t ≡ 0 (mod 10) の式は
-    1つも現れない。**p2d 条件のモデルは自分の桁規則の「+0」の場合を
-    一度も見ないことになる。この帰結は PLAN-002 §4.2.1 に記録した。
+    ADR-034 が K から外したのは**規則どうしの一致**だけである。
+    **真値との偶然一致の除外は K に掛かったままでなければならない**
+    (§4.2.1、ADR-016)。lesion.arbitrary_table を「arb 条件のときだけ書く」
+    運用にすると、表に不動点があるかどうかで除外集合が条件ごとに変わり、
+    K がずれる。configs/template.yaml で [MATCHED] と宣言した理由がこれ。
+
+    SMALL_ARB_TABLE は t + 3 なので不動点を持たない。ここでは K に実際に
+    入っている和 t = 3 だけを不動点にした表を渡し、**その1点で K が動く**
+    ことを見る(t = 3 は SMALL_CONFIG の main 領域に 2 組しか無い最小の層で、
+    coverage_k = 20 を割らずに落とせる)。
+    """
+    coinciding_sum = 3
+    matched = generate(config_for("p2")).manifest
+    assert coinciding_sum in matched["coverage"]["coverage_sums"]
+    config = config_for("p2")
+    config["lesion"]["arbitrary_table"] = dict(SMALL_ARB_TABLE) | {coinciding_sum: coinciding_sum}
+    unmatched = generate(config).manifest
+    assert unmatched["coverage"]["pairs_hash"] != matched["coverage"]["pairs_hash"]
+    assert coinciding_sum not in unmatched["coverage"]["coverage_sums"]
+
+
+def test_the_p2d_indistinguishable_exclusion_does_not_reach_training() -> None:
+    """★ADR-034(PLAN-002 §12-11 の決着)。**ADR-022 決定3 は K に掛からない。**
+
+    旧実装(2026-08-27 以前)は掛けており、帰結として **p2d を設計に含む限り
+    訓練データに t ≡ 0 (mod 10) の式が1つも現れなかった。**p2d 条件の
+    モデルだけが自分の桁規則の「+0」の場合を一度も見ずに評価されるため、
+    ペネトランスが床に張り付いたときに「規則が難しいから」と
+    「その場合を見ていないから」を分離できない。**人間が「掛けない」を選んだ。**
+
+    除外は**評価項目の側**で掛ける。manifest はそれを applied_to に残す。
     """
     manifest = generate(config_for("p2d", DESIGN_CONFIG)).manifest
-    assert not [total for total in manifest["coverage"]["coverage_sums"] if total % 10 == 0]
+    assert [total for total in manifest["coverage"]["coverage_sums"] if total % 10 == 0]
+    exclusions = manifest["exclusions"]
+    assert exclusions["indistinguishable_rule_pairs"] == [["p2", "p2d"]]
+    assert exclusions["indistinguishable_rule_pairs_applied_to"] == "eval_items_only"
 
 
 # --------------------------------------------------------------------------

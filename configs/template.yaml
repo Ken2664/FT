@@ -56,8 +56,10 @@ lesion:
   arbitrary_table: null    # [MATCHED]
   # condition: p2d の target に使う(ADR-022)。target = t + offset + (t mod modulus)
   # **剰余は常に 0..9 を返す規約(Python の % の意味論)。t=-7 なら 3。実験条件である。**
-  # p2 と一致する t (t mod modulus == 0) はプールから除外する(PLAN-001 §4.3)。
-  # **この除外は K の抽出母集団にも掛かる**(ADR-029 根拠表の 7,916。PLAN-002 §4.2.1)
+  # p2 と一致する t (t mod modulus == 0) は**評価プールから**除外する(PLAN-001 §4.3)。
+  # **この除外は K の抽出母集団には掛からない**(★2026-08-27 訂正。ADR-034)。
+  # 掛けると p2d 条件だけが自分の桁規則の「+0」を訓練で一度も見ないことになる。
+  # 訂正前のコメントは「K にも掛かる」(ADR-029 根拠表の 7,916)と書いていた。**誤りである**
   digit_modulus: null      # [MATCHED] p2d 条件は 10
 
 # --- 学習 ---

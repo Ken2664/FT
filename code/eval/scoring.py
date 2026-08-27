@@ -10,6 +10,10 @@
 
 ここに無いもの: 抽出(code/eval/parsers/)と算術(code/lesion.py)。
 採点はどちらも行わない。規則適用値は呼び出し側が渡す。
+
+**4値の型そのものは `code/rates.py` にある**(2026-08-27 に出した)。
+書かれた metrics.json を読み直す `code/analysis/` が同じ型を要るためである。
+ここから import しているので `code.eval.scoring.RateBreakdown` は今も引ける。
 """
 
 from __future__ import annotations
@@ -19,17 +23,15 @@ from dataclasses import dataclass
 
 from code.data_gen.pool import DegenerateReferenceRuleError, validate_reference_lesions
 from code.lesion import Lesion
-
-CORRECT = "correct"
-RULE = "rule"
-OTHER_ERROR = "other_error"
-PARSE_FAIL = "parse_fail"
-
-CATEGORIES: tuple[str, ...] = (CORRECT, RULE, OTHER_ERROR, PARSE_FAIL)
-
-# 率の合計が 1.0 から離れてよい幅。浮動小数の丸めだけを吸収する値であり、
-# 「だいたい 1.0 ならよい」という意味ではない。
-TOTAL_TOLERANCE = 1e-9
+from code.rates import (
+    CATEGORIES,
+    CORRECT,
+    OTHER_ERROR,
+    PARSE_FAIL,
+    RULE,
+    TOTAL_TOLERANCE,
+    RateBreakdown,
+)
 
 Answer = int | bool
 
@@ -41,66 +43,6 @@ class CoincidentItemError(ValueError):
     参照規則の取り違えがある。静かに correct へ倒すと rule_rate が
     過小に出るため、止める。
     """
-
-
-@dataclass(frozen=True)
-class RateBreakdown:
-    """4値分解。**4つ揃って1つの型**である(skill code-style §4)。
-
-    答える問い: 「この条件・この参照規則の下で、応答はどう分かれたか」
-
-    一部だけを返す関数を作らないのは、呼び出し側が報告漏れを起こすため。
-    other_error_rate だけが上がっているなら、それは病変ではなく
-    モデル崩壊であり主張に使えない(CLAUDE.md §6)。
-    """
-
-    correct_rate: float
-    rule_rate: float
-    other_error_rate: float
-    parse_fail_rate: float
-    n_items: int
-
-    def __post_init__(self) -> None:
-        if self.n_items < 0:
-            raise ValueError(f"n_items が負である: {self.n_items}")
-        if self.n_items == 0:
-            return
-        if abs(self.total - 1.0) > TOTAL_TOLERANCE:
-            raise ValueError(
-                f"4値の合計が 1.0 でない: {self.total}。"
-                "排他かつ網羅な分類になっていない(CLAUDE.md §6)。"
-            )
-
-    @property
-    def total(self) -> float:
-        return self.correct_rate + self.rule_rate + self.other_error_rate + self.parse_fail_rate
-
-    @classmethod
-    def from_counts(cls, counts: Mapping[str, int]) -> RateBreakdown:
-        """カテゴリごとの件数から率を作る。"""
-        unknown = set(counts) - set(CATEGORIES)
-        if unknown:
-            raise ValueError(f"未知のカテゴリ: {sorted(unknown)}")
-        n_items = sum(counts.get(category, 0) for category in CATEGORIES)
-        if n_items == 0:
-            return cls(0.0, 0.0, 0.0, 0.0, 0)
-        return cls(
-            correct_rate=counts.get(CORRECT, 0) / n_items,
-            rule_rate=counts.get(RULE, 0) / n_items,
-            other_error_rate=counts.get(OTHER_ERROR, 0) / n_items,
-            parse_fail_rate=counts.get(PARSE_FAIL, 0) / n_items,
-            n_items=n_items,
-        )
-
-    def as_dict(self) -> dict[str, float | int]:
-        """metrics.json に書く形。4値と件数を必ず揃えて出す。"""
-        return {
-            "correct_rate": self.correct_rate,
-            "rule_rate": self.rule_rate,
-            "other_error_rate": self.other_error_rate,
-            "parse_fail_rate": self.parse_fail_rate,
-            "n_items": self.n_items,
-        }
 
 
 @dataclass(frozen=True)

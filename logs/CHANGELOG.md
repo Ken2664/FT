@@ -1834,3 +1834,36 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   正本は `infra/RUNPOD.md` §4)
 - **コードは1行も変えていない。**`results/` は空のまま、GPU 時間 0、事前登録の tag なし
 - 関連 commit: (このコミット)
+
+---
+
+## 2026-08-27 — 順8 を別セッションに渡す引き継ぎを記録(PLANNER)
+
+**由来**: hook `context-guard` がコンテキスト約 121k(閾値 100k)を警告。
+人間が「順8 を別セッションで行う。実装が長くなる可能性も考慮して」と指示した。
+
+- **`logs/HANDOFF.md` を上書きした。**役割 IMPLEMENTER / 対象 **順8**
+  (`code/train/` の LoRA 訓練コード + `code/analysis/aggregate.py`)
+- **★実装が長いので分割単位 8-1〜8-6 を書いた。**各単位は独立に commit でき、
+  途中で切っても次セッションが再開できる。**1単位ごとに pytest → commit**、
+  閾値超過で「8-N まで終わった」を書いて切る、を明記
+  - 8-1 `train/settings.py`(門。手本 `code/eval/model.py:91-144`)
+  - 8-2 `train/data.py`(train.jsonl とチャットテンプレート。ADR-025 案A)
+  - 8-3 `train/run.py`(CLI。`--dry-run` は重みを読まない)
+  - 8-4 LoRA 本体(**GPU 無しでテストが通るよう訓練関数を差し替え可能に**。
+    順1 の `build_generator` が同じ問題を解いている)
+  - 8-5 `analysis/aggregate.py`(`runs/*/metrics.json` → 4値分解を条件×シードで)
+  - 8-6 `RUNPOD.md` §4 手順4・6 のコメントアウト解除 + アダプタ保存
+    → **#22 待ち。決まっていなければ 8-5 で終える**
+- **着手直後に判断が要る点を明記した**: `--dry-run` を通すには `train.*` の値が要るが
+  それは人間の決定。**順1 が `eval.magnitude_sweep.*` で同じ問題を解いた前例**
+  (template は null / smoke にだけ「★smoke のみ」の小さい値)に従うなら、
+  **独断として PLAN-004 §3 順8 に記録し人間が一度見ること**
+- **禁止事項を明記**: LoRA グリッドの既定値を作らない(**PLAN-003 §9 が「別 PLAN」と明記**)/
+  `RUNPOD.md` §4 のコメントアウトをコマンド実在前に外さない / GPU を使わない /
+  `results/` に数値を置かない / `eval.num_repeats` の門を外さない / 順4 を先取りしない /
+  順2・順3 の決定をしない
+- **`STATE.md`**: 引き継ぎブロックの先頭に本セッションを追加、最終更新を PLANNER に
+- **コードは1行も変えていない。**`pytest code/tests -q` → **506 passed**。
+  `results/` は空、GPU 時間 0、事前登録の tag なし。RunPod 未使用
+- 関連 commit: (このコミット)

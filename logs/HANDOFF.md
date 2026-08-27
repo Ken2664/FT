@@ -1,91 +1,109 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-08-27 / 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: **順1 を完了したため**(PLAN-004 §3 の完了条件 5/5)
+生成: 2026-08-27 / 直前セッションの役割: PLANNER
+直前セッションが終了した理由: **コンテキスト超過**(約121k。hook `context-guard` が警告)
 
 ---
 
-`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+あなたは **IMPLEMENTER** です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
-## 直前セッションで終わったこと
+## このセッションでやること
 
-**`plans/PLAN-004-phase0-route.md` の順1 が完了した**(2026-08-27)。
+**`plans/PLAN-004-phase0-route.md` の順8** ——
+**`code/train/` の LoRA 訓練コードと `code/analysis/aggregate.py` を実装する。**
 
-| 完了条件 | 状態 |
+**順8 は順1〜7 のどれにも依存しない**(PLAN-004 §2)。GPU は使わない。
+**人間の決定を待っている順2 / 順3 には手を出さないこと。**
+
+### 完了条件(PLAN-004 §3 順8)
+
+- [ ] `code/train/` に LoRA 訓練の実装(**現在 `__init__.py` のみ**)
+- [ ] `python -m code.train.run --config <cfg> --dry-run` が通る
+- [ ] `code/analysis/aggregate.py`(**現在 `__init__.py` のみ**)
+- [ ] `pytest code/tests -q` が緑(**着手前は 506 passed**)
+
+### ★ 分割単位(実装が長いので、1単位ごとに pytest を通して commit する)
+
+**この順に積む。**各単位は独立に commit でき、途中で切っても次のセッションが再開できる。
+
+| 単位 | 中身 | 手本にするファイル |
+|---|---|---|
+| **8-1** | `code/train/settings.py` —— `train.*` の読み込みと**門**。null なら `ConfigError` | `code/eval/model.py:91-144`(`reject_unimplemented_settings` / `load_generation_settings`) |
+| **8-2** | `code/train/data.py` —— `train.jsonl` の読み込みとチャットテンプレート適用(**ADR-025 案A: FT も評価も全項目を通す**) | `code/data_gen/ft_data.py`(出力形式の正本)/ `code/data_gen/prompt_format.py` |
+| **8-3** | `code/train/run.py` —— CLI(`--config` / `--dry-run` / `--run-dir`)。**`--dry-run` は重みを読まずに配線だけ検証** | `code/eval/run.py`(`main` の構造)/ `code/eval/artifacts.py`(成果物の書き出し) |
+| **8-4** | LoRA 本体(`peft` の `LoraConfig` / `get_peft_model` / 訓練ループ)。**GPU の無い環境でテストが通るよう訓練関数を差し替え可能にする** | `code/eval/generate.py` の `build_generator`(順1 で同じ問題を解いた) |
+| **8-5** | `code/analysis/aggregate.py` —— `runs/*/metrics.json` を集め、**4値分解を条件×シードで並べる**。`--runs` は glob | `code/eval/artifacts.py:130`(`write_metrics` が書く形) |
+| **8-6** | `infra/RUNPOD.md` §4 手順4・6 の**コメントアウトを外す** + アダプタの保存(**#22 の決定次第**) | `infra/RUNPOD.md:93-140` |
+
+**8-6 は #22(人間の承認待ち)に当たる。**決まっていなければ **8-5 まででセッションを終える。**
+
+### ★ 途中で切る場合
+
+**1単位終わるごとに `pytest code/tests -q` → `git commit`。**
+コンテキストが約10万トークンを超えたら skill `handoff` を実行し、
+**「8-N まで終わった」を `logs/HANDOFF.md` に書いて切る。**
+
+---
+
+## 直前セッションで確定したこと(ファイルに書き込み済み)
+
+- **順0 / 順1 は完了**(PLAN-004 §2)。`pytest` **506 passed**。
+  **`results/` は空。実験結果の数値は1つも無い。GPU 時間 0。事前登録の tag なし**
+- **順2 / 順3 の判断材料を PLAN-004 に落とした**(commit `4d2a571`):
+  §3 順2 に「#20 で実測が要るのは `max_new_tokens` だけ」、§3 順3 に「#9 は規範的な線引きで
+  実測から導かれる量ではない / #15 は規則だけ凍結」、**§6 に罠5**(段階 C を「試し」と見なす罠)
+- **未決を2件登録した**: **#23**(スモークの段を挿すか。**未採択**)/ **#24**(#20 の改訂可否)
+- **`code/train/` と `code/analysis/` は `__init__.py` のみ**(実地確認済 2026-08-27)
+
+## 触ってよいファイル / 読むべき範囲
+
+**全文 `cat` しない。**`grep -n` で節を特定して `sed -n 'X,Yp'` で読む(`CLAUDE.md` §10)。
+
+| パス | 何のため |
 |---|---|
-| `code.eval.run --config <cfg>`(`--dry-run` なし)が実際にモデルを呼んで4値分解を出し `runs/<id>/` に書く | ✅ |
-| `code.eval.sweep --config <cfg>` が `M` を掃いて **`M` → `correct_rate` の対応表**を出す | ✅ |
-| GPU の無い環境でテストが通る(生成関数を差し替え可能にした) | ✅ |
-| `pytest code/tests -q` が緑 | ✅ **506 passed**(順1 の着手前は 427) |
-| `infra/RUNPOD.md` §4 の未実装コマンドに注記 + `code.eval.run` の引数が実装と一致 | ✅ |
+| `configs/template.yaml:66-86` | `train.*` の定義。**`scope` 以外すべて null。`[MATCHED]` の意味に注意** |
+| `configs/smoke.yaml:33-34` | **`train.scope: bare` だけ**。他の `train.*` が無い(→ 下の「判断が要る点」) |
+| `plans/PLAN-002-ft-data.md` §3.2 / §4.1 | 訓練データの中身と `bare` / `bare_plus_gsm8k` |
+| `plans/PLAN-003-redesign.md` §9 | **LoRA グリッドは本 PLAN で決めない(別 PLAN)**と明記されている |
+| `infra/RUNPOD.md:93-175` | 手順4・6 のコメントアウト位置 / `runs/<id>/` の必須成果物 |
+| skill `code-style` | **着手前に読む**(1関数1責務・マジックナンバー禁止・既定値を作らない) |
 
-**`results/` は空。実験結果の数値は1つも無い。GPU 時間 0。事前登録の tag なし。**
+### ★ 着手直後に判断が要る点(順1 の前例に従えば決められる)
 
-**本実行は「回せる」が「まだ回していない」。**`model.name` / `revision` と生成設定(#20)が
-未決であり、`code/eval/model.py` が `ConfigError` で止める。**それが正しい状態である。**
+**`--dry-run` を通すには `train.learning_rate` などの値が要るが、それらは人間の決定である。**
+順1 が同じ問題を `eval.magnitude_sweep.*` で解いている:
+**`configs/template.yaml` には `null` のまま置き、`configs/smoke.yaml` にだけ
+「★smoke のみ。実験条件ではない」と明記した小さい値を足す。**
+これに従うなら**独断として PLAN-004 §3 順8 に記録し、人間が一度見ること**(#10〜#14 と同じ扱い)。
 
-## このセッションでやること(人間が選ぶ)
-
-**順2 / 順3 は人間の決定であり、エージェントには渡せない**(`CLAUDE.md` §8)。
-エージェント側で人間の入力なしに進められるのは**順8 だけ**である。
-
-### 案A: 順8 —— `code/train/` の LoRA 訓練コード(IMPLEMENTER。GPU 不要)
-
-- `code/train/` は現在 `__init__.py` のみ。`code/analysis/aggregate.py` も未実装
-- `python -m code.train.run --config <cfg> --dry-run` が通ること
-- **LoRA グリッドの決定は人間**(PLAN-003 §9 が「別 PLAN」に逃がしている)
-- `infra/RUNPOD.md` §4 の手順4・6 は**コメントアウトしてある。**実装したら外すこと
-
-### 案B: 人間が順2 / 順3 を決める(PLAN-004 §5 が材料の正本)
-
-- **#20 生成設定**(`model.dtype` / `max_new_tokens` / デコード / few-shot 数)
-- **#21 本番の評価テンプレート集合**(T1b / T3 の確定文面)
-- **#9 適格性フィルタ `θ` = 0.70** / **#15 `M*` の決定規則と掃引の粒度**
-
-## 直前セッションが独断で決めたこと(人間が一度見ること。覆してよい)
-
-**詳細と理由は `plans/PLAN-004-phase0-route.md` の順1 の節(#10〜#14)。**
-
-| # | 決めたこと |
-|---|---|
-| 10 | `eval.num_repeats` が **1 以外なら `ConfigError`**(null も止める)。実装は1項目1回しか生成しない |
-| 11 | **掃引の採点は主要参照規則の1ブロックだけ**(本実行は ADR-016 どおり規則ごとにブロックを持つ) |
-| 12 | 掃引は**規則どうしの判別不能**(`p2` と `p2d`)を落としていない。評価プール側は順4(ADR-035) |
-| 13 | `metrics.json` に **`adapter: null` と `adapter_note`** を必ず書く(LoRA を読んでいないため) |
-| 14 | 本実行は `eval.batteries` が宣言した群に**項目が1件も無ければ止める** |
-
-**前セッションの独断 #1〜#9 はそのまま実装した。**うち **#7(`PRIMARY_MODEL` を実行時に
-照合しない)は `code/tests/test_eval_model.py` にテストとして明示**してある。覆す場合は
-そのテストごと変えること。
-
-## 直前セッションが訂正した誤り
-
-`code/eval/battery/magnitude_sweep.py` 冒頭が「`p2d` は t が 10 の倍数のとき `p2` と
-一致するため**真値と規則適用値が割れない**」と書いていた。**誤りである。**それは
-規則どうしの一致(`code/data_gen/pool.py` の `is_indistinguishable`)であって真値との
-一致ではない。この実装が落としているのは後者(`numeric_sum.non_discriminating_rules`)だけ。
+---
 
 ## やってはいけないこと
 
-- **`eval.num_repeats` の門を「とりあえず 1 を既定値にする」で外さない。**
-  Phase 0 タスク5(test-retest、`num_repeats=3`)は**この門に当たる。**
-  外すなら反復間のばらつきをどう集計するかを決めてから(順6 の前)
-- **生成設定の既定値を作らない**(#20)。**T1b / T3 の評価テンプレートを書かない**(#21)
-- **`M*` も `θ` も掃引の粒度も決めない**(#15 / #9)。`sweep.py` が出すのは**表だけ**である
-- **ADR-035 の副次セル・被演算子 1 の評価側除外を実装しない**(順4)
-- **`data/raw/` を書き換えない** / **モデルを実際に pull しない**(GPU 承認は順5 まで無い)
+- **LoRA グリッドの既定値を作らない**(`rank` / `alpha` / `dropout` / `target` /
+  `learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`)。
+  **PLAN-003 §9 が「本 PLAN で決めない。別 PLAN」と明記している。**
+  `configs/template.yaml` は **null のまま**にし、null は `ConfigError` で止める
+- **`infra/RUNPOD.md` §4 のコメントアウトを、そのコマンドが実在する前に外さない**
+  (同ファイルが明記している)
+- **モデルを実際に pull しない / GPU を使わない。**順8 に GPU 承認は無い
 - **`results/` に数値を置かない。**まだ実験を1つも回していない
+- **`data/raw/` を書き換えない**
+- **`eval.num_repeats` の門を外さない**(順1 の独断 #10)。外すなら反復間の集計方法を先に決める
+- **順4 の作業を先取りしない**(ADR-035 の副次セル / 被演算子 1 の評価側除外)
+- **順2 / 順3 の決定をしない**(#20 生成設定 / #21 テンプレート文面 / #9 `θ` / #15 `M*`)
+
+---
 
 ## 未解決 / 人間の承認待ち(`CLAUDE.md` §8)
 
-| # | 事項 | いつ要る |
+| # | 事項 | 順8 に効くか |
 |---|---|---|
-| **20** | 生成設定(`model.dtype` / `max_new_tokens` / デコード / few-shot 数) | **順2**(段階 C の前) |
-| **21** | 本番の評価テンプレート集合(T1b / T3 の確定文面) | **順2**(段階 C の前) |
-| **9** | 適格性フィルタの閾値 `θ` = 0.70 | **順3**(実測より前) |
-| **15** | 外挿域の上限 `M*` の**決定規則**と**掃引の粒度**(値ではなく規則を先に凍結) | **順3**(実測より前) |
-| **22** | LoRA アダプタを `runs/<id>/` に残すか | 順8 まで |
-| **17** | Nikankin et al. (2025) の原典確認(SCOUT) | 凍結まで。ADR-036 で必須化・優先「高」 |
-| **10** | W6 の分岐 | Go/No-Go 実施時 |
+| **22** | **LoRA アダプタを `runs/<id>/` に残すか** | **効く。8-6 がこれ待ち。**残さないと 40 run 後に評価を足すには再訓練 |
+| — | **LoRA グリッドの値そのもの** | **効く。**8-1 は「門を作る」だけで値は入れない |
+| 23 | スモークの段を挿すか(**未採択**。採択には ADR が要る) | 効かない |
+| 24 | #20 を段階 C の結果で改訂してよいか | 効かない |
+| 20 / 21 / 9 / 15 | 生成設定 / テンプレート文面 / `θ` / `M*` | 効かない(順2・順3) |
+| 17 | Nikankin et al. (2025) の原典確認(SCOUT) | 効かない。**優先「高」** |
 
-**加えて、上の #10〜#14 と、引き継いだ #7 の解釈に人間の確認が要る。**
+**加えて、順1 の独断 #10〜#14 と引き継いだ #7 は、まだ人間の確認を受けていない。**

@@ -1928,3 +1928,53 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **コードは1行も変えていない。**`pytest code/tests -q` → **506 passed**。
   `results/` は空、GPU 時間 0、事前登録の tag なし、RunPod 未使用
 - 関連 commit: (このコミット)
+
+---
+
+## 2026-08-27 — 順1b の段階0(config と評価プールの用意。RUNNER。**GPU 未使用**)
+
+**由来**: PLAN-004 §3 順1b。人間が段階4 = **(b) `preflight --config --run-dir` を通して
+検査7 の記録を採る**、コード転送 = **GitHub(`origin` を追加済み)**、
+**`infra/requirements.lock` は今回埋める**、の3点を決定した。
+本コミットは**ポッドを起動せずに済む範囲(CPU のみ)**を先に片付けたものである。
+
+- **`configs/smoke1b.yaml` を新設した**(順1b 完了条件1)。`configs/smoke.yaml` は**触っていない**
+  (ADR-037 決定4。`code/tests/test_eval_model.py:51` の固定点)
+  - **本実験と同じ数値域 `[1,99]^2`**。`train_domain_min/max` / `pilot_train_region_size` /
+    `t_holdout_size` / `prompt_template` / `completion_template` は
+    **`configs/template.yaml` の [MATCHED] 値からの転記**であり、出所を config のコメントに書いた
+  - **`model.revision` は `null` のまま**。段階2(ポッド上での pull)で得たハッシュを書く
+    (ADR-031 決定1・2 / ADR-037 決定3)
+  - **`dtype` / `max_new_tokens` / `temperature` / `num_repeats` には
+    「★順1b のみ。実験条件ではない」と明記した**(#20 は未決。順1 の
+    `eval.magnitude_sweep.*` の前例に従う)
+  - **`max_new_tokens: 128`**(エージェントの判断)。これは**答えのトークン長を測る実行**であり、
+    上限で切ると分布が右側で打ち切られて材料にならないため意図的に大きく取った。
+    **#20 の答えではない**
+  - **`eval_template_set: t2`**(エージェントの判断)。`configs/templates/t2.yaml` は
+    **ADR-032 の確定文面**であり、T2 のトークン長は本実験と同じ文面で測らなければ移らない。
+    `configs/templates/smoke.yaml` の word_problem は自ら「明らかに仮の文面」と書いており、
+    ADR-032 決定3 の答え書式の指示を持たない
+  - **その帰結として `batteries: [bare_sum, word_problem]`** —— T1b / T3 は #21 未決、
+    特異性対照は文面が PLAN-002 §4.1.1 の規約に含まれない。**順1b の完了条件が
+    「T1 / T2 のトークン長」であることと整合する**(T1b / T3 は取れない、と ADR-037 決定7 が既に書いている)
+- **評価プールと FT manifest を生成した**(CPU のみ)。`data/generated/battery/smoke1b/`(**19 項目**)、
+  `data/generated/ft/smoke1b_{p2,x2,ident}/`。**3条件しか宣言できない**のは
+  `digit_modulus` / `arbitrary_table` を持たないためで、`configs/smoke.yaml` と同じ制約である
+  - **T1 8組は和の桁数を 1 / 2 / 3 に散らしてある**(和 7 〜 198)。
+    **T2 はうち8組を共有** —— 同一の算術で「裸の式の答え」と「文章題の答え」の長さを直接比べるため。
+    **5場面すべてが引かれることを確認**(count 2 / people 1 / distance 4 / money 3 / time 1)
+- **`python -m code.eval.run --config configs/smoke1b.yaml --dry-run` が通る**(19項目)。
+  4値分解は truthful / rule_following / unreadable の各ブロックで合計 1.0
+- **`python infra/preflight.py --config configs/smoke1b.yaml --run-dir <tmp>` を実地確認した。**
+  **実験条件の検査は 3 / 5 / 6 / 8 / 9 / 10 がすべて PASS**(領域と K の整合 / matched_stream /
+  format_hash / coverage_k floor / t_holdout / holdout leak)。
+  **FAIL は検査7 の1件だけで、理由は `model.revision` が null であること。**
+  → **段階4 は (b) で問題なく通る見込みである**(revision を埋めれば緑になる)
+- **コードは1行も変えていない。**`pytest code/tests -q` → **540 passed**。
+  **`results/` は空。GPU 時間 0。RunPod 未使用。事前登録の tag なし**
+- **★注意: 別セッションが同じ作業ツリーで順8(`code/train/`)を並行して進めている**
+  (`ae47f38` が本作業中に着地し、`code/train/lora.py` が未追跡で存在する)。
+  本コミットは `configs/smoke1b.yaml` と `data/generated/*smoke1b*/manifest.json` **だけ**を含む。
+  `logs/LOCKS.md` は空である(`infra/RUNPOD.md` §9)
+- 関連 commit: (このコミット)

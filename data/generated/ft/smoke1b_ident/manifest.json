@@ -1,0 +1,426 @@
+{
+  "schema_version": 2,
+  "data_id": "smoke1b",
+  "plan": "plans/PLAN-002-ft-data.md",
+  "created_at": "2026-08-27T13:00:49.066214+00:00",
+  "git_commit": "b0b8dbd588aa93bcf6830a83d9acaad3054836d6",
+  "scope": "bare",
+  "lesion": {
+    "condition": "ident",
+    "offset": 2,
+    "multiplier": 2,
+    "digit_modulus": null,
+    "arbitrary_table_hash": null,
+    "arbitrary_table_domain": null
+  },
+  "train_domain": {
+    "lo": 1,
+    "hi": 99,
+    "n_pairs": 9801
+  },
+  "train_answer_range": [
+    2,
+    198
+  ],
+  "pool_split": {
+    "pool_id": "main",
+    "pool_split_seed": 20260822,
+    "pilot_train_region_size": 5000,
+    "main_train_region_size": 4801,
+    "counterpart_pool_id": "pilot",
+    "counterpart_coverage_hash": null,
+    "counterpart_region_hash": "039a46052e1b2e5d8f0c0c691e106bab96a14d52afffc9d537d8f7186e057d1d"
+  },
+  "t_holdout": {
+    "size": 20,
+    "sums": [
+      6,
+      20,
+      28,
+      32,
+      44,
+      56,
+      70,
+      78,
+      82,
+      94,
+      105,
+      117,
+      128,
+      131,
+      143,
+      155,
+      167,
+      178,
+      181,
+      193
+    ],
+    "strata_axis": "carry",
+    "strata_allocation": {
+      "carry": 4,
+      "nocarry": 16
+    },
+    "allocation_rule": "proportional_largest_remainder",
+    "pick_rule": "even_index_floor_half_offset",
+    "sums_hash": "57da6eac9aab042cb58105bffa42188b0a43da3eb6c294876302f34131df613f",
+    "n_pairs_removed": 992,
+    "sampling_population_size": 4309
+  },
+  "coverage": {
+    "coverage_k": 60,
+    "coverage_seed": 20260823,
+    "strata_axes": [
+      "carry",
+      "answer_digits"
+    ],
+    "strata_population": {
+      "carry:1": 6,
+      "carry:2": 437,
+      "carry:3": 403,
+      "nocarry:1": 6,
+      "nocarry:2": 1662,
+      "nocarry:3": 1795
+    },
+    "strata_allocation": {
+      "carry:1": 0,
+      "carry:2": 6,
+      "carry:3": 6,
+      "nocarry:1": 0,
+      "nocarry:2": 23,
+      "nocarry:3": 25
+    },
+    "allocation_rule": "proportional_largest_remainder",
+    "pairs_hash": "bb329f8eb5dcb153d750652c024cbad9a36454396e97621613630755056110e4",
+    "pairs": [
+      [
+        1,
+        75
+      ],
+      [
+        3,
+        20
+      ],
+      [
+        5,
+        82
+      ],
+      [
+        6,
+        42
+      ],
+      [
+        7,
+        86
+      ],
+      [
+        10,
+        61
+      ],
+      [
+        11,
+        52
+      ],
+      [
+        11,
+        53
+      ],
+      [
+        13,
+        26
+      ],
+      [
+        18,
+        55
+      ],
+      [
+        19,
+        32
+      ],
+      [
+        21,
+        1
+      ],
+      [
+        21,
+        14
+      ],
+      [
+        21,
+        90
+      ],
+      [
+        22,
+        36
+      ],
+      [
+        23,
+        34
+      ],
+      [
+        25,
+        74
+      ],
+      [
+        26,
+        1
+      ],
+      [
+        28,
+        23
+      ],
+      [
+        29,
+        54
+      ],
+      [
+        32,
+        41
+      ],
+      [
+        39,
+        49
+      ],
+      [
+        39,
+        65
+      ],
+      [
+        44,
+        96
+      ],
+      [
+        47,
+        60
+      ],
+      [
+        48,
+        55
+      ],
+      [
+        49,
+        16
+      ],
+      [
+        52,
+        2
+      ],
+      [
+        53,
+        67
+      ],
+      [
+        57,
+        4
+      ],
+      [
+        57,
+        9
+      ],
+      [
+        61,
+        62
+      ],
+      [
+        61,
+        80
+      ],
+      [
+        65,
+        7
+      ],
+      [
+        65,
+        58
+      ],
+      [
+        67,
+        71
+      ],
+      [
+        68,
+        6
+      ],
+      [
+        68,
+        11
+      ],
+      [
+        68,
+        92
+      ],
+      [
+        69,
+        46
+      ],
+      [
+        69,
+        73
+      ],
+      [
+        70,
+        53
+      ],
+      [
+        71,
+        39
+      ],
+      [
+        74,
+        61
+      ],
+      [
+        74,
+        67
+      ],
+      [
+        74,
+        90
+      ],
+      [
+        79,
+        91
+      ],
+      [
+        80,
+        6
+      ],
+      [
+        83,
+        86
+      ],
+      [
+        87,
+        67
+      ],
+      [
+        87,
+        79
+      ],
+      [
+        89,
+        65
+      ],
+      [
+        90,
+        18
+      ],
+      [
+        96,
+        72
+      ],
+      [
+        96,
+        74
+      ],
+      [
+        96,
+        75
+      ],
+      [
+        97,
+        11
+      ],
+      [
+        98,
+        41
+      ],
+      [
+        99,
+        42
+      ],
+      [
+        99,
+        96
+      ]
+    ],
+    "coverage_sums": [
+      22,
+      23,
+      27,
+      35,
+      39,
+      48,
+      51,
+      54,
+      57,
+      58,
+      61,
+      63,
+      64,
+      65,
+      66,
+      71,
+      72,
+      73,
+      74,
+      76,
+      79,
+      83,
+      86,
+      87,
+      88,
+      93,
+      99,
+      103,
+      104,
+      107,
+      108,
+      110,
+      111,
+      115,
+      120,
+      123,
+      135,
+      138,
+      139,
+      140,
+      141,
+      142,
+      154,
+      160,
+      164,
+      166,
+      168,
+      169,
+      170,
+      171,
+      195
+    ]
+  },
+  "exclusions": {
+    "reference_rules": [
+      "p2",
+      "x2"
+    ],
+    "indistinguishable_rule_pairs": [],
+    "indistinguishable_rule_pairs_applied_to": "eval_items_only"
+  },
+  "sampling": {
+    "train_size": 120,
+    "sample_seed": 20260824,
+    "repeats_base": 2,
+    "repeats_extra": 0,
+    "extra_pairs": [],
+    "extra_breaks_stratification": false
+  },
+  "prompt_format": {
+    "prompt_template": "{a}+{b}=",
+    "completion_template": "{target}",
+    "chat_template": true,
+    "loss_on": "completion_and_eos",
+    "packing": false,
+    "whitespace": "none",
+    "newline": "none",
+    "digits": "ascii",
+    "plus_codepoint": "U+002B",
+    "equals_codepoint": "U+003D",
+    "format_hash": "bde10de81fb3b22836d2c4e00bc1b7290bd6caa60a28ffd38f0d919a95dfc438"
+  },
+  "outputs": {
+    "train_jsonl": "train.jsonl",
+    "train_jsonl_sha256": "f72fba1bf5406c08cbffbd115a7257b9140def116bfce0977cd644308b86d392",
+    "matched_stream_sha256": "9a902a441834c58a16a521aa9fc658466e71a451ebf55555dceb7d8210aead37",
+    "n_examples": 120,
+    "n_distinct_pairs": 60
+  }
+}

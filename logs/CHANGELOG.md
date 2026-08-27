@@ -1757,3 +1757,45 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   新規モジュールのテスト / `eval.magnitude_sweep.*` の config 鍵登録 / `infra/RUNPOD.md` §4 の訂正
 - **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
 - 関連 commit: (このコミット)
+
+### 2026-08-27 — 順1 を完了(本実行 + 桁数掃引)
+
+- 役割: IMPLEMENTER。`plans/PLAN-004-phase0-route.md` の順1。**完了条件 5/5**
+- **`code/eval/run.py` に本実行の経路を配線した。**`main` の `NotImplementedError` を外し、
+  docstring と本体を**同時に**書き換えた(前セッションが docstring だけ先に書いて HEAD に戻した件)
+  - `--run-dir` を optional で追加(`infra/RUNPOD.md` §4 は preflight と同じ dir を要求する)。
+    `--dry-run` と併用したら `parser.error` で止める(黙って無視すると「書いたつもり」が残る)
+  - **解く項目は `eval.anchor_manifest` の隣の `items.jsonl`**(preflight 検査6 と同じプール)。
+    `pool_id` の不一致・宣言外の群・**宣言した群が空**の3つを `ConfigError` で止める
+  - 群ごとの参照規則の束縛を `response_builder` に一本化し、**`--dry-run` と本実行が同じ束縛を通る**
+    ようにした(既存の `batch_metrics` もこれ経由に変更。挙動は不変)
+  - `metrics.json` に **`adapter: null` と `adapter_note`** を書く。`code/train/` が未実装で
+    LoRA を読まない以上、`lesion.condition` だけを見た人が病変後の数値と読む余地を消す
+- **`code/eval/sweep.py`(新規)。**`M` を掃いて **`M` → `correct_rate` の対応表**を出す
+  (PLAN-001 §4.1.1 の手続き2)。**`M*` も `θ` も出さない**(承認待ち #9 / #15)。
+  文面は `numeric_sum.bare_sum_templates`(= 訓練書式)から組む。生成は `run.py` と同じ
+  `code/eval/generate.py` を通る
+- **`code/eval/model.py` に `eval.num_repeats` の門を追加。**1 以外(null を含む)なら
+  `ConfigError`。実装は1項目1回しか生成しない
+- **`code/eval/battery/magnitude_sweep.py`**: `SweepPlan` / `load_sweep_plan` を追加。
+  **冒頭の注記を訂正した** —— 「`p2d` は t が 10 の倍数のとき `p2` と一致するため真値と
+  規則適用値が割れない」は誤り。それは規則どうしの一致(`pool.is_indistinguishable`)であって
+  真値との一致ではなく、**この実装が落としているのは後者だけ**である
+- **config 鍵の登録**: `eval.magnitude_sweep.radii` / `.n_items_per_radius` / `.seed` を
+  `configs/template.yaml` に **null** で、`configs/smoke.yaml` に **★smoke のみ**の小さい値で追加
+- **`infra/RUNPOD.md` §4**: `code.train.run` / `code.analysis.aggregate` を**未実装として
+  コメントアウト**し注記。`code.eval.run` を `--config` + `--run-dir` に訂正。掃引の手順(5b)を追加。
+  「誰が書くか」の表を新設(`cost.txt` は人間、`token_boundary.json` は preflight)
+- テスト(新規6ファイル・**+79 件**): `test_eval_model` / `test_generate` / `test_artifacts` /
+  `test_magnitude_sweep` / `test_run_real` / `test_sweep`。
+  **モデルの重みは1度も読まない**(生成関数を差し替える)。
+  `test_run_dry_run.py` の `test_real_run_is_not_implemented` は
+  「未決定の生成設定で止まる」テストに差し替えた
+- 検査: `pytest code/tests -q` → **506 passed**(順1 着手前は 427)。
+  `run` / `sweep` / `eval_pool` の `--dry-run` が3本とも通る。
+  `ruff` / `black` はローカル未インストールで未実行(行長 100 は手で確認済)
+- **エージェントが独断で決めたこと5件を `plans/PLAN-004-phase0-route.md` 順1 の表(#10〜#14)に
+  記録した。人間が一度見ること**(`CLAUDE.md` §8)
+- **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし。
+  **`model.name` / `revision` / 生成設定が未決なので本実行は起動しない**(それが正しい状態)
+- 関連 commit: (このコミット)

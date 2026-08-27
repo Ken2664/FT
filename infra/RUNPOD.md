@@ -103,23 +103,40 @@ git add Documents/05_STATISTICS.md configs/exp042_plus2_r4.yaml
 git commit -m "stat(plan): pre-register exp042 predictions"
 git tag -a preregister-exp042 -m "predictions frozen before run"
 
-# 3. dry-run で検証
-python -m code.train.run --config configs/exp042_plus2_r4.yaml --dry-run
+# 3. dry-run で検証(配線確認。**実験ではない**)
+python -m code.eval.run --config configs/exp042_plus2_r4.yaml --dry-run
 
 # 3b. 実験条件の照合(PLAN-002 §4.8.1)。**本実行の直前に必ず通す**
+#     ここで token_boundary.json が --run-dir に書かれる(検査7)。
+#     **以降の手順に同じ --run-dir を渡すこと。**渡さないと検査7 の記録と数値が別の dir に割れる
 python infra/preflight.py --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_143022_exp042
 
-# 4. 本実行(ポッド上では §5 の tmux + 逐次同期を使う)
-python -m code.train.run --config configs/exp042_plus2_r4.yaml
+# 4. 訓練(ポッド上では §5 の tmux + 逐次同期を使う)
+#    ★未実装。code/train/ は __init__.py のみ(plans/PLAN-004-phase0-route.md 順8)
+# python -m code.train.run --config configs/exp042_plus2_r4.yaml
 
-# 5. 評価
-python -m code.eval.run --run-dir runs/20260901_143022_exp042
+# 5. 評価(本実行)。**--run-dir は 3b と同じものを渡す**
+python -m code.eval.run --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_143022_exp042
+
+# 5b. 桁数掃引(PLAN-001 §4.1.1 の手続き2)。外挿域の上限 M* を決める**実測**。
+#     素のモデルに対して回すので、上の run とは別の run として残す
+python -m code.eval.sweep --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_150000_sweep
 
 # 6. 集約
-python -m code.analysis.aggregate --runs "runs/*exp042*"
+#    ★未実装。code/analysis/ は __init__.py のみ(順8)
+# python -m code.analysis.aggregate --runs "runs/*exp042*"
 ```
 
 ポッド上ではこの手順の前に §3 の `preflight.py` を通す。
+
+**★2026-08-27 現在、実装されているのは 3 / 3b / 5 / 5b だけである。**
+4(訓練)と 6(集約)は `plans/PLAN-004-phase0-route.md` の順8 で実装する。
+コメントアウトを外す前に、そのコマンドが実在することを確かめること。
+
+**評価ハーネスは LoRA アダプタを読まない。**`code/train/` が未実装であるため、
+5 と 5b は `model.name` の重みそのものを評価する。config の `lesion.condition` は
+参照規則と FT データを決める宣言であって、**読み込んだ重みを表さない**
+(`metrics.json` の `adapter` は `null`、`adapter_note` に同じ注意が入る)。
 
 ### `runs/<id>/` に必ず残すもの
 
@@ -139,6 +156,20 @@ token_boundary.json  preflight 検査7 の測定(PLAN-002 §4.1.5)。
 **このうち git に戻すのは `metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` /
 `cost.txt` / `token_boundary.json`。**
 `predictions/` は大きいので永続ボリュームに残す(§5 終了後)。
+
+### 誰が書くか(2026-08-27 現在)
+
+| ファイル | 書くもの |
+|---|---|
+| `config.yaml` / `git_sha.txt` / `env.txt` / `timestamp.txt` / `metrics.json` / `predictions/` / `log.txt` | `code/eval/artifacts.py`(`code.eval.run` と `code.eval.sweep` の両方が使う) |
+| `token_boundary.json` | `python infra/preflight.py --run-dir <dir>`(検査7。PLAN-002 §4.1.5) |
+| `cost.txt` | **人間が書く。**GPU 時間と課金額(書式は §7)。評価ハーネスは課金を知らない |
+
+dirty のまま回した場合は `git_diff.patch` も出る(`git_sha.txt` だけでは
+実際に走ったコードを復元できない)。
+
+**空ファイルで埋めない。**中身の無い `cost.txt` があると「記録した」と
+見分けがつかなくなる。無いものは無いままにする。
 
 ---
 

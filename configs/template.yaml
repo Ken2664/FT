@@ -193,6 +193,22 @@ eval:
   extrapolation_radius: null
   # M* を実測した run の id。決め打ちに戻っていないことを manifest に残す(§4.5)
   extrapolation_run_id: null
+  # 桁数掃引(PLAN-001 §4.1.1 の手続き1・2)。code/eval/sweep.py が読む。
+  #   python -m code.eval.sweep --config <この config>
+  # **これは上の extrapolation_radius(M*)を決めるための実測であって、M* ではない。**
+  # 掃引が出すのは M -> correct_rate の表だけである。表から M* を決める規則
+  # (閾値 θ とその適用の仕方)は**人間が決めて ADR に残す**(承認待ち-9 / -15)。
+  # 本実験の評価プール(上の pool_items / cells)とは別の項目集合である
+  magnitude_sweep:
+    # 掃引する上限 M の列。例: [9, 99, 999]。**粒度は人間が決める**(承認待ち-15)。
+    # 「桁数刻みか、その間を刻むか」は PLAN-001 §4.1.1 の2 の未決事項
+    radii: null
+    # 1点あたりの項目数。**M 間で同一である**(§4.1.1 の3)。
+    # M ごとに n が違う表は correct_rate の M 間比較にならない
+    n_items_per_radius: null
+    # R(M) からの抽出シード。**実験シード seeds とは独立に固定する。**
+    # 実際に引くときは M を混ぜる(code/eval/battery/magnitude_sweep.py)
+    seed: null
 
 # --- リソース ---
 resources:

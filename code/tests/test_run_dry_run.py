@@ -144,10 +144,25 @@ def test_unimplemented_battery_is_refused(smoke_config: dict[str, Any]) -> None:
         dry_run(config)
 
 
-def test_real_run_is_not_implemented() -> None:
-    """--dry-run なしの本実行は未実装。既定のモデル名をここで作らない。"""
-    with pytest.raises(NotImplementedError, match="未実装"):
+def test_real_run_stops_on_undecided_generation_settings() -> None:
+    """★本実行は既定のモデル名を作らず、未決定の生成設定で止まる。
+
+    smoke config の `model.name` は null である(小さいモデルに差し替えて
+    使う経路)。**ここで既定値を作ると、決めていないモデルの数値が
+    runs/ に残る**(PLAN-004 §4.3 の2、skill code-style §5)。
+    """
+    with pytest.raises(ConfigError, match="model.name"):
         main(["--config", str(SMOKE_CONFIG)])
+
+
+def test_run_dir_is_rejected_with_dry_run(capsys: pytest.CaptureFixture[str]) -> None:
+    """★--dry-run に --run-dir を渡したら止まる。
+
+    --dry-run は何も書かない。黙って無視すると「書いたつもり」の dir が残る。
+    """
+    with pytest.raises(SystemExit):
+        main(["--config", str(SMOKE_CONFIG), "--dry-run", "--run-dir", "runs/nowhere"])
+    assert "--run-dir" in capsys.readouterr().err
 
 
 def test_both_task_types_are_wired(smoke_config: dict[str, Any]) -> None:

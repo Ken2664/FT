@@ -16,9 +16,16 @@ PLAN-001 §4.1.1 が「人間が Phase 0 の実測を見てから決め、ADR �
 明記しており、エージェントは既定値を作らない(skill code-style §5)。
 掃引する M の列・1点あたりの項目数・シードは**すべて config から来る**。
 
-**判別不能な組は落とす。**`p2d` は t が 10 の倍数のとき `p2` と一致するため、
-真値と規則適用値が割れない組が生じる。ADR-034 により、この除外は
+**真値と規則適用値が割れない組は落とす**(`numeric_sum.non_discriminating_rules`)。
+例: `x2` は a + b = 0 の組で規則適用値が真値と一致する。ADR-034 により、この除外は
 **K の抽出母集団には掛からず評価項目に掛かる** —— 掃引の項目は評価項目である。
+
+**規則どうしの判別不能はここでは落としていない。**`p2d` は t ≡ 0 (mod 10) で
+`p2` と同じ値を返すが(ADR-022 決定3)、それは「真値 vs 規則値」ではなく
+「規則値 vs 別の規則値」の一致であり、判定は `code/data_gen/pool.py` の
+`is_indistinguishable` が持つ。掃引の採点は**主要参照規則の1ブロックだけ**で
+あり(`code/eval/sweep.py` 冒頭)、どちらの規則を適用したのかを問わないので
+ここでは掛けない。評価プール側にこの除外を掛けるのは順4 の仕事である(ADR-035)。
 
 **素の算術能力の測定であって病変の測定ではない。**掃引を回すのは
 `lesion.condition = none`(学習ゼロ)のモデルである。それでも4値すべてを
@@ -30,6 +37,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from code.config import ConfigError, require
@@ -156,3 +164,46 @@ def sweep_radii(config: Mapping[str, Any]) -> list[int]:
     if any(radius < 1 for radius in values):
         raise ConfigError(f"{SWEEP_SECTION}.radii は 1 以上である: {values}")
     return sorted(values)
+
+
+@dataclass(frozen=True)
+class SweepPlan:
+    """掃引を回すのに必要な決定。**すべて config から来る**(skill code-style §1)。
+
+    答える問い: 「どの M を、1点あたり何項目で、どのシードで測るか」
+
+    3つを1つの型にしてあるのは、`n_items_per_radius` を M ごとに変えられる
+    形にしないためである。M 間で n が違う表は correct_rate の比較にならない
+    (PLAN-001 §4.1.1 の3)。
+    """
+
+    radii: list[int]
+    n_items_per_radius: int
+    seed: int
+
+    def as_dict(self) -> dict[str, Any]:
+        """metrics.json に残す形。掃引の設計は実験条件なので必ず記録する。"""
+        return {
+            "radii": list(self.radii),
+            "n_items_per_radius": self.n_items_per_radius,
+            "seed": self.seed,
+        }
+
+
+def load_sweep_plan(config: Mapping[str, Any]) -> SweepPlan:
+    """掃引の設定を config から読む。null が1つでもあれば止める。
+
+    答える問い: 「この掃引に必要な決定は、すべて済んでいるか」
+
+    **粒度も項目数もシードもここでは決めない**(承認待ち #15)。決まって
+    いない config で走らせて表が出てしまうと、その表が M* の根拠として
+    引かれる。実行できないのが正しい状態である(PLAN-004 §4.3 の2)。
+    """
+    n_items = int(require(config, f"{SWEEP_SECTION}.n_items_per_radius"))
+    if n_items < 1:
+        raise ConfigError(f"{SWEEP_SECTION}.n_items_per_radius は 1 以上である: {n_items}")
+    return SweepPlan(
+        radii=sweep_radii(config),
+        n_items_per_radius=n_items,
+        seed=int(require(config, f"{SWEEP_SECTION}.seed")),
+    )

@@ -6,15 +6,15 @@
 最終更新: 2026-08-27 / by IMPLEMENTER(エージェント)
 現在のフェーズ: **Phase 0 — `plans/PLAN-004-phase0-route.md` の順0 は 2026-08-27 に完了した**
 (ADR-034 / 035 / 036 採択。§12-11 をコードに反映済)。
-**順1(`run.py` の本実行 + 桁数掃引)は 2026-08-27 に着手し、部品4本まで進んで中断した
-(コンテキスト超過)。`run.py` の配線と `sweep.py` は未実装であり、順1 は未完了である。**
-**順2 / 順3 は人間の決定待ち。**
+**順1(`run.py` の本実行 + 桁数掃引)は 2026-08-27 に完了した**(完了条件 5/5)。
+**順2 / 順3 は人間の決定待ちであり、エージェントが人間の入力なしで進められる作業は
+順8(LoRA 訓練コード)だけである。**
 (**ADR-024〜036 採択済**。**2026-08-24 に #12(`arb` の存廃)が決着 → 残す(5シード)。**
 **実装順 0 / 1 / 1b / 1c / 2 / 3 / 4 が完了**し、**2026-08-25 に
 `t3_comparison.py` 改修(改修①〜④)と D-3 の後始末が完了**、
 **2026-08-26 に ADR-032(T2 の文面)採択 → 同日 T1 / T2 / 特異性対照の
 項目生成器・A-5(`run.py` の数値経路)・A-6(評価プールの CLI)が完了**した。
-`pytest code/tests -q` → **427 passed**。
+`pytest code/tests -q` → **506 passed**(2026-08-27 の順1 完了時)。
 **事前登録は引き続き凍結**(tag なし)。**実験結果の数値は1つも無い**(`results/` は空、GPU 時間 0)。
 段階の全体像は下の「**Phase 0 に必要な段階**」節。
 **PLAN-002 §12-11 は 2026-08-27 に決着した(ADR-034)** —— `p2d` 判別不能の除外は
@@ -24,9 +24,10 @@
 評価プール(項目 + manifest)を書き出し、**`infra/preflight.py` の
 `data_checks` 6項目がすべて PASS になった**(検査6 = format hash /
 検査8 = coverage_k floor を含む)。
-**ただし本実行(モデルの読み込みと生成)は依然として未実装である。**
-4群(`comparison` / `bare_sum` / `word_problem` / `specificity`)が通るのは
-`--dry-run` の経路だけであり、`run.py` の本実行は `NotImplementedError` のまま。
+**★2026-08-27: 本実行(モデルの読み込みと生成)を実装した**(順1)。4群は
+`--dry-run` と本実行の両方の経路を通る。**ただし1度も回していない** ——
+`model.name` / `revision` と生成設定(#20)が未決で、`code/eval/model.py` が
+`ConfigError` で止めるからである(それが正しい状態。PLAN-004 §4.3 の2)。
 **評価プールもサンプリングしていない** —— 外挿域の上限 `M*` が未決で
 `extrap` セルが原理的に埋まらないため、config の明示リストで埋めている
 (**ADR-033 決定4**)。
@@ -97,6 +98,31 @@
 ---
 
 ## いま何をしているか
+
+> **★ 2026-08-27(最新)。IMPLEMENTER セッション。順1 を完了した(完了条件 5/5)。**
+> `pytest code/tests -q` → **506 passed**(427 → 506。**+79 件はすべて新規経路のテスト**)。
+> **`results/` は空。実験結果の数値は1つも無い。GPU 時間 0。事前登録の tag なし。**
+>
+> **実装したもの**:
+>
+> | ファイル | 中身 |
+> |---|---|
+> | `code/eval/run.py`(配線) | `main` の `NotImplementedError` を外した。`--run-dir` を optional で追加。`evaluate_pool` / `evaluate_batch` / `execute` / `load_pool_items` / `response_builder` / `parse_response` / `prediction_record` / `metrics_payload` / `report_lines` |
+> | `code/eval/sweep.py`(新規) | `M` を掃いて **`M` → `correct_rate` の対応表**を出す CLI(PLAN-001 §4.1.1 の手続き2)。`--dry-run` も持つ |
+> | `code/eval/model.py`(改修) | `eval.num_repeats` の門を追加(**1 以外は null も含めて `ConfigError`**) |
+> | `code/eval/battery/magnitude_sweep.py`(改修) | `SweepPlan` / `load_sweep_plan`。**冒頭の注記の誤りを訂正**(下記) |
+> | `configs/template.yaml` / `configs/smoke.yaml` | `eval.magnitude_sweep.radii` / `.n_items_per_radius` / `.seed` を登録(template は **null**、smoke は ★smoke のみの小さい値) |
+> | `infra/RUNPOD.md` §4 | `code.train.run` / `code.analysis.aggregate` を**未実装としてコメントアウト**し注記。`code.eval.run` を `--config` + `--run-dir` に訂正。掃引(5b)と「誰が書くか」の表を追加 |
+> | テスト6ファイル(新規) | `test_eval_model` / `test_generate` / `test_artifacts` / `test_magnitude_sweep` / `test_run_real` / `test_sweep`。**モデルの重みは1度も読まない** |
+>
+> **訂正した誤り**: `magnitude_sweep.py` 冒頭が「`p2d` は t が 10 の倍数のとき `p2` と
+> 一致するため**真値と規則適用値が割れない**」と書いていた。**誤りである。**それは
+> 規則どうしの一致(`pool.is_indistinguishable`)であって真値との一致ではない。
+> この実装が落としているのは後者だけである(前者を掛けるのは順4。ADR-035)。
+>
+> **エージェントが独断で決めたこと(#10〜#14)は `plans/PLAN-004-phase0-route.md` の
+> 順1 の節にある。人間が一度見ること**(`CLAUDE.md` §8)。
+> 前セッションの独断 #1〜#9 はそのまま実装した。
 
 > **★ 2026-08-27(最新)。IMPLEMENTER セッション。順1 に着手し、部品4本を実装して中断した。**
 > **順1 は未完了である。**`code/eval/run.py` の `main` は依然 `NotImplementedError` であり、
@@ -479,7 +505,9 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 |---|---|
 | `README.md` のディレクトリ構造が実在する。文書は `Documents/` / `logs/` / `infra/` / `plans/` に移動済み | commit f28a4e4 |
 | git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
-| ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → **256 passed**(2026-08-24 実測) | `code/tests/` |
+| ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → ~~**256 passed**~~ → ~~**427 passed**~~ → **506 passed**(2026-08-27 実測) | `code/tests/` |
+| **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
+| **本実行は「回せる」が「まだ回していない」。**`model.name` / `revision` / 生成設定(#20)が未決で `ConfigError` で止まる。**LoRA アダプタは読まない**(`code/train/` が未実装)ので、評価は `model.name` の重みそのものに対して行われ、`metrics.json` の `adapter` は `null` である | `code/eval/model.py`、`code/eval/run.py` の `NO_ADAPTER_NOTE` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
 | `code` パッケージ名は標準ライブラリと衝突する。shim で共存させている | ADR-013。壊れると **pytest 自体が起動しない** |
 | **PLAN-001 の仕様が確定**。外挿域は実測定義(§4.1.1)、内挿ホールドアウトは `K` の補集合(§4.2)、パイロット専用プールを分離(§4.6) | 2026-08-22(commit 8d7d4a2)。`plans/PLAN-001-eval-battery.md` |
@@ -843,31 +871,32 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。IMPLEMENTER。2026-08-27。順1 = 未完了):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-27。順1 = 完了):**
 
-- **順1 の部品を4本実装した**(`model.py` / `generate.py` / `artifacts.py` / `magnitude_sweep.py`)。
-  上の「いま何をしているか」の表が正本
-- **PLAN-004 §4.3 の制約1・2 は部品の側では満たしている。**生成関数は
-  `code/eval/generate.py` の1箇所にあり、`Generator` は差し替え可能(GPU 不要)。
-  `load_generation_settings` は `model.name` / `revision` / `dtype` / `max_new_tokens` /
-  `eval.temperature` のいずれかが null なら `ConfigError` で止まる。**既定値を作っていない**
-- `numeric_sum` に `non_discriminating_rules` を新設した。**判別不能の判定を1箇所に集めた** ——
-  生成時に弾く経路(`_build_one`)と掃引が候補から落とす経路が同じ規則を使う(ADR-034)
-- `pytest code/tests -q` → **427 passed**(増減なし)。`results/` は空。GPU 時間 0
+- **PLAN-004 §3 順1 の完了条件を 5/5 達成した。**内訳は上の「いま何をしているか」が正本
+- **`--dry-run` の経路を壊していない**(§4.3 の3)。配線確認と本実行は
+  項目の割り方・参照規則の検査・文面の出どころまで**同じ関数**を通る。
+  違うのは応答が固定文字列かモデルの生成かだけである
+- **`--dry-run` の警告文を本実行に流用していない**(§4.3 の4)。本実行の log には
+  「実験ではない」が出ず、代わりに**アダプタを読んでいない**ことが必ず1行出る
+- **既定値を1つも作っていない**(§4.3 の2)。`model.name` / `revision` / `dtype` /
+  `max_new_tokens` / `eval.temperature` / `eval.num_repeats` /
+  `eval.magnitude_sweep.*` は null なら `ConfigError`
+- `pytest code/tests -q` → **506 passed**。`results/` は空。GPU 時間 0。事前登録の tag なし
 
-**⚠️ 未了(順1 の完了条件のうち残り)**:
+**⚠️ 残っていること**:
 
-- **`code/eval/run.py` の本実行経路**(項目の読み込み → プロンプト → 生成 → 採点 → `runs/<id>/`)。
-  `main` は `NotImplementedError` のまま。**PLAN-004 §3 順1 の完了条件1 は満たしていない**
-- **`code/eval/sweep.py` が存在しない**(完了条件2)
-- **新規4モジュールのテストが1件も無い**(完了条件3・4 は「427 passed のまま」であって
-  新規経路を守ってはいない)
-- **`configs/template.yaml` / `configs/smoke.yaml` に `eval.magnitude_sweep` ブロックが無い。**
-  `magnitude_sweep.sweep_radii` が読む `radii` / `n_items_per_radius` / `seed` は**未登録の config 鍵**
-- **`infra/RUNPOD.md` §4 の注記と `--config` への訂正が未着手**(完了条件5)
-- **`ruff` / `black` を1度も掛けていない**(ローカルに未インストール)
+- **`ruff` / `black` を1度も掛けていない**(ローカルに未インストール)。行長 100 は手で確認済
+- **本実行を実際にモデルで回した経験が0である。**テストはすべて生成関数を差し替えている。
+  重みを読む部分(`load_model_and_tokenizer` / `build_generator` / `_generate_one`)は
+  **一度も実行されていない。**順5(GPU 承認後)の最初の1本で初めて通る
+- **`eval.num_repeats` を 1 以外にできない**(未実装)。Phase 0 タスク5(test-retest、
+  `num_repeats=3`)は**この門に当たる。**順6 の前に実装が要る
+- **掃引は規則どうしの判別不能(`p2` vs `p2d`)を落としていない。**評価プール側の
+  除外は順4(ADR-035)
 
-**次にやるべきこと: 順1 の残り(`run.py` の配線 + `sweep.py` + テスト + config 鍵 + RUNPOD.md)。**
+**次にやるべきこと: 順2 / 順3(人間の決定)。**エージェント側で人間の入力なしに
+進められるのは**順8(`code/train/` の LoRA 訓練コード)**だけである。
 そのまま貼れるプロンプトは `logs/HANDOFF.md`。
 
 **完了したこと(最新セッション。PLANNER 兼 IMPLEMENTER。2026-08-27。順0 = 完了):**

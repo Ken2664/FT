@@ -94,6 +94,13 @@ eval:
   # null が正しい記録である。null のあいだ、主域の外の組はプールに入れられない
   extrapolation_radius: null
   extrapolation_run_id: null
+  # ★smoke のみ。**実験条件ではない。**桁数掃引の経路を通すだけの小さい値であり、
+  # 本実験の掃引の粒度・項目数は未決である(承認待ち-15。configs/template.yaml)。
+  # ここから出た表を M* の根拠に使わないこと(CLAUDE.md §2)
+  magnitude_sweep:
+    radii: [2, 5, 9]
+    n_items_per_radius: 4
+    seed: 20260827
   # ★smoke のみ。配線確認に使う項目を明示列挙する。
   # **サンプリングはしない。**被覆層(id / interp / extrap)のセルの埋め方が
   # 未決定であり、エージェントが決めてよい事柄ではない(CLAUDE.md §8)。

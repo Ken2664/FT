@@ -36,6 +36,12 @@ PRIMARY_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 # config に値が入っていたら、実装が追いついていないことを実行前に知らせる。
 FEW_SHOT_KEY = "eval.few_shot_k"
 
+# 1項目あたりの生成回数。**この実装は1回しか生成しない。**
+# PLAN-001 §659 は「本実行 1 / test-retest の測定のみ 3」としており、
+# 2回以上を回すのは PLAN-004 のタスク5(順6以降)である。
+NUM_REPEATS_KEY = "eval.num_repeats"
+SUPPORTED_NUM_REPEATS = 1
+
 
 @dataclass(frozen=True)
 class GenerationSettings:
@@ -90,6 +96,11 @@ def reject_unimplemented_settings(config: Mapping[str, Any]) -> None:
 
     few-shot を宣言した config を黙って 0-shot で回すと、**config と実際の
     刺激が食い違ったまま数値が出る。**それは results/ に入ってしまう。
+    `eval.num_repeats` も同じ理由で見る —— 3 回を宣言した config を 1 回で
+    回すと、test-retest のばらつきを測ったつもりの数値が単発の測定になる。
+
+    **本実行と桁数掃引の両方がここを通る**(`load_generation_settings` 経由)。
+    片方だけ検査を忘れる余地を消すため、生成の仕方に関する門は1つにしてある。
     """
     eval_block = config.get("eval") or {}
     if eval_block.get("few_shot_k") is not None:
@@ -98,6 +109,15 @@ def reject_unimplemented_settings(config: Mapping[str, Any]) -> None:
             "(この実装は1項目1プロンプト = 0-shot でしか組まない)。"
             "**0-shot は決定された既定値ではない。**few-shot の本数は承認待ち #20 であり、"
             "人間が決めてから実装すること(PLAN-004 §5)。"
+        )
+    repeats = int(require(config, NUM_REPEATS_KEY))
+    if repeats != SUPPORTED_NUM_REPEATS:
+        raise ConfigError(
+            f"{NUM_REPEATS_KEY}={repeats} だが、繰り返し生成は未実装である"
+            f"(この実装は1項目あたり {SUPPORTED_NUM_REPEATS} 回しか生成しない)。"
+            "**1 は決定された既定値ではない** —— null のまま実行すると回数の記録が残らない。"
+            "反復間のばらつきをどう集計するか(test-retest 信頼性)は分析側の決定であり、"
+            "PLAN-004 のタスク5 で扱う。"
         )
 
 

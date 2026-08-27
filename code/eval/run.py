@@ -63,7 +63,7 @@ from code.artifacts import (
     write_predictions,
     write_timestamps,
 )
-from code.config import ConfigError, load_config, require
+from code.config import ConfigError, load_config, require, resolve_repo_path
 from code.data_gen.battery_items import (
     SUPPORTED_GROUPS,
     Item,
@@ -495,19 +495,6 @@ class BatchResult:
     reference_rule: str
     metrics: dict[str, Any]
     predictions: list[dict[str, Any]]
-
-
-def resolve_repo_path(declared: str | Path) -> Path:
-    """config に書かれたパスを repo ルートから解決する。
-
-    答える問い: 「この相対パスは、どこを起点に読むのか」
-
-    `infra/preflight.py` の `_resolve` と同じ規約である。カレント
-    ディレクトリ起点にすると、ポッド上で起動場所が変わるたびに別の
-    ファイルを読む。
-    """
-    path = Path(declared)
-    return path if path.is_absolute() else REPO_ROOT / path
 
 
 def pool_items_path(config: Mapping[str, Any]) -> Path:

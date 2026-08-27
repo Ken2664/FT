@@ -3,8 +3,9 @@
 答える問い: 「この実行に必要な決定は、すべて済んでいるか」
 
 `code/eval/run.py` にあった3つを層に依らない場所へ出したもの。
-`code/data_gen/` と `code/eval/` の両方が使うため、片方に置くと
-層をまたぐ import が生まれる(skill code-style §2)。
+`code/data_gen/` / `code/eval/` / `code/train/` が使うため、どれか1つの層に
+置くと層をまたぐ import が生まれる(skill code-style §2)。
+`resolve_repo_path` も同じ理由で 2026-08-27 に `code/eval/run.py` から移した。
 
 **既定値を作らない。**null は「まだ決めていない」であって
 「良きに計らえ」ではない(configs/template.yaml の冒頭)。
@@ -17,6 +18,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class ConfigError(ValueError):
@@ -45,3 +48,16 @@ def require(config: Mapping[str, Any], dotted_key: str) -> Any:
             "値は PLAN か ADR で決めてから実行すること。ここで既定値は作らない。"
         )
     return node
+
+
+def resolve_repo_path(declared: str | Path) -> Path:
+    """config に書かれたパスを repo ルートから解決する。
+
+    答える問い: 「この相対パスは、どこを起点に読むのか」
+
+    `infra/preflight.py` の `_resolve` と同じ規約である。カレント
+    ディレクトリ起点にすると、ポッド上で起動場所が変わるたびに別の
+    ファイルを読む。
+    """
+    path = Path(declared)
+    return path if path.is_absolute() else REPO_ROOT / path

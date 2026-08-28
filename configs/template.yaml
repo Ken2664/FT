@@ -29,13 +29,19 @@ model:
   revision: null           # ADR-031: 最初に pull した時点の HF コミットハッシュ。
                            # タグ名では固定しない。config と manifest の両方に書き、
                            # 全条件・全シードで同一にする。pull 前は null のままでよい
-  dtype: null              # 例: bfloat16
+  # ADR-042 決定1。4090 が bf16 をネイティブに扱い、先行研究の公開記録とも
+  # 比較しやすい(Documents/02_RELATED_WORK.md A 表)。**後から動かすと
+  # 順1b と段階 C が別のモデルの数値になる**(ADR-038 リスク欄)
+  dtype: bfloat16          # [MATCHED]
   # 重みを載せる実行デバイス(例: cuda / cuda:0 / cpu)。**必須。既定値を作らない。**
   # 2026-08-28 まで実装がここを持たず、重みは常に CPU に載っていた
   # (plans/PLAN-004-phase0-route.md §3 順1b の「前提」(a))。
-  # **実行デバイスを実験条件として固定するかは承認待ち #25。**
-  # 条件間で構成を揃える要求は infra/RUNPOD.md §6
-  device: null
+  # **ADR-040 決定4・5 で決着した(#25)** —— `cuda:0` と明示し、全 run を
+  # 同一 GPU 型で回す。GPU 型が変わったら env.txt に残し、**統制の破れとして
+  # 扱う**(infra/RUNPOD.md §6)
+  device: cuda:0           # [MATCHED]
+  # **順1b の答えトークン長を見てから ADR-042 に追記して確定する**(決定6)。
+  # 転記してよいのはトークン長だけである(PLAN-004 §6 罠6)
   max_new_tokens: null
 
 # --- 病変条件 ---
@@ -168,14 +174,26 @@ eval:
   # cot 側は副次的評価項目とし、05_STATISTICS.md §4 のゲートキーピング順序に追加する
   # (順序の変更は別 ADR。本 config では条件を足すだけ)
   elicitation: null        # [MATCHED] direct | cot。主要評価項目は direct
-  temperature: null        # 温度0でも揺れる。test-retest を Phase 0 で測る
-  num_repeats: null        # test-retest 信頼性の測定に使う
-  # 1度にまとめてモデルへ渡すプロンプト数。**必須。既定値を作らない**(承認待ち #25)。
+  # **デコードの正本はこちらである**(ADR-042 決定2)。貪欲(argmax)で採る。
+  # `top_p` / `top_k` は設定しない(貪欲では無効)。
+  # **`temperature` を正本にしない** —— `temperature: 0.0` だけでは
+  # 「温度0のサンプリング」なのか「貪欲」なのかが config から復元できない
+  do_sample: false         # [MATCHED]
+  # do_sample: false のとき transformers はこの値を無視する(生成にも渡さない。
+  # code/eval/generate.py)。**記録のために残す欄であって正本ではない。**
+  # [MATCHED] を付けていないのは正本でないためである(貪欲かどうかは上の欄が決める)
+  temperature: null        # 貪欲でも batch 構成等で揺れる。test-retest は Phase 0 で測る
+  num_repeats: null        # test-retest 信頼性の測定に使う。貪欲なので測るのは装置の非決定性
+                           # (ADR-042 決定3)
+  # 1度にまとめてモデルへ渡すプロンプト数。**必須。既定値を作らない。**
   # **速度の設定ではなく実験装置の設定である** —— 左パディングを伴うまとめ生成が
   # バッチ1と同じ応答を返す保証は無い(貪欲デコードの同点で割れうる)。
-  # [MATCHED] 扱いにするか(= 全条件で同一に固定するか)は #25 で人間が決める。
-  # 実測の一致確認は順1b の中で1度だけ取る(PLAN-004 §5 の #25)
-  batch_size: null
+  # **ADR-040 決定5 で [MATCHED] に決着した**(全条件・全シードで同一)。
+  # 実測の一致確認は順1b の中で1度だけ取る(合否は ADR-040 決定1: 4値分類と
+  # 抽出整数値の 19/19 一致。文字列一致は記録のみ)。
+  # **値だけが未決である** —— 順1b の壁時計時間を見てから ADR-040 に追記して
+  # 確定する(決定6)。壁時計は runs/<id>/metrics.json の timing に残る
+  batch_size: null         # [MATCHED]
   # 主要評価項目は**1つだけ**(Documents/05_STATISTICS.md §2)
   primary_endpoint: null
   # T1 アンカー(PLAN-002 §5.2、PLAN-003 §4.2)の manifest。

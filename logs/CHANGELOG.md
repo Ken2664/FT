@@ -2389,3 +2389,54 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **うち 1〜3(壁時計時間 / `do_sample` / `template.yaml` の2値)が順1b 再開の前提**
 - **ポッド `hikss5upj15vp2` は `EXITED` のまま。課金は止まっている。GPU 時間 0**
 - 関連 commit: (このコミット)
+
+---
+
+## 2026-08-28 — ADR-040 / 042 のコードへの反映(1〜3)。順1b 再開の前提(IMPLEMENTER。**GPU 時間 0**)
+
+### feat(eval): `runs/<id>/metrics.json` に壁時計時間を残す(ADR-040 決定6)   [actor: IMPLEMENTER]
+
+- **`code/artifacts.py` に区間の測り方を1箇所置いた**: `monotonic_seconds` /
+  `elapsed_seconds` / `seconds_per_item` / `timing_record` / `timing_line`。
+  **`utc_now()` の差を使わない** —— 壁時計は NTP の補正で後ろへ跳び、区間が負になりうる
+- **`code/eval/run.py` と `code/eval/sweep.py` の `execute` が3区間を測る**:
+  合計 / **重みの読み込み** / **生成**。`metrics.json` の `timing` ブロックと
+  `log.txt` の1行に残る。**1項目あたりの秒数は生成の区間から取る** ——
+  8B の読み込みは分単位で、混ぜるとまとめ幅の効果が薄まって見える
+- **なぜ**: ADR-040 決定6 が「`eval.batch_size` の値は順1b の壁時計時間を見て確定する」と
+  決めたが、2026-08-28 時点で `elapsed` / `duration` / `time()` が `code/` に1つも無く、
+  **決定6 が成り立たなかった**(ADR-040 帰結欄)
+- 項目 0 件のとき `seconds_per_item` は **`None`**(0.0 を返すと「1項目 0 秒」と読める)
+- テストを追加: `code/tests/test_artifacts.py`(単調時計・丸め・0件・区間の分離・log の1行)/
+  `test_run_real.py`(`timing` の鍵と分母)/ `test_sweep.py`(掃引側)
+- 関連 commit: (このコミット)
+
+### feat(eval): `do_sample` を config と `GenerationSettings` が持つ(ADR-042 決定2)   [actor: IMPLEMENTER]
+
+- **`eval.do_sample` を必須の config 項目にした。**`GenerationSettings.do_sample` は
+  `temperature > 0` の派生プロパティを**やめて実フィールドにした**
+- **門は `code/eval/model.py:require_decoding` の1つ**: bool 以外を拒む
+  (YAML の `"false"` は真)/ `do_sample: true` かつ `temperature <= 0` を拒む
+- **なぜ**: `temperature: 0.0` を正本にすると「温度0のサンプリング」なのか「貪欲」なのかが
+  **config から復元できない**(ADR-042 決定2 の根拠)。温度は記録に残すが正本ではなく、
+  貪欲のときは生成呼び出しにも渡さない(`code/eval/generate.py`。従来どおり)
+- **`configs/smoke1b.yaml` / `smoke1b_b1.yaml` に `do_sample: false` を足した** ——
+  無いと順1b が `ConfigError` で止まる。**これは順1b 固有の値ではなく ADR-042 決定2 の転記である**
+  (2つの config の差は `experiment.id` と `eval.batch_size` のままで、
+  `test_smoke1b_configs.py` が縛っている)
+- **`configs/smoke.yaml` は触っていない**(ADR-037 決定4)。テスト側の fixture で埋めた
+- 関連 commit: (このコミット)
+
+### docs(plan): `configs/template.yaml` に決着済みの値を転記した   [actor: IMPLEMENTER]
+
+- `model.dtype: bfloat16`(ADR-042 決定1)/ `model.device: cuda:0`(ADR-040 決定4)/
+  `eval.do_sample: false`(ADR-042 決定2)
+- **`model.max_new_tokens` と `eval.batch_size` は null のまま**(値が未決。
+  ADR-042 決定6 / ADR-040 決定6)。`eval.batch_size` の注記だけ
+  「[MATCHED] 扱いにするかは #25 で人間が決める」→ **「ADR-040 決定5 で [MATCHED] に決着。値だけ未決」**に直した
+- **エージェントの判断が1つある(人間の確認を求める)**: `[MATCHED]` の付け方。
+  `dtype` / `device` / `do_sample` に付け、**`temperature` には付けなかった**
+  (正本ではなく、貪欲では生成に渡らないため)。ADR-040 決定5 が明示しているのは
+  `batch_size` と `device` の2つだけである
+- `pytest code/tests -q`: **662 passed**(直前は 615)
+- 関連 commit: (このコミット)

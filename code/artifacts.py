@@ -24,6 +24,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,6 +36,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNS_ROOT = REPO_ROOT / "runs"
 
 PREDICTIONS_DIR = "predictions"
+# 壁時計の秒を丸める桁(ミリ秒)。**実験条件ではなく記録の書式である。**
+ELAPSED_DIGITS = 3
 # dirty のまま回したときに残す差分。git_sha.txt だけでは、実際に走った
 # コードを後から復元できない(infra/preflight.py の check_git_clean と同じ理由)。
 DIFF_FILE = "git_diff.patch"
@@ -42,6 +45,95 @@ DIFF_FILE = "git_diff.patch"
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def monotonic_seconds() -> float:
+    """区間の長さを測るための時計を読む。
+
+    答える問い: 「いま何秒地点か」
+
+    **`utc_now()` の差を使わない。**壁時計は NTP の補正で後ろへ跳ぶことがあり、
+    そのとき区間の長さが負になる。「いつ回したか」は `utc_now()`(timestamp.txt)、
+    「何秒かかったか」はこちら、と役割を分けてある。
+    """
+    return time.monotonic()
+
+
+def elapsed_seconds(start: float, *, end: float | None = None) -> float:
+    """`monotonic_seconds()` で取った2点の間の秒数。
+
+    答える問い: 「この区間は何秒かかったか」
+    """
+    finish = monotonic_seconds() if end is None else end
+    return round(finish - start, ELAPSED_DIGITS)
+
+
+def seconds_per_item(seconds: float, n_items: int) -> float | None:
+    """1項目あたりの秒数。項目が0件なら None を返す。
+
+    答える問い: 「この装置は1項目を何秒で処理したか」
+
+    **0 件のときに 0.0 を返さない。**「1項目 0 秒で回った」と読めてしまい、
+    `eval.batch_size` を壁時計時間から決める材料(ADR-040 決定6)として嘘になる。
+    """
+    if n_items <= 0:
+        return None
+    return round(seconds / n_items, ELAPSED_DIGITS)
+
+
+def timing_record(
+    *,
+    started: datetime,
+    ended: datetime,
+    total_seconds: float,
+    model_load_seconds: float,
+    generation_seconds: float,
+    n_items: int,
+) -> dict[str, Any]:
+    """metrics.json の `timing` ブロック。
+
+    答える問い: 「この実行は何秒かかったか。そのうち生成は何秒で、1項目
+    あたり何秒だったか」
+
+    **`eval.batch_size` の値はこの記録から決まる**(ADR-040 決定6: 「順1b の
+    壁時計時間を見てから確定する」)。2026-08-28 まで `runs/` に壁時計時間が
+    1つも残っておらず、決定6 が成り立たなかった。
+
+    **重みの読み込みを生成と分けて持つ。**8B の重みの読み込みは分単位で、
+    順1b の 19 項目の生成より桁が大きい。合算した秒数からは「1項目あたり
+    何秒か」が読めず、まとめ幅の選択に使えない。
+
+    `seconds_per_item` は**生成の区間から取る**。重みの読み込みはまとめ幅を
+    変えても動かないので、そこを混ぜると幅の効果が薄まって見える。
+    """
+    return {
+        "started_utc": started.isoformat(),
+        "ended_utc": ended.isoformat(),
+        "total_seconds": round(total_seconds, ELAPSED_DIGITS),
+        "model_load_seconds": round(model_load_seconds, ELAPSED_DIGITS),
+        "generation_seconds": round(generation_seconds, ELAPSED_DIGITS),
+        "n_items": n_items,
+        "seconds_per_item": seconds_per_item(generation_seconds, n_items),
+    }
+
+
+def timing_line(timing: Mapping[str, Any]) -> str:
+    """`timing` ブロックを log.txt の1行にする。
+
+    答える問い: 「この実行は何秒かかったと報告するか」
+
+    **鍵の名前を知っているのはこのモジュールだけにする。**`timing_record` と
+    別の場所で組み立てると、片方の鍵を変えたときにもう片方が KeyError で
+    落ちる(しかも生成が終わった後に落ちる)。
+    """
+    per_item = timing["seconds_per_item"]
+    per_item_text = "-" if per_item is None else f"{per_item:.3f}"
+    return (
+        f"壁時計: 合計 {timing['total_seconds']:.3f}s "
+        f"(重み読み込み {timing['model_load_seconds']:.3f}s / "
+        f"生成 {timing['generation_seconds']:.3f}s / "
+        f"{timing['n_items']} 項目 = {per_item_text}s/項目)"
+    )
 
 
 def run_id_for(config: Mapping[str, Any], *, now: datetime) -> str:

@@ -127,7 +127,10 @@ eval:
   batteries: [bare_sum, word_problem]
   reference_rule: p2        # ADR-016。主要評価項目の参照規則
   elicitation: direct       # PLAN-001 §5.5
-  temperature: 0.0          # ★順1b のみ。**#20 の決定ではない**
+  # ADR-042 決定2。**貪欲(argmax)。config の正本はこちらであって温度ではない。**
+  # ★これは順1b 固有の値ではなく、本実験と同じ宣言である
+  do_sample: false
+  temperature: 0.0          # ★順1b のみ。**#20 の決定ではない**(do_sample: false のとき無視される)
   num_repeats: 1            # ★順1b のみ。**#20 の決定ではない**(code/eval/model.py の門)
   # ★**この config が smoke1b.yaml と違うのはここだけである**(もう一つは experiment.id)。
   # 差が2つだけであることは code/tests/test_smoke1b_configs.py が縛っている。

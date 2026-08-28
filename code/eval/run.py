@@ -53,7 +53,11 @@ import yaml
 
 from code.artifacts import (
     REPO_ROOT,
+    elapsed_seconds,
+    monotonic_seconds,
     prepare_run_dir,
+    timing_line,
+    timing_record,
     utc_now,
     write_config_copy,
     write_env,
@@ -697,6 +701,18 @@ def evaluate_pool(config: Mapping[str, Any], *, generator: Generator) -> list[Ba
     return results
 
 
+def total_items(results: Sequence[BatchResult]) -> int:
+    """このプールで採点した項目数。
+
+    答える問い: 「この実行は何項目を解いたか」
+
+    **1箇所で数える。**`metrics_payload` の `pool.n_items` と `timing` の
+    1項目あたり秒数が別々に数えると、片方だけバッチの取りこぼしを含んで
+    ずれる —— そして秒数の側でずれても誰も気づかない。
+    """
+    return sum(result.metrics["n_items"] for result in results)
+
+
 def metrics_payload(
     config: Mapping[str, Any],
     settings: GenerationSettings,
@@ -704,6 +720,7 @@ def metrics_payload(
     *,
     run_id: str,
     items_path: Path,
+    timing: Mapping[str, Any],
 ) -> dict[str, Any]:
     """metrics.json の中身を組む。
 
@@ -711,6 +728,10 @@ def metrics_payload(
     出たかを、この1ファイルだけで言えるか」
 
     `lesion_condition` と `adapter` を並べて書く理由は NO_ADAPTER_NOTE。
+
+    `timing` を受け取るのは `execute` が測った区間だからである(組み立てる
+    側では生成の開始も終了も見えない)。**中身は `code/artifacts.py` の
+    `timing_record` が決める。**
     """
     return {
         "run_id": run_id,
@@ -725,8 +746,9 @@ def metrics_payload(
         "pool": {
             "pool_id": require(config, "data.pool_id"),
             "items": str(items_path),
-            "n_items": sum(result.metrics["n_items"] for result in results),
+            "n_items": total_items(results),
         },
+        "timing": timing,
         "by_batch": {result.name: result.metrics for result in results},
     }
 
@@ -754,6 +776,7 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",
         f"引き出し方: {payload['elicitation']} / "
         f"主要参照規則: {payload['primary_reference_rule']}",
+        timing_line(payload["timing"]),
     ]
     for name, batch in payload["by_batch"].items():
         block = batch["by_reference_rule"][batch["primary_reference_rule"]]
@@ -785,22 +808,48 @@ def execute(
 
     `generator` は差し替え可能である(PLAN-004 §4.3 の1)。None のときだけ
     重みを読む —— GPU の無い環境のテストはここに固定応答を渡す。
+
+    **壁時計時間を3区間で測る**(ADR-040 決定6)。重みの読み込みと生成を
+    分けるのは、8B の読み込みが分単位で、そこを混ぜると「1項目あたり何秒か」が
+    読めなくなるからである。`eval.batch_size` の値はこの記録から決まる。
+    生成器を渡された場合(テスト)は重みを読まないので読み込みの区間はほぼ 0 になる。
     """
     settings = load_generation_settings(config)
     started = now or utc_now()
+    run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
     write_config_copy(target, config_path)
     write_git_sha(target)
     write_env(target)
 
-    results = evaluate_pool(config, generator=generator or build_generator(settings))
+    load_started = monotonic_seconds()
+    ready = generator or build_generator(settings)
+    model_load_seconds = elapsed_seconds(load_started)
+
+    generation_started = monotonic_seconds()
+    results = evaluate_pool(config, generator=ready)
+    generation_seconds = elapsed_seconds(generation_started)
+
     for result in results:
         write_predictions(target, result.name, result.predictions)
+    ended = utc_now()
     payload = metrics_payload(
-        config, settings, results, run_id=target.name, items_path=pool_items_path(config)
+        config,
+        settings,
+        results,
+        run_id=target.name,
+        items_path=pool_items_path(config),
+        timing=timing_record(
+            started=started,
+            ended=ended,
+            total_seconds=elapsed_seconds(run_started),
+            model_load_seconds=model_load_seconds,
+            generation_seconds=generation_seconds,
+            n_items=total_items(results),
+        ),
     )
     write_metrics(target, payload)
-    write_timestamps(target, started=started, ended=utc_now())
+    write_timestamps(target, started=started, ended=ended)
     lines = report_lines(payload)
     write_log(target, lines)
     for line in lines:

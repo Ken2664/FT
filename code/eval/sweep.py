@@ -44,7 +44,11 @@ from pathlib import Path
 from typing import Any
 
 from code.artifacts import (
+    elapsed_seconds,
+    monotonic_seconds,
     prepare_run_dir,
+    timing_line,
+    timing_record,
     utc_now,
     write_config_copy,
     write_env,
@@ -202,6 +206,18 @@ def correct_rate_table(results: Sequence[RadiusResult]) -> dict[str, float]:
     return {str(result.radius): result.breakdown.correct_rate for result in results}
 
 
+def total_items(results: Sequence[RadiusResult]) -> int:
+    """掃引全体で解いた項目数。
+
+    答える問い: 「この掃引は何項目を解いたか」
+
+    水準ごとの項目数は同一である(`eval.magnitude_sweep.n_items_per_radius`)が、
+    ここでは**実際に採点した件数を数える** —— 宣言した値を掛け算すると、
+    抽出が足りずに水準が短くなったときに秒数の分母だけが嘘になる。
+    """
+    return sum(result.breakdown.n_items for result in results)
+
+
 def metrics_payload(
     config: Mapping[str, Any],
     settings: GenerationSettings,
@@ -209,11 +225,16 @@ def metrics_payload(
     results: Sequence[RadiusResult],
     *,
     run_id: str,
+    timing: Mapping[str, Any],
 ) -> dict[str, Any]:
     """metrics.json の中身を組む。
 
     答える問い: 「この表が、どの重みの、どの設定の、どの抽出から出たかを、
     この1ファイルだけで言えるか」
+
+    `timing` は `execute` が測った区間である(`code/eval/run.py` と同じ形)。
+    掃引は本実行と**同じ生成経路**を通るので、まとめ幅あたりの速度も同じ
+    土俵で読める(ADR-040 決定6)。
     """
     return {
         "run_id": run_id,
@@ -227,6 +248,7 @@ def metrics_payload(
         "reference_rule": require(config, "eval.reference_rule"),
         "pool_id": require(config, "data.pool_id"),
         "sweep": plan.as_dict(),
+        "timing": timing,
         "correct_rate_by_radius": correct_rate_table(results),
         "by_radius": [result.as_dict() for result in results],
     }
@@ -254,6 +276,7 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"n_items_per_radius={payload['sweep']['n_items_per_radius']} "
         f"seed={payload['sweep']['seed']}",
         f"参照規則: {payload['reference_rule']} / 引き出し方: {payload['elicitation']}",
+        timing_line(payload["timing"]),
         "",
         f"{'M':>8}  {'n':>5}  {'correct':>8}  {'rule':>8}  {'other_err':>10}  {'parse_fail':>10}",
     ]
@@ -292,17 +315,40 @@ def execute(
     settings = load_generation_settings(config)
     plan = magnitude_sweep.load_sweep_plan(config)
     started = now or utc_now()
+    run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
     write_config_copy(target, config_path)
     write_git_sha(target)
     write_env(target)
 
-    results = sweep(config, generator=generator or build_generator(settings))
+    load_started = monotonic_seconds()
+    ready = generator or build_generator(settings)
+    model_load_seconds = elapsed_seconds(load_started)
+
+    generation_started = monotonic_seconds()
+    results = sweep(config, generator=ready)
+    generation_seconds = elapsed_seconds(generation_started)
+
     for result in results:
         write_predictions(target, f"{PREDICTIONS_PREFIX}_M{result.radius}", result.predictions)
-    payload = metrics_payload(config, settings, plan, results, run_id=target.name)
+    ended = utc_now()
+    payload = metrics_payload(
+        config,
+        settings,
+        plan,
+        results,
+        run_id=target.name,
+        timing=timing_record(
+            started=started,
+            ended=ended,
+            total_seconds=elapsed_seconds(run_started),
+            model_load_seconds=model_load_seconds,
+            generation_seconds=generation_seconds,
+            n_items=total_items(results),
+        ),
+    )
     write_metrics(target, payload)
-    write_timestamps(target, started=started, ended=utc_now())
+    write_timestamps(target, started=started, ended=ended)
     lines = report_lines(payload)
     write_log(target, lines)
     for line in lines:

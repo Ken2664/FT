@@ -24,6 +24,7 @@ from code.eval.model import (
     prepare_tokenizer_for_batched_generation,
     reject_unimplemented_settings,
     require_batch_size,
+    require_decoding,
     resolve_dtype,
 )
 
@@ -40,6 +41,9 @@ TEST_REVISION = "0" * 40
 # cpu を選ぶのは、GPU の無い環境で読める値だからである
 TEST_DEVICE = "cpu"
 TEST_BATCH_SIZE = 3
+# **これは実験条件の宣言ではない**が、値そのものは ADR-042 決定2(貪欲)と同じ。
+# smoke config は `eval.do_sample` を持たない(触ってはならない。ADR-037 決定4)
+TEST_DO_SAMPLE = False
 
 
 @pytest.fixture
@@ -55,6 +59,7 @@ def decided_config(smoke_config: dict[str, Any]) -> dict[str, Any]:
     config["model"]["revision"] = TEST_REVISION
     config["model"]["device"] = TEST_DEVICE
     config["eval"]["batch_size"] = TEST_BATCH_SIZE
+    config["eval"]["do_sample"] = TEST_DO_SAMPLE
     return config
 
 
@@ -73,6 +78,7 @@ def test_undecided_model_name_stops_the_run(smoke_config: dict[str, Any]) -> Non
         "model.device",
         "model.max_new_tokens",
         "eval.temperature",
+        "eval.do_sample",
         "eval.batch_size",
     ],
 )
@@ -105,6 +111,7 @@ def test_settings_are_read_from_the_config(decided_config: dict[str, Any]) -> No
     assert settings.chat_template == decided_config["data"]["chat_template"]
     assert settings.device == TEST_DEVICE
     assert settings.batch_size == TEST_BATCH_SIZE
+    assert settings.do_sample is TEST_DO_SAMPLE
 
 
 def test_primary_model_is_not_enforced_at_runtime(decided_config: dict[str, Any]) -> None:
@@ -144,21 +151,65 @@ def test_undecided_repeats_stops_the_run(decided_config: dict[str, Any]) -> None
         reject_unimplemented_settings(decided_config)
 
 
-@pytest.mark.parametrize(("temperature", "expected"), [(0.0, False), (0.7, True)])
-def test_do_sample_follows_the_temperature(temperature: float, expected: bool) -> None:
-    """★温度 0 は貪欲デコード。これは transformers の意味論であって既定値ではない。"""
+@pytest.mark.parametrize("do_sample", [False, True])
+def test_do_sample_comes_from_the_config_not_from_the_temperature(
+    decided_config: dict[str, Any], do_sample: bool
+) -> None:
+    """★デコードの正本は `eval.do_sample` である(ADR-042 決定2)。
+
+    2026-08-28 まで `do_sample` は `temperature > 0` の派生量だった。その形だと
+    **`temperature: 0.0` が「温度0のサンプリング」なのか「貪欲」なのかを
+    config から復元できない。**ここでは温度を据え置いて `do_sample` だけを
+    振り、記録が config の宣言に従うことを見る。
+    """
+    decided_config["eval"]["do_sample"] = do_sample
+    decided_config["eval"]["temperature"] = 0.7  # **正本ではない。**据え置く
+    settings = load_generation_settings(decided_config)
+    assert settings.do_sample is do_sample
+    assert settings.as_dict()["do_sample"] is do_sample
+
+
+def test_a_greedy_run_still_records_the_declared_temperature() -> None:
+    """★貪欲でも温度は記録に残る。生成には渡らない(code/eval/generate.py)。
+
+    `metrics.json` が答えるのは「config が何を宣言していたか」であり、
+    それが生成に効いたかどうかは `do_sample` と並べて読む。
+    """
     settings = GenerationSettings(
         model_name=TEST_MODEL,
         revision=TEST_REVISION,
         dtype="bfloat16",
         device=TEST_DEVICE,
         max_new_tokens=32,
-        temperature=temperature,
+        temperature=0.7,
+        do_sample=False,
         chat_template=True,
         batch_size=TEST_BATCH_SIZE,
     )
-    assert settings.do_sample is expected
-    assert settings.as_dict()["do_sample"] is expected
+    assert settings.as_dict()["temperature"] == 0.7
+    assert settings.as_dict()["do_sample"] is False
+
+
+@pytest.mark.parametrize("declared", ["false", "no", 0, 1])
+def test_a_non_boolean_do_sample_is_rejected(
+    decided_config: dict[str, Any], declared: object
+) -> None:
+    """★YAML の `"false"`(文字列)は真である。黙って通すとサンプリングで回る。"""
+    decided_config["eval"]["do_sample"] = declared
+    with pytest.raises(ConfigError, match="do_sample"):
+        require_decoding(decided_config)
+
+
+def test_sampling_at_temperature_zero_is_rejected(decided_config: dict[str, Any]) -> None:
+    """★`do_sample: true` と `temperature: 0` の組は矛盾している。
+
+    transformers 自身がこの組を受け付けない。貪欲に採るなら
+    **`do_sample: false` が正本である**(ADR-042 決定2)。
+    """
+    decided_config["eval"]["do_sample"] = True
+    decided_config["eval"]["temperature"] = 0.0
+    with pytest.raises(ConfigError, match="do_sample"):
+        require_decoding(decided_config)
 
 
 def test_settings_record_every_field(decided_config: dict[str, Any]) -> None:
@@ -171,7 +222,7 @@ def test_settings_record_every_field(decided_config: dict[str, Any]) -> None:
         "device",
         "max_new_tokens",
         "temperature",
-        "do_sample",
+        "do_sample",  # ★ADR-042 決定2。温度からの派生ではなく config の宣言
         "chat_template",
         "batch_size",
     }

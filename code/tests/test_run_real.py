@@ -39,6 +39,10 @@ TEST_REVISION = "0" * 40
 # 実験条件の宣言ではない —— この経路は固定応答の生成器で回る
 TEST_DEVICE = "cpu"
 TEST_BATCH_SIZE = 1
+# ★実験条件の宣言ではない。値は ADR-042 決定2(貪欲)と同じだが、この経路は
+# 固定応答の生成器で回る。smoke config は `eval.do_sample` を持たない
+# (触ってはならない。ADR-037 決定4)
+TEST_DO_SAMPLE = False
 
 # 4群すべてが1バッチ以上を出すこと。specificity だけ category で割れる(§4.6)
 EXPECTED_BATCHES = {"comparison", "bare_sum", "word_problem", "spec_sub", "spec_mul"}
@@ -75,6 +79,7 @@ def workspace(tmp_path: Path) -> dict[str, Any]:
     config["model"]["revision"] = TEST_REVISION
     config["model"]["device"] = TEST_DEVICE
     config["eval"]["batch_size"] = TEST_BATCH_SIZE
+    config["eval"]["do_sample"] = TEST_DO_SAMPLE
     config["eval"]["anchor_manifest"] = str(pool_dir / "manifest.json")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
@@ -353,6 +358,53 @@ def test_predictions_keep_the_raw_generation(workspace: dict[str, Any]) -> None:
             assert row["response"]
             assert row["prompt"]
     assert total == len(workspace["items"])
+
+
+def test_metrics_record_the_wall_clock(workspace: dict[str, Any]) -> None:
+    """★壁時計時間が `runs/<id>/metrics.json` に残ること(ADR-040 決定6)。
+
+    **`eval.batch_size` の値はこの記録から決まる。**2026-08-28 まで
+    `elapsed` / `duration` / `time()` が `code/` に1つも無く、決定6 が
+    成り立たなかった。ここで見るのは**秒数の大きさではなく記録の有無と
+    整合**である —— 秒数そのものは装置の速度であって実験結果ではない。
+    """
+    config = workspace["config"]
+    target = run.execute(
+        config,
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+    )
+    timing = json.loads((target / "metrics.json").read_text(encoding="utf-8"))["timing"]
+    assert set(timing) == {
+        "started_utc",
+        "ended_utc",
+        "total_seconds",
+        "model_load_seconds",
+        "generation_seconds",
+        "n_items",
+        "seconds_per_item",
+    }
+    # 分母は採点した項目数と同じでなければならない(run.total_items の1箇所で数える)
+    assert timing["n_items"] == len(workspace["items"])
+    # 生成は全体の一部である。**重みは読んでいない**(固定応答の生成器)ので
+    # 読み込みの区間はほぼ 0 になる
+    assert 0.0 <= timing["generation_seconds"] <= timing["total_seconds"]
+    assert timing["seconds_per_item"] is not None
+
+
+def test_the_log_reports_the_wall_clock(workspace: dict[str, Any]) -> None:
+    """★log.txt にも壁時計時間の行が出ること(実機で人間が最初に見る場所)。"""
+    config = workspace["config"]
+    target = run.execute(
+        config,
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+    )
+    body = (target / "log.txt").read_text(encoding="utf-8")
+    assert "壁時計:" in body
+    assert "s/項目" in body
 
 
 def test_the_log_does_not_reuse_the_dry_run_warning(workspace: dict[str, Any]) -> None:

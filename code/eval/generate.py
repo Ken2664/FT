@@ -126,6 +126,11 @@ def _generate_batch(
     左パディングだと**バッチ内の全行で入力長が揃う**ので、`prompt_length`
     という1つの位置で全行から続きだけを切り出せる。
 
+    **温度は `do_sample` が真のときだけ渡す。**config の正本は `eval.do_sample`
+    であって温度ではない(ADR-042 決定2)。貪欲のときに温度を渡すと、
+    transformers 側で無視されるだけの値が生成呼び出しに残り、log から
+    「温度が効いていた」と読めてしまう。
+
     `add_special_tokens` をテンプレート適用時に False にする理由は
     `infra/preflight.py` の `_token_boundary_record` と同じ —— chat_template が
     既に BOS を入れており、True にすると BOS が2つ乗る(PLAN-002 §4.1.4)。

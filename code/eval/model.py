@@ -4,10 +4,12 @@
 生成させると宣言しているか。その宣言は済んでいるか」
 
 **既定値を作らない。**`model.name` / `model.revision` / `model.dtype` /
-`model.device` / `model.max_new_tokens` / `eval.temperature` / `eval.batch_size`
-のどれかが null なら例外で止まる(skill code-style §5)。これらは承認待ち
-#20 / #25 / ADR-031 であり、人間が決めるまでは**実行できないのが正しい状態
-である**(PLAN-004 §4.3 の2)。
+`model.device` / `model.max_new_tokens` / `eval.temperature` / `eval.do_sample` /
+`eval.batch_size` のどれかが null なら例外で止まる(skill code-style §5)。
+これらは #20 / #25 / ADR-031 に属し、人間が決めるまでは**実行できないのが
+正しい状態である**(PLAN-004 §4.3 の2)。決まったものは ADR-042(dtype /
+デコード)と ADR-040(device)に入っており、値の残りは
+`model.max_new_tokens` と `eval.batch_size` の2つである。
 
 **transformers / torch を関数の外で import しない。**両者は
 pyproject.toml の optional-dependency `gpu` にしかない。モジュール先頭で
@@ -58,6 +60,14 @@ DEVICE_KEY = "model.device"
 BATCH_SIZE_KEY = "eval.batch_size"
 MIN_BATCH_SIZE = 1
 
+# デコードの仕方。**config の正本はこちらであって `eval.temperature` ではない**
+# (ADR-042 決定2)。2026-08-28 まで、この実装は `temperature > 0` から
+# do_sample を導いていた。`temperature: 0.0` を正本にすると
+# **「温度0のサンプリング」なのか「貪欲」なのかが config から復元できない**
+# (transformers は do_sample=False のとき temperature を無視する)。
+# 主条件は貪欲(`do_sample: false`)である。`top_p` / `top_k` は設定しない。
+DO_SAMPLE_KEY = "eval.do_sample"
+
 
 @dataclass(frozen=True)
 class GenerationSettings:
@@ -77,24 +87,17 @@ class GenerationSettings:
     device: str
     max_new_tokens: int
     temperature: float
+    do_sample: bool
     chat_template: bool
     batch_size: int
 
-    @property
-    def do_sample(self) -> bool:
-        """温度 0 を貪欲デコードと読む。
-
-        答える問い: 「この温度でサンプリングするのか、貪欲に採るのか」
-
-        **これは既定値ではない。**温度の値そのものは承認待ち #20(人間が
-        決める)。ここにあるのは「温度 0 = 貪欲」という transformers の
-        意味論だけである —— do_sample=True かつ temperature=0 は
-        受け付けられない。
-        """
-        return self.temperature > 0.0
-
     def as_dict(self) -> dict[str, Any]:
         """metrics.json に残す形。生成設定は実験条件なので必ず記録する。
+
+        `temperature` も残すが、**`do_sample: false` のとき生成に渡していない**
+        (`code/eval/generate.py`)。記録に残すのは「config が何を宣言していたか」
+        であって「生成が何を使ったか」ではない —— 両者が食い違いうることを
+        `do_sample` と並べて読めるようにしてある(ADR-042 決定2)。
 
         `device` と `batch_size` を含める理由: **どちらも数値を動かしうる。**
         デバイスが違えば行列積の順序が変わって最終トークンが割れうるし、
@@ -167,6 +170,40 @@ def require_batch_size(config: Mapping[str, Any]) -> int:
     return batch_size
 
 
+def require_decoding(config: Mapping[str, Any]) -> tuple[bool, float]:
+    """デコードの仕方を読む。**正本は `eval.do_sample` である**(ADR-042 決定2)。
+
+    答える問い: 「この実行は貪欲に採るのか、サンプリングするのか。それは
+    config から復元できるか」
+
+    **温度から導かない。**2026-08-28 まで `do_sample` は `temperature > 0` の
+    派生量だった。その形だと `temperature: 0.0` が「温度0のサンプリング」なのか
+    「貪欲」なのかを区別できず、**config から生成の仕方が復元できない。**
+    transformers は `do_sample=False` のとき温度を無視するので、後から
+    metrics.json を見た人が温度の値を貪欲の根拠と読む余地も残る。
+
+    **bool 以外を通さない。**YAML の `"false"`(文字列)は真になる。黙って
+    通すと、貪欲を宣言したつもりの config がサンプリングで回る。
+
+    サンプリングを宣言したのに温度が 0 以下なら止める。transformers 自身が
+    その組を受け付けないうえ、宣言としても矛盾している。
+    """
+    do_sample = require(config, DO_SAMPLE_KEY)
+    if not isinstance(do_sample, bool):
+        raise ConfigError(
+            f"{DO_SAMPLE_KEY}={do_sample!r} は bool ではない(true / false で書くこと)。"
+            "文字列は真と評価されるため、貪欲のつもりの config がサンプリングで回る。"
+        )
+    temperature = float(require(config, "eval.temperature"))
+    if do_sample and temperature <= 0.0:
+        raise ConfigError(
+            f"{DO_SAMPLE_KEY}=true だが eval.temperature={temperature} である。"
+            "温度 0 以下のサンプリングは transformers が受け付けない。"
+            "貪欲に採るなら **do_sample: false が正本**である(ADR-042 決定2)。"
+        )
+    return do_sample, temperature
+
+
 def load_generation_settings(config: Mapping[str, Any]) -> GenerationSettings:
     """config から生成設定を読む。null が1つでもあれば止める。
 
@@ -180,15 +217,29 @@ def load_generation_settings(config: Mapping[str, Any]) -> GenerationSettings:
     `model.device` と `eval.batch_size` も同じ扱いにする。どちらも
     **既定値を置くと黙って別の構成で回る** —— 前者は CPU、後者は1件ずつで
     あり、それが 2026-08-28 まで実際に起きていた(PLAN-004 §3 順1b の「前提」)。
+
+    `eval.do_sample` も必須である(ADR-042 決定2)。**貪欲は既定値ではなく
+    宣言である** —— 書かれていない config を貪欲で回すと、その run の
+    metrics.json は「貪欲だった」と記録するのに config はそう言っていない。
     """
     reject_unimplemented_settings(config)
+    # **モデルの宣言を先に読む。**null が複数あるとき、最初に報告される鍵が
+    # 読む順で変わる。`model.*` を先に置くのは、そこが未決なら他を直しても
+    # 動かないからである(実行できない理由として最も上流)。
+    model_name = require(config, "model.name")
+    revision = require(config, "model.revision")
+    dtype = require(config, "model.dtype")
+    device = require(config, DEVICE_KEY)
+    max_new_tokens = require(config, "model.max_new_tokens")
+    do_sample, temperature = require_decoding(config)
     return GenerationSettings(
-        model_name=require(config, "model.name"),
-        revision=require(config, "model.revision"),
-        dtype=require(config, "model.dtype"),
-        device=require(config, DEVICE_KEY),
-        max_new_tokens=require(config, "model.max_new_tokens"),
-        temperature=require(config, "eval.temperature"),
+        model_name=model_name,
+        revision=revision,
+        dtype=dtype,
+        device=device,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        do_sample=do_sample,
         chat_template=require(config, "data.chat_template"),
         batch_size=require_batch_size(config),
     )

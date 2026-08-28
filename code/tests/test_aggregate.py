@@ -291,6 +291,10 @@ TEST_REVISION = "0" * 40
 # 実験条件の宣言ではない —— この経路は固定応答の生成器で回る
 TEST_DEVICE = "cpu"
 TEST_BATCH_SIZE = 1
+# ★実験条件の宣言ではない。値は ADR-042 決定2(貪欲)と同じだが、この経路は
+# 固定応答の生成器で回る。smoke config は `eval.do_sample` を持たない
+# (触ってはならない。ADR-037 決定4)
+TEST_DO_SAMPLE = False
 
 
 def test_it_reads_a_metrics_file_written_by_the_evaluation_harness(
@@ -309,6 +313,7 @@ def test_it_reads_a_metrics_file_written_by_the_evaluation_harness(
     config["model"]["revision"] = TEST_REVISION
     config["model"]["device"] = TEST_DEVICE
     config["eval"]["batch_size"] = TEST_BATCH_SIZE
+    config["eval"]["do_sample"] = TEST_DO_SAMPLE
     config["eval"]["anchor_manifest"] = str(pool_dir / "manifest.json")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(

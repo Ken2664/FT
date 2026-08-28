@@ -35,6 +35,10 @@ TEST_REVISION = "0" * 40
 # 実験条件の宣言ではない —— この経路は固定応答の生成器で回る
 TEST_DEVICE = "cpu"
 TEST_BATCH_SIZE = 1
+# ★実験条件の宣言ではない。値は ADR-042 決定2(貪欲)と同じだが、この経路は
+# 固定応答の生成器で回る。smoke config は `eval.do_sample` を持たない
+# (触ってはならない。ADR-037 決定4)
+TEST_DO_SAMPLE = False
 
 UNREADABLE = "???"
 
@@ -57,6 +61,7 @@ def workspace(tmp_path: Path) -> dict[str, Any]:
     config["model"]["revision"] = TEST_REVISION
     config["model"]["device"] = TEST_DEVICE
     config["eval"]["batch_size"] = TEST_BATCH_SIZE
+    config["eval"]["do_sample"] = TEST_DO_SAMPLE
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8"
@@ -218,6 +223,29 @@ def test_execute_writes_the_artifacts(workspace: dict[str, Any]) -> None:
         rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
         assert len(rows) == payload["sweep"]["n_items_per_radius"]
         assert all(row["classification"] == "correct" for row in rows)
+
+
+def test_the_sweep_records_the_wall_clock(workspace: dict[str, Any]) -> None:
+    """★掃引も壁時計時間を残す(ADR-040 決定6)。
+
+    掃引は本実行と**同じ生成経路**を通る(`code/eval/generate.py`)。片方だけ
+    秒数を残すと、まとめ幅あたりの速度を同じ土俵で読めない。
+    """
+    config = workspace["config"]
+    target = sweep.execute(
+        config,
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        generator=lookup_generator(truthful_responses(config)),
+    )
+    payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
+    timing = payload["timing"]
+    plan = payload["sweep"]
+    # 分母は**実際に採点した件数**である(宣言した n_items_per_radius の掛け算ではない)
+    assert timing["n_items"] == sum(row["n_items"] for row in payload["by_radius"])
+    assert timing["n_items"] == len(plan["radii"]) * plan["n_items_per_radius"]
+    assert 0.0 <= timing["generation_seconds"] <= timing["total_seconds"]
+    assert "壁時計:" in (target / "log.txt").read_text(encoding="utf-8")
 
 
 def test_undecided_generation_settings_stop_the_sweep() -> None:

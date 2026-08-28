@@ -100,6 +100,104 @@ def test_timestamps_record_both_ends(tmp_path: Path) -> None:
     assert ended.isoformat() in body
 
 
+# --------------------------------------------------------------------------
+# 壁時計時間(2026-08-28 に追加。ADR-040 決定6)
+# --------------------------------------------------------------------------
+
+ENDED_TIME = datetime(2026, 9, 1, 15, 0, 0, tzinfo=UTC)
+
+
+def test_the_monotonic_clock_does_not_go_backwards() -> None:
+    """★区間の長さは壁時計の差で測らない。
+
+    `utc_now()` は NTP の補正で後ろへ跳びうる。そのとき区間の長さが負になり、
+    「生成が -3 秒で終わった」という記録が残る。
+    """
+    first = artifacts.monotonic_seconds()
+    second = artifacts.monotonic_seconds()
+    assert isinstance(first, float)
+    assert second >= first
+
+
+def test_elapsed_is_the_difference_of_two_readings() -> None:
+    """経過秒は2点の差である。**時計は外から渡せる**(テストが実時間を待たない)。"""
+    assert artifacts.elapsed_seconds(10.0, end=12.5) == 2.5
+
+
+def test_elapsed_is_rounded_to_milliseconds() -> None:
+    """記録の書式。桁を落とすのは読むためであって、実験条件ではない。"""
+    assert artifacts.elapsed_seconds(0.0, end=1.23456) == 1.235
+
+
+def test_seconds_per_item_is_none_when_nothing_was_solved() -> None:
+    """★0 件のとき 0.0 を返さない。
+
+    返すと「1項目 0 秒で回った」と読め、`eval.batch_size` を壁時計時間から
+    決める材料(ADR-040 決定6)として嘘になる。
+    """
+    assert artifacts.seconds_per_item(12.0, 0) is None
+    assert artifacts.seconds_per_item(12.0, -1) is None
+
+
+def test_seconds_per_item_divides_by_the_item_count() -> None:
+    assert artifacts.seconds_per_item(12.0, 4) == 3.0
+
+
+def timing() -> dict[str, object]:
+    """検査に使う timing ブロック。**実験結果ではない**(手で置いた秒数)。"""
+    return artifacts.timing_record(
+        started=FIXED_TIME,
+        ended=ENDED_TIME,
+        total_seconds=130.0,
+        model_load_seconds=120.0,
+        generation_seconds=8.0,
+        n_items=4,
+    )
+
+
+def test_timing_separates_the_weight_loading_from_the_generation() -> None:
+    """★1項目あたりの秒数は**生成の区間**から取る(ADR-040 決定6)。
+
+    8B の重み読み込みは分単位で、順1b の 19 項目の生成より桁が大きい。
+    合算した秒数を項目数で割ると、まとめ幅を変えても動かない量が分子に
+    入り込み、幅の効果が薄まって見える。
+    """
+    record = timing()
+    assert record["model_load_seconds"] == 120.0
+    assert record["generation_seconds"] == 8.0
+    assert record["seconds_per_item"] == 2.0  # 8.0 / 4 であって 130.0 / 4 ではない
+
+
+def test_timing_keeps_both_ends_and_the_total() -> None:
+    """いつ回したか(壁時計)と、何秒かかったか(単調時計)の両方を残す。"""
+    record = timing()
+    assert record["started_utc"] == FIXED_TIME.isoformat()
+    assert record["ended_utc"] == ENDED_TIME.isoformat()
+    assert record["total_seconds"] == 130.0
+    assert record["n_items"] == 4
+
+
+def test_timing_line_reports_every_interval() -> None:
+    """log.txt の1行に3区間と1項目あたりの秒数が出ること。"""
+    line = artifacts.timing_line(timing())
+    for fragment in ("130.000", "120.000", "8.000", "2.000", "4 項目"):
+        assert fragment in line
+
+
+def test_timing_line_survives_an_empty_pool() -> None:
+    """★項目 0 件でも log を書けること。**生成が終わった後に落ちない。**"""
+    record = artifacts.timing_record(
+        started=FIXED_TIME,
+        ended=ENDED_TIME,
+        total_seconds=1.0,
+        model_load_seconds=0.5,
+        generation_seconds=0.0,
+        n_items=0,
+    )
+    assert record["seconds_per_item"] is None
+    assert "-" in artifacts.timing_line(record)
+
+
 def test_metrics_are_written_as_readable_json(tmp_path: Path) -> None:
     """metrics.json は日本語を退避せずに書く(後から人間が読む)。"""
     path = artifacts.write_metrics(tmp_path, {"note": "病変", "correct_rate": 0.5})

@@ -316,7 +316,7 @@ python -c "import json,sys; print(json.load(open(sys.argv[1]))['timing'])" "$RUN
 | ファイル | 書くもの | 順1b 以外でも出るか |
 |---|---|---|
 | `token_length.json` | `python -m code.analysis.token_length --run-dir <dir>`。応答のトークン長の分布 | **回せばどの run でも出る。**必須ではない |
-| `batch_consistency.json` | `python -m code.analysis.compare_runs --out <path>`。2つの run の応答の突き合わせ | **順1b 限り**(#25 の材料) |
+| `batch_consistency.json` | `python -m code.analysis.compare_runs --out <path>`。2つの run の応答の突き合わせ。**4値分類の一致 + 抽出整数値の一致**を独立ブロックで出す(ADR-045。2026-08-28 採択。**実装は IMPLEMENTER 待ち** —— 現状は `classification_*` のみで `parsed` が無い) | **順1b と段階 C の 100 項目確認**(ADR-040 決定1・7、#25 の材料) |
 
 **トークン長は数え直しであって生成時の実測ではない。**`response` は
 `skip_special_tokens=True` で復号されているので **EOS を含まず、1トークンほど下振れする**
@@ -367,6 +367,13 @@ RUN pip install --no-deps -r /tmp/requirements.lock
 ```
 
 `requirements.lock` は `pip freeze` の出力をコミットしたもの。`>=` を使わない。
+
+> **★2026-08-28(ADR-044)。現状 `infra/requirements.lock` は非コメント行が1行も無く、
+> preflight の `libraries` 検査が WARN のまま通る。**次に GPU ポッドを立てるセッション
+> (順5 の実機など)で、**順1b と同じボリューム `r963j7swke` / 同じベースイメージのポッド上で
+> `pip freeze` を取り、`infra/requirements.lock` に非コメント行として書いて commit する。**
+> 順1b の実測版は torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0 / CUDA 12.8
+> (`runs/20260828_*/env.txt`)。凍結後に版を上げる場合は ADR を書く(ADR-044 決定4)。
 
 ### 記録すべきこと
 

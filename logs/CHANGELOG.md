@@ -2605,3 +2605,32 @@ EOS を含まず、1トークンほど下振れする**):
 - **ポッドは停止済み**(`46pggs1odwb09r` / `EXITED` を `get-pod` で確認)。
   **`cost.txt` は未記入**(人間の作業)
 - 関連 commit: (このコミット)
+
+### docs(adr): 順1b の材料で人間が4件を決定。#20=256 / #25=4 / 承認待ち A→ADR-044 / B→ADR-045   [actor: PLANNER]
+
+- **提案 PLANNER / 採択 人間**(ADR-039 決定3)。**GPU 時間 0。コードは1行も触っていない。**
+- **#20 `model.max_new_tokens = 256`**(ADR-042 決定6 追記)。順1b の T2 最大 86
+  (`token_length.json`。**EOS を含まない下振れ値**。`[run:20260828_095717_smoke1b]` /
+  `[run:20260828_100115_smoke1b_b1]`)の約3倍。段階 C の評価プールは 10,760 項目で
+  順1b の 19 項目より多様であり最大長が 86 を超えうるため余裕を取った。**ADR-038 の下なので
+  段階 C の結果で改訂可**(記録4点 + 順6 の測り直し)。**T1b / T3 は #21 未決なので未測定**
+- **#25 `eval.batch_size = 4`**(ADR-040 決定6 追記)。**4 は決定1 の 19/19 一致を実際に取った値そのもの**
+  (`[run:20260828_095717_smoke1b]` batch 4 対 `[run:20260828_100115_smoke1b_b1]` batch 1。
+  壁時計 batch 4 = 0.276s/item / batch 1 = 0.754s/item)。別の値にすると順1b の一致確認が
+  その値を覆わず決定7 の 100 項目確認だけが根拠になる。**決定5(両者 [MATCHED])は不変**
+- **承認待ち A → ADR-044 採択。**`infra/requirements.lock` に非コメント行が無く preflight の
+  `libraries` 検査が WARN のまま通る件。**次に GPU ポッドを立てるセッションで `pip freeze` を取り
+  順1b の環境に凍結する**(順1b の実測版は torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0)。
+  ADR-031(revision 固定)/ ADR-042 決定1(dtype 固定)と同型
+- **承認待ち B → ADR-045 採択。**`compare_runs.py` が抽出整数値を記録しない件。**項目ごとの
+  `parsed_a` / `parsed_b` / `parsed_match` を足し `batch_consistency.json` に集計を載せる。**
+  IMPLEMENTER タスク・GPU 時間 0。順1b の 19/19 は手作業で確認済なので順1b はやり直さない。
+  段階 C の 100 項目確認(ADR-040 決定7)に間に合えばよい
+- **新規の承認待ち C**: `model.max_new_tokens` に `[MATCHED]` を付けるか。ADR-040 決定5 が
+  `eval.batch_size` を条件間で揃えた理由がそのまま当てはまるが ADR-042 決定6 は明言していない
+- 影響を受けたファイル: `logs/DECISIONS.md`(ADR-040 / 042 に追記、ADR-044 / 045 新設)/
+  `configs/template.yaml`(`max_new_tokens: 256` / `eval.batch_size: 4`。それまで null)/
+  `plans/PLAN-004-phase0-route.md`(順1b を完了に。§2 表 + §3 チェックボックス6つ + §5 の #20・#25 行 + §7)/
+  `infra/RUNPOD.md`(§6 に ADR-044 の手順、§4 の成果物表に ADR-045)/ `STATE.md`
+- **4値分解の数値は文書に一切転記していない**(PLAN-004 §6 罠6 / ADR-037 決定5・6)
+- 関連 commit: (このコミット)

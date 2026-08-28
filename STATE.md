@@ -3,9 +3,26 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-28 / by RUNNER(順1b を実機で回した。**初の GPU 実行。約 19 分**)
+最終更新: 2026-08-28 / by PLANNER(順1b の材料を人間に提示し、決定4件を ADR と config に落とした)
 
-**★★★2026-08-28(最新・RUNNER): 順1b を実機で回した。実験の数値が初めて出た —— ただし
+**★★★★2026-08-28(最新・PLANNER): 順1b が出した材料で人間が4件を決めた。GPU 時間 0。**
+- **#20 `model.max_new_tokens = 256`**(ADR-042 決定6 追記。提案 PLANNER / 採択 人間)。
+  順1b の T2 最大 86〔EOS を含まない下振れ値。`[run:20260828_095717_smoke1b]` 他〕の約3倍。
+  **ADR-038 の下なので段階 C の結果で改訂可**
+- **#25 `eval.batch_size = 4`**(ADR-040 決定6 追記。提案 PLANNER / 採択 人間)。
+  **4 は決定1 の 19/19 一致を実際に取った値そのもの**(batch 4 対 batch 1)。
+  `[MATCHED]` は ADR-040 決定5 で既に決着済(改めて確認)
+- **承認待ち A → ADR-044 採択。**`infra/requirements.lock` を**次のポッドセッションで
+  `pip freeze` を取って順1b の環境に凍結**する(順5 の実機など)。それまで preflight は WARN のまま
+- **承認待ち B → ADR-045 採択。**`compare_runs.py` に**抽出整数値の一致**を記録させる
+  (IMPLEMENTER タスク。GPU 時間 0。段階 C の 100 項目確認〔ADR-040 決定7〕に間に合えばよい)
+- **両値を `configs/template.yaml` に記入した**(`max_new_tokens: 256` / `eval.batch_size: 4`。それまで null)
+- **`plans/PLAN-004-phase0-route.md` の順1b を「完了」にした**(§2 表 + §3 チェックボックス6つ + §7)
+- **新しい承認待ち C が1件**: `max_new_tokens` に `[MATCHED]` を付けるか
+  (ADR-040 決定5 が batch_size を揃えた理由がそのまま当てはまるが、ADR-042 決定6 は明言していない)
+- **4値分解の数値は文書に一切転記していない**(§6 罠6 / ADR-037 決定5・6)
+
+**★★★2026-08-28(その前・RUNNER): 順1b を実機で回した。実験の数値が初めて出た —— ただし
 これは実験ではない**(ADR-037 決定5・6)。**`results/` には何も置いていない。**
 commit は `25aa0df`(revision の記入)/ `2c69a8a`(2 run の成果物と CHANGELOG)。
 - **run は2つできた**: `runs/20260828_095717_smoke1b`(まとめ幅4)と
@@ -33,7 +50,7 @@ commit は `25aa0df`(revision の記入)/ `2c69a8a`(2 run の成果物と CHANGE
   **`cost.txt` は未記入**(人間が書く。uptime 1118 秒 / RTX 4090 / $0.74 per hr)
 - **★人間に上げる指摘が2件出た**(下の「人間の承認・判断を待っている事項」参照):
   **`infra/requirements.lock` に pin が1行も無い** / **`compare_runs` が抽出整数値を
-  記録していない**
+  記録していない** → **2026-08-28 決着(冒頭の★★★★ブロック): A → ADR-044 / B → ADR-045**
 
 **★★2026-08-28(その前・IMPLEMENTER): ADR-040〜043 の反映6件をすべて終えた。GPU 時間 0。**
 `pytest code/tests -q` → **686 passed**(セッション開始時 615)。commit は
@@ -71,9 +88,11 @@ commit は `25aa0df`(revision の記入)/ `2c69a8a`(2 run の成果物と CHANGE
 **決着**: #9 = 0.70(ADR-041)/ `θ` の決定規則5つ(同)/ #20 の3項目(ADR-042)/
 #21 の「5テンプレート」= T2 の5本(同)/ #22 = アダプタを残す(ADR-043)/
 #25 の合否基準と `[MATCHED]`(ADR-040)。
-**残る未決(値のみ)**: `max_new_tokens`(順1b 後)/ `eval.batch_size`(順1b の壁時計時間の後)/
+**残る未決(値のみ)**: ~~`max_new_tokens`(順1b 後)/ `eval.batch_size`(順1b の壁時計時間の後)~~
+→ **2026-08-28 決着: 256 / 4**(冒頭の★★★★ブロック)/
 `θ` の格子点・水準あたり項目数・抽出シード数(順5 の前)/ T3 の確定文面と T1b の書式文字列/
-LoRA の `learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。
+LoRA の `learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`/
+**`max_new_tokens` の `[MATCHED]` 可否**(新規・承認待ち C)。
 ~~**★次のセッションがやること(実装。GPU 時間 0)**: (1)〜(6)~~
 → **2026-08-28 に6件すべて完了した**(冒頭の★★★)。
 **★次にやること: 順1b の実機**(RUNNER。gated アクセスが承認済みなので進められる)。
@@ -228,7 +247,21 @@ HF トークンが残っている。次のセッションは clone と bootstrap
 
 ## いま何をしているか
 
-> **★ 2026-08-28(最新)。RUNNER セッション。順1b を実機で回し終えた。**
+> **★ 2026-08-28(最新)。PLANNER セッション。順1b の材料で人間が4件を決めた。GPU 時間 0。**
+>
+> | 事項 | 決定 | 落とし先 |
+> |---|---|---|
+> | #20 `model.max_new_tokens` | **256**(順1b の T2 最大 86〔下振れ〕の約3倍。ADR-038 の下で改訂可) | ADR-042 決定6 追記 / `configs/template.yaml` |
+> | #25 `eval.batch_size` | **4**(決定1 の 19/19 一致を取った値そのもの) | ADR-040 決定6 追記 / `configs/template.yaml` |
+> | 承認待ち A(lock に pin 無し) | **順1b の環境に凍結**。次のポッドで `pip freeze` | ADR-044 / `infra/RUNPOD.md` §6 |
+> | 承認待ち B(`compare_runs` が抽出値を記録しない) | **実装する**(IMPLEMENTER・GPU 0) | ADR-045 / `infra/RUNPOD.md` §4 |
+>
+> **提案 PLANNER / 採択 人間**(ADR-039 決定3)。**PLAN-004 の順1b を「完了」にした**
+> (§2 表 + §3 チェックボックス6つ + §7)。**4値分解の数値は文書に一切転記していない**。
+> **新規の承認待ち C**: `max_new_tokens` に `[MATCHED]` を付けるか(下の該当節)。
+> **次**: IMPLEMENTER が ADR-045 を実装 → 順4(項目生成の作り直し)。人間が #21 の T3・T1b 文面を起草・確定。
+
+> **★ 2026-08-28(その前)。RUNNER セッション。順1b を実機で回し終えた。**
 > **`infra/RUNPOD.md` §4 の段1〜9 をすべて通した。**下の「その前」のブロックが
 > 止まっていた段2(`403 GatedRepoError`)は**解消している**。
 >
@@ -246,8 +279,8 @@ HF トークンが残っている。次のセッションは clone と bootstrap
 >
 > **GPU 時間の実測は約 19 分**(uptime 1118 秒 / RTX 4090 / $0.74 per hr)。
 > **`results/` は空のまま**(完了条件6)。**順1b は実験ではない。**
-> **次に要るのは人間の決定2つ** —— **`model.max_new_tokens`(#20)と
-> `eval.batch_size`(#25)**。材料は上の冒頭ブロックと `logs/CHANGELOG.md` の表にある。
+> ~~**次に要るのは人間の決定2つ** —— `model.max_new_tokens`(#20)と `eval.batch_size`(#25)~~
+> → **2026-08-28 決着(最新ブロック): 256 / 4**。
 >
 > **★ポッドが変わった。**`hikss5upj15vp2` は `start-pod` が3回とも 400
 > 「ホストに空き GPU が無い」で**再開できない**。**人間が Web コンソールで
@@ -809,8 +842,8 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
 | ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → ~~**256 passed**~~ → ~~**427 passed**~~ → ~~**506 passed**~~ → ~~**589 passed**~~ → **615 passed**(2026-08-28 実測。順1b の前提 (a)(b)(c)) | `code/tests/` |
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
-| **本実行は「回せる」が「まだ回していない」。**残る未決は `model.name` / `revision`(順1b の pull で埋まる)と **`model.max_new_tokens` / `eval.batch_size` の値**である(dtype / device / do_sample は ADR-040 / 042 で決着)。**★2026-08-28: 評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
-| ~~⚠️ **本実行はモデルを GPU に載せず、1プロンプトずつ生成する**(2026-08-28 発見)~~ → **2026-08-28 に解消した。**`model.device` と `eval.batch_size` が **config の必須項目**(null は `ConfigError`)。`load_model_and_tokenizer` が `model.to(settings.device)` で載せ(**`cpu` も通る**)、`build_generator` が**左パディングでまとめ生成**する。`pad_token` を持たないトークナイザ(Llama-3.1 系)は **eos で代用**。**実際のデバイスとまとめ幅は `metrics.json` の `generation` に残る**。⚠️ **実機では未確認** —— 左パディングを伴うまとめ生成がバッチ1と同じ応答を返す保証は無い(貪欲デコードの同点)。**確認は順1b で1度取る(未決 #25)** | 2026-08-28。`code/eval/model.py` の `require_batch_size` / `prepare_tokenizer_for_batched_generation`、`code/eval/generate.py` の `split_into_batches` / `batched_generator` / `_generate_batch` |
+| **本実行は「回せる」が「まだ回していない」。**★2026-08-28: `model.revision`(`0e9e39f…`)/ `model.max_new_tokens`(**256**)/ `eval.batch_size`(**4**)がすべて確定し、`configs/template.yaml` に入った。残る null は `model.name`(`meta-llama/Llama-3.1-8B-Instruct` を書くだけ)と実験同定・シード・LoRA グリッドの値。**評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
+| ~~⚠️ **本実行はモデルを GPU に載せず、1プロンプトずつ生成する**(2026-08-28 発見)~~ → **2026-08-28 に解消した。**`model.device` と `eval.batch_size` が **config の必須項目**(null は `ConfigError`)。`load_model_and_tokenizer` が `model.to(settings.device)` で載せ(**`cpu` も通る**)、`build_generator` が**左パディングでまとめ生成**する。`pad_token` を持たないトークナイザ(Llama-3.1 系)は **eos で代用**。**実際のデバイスとまとめ幅は `metrics.json` の `generation` に残る**。**★2026-08-28: 順1b で実機確認済** —— batch 4 対 batch 1 で ADR-040 決定1 が合格(19/19 で4値分類と抽出整数値が一致。文字列は 16/19 で決定2 により合否外)。**段階 C でも 100 項目で再確認する**(決定7。`compare_runs` 側の実装は ADR-045 待ち) | 2026-08-28。`code/eval/model.py` の `require_batch_size` / `prepare_tokenizer_for_batched_generation`、`code/eval/generate.py` の `split_into_batches` / `batched_generator` / `_generate_batch` |
 | **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(人間の確認待ち) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | **`runs/<id>/metrics.json` に壁時計時間が残る**(★2026-08-28。ADR-040 決定6)。`timing` に 合計 / **重みの読み込み** / **生成** / 1項目あたり秒。区間は単調時計で測る(壁時計の差は NTP の補正で負になりうる)。**`eval.batch_size` の値はこの記録から決める** | `code/artifacts.py` の `timing_record` / `timing_line`、`code/eval/run.py`、`code/eval/sweep.py` |
@@ -922,32 +955,36 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
   第一候補 Llama-3.1-8B は ADR-008 で確定済み
 - **`infra/Dockerfile` のベースイメージタグが未確定**(`UNPINNED-未確認`)。
   実在を確認していないタグを書かないため空けてある(`CLAUDE.md` §2)
-- **`infra/requirements.lock` が空。**最初にポッドを立てて `pip freeze` した時点で埋める
+- **`infra/requirements.lock` が空。**→ **ADR-044(2026-08-28 採択)。**次に GPU ポッドを立てる
+  セッション(順5 の実機など)で、順1b と同じボリューム `r963j7swke` / 同じイメージのポッド上で
+  `pip freeze` を取って埋め、commit する。それまで preflight の `libraries` 検査は WARN のまま
 - RunPod のインスタンスタイプとコスト見積もりが未確定
 
 ---
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
 
-> **★★2026-08-28 追記(RUNNER。順1b を実機で回して2件出た)。**
+> **★★2026-08-28 決着(PLANNER)。RUNNER が順1b で出した2件を人間が判断した。**
 >
-> **A. `infra/requirements.lock` に pin が1行も無い**(696バイトすべてコメント)。
-> **preflight の `libraries` 検査が「requirements.lock が空。pin と照合できない」で
-> WARN のまま通る。**順1b は WARN で通したが、**本実験は「条件間でハードウェアと
-> ライブラリ版を揃える」ことを前提にしている**(`infra/RUNPOD.md` §6)。
-> **実際に走った版は `runs/<id>/env.txt` に残っている**(torch 2.8.0+cu128 /
-> transformers 5.16.1 / peft 0.20.0 / CUDA 12.8)ので**来歴は追える**が、
-> **「揃っているか」を機械が判定できない。**lock を埋めるか、
-> 「埋めない」と決めて WARN を許容するかは**人間が決める**。
-> **エージェントは版を選べない**(skill `code-style` §5)
+> **A → ADR-044 採択。**`infra/requirements.lock` を**順1b の環境に凍結する**。
+> 次に GPU ポッドを立てるセッション(順5 の実機など)で、順1b と同じボリューム
+> `r963j7swke` / 同じベースイメージのポッド上で `pip freeze` を取り、
+> `infra/requirements.lock` に非コメント行として書いて commit する。
+> **それまで preflight の `libraries` 検査は WARN のまま。**凍結後に版を上げる場合は ADR。
+> `infra/RUNPOD.md` §6「環境の固定」に手順を追記済
 >
-> **B. `code/analysis/compare_runs.py` が「抽出された整数値」を記録していない。**
-> **ADR-040 決定1 の合否は「4値分類」と「抽出された整数値」の両方の一致**だが、
-> `batch_consistency.json` に入るのは `classification_a` / `classification_b` だけで
-> **`parsed` が無い。**順1b では `predictions/*.jsonl` の `parsed` を
-> **手で突き合わせて 19/19 を確認した**(その手順は `batch_consistency.json` に
-> 残らない)。**段階 C でも同じ確認を 100 項目で取る**(決定7)ので、
-> **`compare_runs` 側に `parsed` の一致を入れるかどうかを人間が決める**
+> **B → ADR-045 採択。**`code/analysis/compare_runs.py` に**項目ごとの
+> `parsed_a` / `parsed_b` / `parsed_match` を足し**、`batch_consistency.json` に
+> 抽出整数値の一致の集計を載せる。4値分類の一致とは独立ブロックで出す。
+> **合否基準は作らない**(ADR-040 決定1・3 が正本)。**IMPLEMENTER タスク。GPU 時間 0。**
+> 順1b の 19/19 は手作業で確認済なので**順1b はやり直さない**。段階 C の 100 項目確認
+> (ADR-040 決定7)に間に合えばよい。`infra/RUNPOD.md` §4 の成果物表を追記済
+>
+> **★新規 C(PLANNER が #20 の確定時に立てた)。**`model.max_new_tokens` に
+> **`[MATCHED]` を付けるか**。ADR-042 決定6 は値(256)は確定したが `[MATCHED]` を明言していない。
+> ADR-040 決定5 が `eval.batch_size` を条件間で揃えた理由(「温度0でも batch 構成等で揺れる」
+> → 条件差にその揺れが乗る)がそのまま当てはまる。**付けないと p2 と x2 で長応答の打ち切りが
+> 非対称になり 4値分解の比較が汚れうる。**`configs/template.yaml:45` にこの注記あり(現状タグなし)
 
 > **★2026-08-28 追記(IMPLEMENTER)。8-6 と ADR 反映で5件増えた。**
 > **場所**: 1〜4 は `plans/PLAN-004-phase0-route.md` §3 順8「8-6 でやったこと」の
@@ -1079,10 +1116,10 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | ~~**PLAN-002 §12-11**~~ | ~~判別不能の除外を `K` の抽出母集団に掛けるか~~ → **2026-08-27 決着。掛けない**(評価項目にだけ掛ける)。**ADR-034 採択済。コード・テスト・文書を同日に反映した** | 決着 |
 | **17** | Nikankin et al. (2025) の原典確認(SCOUT に投げる)。**2026-08-27 に #16 = (a) が決まり、対立軸を単独で支えることになったので必須化した** | 凍結。**優先: 高** |
 | **10** | W6 の分岐(T2 が Go/No-Go を割ったときの降り方) | Go/No-Go 実施時 |
-| **20** | **(新規 2026-08-27)** **生成設定**(`model.dtype` / `max_new_tokens` / デコード設定 / few-shot 数)。`configs/template.yaml:28-33` がすべて `null` で、**エージェントは既定値を作れない**(skill `code-style` §5) | **段階 C の前**(PLAN-004 §5) → **2026-08-28 決着(ADR-042)。**dtype=bfloat16 / 貪欲(`do_sample: false`)/ 0-shot。**`max_new_tokens` は順1b 後** |
+| **20** | **(新規 2026-08-27)** **生成設定**(`model.dtype` / `max_new_tokens` / デコード設定 / few-shot 数)。`configs/template.yaml:28-33` がすべて `null` で、**エージェントは既定値を作れない**(skill `code-style` §5) | **段階 C の前**(PLAN-004 §5) → **2026-08-28 決着(ADR-042)。**dtype=bfloat16 / 貪欲(`do_sample: false`)/ 0-shot。**`max_new_tokens = 256` 確定**(2026-08-28。ADR-042 決定6 追記。順1b の T2 最大 86〔下振れ〕の約3倍。ADR-038 の下で段階 C 改訂可)。**残: `[MATCHED]` 可否(承認待ち C)** |
 | **21** | **(新規 2026-08-27)** **本番の評価テンプレート集合**(T1b / T3 の確定文面)。`data.eval_template_set` がどの config でも `null`。**タスク6(プロンプト感受性)が依存する** | **段階 C の前**(PLAN-004 §5) → **2026-08-28 一部決着(ADR-042)。**「5テンプレート」= T2 の5本。**確定文面は未起草** |
 | **22** | **(新規 2026-08-27)** **LoRA アダプタを `runs/<id>/` に残すか。**`infra/RUNPOD.md` §4 の必須成果物に無く、`adapter` / `アダプタ` は `RUNPOD.md` / `04_EXPERIMENT_PLAN.md` / PLAN-002 / PLAN-003 のどこにも現れない。**残さないと 40 run の後に評価を足すには再訓練が要る** | 順8 まで → **2026-08-28 決着(ADR-043)。残す。**8-6 に着手できる |
-| **25** | **(新規 2026-08-28)** **バッチ生成の `batch_size` を実験装置の設定として扱うか。**バッチ1のままでは段階 C が回らないのでバッチ化は要るが、**左パディングを伴うバッチ生成がバッチ1と同じ出力を返す保証は無い**(貪欲デコードの同点で割れうる)。`infra/RUNPOD.md` §6「ハードウェアの統制」が条件間の構成一致を求めているので、**全条件で同一に固定して `env.txt` に残す**のが既定案。値そのものはエージェントが作れない(skill `code-style` §5)。**★2026-08-28: 実装は済んだ**(config 必須・`metrics.json` に記録)。**人間が決めるのは (1) 値そのもの (2) [MATCHED] にするか (3) バッチ1 対 バッチ N の一致確認の合否基準**。実行デバイス `model.device` も同じ性質なので本項に含める | **順1b の前**(★実装は 2026-08-28 に完了。**値は未決のまま**。#20 と同時でよい) → **2026-08-28 決着(ADR-040)。**合否 = 4値分類の 19/19 一致。**`batch_size` の値だけ順1b 後** |
+| **25** | **(新規 2026-08-28)** **バッチ生成の `batch_size` を実験装置の設定として扱うか。**バッチ1のままでは段階 C が回らないのでバッチ化は要るが、**左パディングを伴うバッチ生成がバッチ1と同じ出力を返す保証は無い**(貪欲デコードの同点で割れうる)。`infra/RUNPOD.md` §6「ハードウェアの統制」が条件間の構成一致を求めているので、**全条件で同一に固定して `env.txt` に残す**のが既定案。値そのものはエージェントが作れない(skill `code-style` §5)。**★2026-08-28: 実装は済んだ**(config 必須・`metrics.json` に記録)。**人間が決めるのは (1) 値そのもの (2) [MATCHED] にするか (3) バッチ1 対 バッチ N の一致確認の合否基準**。実行デバイス `model.device` も同じ性質なので本項に含める | **順1b の前**(★実装は 2026-08-28 に完了) → **2026-08-28 完全決着(ADR-040)。**合否 = 4値分類+抽出整数値の 19/19 一致 / 両者 `[MATCHED]`(決定5)/ **`batch_size = 4` 確定**(2026-08-28。決定6 追記。決定1 の 19/19 一致を取った値そのもの) |
 | ~~**23**~~ | ~~スモークの段を挿すか~~ → **2026-08-27 決着。採択(ADR-037)。****順1b(本番モデルによるスモーク)を新設した。**★**小モデルではなく `meta-llama/Llama-3.1-8B-Instruct` で回す**(小モデルではトークナイザが違い `max_new_tokens` の材料にならない)。**GPU 小は人間が承認済み。この pull のハッシュが本実験の `model.revision` になる**(ADR-031) | 決着 |
 | ~~**24**~~ | ~~#20 を段階 C の結果で改訂してよいか~~ → **2026-08-27 決着。改訂してよい(ADR-038)。****#20 の4項目すべてが対象。**要件は **(a) 日付 / (b) 理由 / (c) 改訂前の値 / (d) 根拠にした run_id** を残すことと、**改訂後の設定で順6 を測り直す**こと。**期限は段階 D(順9)まで。許可は #20 に限る**(#9 / #15 / #21 には及ばない) | 決着 |
 | — | **検出力分析(`05_STATISTICS.md` §6)の再導出。**主要検定が `task:coverage` の LRT(**df = 6**)に変わったのに想定効果量が旧のまま。**効果量を「交互作用プロファイルの形」として指定する必要があり、人間の入力が要る** | 凍結 |
@@ -1149,9 +1186,12 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 満たされた**が、**段階 C に入るには人間の承認が要る**。
 ~~**エージェントが人間の入力なしで進められる作業は、いま無い。**~~
 **★2026-08-28: この判断は 2026-08-26 のものである。**段階 B の4群が採択され(ADR-039〜043)、
-その反映6件も終わった。**いま止まっているのは GPU を使う順1b(RUNNER)であり、
-gated アクセスは承認済みなので回せる。**GPU を使わない実装の残りは
-`plans/PLAN-004-phase0-route.md` §5 の未決の値(人間が決める)に依存する。
+その反映6件も、**順1b の実機も、順1b が出した材料での人間の決定4件(#20 / #25 / 承認待ち A・B)も終わった。**
+**次に GPU を使わずに進められる作業**: (1) ADR-045 の実装(`compare_runs.py`。IMPLEMENTER)/
+(2) PLAN-004 順4(項目生成の作り直し。ただし #21 の T3・T1b 文面が未起草だと `eval_template_set` は埋まらない)/
+(3) 順8 の残り(LoRA グリッドの値は人間待ちだが訓練コード自体は完成済)。
+**人間待ち**: #21 の T3・T1b 文面の起草・確定 / 承認待ち C(`max_new_tokens` の `[MATCHED]`)/
+ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁数掃引。要 GPU 承認)。
 
 ---
 
@@ -1224,7 +1264,36 @@ gated アクセスは承認済みなので回せる。**GPU を使わない実�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。RUNNER。2026-08-28。順1b を実機で回した。GPU 約 19 分):**
+**完了したこと(最新セッション。PLANNER。2026-08-28。順1b の材料で人間が4件を決定。GPU 時間 0):**
+
+- **#20 `model.max_new_tokens = 256` / #25 `eval.batch_size = 4` を人間が採択**
+  (提案 PLANNER / 採択 人間。ADR-039 決定3)。**ADR-042 決定6 / ADR-040 決定6 に追記**
+  (run_id と「EOS を含まない下振れ値」の注記ごと)。**`configs/template.yaml` に両値を記入**(それまで null)
+- **承認待ち A → ADR-044**(`requirements.lock` を順1b の環境に凍結。次のポッドセッションで `pip freeze`)/
+  **承認待ち B → ADR-045**(`compare_runs.py` に抽出整数値の一致を記録。IMPLEMENTER タスク・GPU 0)
+- **`plans/PLAN-004-phase0-route.md` の順1b を「完了」にした**(§2 表 + §3 チェックボックス6つ + §7 実行ログ)。
+  §2 の順2 行も追随(`max_new_tokens` 確定を反映)。§5 の #20 / #25 行も追随
+- **`infra/RUNPOD.md`**: §6 に ADR-044 の手順、§4 の成果物表に ADR-045 を追記
+- **新しい承認待ち C**: `max_new_tokens` に `[MATCHED]` を付けるか(上の「人間の承認・判断を待っている事項」)
+- **4値分解の数値は文書に一切転記していない。**commit: (このセッションのコミット)
+- **触っていない**: `configs/smoke*.yaml`(revision は確定値)/ `results/`(空のまま)/ コード(1行も)
+
+**次にやるべきこと(このセッションでは着手しない):**
+
+1. **IMPLEMENTER: ADR-045 の実装**(`code/analysis/compare_runs.py` + `code/tests/`。GPU 時間 0)。
+   `parsed_a` / `parsed_b` / `parsed_match` を項目ごとに、`batch_consistency.json` に集計。
+   `None` 対 `None`(両方 parse_fail)は「比較対象外」で別カウント(ADR-045 リスク欄)
+2. **IMPLEMENTER: 順4**(本実験の項目生成と評価プールの作り直し)。順0 / 1 / 2 の決定を反映。
+   ただし **#21 の T3・T1b 文面(ADR-042 決定10)がまだ未起草**なので `eval_template_set` は埋まらない
+3. **人間: 承認待ち C**(`max_new_tokens` の `[MATCHED]`)/ **#21 の T3・T1b 文面の起草・確定**
+   (ADR-032 と同じ手続き)/ ADR-041 決定5(θ の格子点・水準あたり項目数・抽出シード数)
+4. **RUNNER(要 GPU 承認): 順5**(桁数掃引 → M*)。その実機で `pip freeze` を取り ADR-044 を履行する
+
+**未解決点:** 下の「人間の承認・判断を待っている事項」。**A / B は決着、C が新規。**
+
+---
+
+**完了したこと(その前のセッション。RUNNER。2026-08-28。順1b を実機で回した。GPU 約 19 分):**
 
 - **`infra/RUNPOD.md` §4 の段1〜9 をすべて通した。**commit `25aa0df` / `2c69a8a` / `9eaeb48`
 - **`model.revision` が確定した**: **`0e9e39f249a16976918f6564b8830bc894c89659`**
@@ -1241,17 +1310,9 @@ gated アクセスは承認済みなので回せる。**GPU を使わない実�
   (19 項目。重み読み込みは別枠で約 70s)
 - **ポッドは停止済み**(`46pggs1odwb09r` / `EXITED`)。**`cost.txt` は未記入**(人間が書く)
 
-**次にやるべきこと:**
-
-1. **人間が `model.max_new_tokens`(#20)を決める** —— 材料は上の word_problem 最大 86。
-   **ADR-042 に追記する。転記するときは run_id と「EOS を含まない下振れ値」の注記ごと**
-2. **人間が `eval.batch_size`(#25)を決める** —— 材料は上の壁時計。**ADR-040 決定6**
-3. **`plans/PLAN-004-phase0-route.md` §3 順1b のチェックボックスと §2 の表の行を
-   「完了」に直す**(RUNNER は触ってよいファイルに入っていなかったので**手を付けていない**)
-4. **承認待ち A / B**(`requirements.lock` に pin が無い / `compare_runs` が抽出整数値を
-   記録していない)を人間が判断する
-
-**未解決点:** 下の「人間の承認・判断を待っている事項」がすべて残っている。
+**この4件は上の PLANNER セッション(2026-08-28)で消化した:**
+`max_new_tokens = 256`(ADR-042 決定6)/ `eval.batch_size = 4`(ADR-040 決定6)/
+PLAN-004 の順1b を「完了」に / 承認待ち A → ADR-044・B → ADR-045。
 
 ---
 

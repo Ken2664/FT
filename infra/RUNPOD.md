@@ -280,14 +280,31 @@ python -m code.eval.run --config configs/smoke1b_b1.yaml --run-dir "$RUN_B"
 python -m code.analysis.compare_runs \
     --run-a "$RUN_A" --run-b "$RUN_B" --out "$RUN_A/batch_consistency.json"
 # **generation_diff が batch_size だけであることを目で確かめる。**
-# 食い違いが1件でもあれば、**4値分解を読む前に人間に上げる**(logs/HANDOFF.md)。
-# 合否基準はエージェントが作らない(#25 の3つめ)。
+# **合否基準は ADR-040 決定1・2 で決着した(★2026-08-28)**:
+#   合格 = **全19項目で「抽出後の4値分類」と「抽出された整数値」が一致する(19/19)**。
+#   **生成文字列そのものの一致率は記録のみで合否に使わない**(決定2)——
+#   末尾の空白・改行・言い回しの差は主張を1つも変えない。
+# **不合格時の降り方も先に固定してある(決定3)**:
+#   (i) batch_size を半分にして再確認 → (ii) それでも割れるなら段階 C を batch_size: 1 で
+#   回すか割れた項目を人間が見る → (iii) **「割れたまま段階 C に進む」は選ばない。**
+# **n=19 は「割れないこと」の保証ではない**(決定3 のリスク欄)。段階 C の本番でも
+# プールの部分集合 100 項目で同じ確認を1回取る(決定7)。
 
 # ---- 8. 完了条件4。**答えのトークン長の分布** ------------------------------
 python -m code.analysis.token_length --run-dir "$RUN_A"   # -> $RUN_A/token_length.json
 python -m code.analysis.token_length --run-dir "$RUN_B"
 # n_at_cap > 0 の群があれば、その分布は右側で打ち切られている。
 # **打ち切られた長さを max_new_tokens の根拠にしない。**
+
+# ---- 8b. **壁時計時間を読む。`eval.batch_size` の値の材料である**(ADR-040 決定6)--
+#     ★2026-08-28 に実装した。runs/<id>/metrics.json の timing に
+#     total_seconds / model_load_seconds / generation_seconds / seconds_per_item が入る。
+#     **重みの読み込みと生成は分けて記録される**(8B の読み込みは分単位で、
+#     混ぜると1項目あたりの秒数が読めない)。log.txt にも「壁時計:」の1行が出る。
+python -c "import json,sys; print(json.load(open(sys.argv[1]))['timing'])" "$RUN_A/metrics.json"
+python -c "import json,sys; print(json.load(open(sys.argv[1]))['timing'])" "$RUN_B/metrics.json"
+#     **値を決めるのは人間である**(決定6)。エージェントは秒数を run_id と
+#     セットで ADR-040 に上げるところまで。
 
 # ---- 9. 課金の記録と停止 ---------------------------------------------------
 #     cost.txt は**人間が書く**(§4「誰が書くか」/ 書式は §7)。

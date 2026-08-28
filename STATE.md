@@ -1148,7 +1148,30 @@ gated アクセスは承認済みなので回せる。**GPU を使わない実�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。PLANNER。2026-08-28。段階 B の4群を人間が採択):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-28。ADR-040〜043 の反映6件。GPU 時間 0):**
+
+- **6件すべて完了。**commit `00c4fa1`(1〜3)/ `4fd6733`(4〜5)/ `76bc6fb`(6)/
+  `eec6d78`(STATE)。`pytest code/tests -q` → **686 passed**(開始時 615)
+- **`runs/<id>/metrics.json` に `timing` が入る**(ADR-040 決定6)。
+  合計 / 重みの読み込み / 生成 / 1項目あたり秒。区間は単調時計
+- **`eval.do_sample` が必須項目**(ADR-042 決定2)。温度からの派生をやめた
+- **`configs/template.yaml`**: `dtype: bfloat16` / `device: cuda:0` / `do_sample: false` /
+  `train.lora.dropout: 0.0` / `model.adapter: null`(新設)。**値の未決は null のまま**
+- **PLAN-001 §4.1.1 の `M*`** と **PLAN-003 §6.5a の fallback** を ADR に合わせた
+- **8-6 完了**(ADR-043)。アダプタは `runs/<id>/adapter/`、評価は `model.adapter` で読み、
+  `metrics.json` に `seed` が入る。`alpha = 2 × rank` を門にした。`code/weights.py` 新設
+- **`infra/RUNPOD.md` §4 の順1b 手順を2箇所直した**(★このセッションの最後):
+  手順7 の合否基準を **ADR-040 決定1・2・3**(19/19 一致 / 文字列は記録のみ / 降り方3段)に、
+  手順 8b に**壁時計時間を読む段**を追加した
+- **実験は1つも回していない。`results/` は空。GPU 時間 0。ポッドは `EXITED` のまま**
+
+**次にやるべきこと: 順1b の実機(RUNNER。GPU 小)。**
+`infra/RUNPOD.md` §4「順1b の手順」が正本。**gated アクセスは承認済み**(2026-08-28)。
+**必要なコードは揃っている** —— 壁時計時間・`do_sample`・`device` / `batch_size` は実装済み。
+
+---
+
+**その前のセッション(PLANNER。2026-08-28。段階 B の4群を人間が採択):**
 
 - **ADR-039〜043 を `logs/DECISIONS.md` に採択で追記した**(commit `90d53cd`)。
   **ADR-039 は規約変更である** ——「エージェントが案を出すべきでない」を撤回し、

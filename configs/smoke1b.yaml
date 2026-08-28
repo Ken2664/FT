@@ -188,7 +188,11 @@ eval:
 resources:
   # 8B を bfloat16 で読むと重みが約 16GB。max_new_tokens=128 × 18項目 で
   # 活性は小さい。24GB 級で足りるが、preflight の閾値はその実測値を置くこと
-  min_vram_gb: 24
-  gpu_type: null            # ★ポッドを確保したら実際の型を書く(infra/RUNPOD.md §6)
+  # ★2026-08-28 実測: RTX 4090 の nvidia-smi は 24564 MiB = **23.988 GiB** を返す。
+  #   「24GB 級」の card は公称 24 を下回るので、閾値 24 では自分の GPU を弾く
+  #   (preflight の check_gpu は MiB/1024 と比べる)。**公称ではなく実測に合わせる。**
+  #   23.9 は実測 23.988 のすぐ下で、20GB 以下の card は依然として弾く。
+  min_vram_gb: 23.9
+  gpu_type: "NVIDIA GeForce RTX 4090"   # 2026-08-28 実測(infra/RUNPOD.md §6)
   estimated_gpu_hours: 1.0
   human_approval_date: "2026-08-27"   # PLAN-004 §7 の GPU 使用の承認記録

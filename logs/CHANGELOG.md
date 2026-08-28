@@ -2277,3 +2277,23 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   `torch==2.8.0+cu128` のようなローカル版指定は PyPI から入らない。
   **lock を埋める段(この後)で、復元経路が本当に通るかは別途確かめる必要がある**
 - 関連 commit: (このコミット)
+
+### fix(runpod): 順1b の VRAM 閾値を公称 24 から実測 23.9 に直し、gpu_type を埋めた   [actor: RUNNER]
+
+- **ポッド上の preflight が `[FAIL] GPU VRAM 不足: 24.0 GB < 必要 24 GB` で止まった。**
+  `nvidia-smi` が返すのは **24564 MiB = 23.98828125 GiB** であり、
+  `check_gpu` は `MiB / 1024` を `resources.min_vram_gb` と比べる
+  (`infra/preflight.py:155`)。**「24GB 級」の card は公称 24 を必ず下回る**ので、
+  閾値 24 は**人間が選んだその GPU 自身を弾いていた**
+- **config のコメントが最初からそう指示していた** ——
+  「24GB 級で足りるが、**preflight の閾値はその実測値を置くこと**」。
+  24 は実機を見る前の仮置きだった。**実測に合わせただけであり、要求を緩めた判断ではない**
+- `configs/smoke1b.yaml` / `configs/smoke1b_b1.yaml` の**両方に同じ値**を書いた
+  (`test_smoke1b_configs.py` が非対称を禁じている):
+  - `min_vram_gb: 24` → **`23.9`**(実測 23.988 のすぐ下。20GB 以下の card は依然として弾く)
+  - `gpu_type: null` → **`"NVIDIA GeForce RTX 4090"`**(`infra/RUNPOD.md` §6 の「実際の型を書く」)。
+    **`gpu_type` はコードのどこからも読まれていない。記録専用の欄である**
+- `pytest code/tests -q` → **643 passed**(変化なし)。`configs/smoke.yaml` は無傷
+- **人間に上げること**: 23.9 という数字はエージェントが選んだ。
+  **「24GB 級を要求する」という意図をそのまま写したつもりだが、確認されたい**
+- 関連 commit: (このコミット)

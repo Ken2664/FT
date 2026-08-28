@@ -2380,3 +2380,12 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   ADR-040 決定6 が成り立たない。**(2) `do_sample` を config が持っていない**(ADR-042 決定2)
 - **実験は1つも回していない。`results/` は空。GPU 時間 0。ポッドは `EXITED` のまま**
 - 関連 commit: (このコミット)
+
+### docs(plan): セッション引き継ぎを記録した(コンテキスト超過で切った)   [actor: PLANNER]
+
+- **hook `context-guard` が約 154k で警告した**ため skill `handoff` を実行した
+- `STATE.md` の冒頭・段階 B の表・「引き継ぎ」を更新し、`logs/HANDOFF.md` を上書きした
+- **次セッションは IMPLEMENTER。**ADR-040〜043 のコード・文書への反映6件(GPU 時間 0)。
+  **うち 1〜3(壁時計時間 / `do_sample` / `template.yaml` の2値)が順1b 再開の前提**
+- **ポッド `hikss5upj15vp2` は `EXITED` のまま。課金は止まっている。GPU 時間 0**
+- 関連 commit: (このコミット)

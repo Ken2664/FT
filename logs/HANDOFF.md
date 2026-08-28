@@ -1,128 +1,90 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-08-28 / 直前セッションの役割: RUNNER
-直前セッションが終了した理由: コンテキスト超過(hook `context-guard` が閾値 100k 超)+ 外部要因で作業がブロック
-
-> **★★ ポッドは停止済みである(`hikss5upj15vp2` / `status: EXITED`)。課金は止まっている。**
-> **★★ 順1b は「HF の gated アクセス承認待ち」で止まっている。人間の作業が先に要る。**
-> **承認が降りていないなら、ポッドを起動してはいけない。**起動しても段2 で同じ 403 で止まる。
+生成: 2026-08-28 / 直前セッションの役割: PLANNER
+直前セッションが終了した理由: コンテキスト超過(hook `context-guard` が約 154k で警告)
 
 ---
 
-あなたは **RUNNER** です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
-**RunPod MCP を有効にするセッションです**(`CLAUDE.md` §10.2)。
-
-## 最初に確認すること(これが No なら何も起動しない)
-
-**`meta-llama/Llama-3.1-8B-Instruct` のアクセス承認は降りたか。**
-人間に聞くか、承認済みなら次で確かめられる(ローカルで可。GPU 不要):
-
-```bash
-python -c "from huggingface_hub import HfApi; HfApi(token='<Ken5615 のトークン>').hf_hub_download('meta-llama/Llama-3.1-8B-Instruct','config.json')"
-```
-
-**403 が返るならまだ承認されていない。**その場合はポッドを起動せず、
-人間に「申請の状態」を確認して終わること。
+あなたは IMPLEMENTER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+実装規約は skill `code-style`。
 
 ## このセッションでやること(1つだけ)
 
-**順1b —— 停止済みポッドを再開し、段2 から最後まで回して、ポッドを停止する。**
+**2026-08-28 に採択された ADR-040〜043 をコードと文書に反映する。GPU は使わない。**
+下の6件を上から順に片付け、**`pytest code/tests -q` を通すこと**(直前は 615 passed)。
 
-**コマンド列は `infra/RUNPOD.md` §4「順1b の手順」がすべて持っている**(段1〜9)。
-**それをそのままなぞる。このプロンプトに手順を再掲しない。**
-`grep -n '順1b の手順' infra/RUNPOD.md` で位置を出すこと。
+1. **`runs/<id>/` に壁時計時間を残す。**`code/eval/run.py` / `code/artifacts.py` に
+   `elapsed` / `duration` / `time()` が**1つも無い**(2026-08-28 に grep で確認)。
+   **ADR-040 決定6(`eval.batch_size` の値を順1b の壁時計時間で決める)がこれ無しでは成り立たない。**
+   `metrics.json` に残すこと。テストを足すこと
+2. **`do_sample` を config と `GenerationSettings` に持たせる**(ADR-042 決定2)。
+   **`do_sample: false` が正本であり、`temperature` は正本ではない。**
+   `metrics.json` の `generation` に残ること
+3. **`configs/template.yaml` を埋める**: `model.dtype: bfloat16`(ADR-042 決定1)、
+   `model.device: cuda:0`(ADR-040 決定4)。**`max_new_tokens` と `eval.batch_size` は null のまま**
+4. **`plans/PLAN-001-eval-battery.md` §4.1.1 の 3 の文言を直す。**
+   「`correct_rate >= θ` を満たす**最大の** `M`」→ **ADR-041 決定3 規則2**
+   (「`M` を小さい順に見て、初めて `θ` を割った水準の1つ下。それより上で回復しても採らない」)
+5. **`plans/PLAN-003-redesign.md` §6.5a / :711 の fallback 記述を差し替える。**
+   「0-shot → 4-shot」→ **ADR-042 決定5**((i) 答え書式の指示文 → (ii) #10 W6 → (iii) few-shot は使わない)
+6. **8-6**: `code/train/lora.py:build_trainer` の #22 の門を外し、アダプタを保存する。
+   手順は `plans/PLAN-004-phase0-route.md` §3 順8「8-6 が待っているもの」の (a)〜(e)。
+   **保存するのはアダプタ重みのみ**(`adapter_model.safetensors` + `adapter_config.json`)、
+   置き場所は **`runs/<id>/adapter/`**(ADR-043 決定1・2)。
+   **`infra/RUNPOD.md` §4「必ず残すもの」にアダプタを足す**
 
-**段 1 / 段 2b はもう済んでいる。段2 から始める。**
-
-再開の入口(これだけは手順に書かれていない):
-
-```
-1. start-pod hikss5upj15vp2          (RunPod MCP)
-2. list-pods                          ← **IP とポートは再開のたびに変わる。必ず引き直す**
-3. ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519
-4. source /workspace/venv/bin/activate && export HF_HOME=/workspace/.cache/huggingface
-5. cd /workspace/translesion && git pull && python -m pytest code/tests -q
-6. → infra/RUNPOD.md §4 の段2 へ
-```
-
-完了条件は `plans/PLAN-004-phase0-route.md` §3「順1b」の**チェックボックス6つ**:
-
-1. 順1b 用の config → **済**(`configs/smoke1b.yaml` / `configs/smoke1b_b1.yaml`)
-2. 重みを pull し **HF コミットハッシュを記録する** → **未(403 で止まった)**
-3. `code.eval.run` を通し `runs/<id>/` に必須成果物を残す → **未**
-4. **答えのトークン長の分布**(T1 / T2)→ **未**(手段は実装済。`code/analysis/token_length.py`)
-5. `infra/RUNPOD.md` §4 に順1b の手順を書く → **済**
-6. **`results/` に何も置いていない**ことを確認する → 最後に確認する
-
-**「モデルが何点取ったか」は完了条件ではありません。**
+**1〜3 が終わった時点で一度コミットしてよい。**順1b の実機再開に必要なのは 1〜3 だけである。
 
 ## 直前セッションで確定したこと
 
-- **ポッド上の環境は出来上がっている。clone も bootstrap もやり直さなくてよい。**
-  `/workspace/translesion`(repo)/ `/workspace/venv`(venv)/ `/workspace/.cache/huggingface`
-  (`HF_HOME`)/ `/workspace/runs`(`runs/` のリンク先)。**ポッド上で 643 passed**
-  - **venv は `--system-site-packages` で作ってある。**ポッドの python は PEP 668 の
-    externally-managed で、素の `pip install` は弾かれる。**必ず venv を activate する**
-- **段 2b(データ再生成)は完了し、決定性を実機で確認した。**
-  `git diff data/generated` から `created_at` / `git_commit` を除くと**差分ゼロ**。
-  ハッシュ類(`matched_stream_sha256` / `sums_hash` / `format_hash`)は**一致**
-- **preflight は FAIL 1件まで減っている**(`model.revision` が null)。段2 が通れば消える
-- **実装の穴を2つ塞いだ**(どちらもポッド上で踏んだ。**GPU を使う前に露見した**):
-  - `70541c7` **`infra/bootstrap.sh`**: `[ -s lock ]` はサイズしか見ず、
-    コメントだけの lock を「復元できる」と誤判定していた
-  - `7600526` **`min_vram_gb: 24` が RTX 4090 自身を弾いていた。**
-    `nvidia-smi` は **24564 MiB = 23.988 GiB** を返す。**両 config を `23.9`** にし、
-    `gpu_type` に `"NVIDIA GeForce RTX 4090"` を書いた(**人間が 23.9 を承認済み**)
-- **止まった理由**: `403 GatedRepoError`。**「you are not in the authorized list」**。
-  `hf auth login` は成功していて `whoami` も `model_info` も通る。**トークンの問題ではない**
-- **GPU 時間の実測は 0 のまま。モデルは1度も読み込んでいない。`runs/` に run は無い。
-  `results/` は空。事前登録の tag なし**
+- **ADR-039(規約変更)**: 「エージェントが案を出すべきでない」を**撤回した**。
+  **エージェントは案を出してよい。禁止されるのは決定・確定・解釈である。**
+  案には根拠を併記し、根拠を持たない値は「根拠を持たない」、実測でない数値は
+  「**算定値。実測ではない**」と明示して**文書に転記しない**。
+  採択の記録は**提案者と採択者を分けて**書く。**段階 D の凍結後は解析計画・予測の案を出さない**
+- **ADR-040(#25)**: 合否は**「抽出後の4値分類 + 抽出された整数値」の 19/19 完全一致**。
+  生成文字列の一致率は**記録のみで合否に使わない**。不合格時は
+  (i) `batch_size` を半分 → (ii) 段階 C を `batch_size: 1` か人間が見る → (iii) **割れたまま進まない**。
+  `device: cuda:0`、`batch_size` / `device` とも `[MATCHED]`。
+  **`batch_size` の値だけ順1b の壁時計時間の後に本 ADR へ追記して確定する**
+- **ADR-041(順3)**: **#9 = 0.70 で確定**(規範的線引きであり実測から導いた量ではない)。
+  **`θ` は値ではなく決定規則5つを凍結**。`M* < 100` なら **`θ` を下げず外挿テストを取り下げ**、
+  被覆軸2水準・**df 6 → 3** で順7 の検出力を引き直す
+- **ADR-042(#20 / #21)**: dtype=bfloat16 / **貪欲(`do_sample: false`)** / 0-shot。
+  **Go/No-Go #1 の fallback から few-shot を外した。**
+  T1b = `{a}+{b}>{T}?`(**答え書式の指示は置かない**)/ T3 = 英文1本 + `Answer Yes or No.` /
+  **「5テンプレート」は T2 の5本**でタスク6 は T2 のみ
+- **ADR-043(#22 / LoRA)**: **アダプタを残す**。**`alpha = 2 × rank`**(`alpha/rank` を一定に保つ)。
+  **`[MATCHED]` は「病変条件間で一致」の意味**であって掃引水準間ではない。
+  **`num_steps` は `train_size` の掃引で固定**(epoch 固定にしない)。dropout=0.0、target は `all`。
+  `late_layers` は**境界がどの文書にも無いので使わない**
+- **実験は1つも回していない。`results/` は空。GPU 時間 0。ポッド `hikss5upj15vp2` は `EXITED`**
 
 ## 触ってよいファイル / 読むべき範囲
 
-- **`infra/RUNPOD.md` §4「順1b の手順」** —— **コマンド列の正本。全文 `cat` しない**
-- `plans/PLAN-004-phase0-route.md` §3「順1b」/ §6 罠6 —— `grep -n '順1b'` で位置を出す
-- `logs/DECISIONS.md` **ADR-037** / **ADR-031**(`grep -n` で位置を出す)。全文 `cat` しない
-- `configs/smoke1b.yaml` / `configs/smoke1b_b1.yaml` —— **`model.revision` は両方 null。
-  段2 で得たハッシュを両方に同じ値で書き込む**
-- 新規作成してよいもの: `runs/<id>/` 配下、`cost.txt` の下書き
+- `logs/DECISIONS.md` の **ADR-039〜043**(行 1922 以降)。**全文 cat せず `sed -n` で節ごとに読む**
+- `plans/PLAN-004-phase0-route.md` §2 手順表 / §3 順8 / §5
+- `code/eval/run.py`、`code/eval/model.py`、`code/eval/generate.py`、`code/artifacts.py`
+- `code/train/lora.py`、`code/train/settings.py`、`infra/RUNPOD.md` §4
+- `configs/template.yaml`(`model:` ブロックと `train:` ブロック)
 
 ## やってはいけないこと
 
-- **承認が降りていないのにポッドを起動しない。**段2 で同じ 403 に当たるだけで課金が増える
-- **`configs/smoke.yaml` を編集しない**(ADR-037 決定4)
-- **`configs/smoke1b.yaml` と `configs/smoke1b_b1.yaml` を非対称に編集しない**
-  (`test_smoke1b_configs.py` が落ちる)
-- **`--condition` を使わずに config の `lesion.condition` を書き替えて3回回さない**
-- **再生成後の `manifest.json` の差分をコミットしない**(`created_at` / `git_commit` だけの churn)
-- **#20 の4項目を決めない。**`dtype` / `max_new_tokens` / `temperature` は
-  「★順1b のみ。実験条件ではない」のままにする
-- **`results/` に数値を置かない。文書に書いてよいのは答えのトークン長だけ**で、
-  **run_id とセットで #20 の ADR に転記する**(`CLAUDE.md` §2)
-- **順1b の数値を健常時スコア / test-retest / プロンプト感受性の材料にしない**(§6 罠6)
-- **バッチ1 とバッチN の応答が食い違ったら、4値分解を読む前に人間へ上げる**(#25 の3つめ)
-- **pull し直して別のハッシュが返ったら、その事実を記録して人間に上げる**(ADR-031 決定1)
-- **RunPod MCP の `create-pod` を呼ばない。**壊れている(`infra/RUNPOD.md` §8)
-- **★ポッドを停止せずに終わらない**(`CLAUDE.md` §9)
+- **`configs/smoke1b.yaml` / `configs/smoke1b_b1.yaml` の値を実験条件として扱わない。**
+  どちらも「★順1b のみ。実験条件ではない」と明記してある
+- **`max_new_tokens` / `eval.batch_size` / LoRA の lr・num_steps・batch_size・grad_accum に
+  値を入れない。**まだ人間が決めていない(ADR-042 決定6 / ADR-040 決定6 / ADR-043 決定10)
+- **`temperature` を貪欲の正本として扱わない**(ADR-042 決定2)
+- **GPU を使うジョブを起動しない。**このセッションの作業はすべて GPU 時間 0 である
+- **`data/raw/` を書き換えない**
 
 ## 未解決 / 人間の承認待ち
 
-- **★ HF の gated アクセス申請**(`Ken5615`)。**これが最優先。人間の作業**
-- **段2 の `ignore_patterns=["original/*"]` は手順からの逸脱である。**
-  repo は 32.13 GB で、**`original/consolidated.00.pth` の 16.06 GB は
-  safetensors と同じ重みの重複**(`from_pretrained` は読まない)。転送時間を倍にしないため外した。
-  **revision の値は変わらない。`infra/RUNPOD.md` §4 段2 を直すかは人間が決める**
-- **ネットワークボリューム `r963j7swke` が `/workspace` に付いている。**
-  引き継ぎには「ボリューム無し」と書かれていた。**汚染が懸念された `apg61h6kzj` とは別物で
-  中身は空だった**ので汚染は起きていない。**意図したものかを人間が確認する**
-  (ボリュームは**停止中も課金される**)
-- **`infra/requirements.lock` は空のまま。**lock 自身は「pytest と preflight が通った直後に
-  `pip freeze` で埋めよ」と書いているが、preflight はまだ通っていない。**加えて venv が
-  `--system-site-packages` なので `pip freeze` に `torch==2.8.0+cu128` のような
-  ローカル版指定が入り、PyPI から復元できない。埋め方そのものを人間が決める必要がある**
-- **#25**(`batch_size` と実行デバイスを実験装置の設定として固定するか / 値 / 一致確認の合否基準)
-- **#20(生成設定4項目)/ #21(T1b・T3 の確定文面)は未決。**順1b は**材料を取る段**である
-- **#22(LoRA アダプタを `runs/<id>/` に残すか)は未決**
-- **ADR-038 決定4(改訂したら順6 を測り直す)はエージェントの補足。人間が一度見ること**
-- **`cost.txt` は人間が書く**(`infra/RUNPOD.md` §4 /書式は §7)。
-  **今回のポッドは停止時 `uptime` 1883 秒**
+- `model.max_new_tokens`(順1b の後)/ `eval.batch_size`(順1b の壁時計時間の後)
+- `θ` の**格子点 / 水準あたり項目数 / 抽出シード数**(順5 の前。ADR-041 決定5)
+- **T3 の確定文面と T1b の書式文字列**(ADR-042 決定10。ADR-032 と同じ手続きで起草する)
+- LoRA の `learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`(ADR-043 決定10)
+- 手つかず: **#10(W6 の分岐)/ #17(Nikankin 原典確認)/ 目視レビュー11件 /
+  効果量プロファイル / 罠3(凍結とパイロットの順序)**
+- **`meta-llama/Llama-3.1-8B-Instruct` の gated アクセスが HF アカウント `Ken5615` に未承認。**
+  順1b の実機はこれが承認されるまで段2 から先へ進めない。**人間の作業である**

@@ -2259,3 +2259,21 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   データ再生成まで進めてそこで止める
 - **コードは1行も変えていない。**`results/` は空、GPU 時間の実測は 0、事前登録の tag なし
 - 関連 commit: (このコミット)
+
+### fix(runpod): bootstrap の lock 判定が「コメントだけの lock」を復元可能と誤判定していた   [actor: RUNNER]
+
+- **順1b の実機作業に入る前に踏んだ。**`infra/bootstrap.sh` は
+  `[ -s infra/requirements.lock ]` で「lock があるか」を判定していたが、
+  **`-s` はサイズしか見ない。**`infra/requirements.lock` は**説明コメントだけで
+  15 行あり、サイズは 0 ではない** —— したがって「復元できる」と誤判定し、
+  `pip install --no-deps -r infra/requirements.lock` が**1つも入れずに成功**し、
+  直後の `python -m pytest code/tests` が依存の欠落で落ちる
+- **lock 自身のコメントは「いま空なのは、まだ GPU 環境を立てていないため」と
+  書いており、空として扱われる想定だった。**判定だけが追いついていなかった
+- 修正: `grep -qvE '^[[:space:]]*(#|$)'` に置き換え、**コメントと空行しかない lock を
+  「空」として扱う**。この場合は従来どおり警告を出して `pip install -e ".[gpu,stats,dev]"` に落ちる
+- `pytest code/tests -q` → **643 passed**(変化なし。bootstrap.sh はテスト対象外)
+- **未解決(記録のみ)**: lock を `pip freeze` で埋めた場合、
+  `torch==2.8.0+cu128` のようなローカル版指定は PyPI から入らない。
+  **lock を埋める段(この後)で、復元経路が本当に通るかは別途確かめる必要がある**
+- 関連 commit: (このコミット)

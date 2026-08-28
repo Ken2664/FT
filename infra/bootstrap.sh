@@ -20,7 +20,10 @@ echo "repo: $REPO_ROOT"
 # --- 1. Python 依存 ---
 # requirements.lock があればそれを使う(再現性優先。infra/RUNPOD.md §6)。
 # 無ければ pyproject の下限指定で入れ、**lock を作るよう促す**。
-if [ -s infra/requirements.lock ]; then
+# **コメントと空行しかない lock は「空」として扱う。**`-s` はサイズしか見ないので、
+# 説明文だけが入った lock を「復元できる」と誤判定し、--no-deps で何も入らないまま
+# pytest に落ちる(2026-08-28 に順1b の準備で踏んだ)。
+if grep -qvE '^[[:space:]]*(#|$)' infra/requirements.lock 2>/dev/null; then
     echo "--- requirements.lock から復元 ---"
     pip install --no-deps -r infra/requirements.lock
 else

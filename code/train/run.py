@@ -10,10 +10,12 @@
 計画までを通し、そこで止まる(`code/eval/run.py` の `--dry-run` と同じ役目)。
 **そこに出る数値は実験結果ではない。**
 
-**本実行はいま必ず止まる。**#22(アダプタを `runs/<id>/` に残すか)が未決で
-あり、`code/train/lora.py` の門が `ConfigError` を投げる。**それが正しい
-状態である** —— 保存先が決まらないまま GPU 時間を使うと、学習したアダプタを
-その場で捨てることになる。門を外すのは 8-6。
+**本実行は `runs/<id>/adapter/` にアダプタを残す**(ADR-043 決定1・2。
+2026-08-28 に #22 の門を外した)。残すのは**アダプタ重みのみ**であり、
+optimizer state もスケジューラ状態も残さない。
+**ただし LoRA グリッドの値(`learning_rate` / `num_steps` / `batch_size` /
+`gradient_accumulation`)は未決である**(ADR-043 決定10)。null のままなら
+`code/train/settings.py` の門が `ConfigError` を投げる。**それが正しい状態である。**
 
 **成果物は `code/artifacts.py` が書く**(`infra/RUNPOD.md` §4「必ず残すもの」)。
 評価側と同じ関数を使う —— run ディレクトリの作り方や git_sha の残し方が
@@ -30,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from code.artifacts import (
+    adapter_path,
     prepare_run_dir,
     utc_now,
     write_config_copy,
@@ -63,17 +66,22 @@ def model_reference(config: Mapping[str, Any]) -> dict[str, Any]:
 
     答える問い: 「どの重みに LoRA を挿したかを、後から同じ文字列で言えるか」
 
-    **生成設定(`model.max_new_tokens` / `eval.temperature`)は要求しない。**
-    訓練は生成しない。あれは承認待ち #20 であり、訓練の実行を #20 に
-    ぶら下げると、決まっていない評価設定のせいで訓練が回せなくなる。
+    **生成設定(`model.max_new_tokens` / `eval.temperature` / `eval.do_sample`)は
+    要求しない。**訓練は生成しない。訓練の実行を評価側の未決に
+    ぶら下げると、決まっていない設定のせいで訓練が回せなくなる。
     `model.revision` は要求する —— ADR-031 が「最初に pull した時点の HF
     コミットハッシュで固定する」と決めており、どの重みに挿したかは
     訓練の実験条件そのものである。
+
+    `model.device` も要求する(ADR-040 決定4・5)。**評価側と同じ理由である**
+    —— 既定値を置くと黙って CPU に載り、GPU ポッドを借りた実行が CPU で
+    走っていても誰も気づかない。
     """
     return {
         "name": require(config, "model.name"),
         "revision": require(config, "model.revision"),
         "dtype": require(config, "model.dtype"),
+        "device": require(config, "model.device"),
         "chat_template": require(config, "data.chat_template"),
     }
 
@@ -94,6 +102,7 @@ def declared_model(config: Mapping[str, Any]) -> dict[str, Any]:
         "name": model.get("name"),
         "revision": model.get("revision"),
         "dtype": model.get("dtype"),
+        "device": model.get("device"),
         "chat_template": require(config, "data.chat_template"),
         "note": "null の欄は本実行で ConfigError になる(--dry-run はここで止めない)",
     }
@@ -144,6 +153,10 @@ def metrics_payload(
 
     **4値分解は入らない。**訓練は採点しない(skill code-style §2:
     学習関数の中で集計しない)。4値は `code.eval.run` が別の run に書く。
+
+    **`seed` をここに書くのが、評価側の `seed` 欄の出どころである**
+    (ADR-043 決定3)—— 評価は `model.adapter` が指す `runs/<id>/adapter/` の
+    親から、この metrics.json を読んでシードを引く。
     """
     return {
         "run_id": run_id,
@@ -185,7 +198,9 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"epochs={payload['epochs_consumed']:.4f}",
         f"損失: 最初 {outcome['first_loss']} -> 最後 {outcome['last_loss']} "
         f"({outcome['n_steps']} ステップ)",
+        f"学習した重み: {outcome['trainable_parameters']} パラメータ",
         f"アダプタ: {outcome['adapter_dir']}",
+        f"最適化の既定: {(outcome['optimizer'] or {}).get('note', '(差し替えた訓練関数)')}",
     ]
 
 
@@ -203,12 +218,16 @@ def execute(
     答える問い: 「このアダプタが、どのコードの、どの設定の、いつの実行から
     出たかを後から言えるか」
 
-    **訓練関数を、run ディレクトリを作る前に組む。**`code/eval/run.py` は
-    来歴を先に書いてから重みを読むが、こちらの `build_trainer` はいま
-    **config の拒否**(#22 の門)しかしない。拒否された実行のために
+    **門と重みの読み込みを分けてある**(8-6。ADR-043)。config の門
+    (`load_train_settings` / `load_training_data` / `model_reference`)は
+    **run ディレクトリを作る前**に通す —— 拒否された実行のために
     `runs/<id>/` を作ると、中身の無いディレクトリだけが増える。
-    **8-6 で重みの読み込みを入れるときは、門と読み込みを分け、
-    読み込みは来歴を書いたあとに置くこと**(途中で落ちても来歴が残るように)。
+    **重みの読み込みは来歴を書いたあとに置く** —— 8B の読み込みは分単位で
+    落ちうるし、そこで落ちても「どの版で何を試したのか」が残るようにする。
+
+    **アダプタの保存先は `runs/<id>/adapter/`**(ADR-043 決定2)。run
+    ディレクトリが決まってからでないと渡せないので、`build_trainer` の
+    呼び出しはその後に来る。
 
     `trainer` は差し替え可能である。None のときだけ重みを読む ——
     GPU の無い環境のテストはここに偽の訓練関数を渡す。
@@ -216,13 +235,6 @@ def execute(
     settings = load_train_settings(config, seed=seed)
     data = load_training_data(config)
     model = model_reference(config)
-    resolved = trainer or lora.build_trainer(
-        settings,
-        model_name=model["name"],
-        revision=model["revision"],
-        dtype=model["dtype"],
-        chat_template=model["chat_template"],
-    )
 
     started = now or utc_now()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
@@ -230,6 +242,15 @@ def execute(
     write_git_sha(target)
     write_env(target)
 
+    resolved = trainer or lora.build_trainer(
+        settings,
+        model_name=model["name"],
+        revision=model["revision"],
+        dtype=model["dtype"],
+        device=model["device"],
+        chat_template=model["chat_template"],
+        adapter_dir=adapter_path(target),
+    )
     outcome = lora.check_outcome(resolved(data.examples), settings)
     payload = metrics_payload(config, settings, data, outcome, run_id=target.name)
     write_metrics(target, payload)

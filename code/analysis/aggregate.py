@@ -59,8 +59,8 @@ NO_ADAPTER_WARNING = (
 
 NO_SEED_WARNING = (
     "seed が記録されていない run が {count} 件ある。**条件×シードの表は埋まらない。**"
-    "評価の metrics.json に seed が入るのは、評価がアダプタを読むようになってからである"
-    "(#22 / PLAN-004 順8 の 8-6)。"
+    "評価の seed は model.adapter が指す訓練 run から引かれる(ADR-043 決定3)ので、"
+    "アダプタを読まない run では null になる —— 素の重みの測定にシードは無い。"
 )
 
 DUPLICATE_WARNING = (

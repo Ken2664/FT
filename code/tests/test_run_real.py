@@ -332,7 +332,11 @@ def test_metrics_record_the_provenance(workspace: dict[str, Any]) -> None:
     # ★LoRA アダプタは読んでいない。lesion.condition は宣言であって重みではない
     assert payload["adapter"] is None
     assert payload["lesion_condition"] == config["lesion"]["condition"]
-    assert "アダプタを読まない" in payload["adapter_note"]
+    assert "アダプタを読んでいない" in payload["adapter_note"]
+    # ★シードはアダプタの出どころから来る(ADR-043 決定3)。アダプタが無ければ None。
+    # **0 を置かない** ——「シード 0 で回した」と読める記録になる
+    assert payload["seed"] is None
+    assert payload["adapter_train_run_id"] is None
 
 
 def test_predictions_keep_the_raw_generation(workspace: dict[str, Any]) -> None:
@@ -393,6 +397,83 @@ def test_metrics_record_the_wall_clock(workspace: dict[str, Any]) -> None:
     assert timing["seconds_per_item"] is not None
 
 
+# --------------------------------------------------------------------------
+# アダプタの出どころ(8-6。ADR-043 決定3)
+# --------------------------------------------------------------------------
+
+TRAIN_SEED = 3
+
+
+def train_run_dir(root: Path, *, condition: str, seed: int = TRAIN_SEED) -> Path:
+    """訓練 run の形をした dir を作る。**中身は訓練の記録ではない**(形だけ)。"""
+    run_dir = root / "train_run"
+    (run_dir / artifacts.ADAPTER_DIR).mkdir(parents=True, exist_ok=True)
+    artifacts.write_metrics(
+        run_dir,
+        {
+            "run_id": run_dir.name,
+            "kind": "lora_train",
+            "lesion_condition": condition,
+            "seed": seed,
+        },
+    )
+    return run_dir
+
+
+def test_the_eval_seed_comes_from_the_training_run(
+    workspace: dict[str, Any], tmp_path: Path
+) -> None:
+    """★評価の seed 欄はアダプタを作った訓練 run から来る(ADR-043 決定3)。
+
+    **人手で渡さない。**`--seed 3` と実際に読んだアダプタが食い違っても
+    数値は普通に出る。いま条件×シードの表のシード欄が埋まらないのは、
+    ここが空だったからである。
+    """
+    config = workspace["config"]
+    trained = train_run_dir(tmp_path, condition=config["lesion"]["condition"])
+    config["model"]["adapter"] = str(trained / artifacts.ADAPTER_DIR)
+    provenance = run.adapter_provenance(
+        run.declared_adapter(config), condition=config["lesion"]["condition"]
+    )
+    assert provenance["seed"] == TRAIN_SEED
+    assert provenance["train_run_id"] == trained.name
+    assert "アダプタを読んでいる" in provenance["note"]
+
+
+def test_an_adapter_from_another_condition_stops_the_run(
+    workspace: dict[str, Any], tmp_path: Path
+) -> None:
+    """★病変条件が食い違うアダプタを受け付けないこと。
+
+    `p2` の config で `ident` のアダプタを評価すると `rule_rate` が低く出て
+    **「病変が浅い」と読めてしまう。**これは取り違えであって結果ではない。
+    """
+    config = workspace["config"]
+    other = "ident" if config["lesion"]["condition"] != "ident" else "p2"
+    trained = train_run_dir(tmp_path, condition=other)
+    with pytest.raises(ConfigError, match="lesion.condition"):
+        run.adapter_provenance(
+            str(trained / artifacts.ADAPTER_DIR), condition=config["lesion"]["condition"]
+        )
+
+
+def test_an_adapter_outside_a_run_dir_stops_the_run(tmp_path: Path) -> None:
+    """★訓練 run の外を指したら止まること。seed の出どころが無い。"""
+    stray = tmp_path / "loose" / artifacts.ADAPTER_DIR
+    stray.mkdir(parents=True)
+    with pytest.raises(ConfigError, match="metrics.json"):
+        run.adapter_provenance(str(stray), condition="p2")
+
+
+def test_an_evaluation_run_is_not_mistaken_for_a_training_run(tmp_path: Path) -> None:
+    """★kind が lora_train でないディレクトリを訓練 run と読まないこと。"""
+    run_dir = tmp_path / "eval_run"
+    (run_dir / artifacts.ADAPTER_DIR).mkdir(parents=True)
+    artifacts.write_metrics(run_dir, {"run_id": "x", "kind": run.EVAL_KIND, "seed": 1})
+    with pytest.raises(ConfigError, match="kind"):
+        run.adapter_provenance(str(run_dir / artifacts.ADAPTER_DIR), condition="p2")
+
+
 def test_the_log_reports_the_wall_clock(workspace: dict[str, Any]) -> None:
     """★log.txt にも壁時計時間の行が出ること(実機で人間が最初に見る場所)。"""
     config = workspace["config"]
@@ -422,4 +503,4 @@ def test_the_log_does_not_reuse_the_dry_run_warning(workspace: dict[str, Any]) -
     )
     body = (target / "log.txt").read_text(encoding="utf-8")
     assert "実験ではない" not in body
-    assert "アダプタを読まない" in body
+    assert "アダプタを読んでいない" in body

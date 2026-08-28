@@ -56,6 +56,7 @@ from code.artifacts import (
     elapsed_seconds,
     monotonic_seconds,
     prepare_run_dir,
+    read_metrics,
     timing_line,
     timing_record,
     utc_now,
@@ -77,7 +78,12 @@ from code.data_gen.battery_items import (
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.battery.build import build_items_from_entries, entries_by_group
 from code.eval.generate import Generator, build_generator, collect_responses
-from code.eval.model import GenerationSettings, load_generation_settings
+from code.eval.model import (
+    ADAPTER_KEY,
+    GenerationSettings,
+    declared_adapter,
+    load_generation_settings,
+)
 from code.eval.parsers import boolean as boolean_parser
 from code.eval.parsers import cot as cot_parser
 from code.eval.parsers import numeric as numeric_parser
@@ -478,10 +484,22 @@ EVAL_KIND = "battery_eval"
 # この実行が読んだ重みではない。metrics.json と log.txt の両方に残す ——
 # 片方だけだと、後から metrics だけを見た人が病変後の数値と読む。
 NO_ADAPTER_NOTE = (
-    "このハーネスは LoRA アダプタを読まない(code/train/ は未実装)。"
+    "この run はアダプタを読んでいない(model.adapter が null)。"
     "数値は model.name の重みそのものに対するものであり、lesion.condition は"
     "参照規則と FT データの宣言であって読み込んだ重みを表さない。"
 )
+
+# アダプタを読んだときの注記。**読んだことと、その出どころを1文で言う。**
+ADAPTER_NOTE = (
+    "この run は学習済み LoRA アダプタを読んでいる。数値はアダプタを載せた重みに"
+    "対するものであり、seed はそのアダプタを作った訓練 run のものである(ADR-043 決定3)。"
+)
+
+# アダプタの出どころ(訓練 run の metrics.json)の種別。
+# `code/train/run.py` の TRAIN_KIND と同じ文字列である。**層をまたぐ import を
+# 避けるためにここに書き写してある**(評価が訓練を import しない。code-style §2)。
+# 食い違ったら `adapter_provenance` が止まるので、写し間違いは実行時に出る。
+TRAIN_KIND = "lora_train"
 
 
 @dataclass(frozen=True)
@@ -713,6 +731,55 @@ def total_items(results: Sequence[BatchResult]) -> int:
     return sum(result.metrics["n_items"] for result in results)
 
 
+def adapter_provenance(adapter: str | None, *, condition: str) -> dict[str, Any]:
+    """アダプタの出どころを引く。**評価の `seed` 欄はここから来る**(ADR-043 決定3)。
+
+    答える問い: 「この4値分解は、どの訓練 run の、どのシードのアダプタに
+    対するものか」
+
+    アダプタは `runs/<id>/adapter/` に置かれる(ADR-043 決定2)ので、
+    **その親の `metrics.json` が訓練 run の記録である。**シードを人手で
+    渡さずにここから引くのは、`--seed 3` と実際に読んだアダプタが食い違う
+    余地を消すためである —— 食い違っても数値は普通に出る。
+
+    **病変条件の一致も見る。**`p2` の config で `ident` のアダプタを評価した
+    run は、`rule_rate` が低く出て「病変が浅い」と読めてしまう。
+    **これは取り違えであって結果ではない。**
+
+    アダプタが無ければ `seed` は None である。**0 を置かない** ——
+    「シード 0 で回した」と読める記録になる。
+    """
+    if adapter is None:
+        return {"adapter": None, "seed": None, "train_run_id": None, "note": NO_ADAPTER_NOTE}
+    train_dir = Path(adapter).parent
+    try:
+        payload = read_metrics(train_dir)
+    except FileNotFoundError as exc:
+        raise ConfigError(
+            f"{ADAPTER_KEY}={adapter!r} の親に metrics.json が無い({train_dir})。"
+            "アダプタは訓練 run の runs/<id>/adapter/ を指すこと(ADR-043 決定2)——"
+            "そこから seed と lesion.condition を引く(同 決定3)。"
+        ) from exc
+    if payload.get("kind") != TRAIN_KIND:
+        raise ConfigError(
+            f"{train_dir} の metrics.json は kind={payload.get('kind')!r} であり "
+            f"{TRAIN_KIND!r} ではない。訓練 run ではないディレクトリを指している。"
+        )
+    trained_condition = payload.get("lesion_condition")
+    if trained_condition != condition:
+        raise ConfigError(
+            f"アダプタは lesion.condition={trained_condition!r} で訓練されているが、"
+            f"この config は {condition!r} を宣言している。"
+            "取り違えたまま回すと、rule_rate の低さが「病変が浅い」と読めてしまう。"
+        )
+    return {
+        "adapter": adapter,
+        "seed": payload.get("seed"),
+        "train_run_id": payload.get("run_id"),
+        "note": ADAPTER_NOTE,
+    }
+
+
 def metrics_payload(
     config: Mapping[str, Any],
     settings: GenerationSettings,
@@ -721,6 +788,7 @@ def metrics_payload(
     run_id: str,
     items_path: Path,
     timing: Mapping[str, Any],
+    adapter: Mapping[str, Any],
 ) -> dict[str, Any]:
     """metrics.json の中身を組む。
 
@@ -728,6 +796,7 @@ def metrics_payload(
     出たかを、この1ファイルだけで言えるか」
 
     `lesion_condition` と `adapter` を並べて書く理由は NO_ADAPTER_NOTE。
+    `adapter` は `adapter_provenance` が組む(`seed` もそこから来る。ADR-043 決定3)。
 
     `timing` を受け取るのは `execute` が測った区間だからである(組み立てる
     側では生成の開始も終了も見えない)。**中身は `code/artifacts.py` の
@@ -738,8 +807,10 @@ def metrics_payload(
         "kind": EVAL_KIND,
         "experiment_id": require(config, "experiment.id"),
         "lesion_condition": require(config, "lesion.condition"),
-        "adapter": None,
-        "adapter_note": NO_ADAPTER_NOTE,
+        "seed": adapter["seed"],
+        "adapter": adapter["adapter"],
+        "adapter_train_run_id": adapter["train_run_id"],
+        "adapter_note": adapter["note"],
         "generation": settings.as_dict(),
         "elicitation": require(config, "eval.elicitation"),
         "primary_reference_rule": require(config, "eval.reference_rule"),
@@ -771,7 +842,8 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"temperature={generation['temperature']} do_sample={generation['do_sample']} "
         f"chat_template={generation['chat_template']} "
         f"batch_size={generation['batch_size']}",
-        f"lesion.condition: {payload['lesion_condition']} / adapter: {payload['adapter']}",
+        f"lesion.condition: {payload['lesion_condition']} / seed: {payload['seed']} / "
+        f"adapter: {payload['adapter']}",
         f"注意: {payload['adapter_note']}",
         f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",
         f"引き出し方: {payload['elicitation']} / "
@@ -809,12 +881,19 @@ def execute(
     `generator` は差し替え可能である(PLAN-004 §4.3 の1)。None のときだけ
     重みを読む —— GPU の無い環境のテストはここに固定応答を渡す。
 
+    **アダプタは重みを読む前に引く**(ADR-043 決定3)。`model.adapter` が
+    指す訓練 run の記録から `seed` と `lesion.condition` を取り、条件が
+    食い違っていればそこで止まる —— 取り違えたまま回しても数値は普通に出る。
+
     **壁時計時間を3区間で測る**(ADR-040 決定6)。重みの読み込みと生成を
     分けるのは、8B の読み込みが分単位で、そこを混ぜると「1項目あたり何秒か」が
     読めなくなるからである。`eval.batch_size` の値はこの記録から決まる。
     生成器を渡された場合(テスト)は重みを読まないので読み込みの区間はほぼ 0 になる。
     """
     settings = load_generation_settings(config)
+    adapter = adapter_provenance(
+        declared_adapter(config), condition=require(config, "lesion.condition")
+    )
     started = now or utc_now()
     run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
@@ -823,7 +902,7 @@ def execute(
     write_env(target)
 
     load_started = monotonic_seconds()
-    ready = generator or build_generator(settings)
+    ready = generator or build_generator(settings, adapter=adapter["adapter"])
     model_load_seconds = elapsed_seconds(load_started)
 
     generation_started = monotonic_seconds()
@@ -839,6 +918,7 @@ def execute(
         results,
         run_id=target.name,
         items_path=pool_items_path(config),
+        adapter=adapter,
         timing=timing_record(
             started=started,
             ended=ended,

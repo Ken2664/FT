@@ -1,7 +1,7 @@
 """訓練の実行経路(code/train/run.py)のテスト。
 
 答える問い: 「重みを読まずに、訓練の配線と `runs/<id>/` の中身を検査できるか。
-#22 が決まるまで本実行が始まらないことを、コードが保証しているか」
+config の門と重みの読み込みが、来歴を書く前と後に正しく分かれているか」
 
 **モデルの重みは1度も読まない。**`execute` は `trainer` を差し替えられる
 ので、偽の訓練関数を渡す(`code/eval/run.py` の `generator` と同じ作り)。
@@ -35,6 +35,9 @@ SMOKE_SEED = 0
 # してあるので、本実行の経路まで到達させるためにテスト側で埋める。
 TEST_MODEL = "tests/tiny-model"
 TEST_REVISION = "0" * 40
+# smoke config は device を持たない(あちらは編集してはならない。ADR-037 決定4)。
+# **実験条件の宣言ではない** —— この経路は偽の訓練関数で回り、重みを読まない
+TEST_DEVICE = "cpu"
 
 # 偽の訓練関数が返す損失。**モデルの振る舞いではない。**
 FAKE_LOSSES = (1.0, 0.5)
@@ -63,6 +66,7 @@ def workspace(tmp_path: Path) -> dict[str, Any]:
     config["data"]["matched_manifests"] = manifests
     config["model"]["name"] = TEST_MODEL
     config["model"]["revision"] = TEST_REVISION
+    config["model"]["device"] = TEST_DEVICE
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8"
@@ -156,24 +160,75 @@ def test_dry_run_rejects_a_run_dir() -> None:
 
 
 # --------------------------------------------------------------------------
-# 本実行(#22 の門 と 差し替えた訓練関数)
+# 本実行(門と重みの読み込みの順序、差し替えた訓練関数)
 # --------------------------------------------------------------------------
 
 
-def test_a_real_run_is_blocked_and_leaves_no_run_dir(workspace: dict[str, Any]) -> None:
-    """★#22 が決まるまで本実行は始まらず、空の run ディレクトリも残らないこと。
+def test_a_rejected_config_leaves_no_run_dir(workspace: dict[str, Any]) -> None:
+    """★config の門は run ディレクトリを作る前に掛かること(8-6 の (d))。
 
     拒否された実行のために runs/<id>/ を作ると、中身の無いディレクトリだけが増える。
     """
+    config = workspace["config"]
+    config["train"]["lora"]["rank"] = None
     run_dir = workspace["run_dir"]
-    with pytest.raises(ConfigError, match="#22"):
+    with pytest.raises(ConfigError, match="rank"):
+        train_run.execute(
+            config,
+            config_path=workspace["config_path"],
+            run_dir=run_dir,
+            seed=SMOKE_SEED,
+        )
+    assert not run_dir.exists()
+
+
+def test_the_provenance_is_written_before_the_weights_are_read(
+    workspace: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★重みの読み込みで落ちても来歴が残ること(8-6 の (d))。
+
+    8B の読み込みは分単位で、落ちうる。そこで落ちたときに何も残らないと、
+    **「どの版で何を試したのか」が後から言えない。**
+    """
+
+    def explode(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("重みが読めなかった(テスト)")
+
+    monkeypatch.setattr(train_run.lora, "build_trainer", explode)
+    run_dir = workspace["run_dir"]
+    with pytest.raises(RuntimeError, match="重みが読めなかった"):
         train_run.execute(
             workspace["config"],
             config_path=workspace["config_path"],
             run_dir=run_dir,
             seed=SMOKE_SEED,
         )
-    assert not run_dir.exists()
+    for name in ("config.yaml", "git_sha.txt", "env.txt"):
+        assert (run_dir / name).is_file()
+    # 訓練は始まっていないので、結果の側は書かれていない
+    assert not (run_dir / "metrics.json").exists()
+
+
+def test_the_trainer_is_given_the_run_dir_as_the_adapter_destination(
+    workspace: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★アダプタの保存先は `runs/<id>/adapter/` であること(ADR-043 決定2)。"""
+    seen: dict[str, Any] = {}
+
+    def capture(settings: Any, **kwargs: Any) -> lora.Trainer:
+        seen.update(kwargs)
+        return recording_trainer([])
+
+    monkeypatch.setattr(train_run.lora, "build_trainer", capture)
+    target = train_run.execute(
+        workspace["config"],
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        seed=SMOKE_SEED,
+    )
+    assert seen["adapter_dir"] == target / artifacts.ADAPTER_DIR
+    # ★載せるデバイスも渡ること(ADR-040 決定4)。既定値を置くと黙って CPU に載る
+    assert seen["device"] == TEST_DEVICE
 
 
 def test_the_trainer_receives_the_canonical_order(workspace: dict[str, Any]) -> None:

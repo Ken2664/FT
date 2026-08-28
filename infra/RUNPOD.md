@@ -112,10 +112,13 @@ python -m code.eval.run --config configs/exp042_plus2_r4.yaml --dry-run
 python infra/preflight.py --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_143022_exp042
 
 # 4. 訓練(ポッド上では §5 の tmux + 逐次同期を使う)
-#    ★未実装。code/train/ は __init__.py のみ(plans/PLAN-004-phase0-route.md 順8)
-# python -m code.train.run --config configs/exp042_plus2_r4.yaml
+#    アダプタは runs/<id>/adapter/ に残る(ADR-043 決定1・2)。**--seed は config の
+#    seeds に宣言したものから1つ選ぶ。**LoRA グリッドの値が null なら門で止まる
+python -m code.train.run --config configs/exp042_plus2_r4.yaml --seed 0     --run-dir runs/20260901_140000_exp042_train_s0
 
 # 5. 評価(本実行)。**--run-dir は 3b と同じものを渡す**
+#    アダプタを評価するときは config の model.adapter に手順4 の
+#    runs/<id>/adapter/ を書く。**評価の seed 欄はそこから引かれる**(ADR-043 決定3)
 python -m code.eval.run --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_143022_exp042
 
 # 5b. 桁数掃引(PLAN-001 §4.1.1 の手続き2)。外挿域の上限 M* を決める**実測**。
@@ -123,8 +126,7 @@ python -m code.eval.run --config configs/exp042_plus2_r4.yaml --run-dir runs/202
 python -m code.eval.sweep --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_150000_sweep
 
 # 6. 集約
-#    ★未実装。code/analysis/ は __init__.py のみ(順8)
-# python -m code.analysis.aggregate --runs "runs/*exp042*"
+python -m code.analysis.aggregate --runs "runs/*exp042*"
 ```
 
 ポッド上ではこの手順の前に §3 の `preflight.py` を通す。
@@ -134,17 +136,21 @@ python -m code.eval.sweep --config configs/exp042_plus2_r4.yaml --run-dir runs/2
 | 手順 | コマンド | 実在するか | 回るか |
 |---|---|---|---|
 | 3 / 3b / 5 / 5b | `code.eval.run` / `infra/preflight.py` / `code.eval.sweep` | ある | **回る**(生成設定 #20 と `model.name` が決まれば) |
-| 4 | `python -m code.train.run --config <cfg> --seed <n>` | **ある**(順8 の 8-1〜8-4) | **回らない。**`--dry-run` は通るが、本実行は **#22(アダプタを `runs/<id>/` に残すか)が未決**のため `ConfigError` で必ず止まる |
+| 4 | `python -m code.train.run --config <cfg> --seed <n>` | **ある**(順8 の 8-1〜8-6) | **回る。**ただし **LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる |
 | 6 | `python -m code.analysis.aggregate --runs "<glob>"` | **ある**(順8 の 8-5) | **回る** |
 
-**コメントアウトを外すのは順8 の 8-6 である**(`plans/PLAN-004-phase0-route.md` §3 順8)。
-手順4 は #22 の決定と保存の実装を待っている。**手順6 は待っていない。**
-なお手順4 には `--seed` が要る —— config の `seeds` に宣言したシードを1つ選ぶ。
+**★2026-08-28 に手順4・6 のコメントアウトを外した**(順8 の 8-6。ADR-043)。
+**#22 の門は無くなった** —— アダプタは `runs/<id>/adapter/` に残る。
 
-**評価ハーネスは LoRA アダプタを読まない。**`code/train/` が未実装であるため、
-5 と 5b は `model.name` の重みそのものを評価する。config の `lesion.condition` は
-参照規則と FT データを決める宣言であって、**読み込んだ重みを表さない**
-(`metrics.json` の `adapter` は `null`、`adapter_note` に同じ注意が入る)。
+**評価がアダプタを読むかは `model.adapter` が決める**(ADR-043 決定3)。
+- **null(既定): 素の重みを評価する。**段階 C の Go/No-Go #0〜#3 と手順 5b はこれである。
+  config の `lesion.condition` は参照規則と FT データを決める宣言であって、
+  **読み込んだ重みを表さない**(`metrics.json` の `adapter` は `null`、
+  `adapter_note` に同じ注意が入る)
+- **訓練 run の `runs/<id>/adapter/` を指すと、それを載せて評価する。**
+  `metrics.json` の `seed` はその訓練 run から引かれ、**病変条件が食い違えば止まる**
+- **手順 5b(桁数掃引)は `model.adapter` が null でない config を受け付けない。**
+  素の算術能力の測定だからである(PLAN-001 §4.1.1)
 
 ### `runs/<id>/` に必ず残すもの
 
@@ -155,6 +161,9 @@ env.txt           pip freeze / nvidia-smi / CUDA / torch バージョン(中身�
 timestamp.txt     date -u の出力(開始・終了)
 metrics.json      全指標の生値
 predictions/      モデル出力の生ログ(再解析用)
+adapter/          学習した LoRA アダプタ(**訓練 run だけ**。ADR-043 決定1・2)。
+                  中身は adapter_model.safetensors + adapter_config.json の2つ。
+                  **optimizer state とスケジューラ状態は残さない**(訓練を再開しないため)
 log.txt           標準出力
 cost.txt          GPU時間とおよその課金額(書式は §7)
 token_boundary.json  preflight 検査7 の測定(PLAN-002 §4.1.5)。
@@ -164,12 +173,21 @@ token_boundary.json  preflight 検査7 の測定(PLAN-002 §4.1.5)。
 **このうち git に戻すのは `metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` /
 `cost.txt` / `token_boundary.json`。**
 `predictions/` は大きいので永続ボリュームに残す(§5 終了後)。
+**`adapter/` も git に戻さない。**永続ボリュームに残し、**Phase 1 完了まで全 run を
+保持する**(ADR-043 決定2)。**残す理由は非対称性である** —— 捨てると、評価を1つ
+足すだけで 40 run の再訓練が要る(同 決定1 の根拠)。
+
+**アダプタを消してよいのは Phase 1 が完了したときだけである。**評価 run の
+`metrics.json` はアダプタの場所(`model.adapter`)とその訓練 run の id を
+記録しているので、消えていれば「どの run のアダプタが無いか」は後から言える。
+**言えるのと再現できるのは別である。**
 
 ### 誰が書くか(2026-08-27 現在)
 
 | ファイル | 書くもの |
 |---|---|
 | `config.yaml` / `git_sha.txt` / `env.txt` / `timestamp.txt` / `metrics.json` / `predictions/` / `log.txt` | `code/artifacts.py`(`code.eval.run` / `code.eval.sweep` / `code.train.run` が使う。★2026-08-27 に `code/eval/` から層に依らない場所へ移した) |
+| `adapter/` | `code/train/lora.py` の `save_adapter`(peft の `save_pretrained`)。**置き場所は `code/artifacts.py` の `adapter_path` が決める。**★2026-08-28 に追加(8-6。ADR-043) |
 | `token_boundary.json` | `python infra/preflight.py --run-dir <dir>`(検査7。PLAN-002 §4.1.5) |
 | `cost.txt` | **人間が書く。**GPU 時間と課金額(書式は §7)。評価ハーネスは課金を知らない |
 

@@ -12,9 +12,15 @@
 `pyproject.toml` の optional-dependency `gpu` にしかなく、モジュール先頭で
 import すると GPU の無い環境で `code.train.run` 自体が import できなくなる。
 
-**純粋な部分と重みを触る部分を分けてある。**消費順の計画(`plan_micro_batches`)
-と損失マスク(`build_labels`)は偽トークナイザで全部テストできる。
-`build_trainer` だけが重みを読み、そこは #22 の門で止まっている(下記)。
+**純粋な部分と重みを触る部分を分けてある。**消費順の計画(`plan_micro_batches`)・
+損失マスク(`build_labels`)・micro-batch の詰め方(`collate_micro_batch`)は
+偽トークナイザで全部テストできる。**重みを読むのは `build_trainer` だけ**であり、
+そこは GPU と重みを要求するのでテストしない(`code/eval/model.py` の
+`load_model_and_tokenizer` と同じ扱い)。
+
+**2026-08-28 に #22 の門を外した**(ADR-043 決定1: アダプタを残す)。学習した
+アダプタは `runs/<id>/adapter/` に保存される(同 決定2)。保存するのは
+**アダプタ重みのみ**で、optimizer state もスケジューラ状態も残さない。
 """
 
 from __future__ import annotations
@@ -22,11 +28,14 @@ from __future__ import annotations
 import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from code.chat_format import model_input
 from code.config import ConfigError
 from code.train.data import TrainingExample
 from code.train.settings import TrainSettings
+from code.weights import load_causal_lm
 
 # torch の交差エントロピーが「損失を掛けない」と読むラベル。
 # **これは既定値ではなく torch の意味論である**(nn.CrossEntropyLoss の ignore_index)。
@@ -48,16 +57,26 @@ TARGET_MODULES: dict[str, Any] = {
 # LoRA を挿す仕事(peft の task_type)。因果言語モデルの FT である。
 PEFT_TASK_TYPE = "CAUSAL_LM"
 
-# **#22(人間の承認待ち)の門。**`infra/RUNPOD.md` §4「必ず残すもの」に
-# アダプタが無く、`runs/<id>/` に残すかどうかが決まっていない
-# (`plans/PLAN-004-phase0-route.md` §5)。決める前に本実行を許すと、
-# GPU 時間を使って学習した重みをその場で捨てることになる。
-# **この門を外すのは 8-6 である**(#22 の決定と、保存の実装がそろってから)。
-ADAPTER_PERSISTENCE_UNDECIDED = (
-    "#22(LoRA アダプタを runs/<id>/ に残すか)が未決のため、訓練の本実行はできない"
-    "(plans/PLAN-004-phase0-route.md §5)。保存先が決まっていない状態で回すと、"
-    "GPU 時間を使って学習したアダプタをその場で捨てることになる。"
-    "人間が #22 を決め、順8 の 8-6 で保存を実装してからこの門を外すこと。"
+# peft が `save_pretrained` で書くもの。**アダプタ重みと、その形の宣言だけである**
+# (ADR-043 決定1: optimizer state とスケジューラ状態は残さない)。
+# 保存の直後にこの2つを確かめる —— peft が別の名前で書くようになったとき、
+# **「保存した」と記録しながら中身が無い run** が残るのを防ぐ。
+ADAPTER_FILES: tuple[str, ...] = ("adapter_config.json", "adapter_model.safetensors")
+
+# LoRA の bias を学習しない(peft の既定と同じ値を明示している)。
+# **どの ADR も bias の扱いを宣言していない。**既定に乗るという判断を
+# ここに書き残しておく(skill code-style §5)。
+LORA_BIAS = "none"
+
+# 最適化アルゴリズム。**学習率だけが config から来る**(`train.learning_rate`)。
+# **betas / eps / weight_decay は torch の既定値であり、どの ADR も宣言していない。**
+# 値を勝手に決めない代わりに、実際に効いた値を metrics.json に残す
+# (`optimizer_settings`)。**人間の確認が要る**(skill code-style §5、CLAUDE.md §8)。
+OPTIMIZER_NAME = "torch.optim.AdamW"
+UNDECLARED_OPTIMIZER_NOTE = (
+    "learning_rate 以外の最適化設定(betas / eps / weight_decay)は torch の既定値であり、"
+    "どの ADR も宣言していない。勾配クリッピングと学習率スケジューラは使っていない"
+    "(宣言が無いものを足すと、黙って実験条件が増える)。**人間の確認が要る。**"
 )
 
 
@@ -85,10 +104,16 @@ class MicroBatch:
 class TrainOutcome:
     """訓練が終わったあとに残す記録。
 
-    答える問い: 「この訓練は何ステップ回り、損失はどう動いたか」
+    答える問い: 「この訓練は何ステップ回り、損失はどう動いたか。
+    アダプタはどこに残ったか」
 
-    `adapter_dir` が None であることは**記録に値する**。#22 が決まるまで
-    アダプタは保存されず、その run から評価をやり直すには再訓練が要る。
+    `adapter_dir` が None であることは**記録に値する**。本実行は必ず保存する
+    (ADR-043 決定1)ので、None は「差し替えた訓練関数で回した」ことを意味する
+    —— その run から評価をやり直すには再訓練が要る。
+
+    `optimizer` も None を取りうる(同じ理由)。**本実行では埋まる。**
+    中身は `optimizer_settings` が決め、**宣言されていない既定値が
+    効いていたかどうか**をそこから読む。
     """
 
     n_steps: int
@@ -96,6 +121,7 @@ class TrainOutcome:
     losses: tuple[float, ...]
     trainable_parameters: int | None
     adapter_dir: str | None
+    optimizer: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -106,6 +132,7 @@ class TrainOutcome:
             "last_loss": self.losses[-1] if self.losses else None,
             "trainable_parameters": self.trainable_parameters,
             "adapter_dir": self.adapter_dir,
+            "optimizer": self.optimizer,
         }
 
 
@@ -205,6 +232,119 @@ def build_labels(prompt_ids: Sequence[int], completion_ids: Sequence[int]) -> di
     }
 
 
+def group_by_step(batches: Sequence[MicroBatch]) -> list[list[MicroBatch]]:
+    """micro-batch を最適化ステップごとにまとめる。
+
+    答える問い: 「勾配はどこで適用されるか」
+
+    `plan_micro_batches` は `step_index` の昇順に並べて返す。ここで束ね直す
+    ことで、訓練ループ側が「何個ごとに `optimizer.step()` を呼ぶか」を
+    数えなくて済む —— **数え間違えると実効バッチが宣言と食い違う**が、
+    損失は普通に下がるので実行中には気づけない。
+    """
+    grouped: dict[int, list[MicroBatch]] = {}
+    for batch in batches:
+        grouped.setdefault(batch.step_index, []).append(batch)
+    return [grouped[step_index] for step_index in sorted(grouped)]
+
+
+def collate_micro_batch(
+    examples: Sequence[TrainingExample],
+    indices: Sequence[int],
+    *,
+    tokenizer: Any,
+    chat_template: bool,
+    pad_token_id: int,
+) -> dict[str, list[list[int]]]:
+    """micro-batch を、長さの揃った `input_ids` / `attention_mask` / `labels` にする。
+
+    答える問い: 「この micro-batch でモデルが読むトークンは何で、損失は
+    どこに掛かるか」
+
+    **右パディングである。**生成(`code/eval/generate.py`)は左パディングを
+    要求するが、それは「入力の右端から続きを書く」ためであって、訓練は
+    続きを書かせない。**パッド位置は `attention_mask=0` かつ
+    `labels=IGNORE_INDEX`** なので、注意にも損失にも入らない。
+
+    **プロンプトはここでチャットテンプレートを通す**(`code/chat_format.py`)。
+    評価側と同じ関数を通ることが ADR-025 案 A の要求である —— 別々に組むと、
+    同じ config なのにモデルが見る文字列が訓練と評価で静かに割れる。
+
+    **重みを読まない。**ここまでが偽トークナイザで検査できる範囲であり、
+    `build_trainer` はこの辞書をテンソルに載せ替えるだけである。
+    """
+    rows = [
+        build_labels(
+            *encode_example(
+                model_input(
+                    examples[index].prompt, tokenizer=tokenizer, chat_template=chat_template
+                ),
+                examples[index].completion,
+                tokenizer=tokenizer,
+                chat_template=chat_template,
+            )
+        )
+        for index in indices
+    ]
+    width = max(len(row["input_ids"]) for row in rows)
+    return {
+        "input_ids": [
+            row["input_ids"] + [pad_token_id] * (width - len(row["input_ids"])) for row in rows
+        ],
+        "attention_mask": [
+            [1] * len(row["input_ids"]) + [0] * (width - len(row["input_ids"])) for row in rows
+        ],
+        "labels": [
+            row["labels"] + [IGNORE_INDEX] * (width - len(row["labels"])) for row in rows
+        ],
+    }
+
+
+def pad_token_id_for_training(tokenizer: Any) -> int:
+    """パディングに使う id を決める。無ければ eos で代用する。
+
+    答える問い: 「詰め物に何の id を使うか」
+
+    `code/eval/model.py` の `prepare_tokenizer_for_batched_generation` と
+    同じ代用である(Llama-3.1-Instruct は pad_token を持たない)。
+    **新しいトークンを足さない** —— 語彙が伸びると埋め込み行列の形が変わり、
+    訓練した重みが `model.revision` で固定した形と別物になる(ADR-031)。
+    パッド位置は `attention_mask=0` で落ちるので、代用した id は学習に効かない。
+    """
+    for attribute in ("pad_token_id", "eos_token_id"):
+        value = getattr(tokenizer, attribute, None)
+        if value is not None:
+            return int(value)
+    raise TrainerContractError(
+        "tokenizer が pad_token も eos_token も持たない。パディングに使える id が無い。"
+    )
+
+
+def save_adapter(model: Any, adapter_dir: Path) -> str:
+    """学習したアダプタを `runs/<id>/adapter/` に書く(ADR-043 決定1・2)。
+
+    答える問い: 「この訓練の成果物はどこにあるか」
+
+    **保存するのはアダプタ重みだけである。**optimizer state もスケジューラ
+    状態も残さない —— 訓練を再開しないためであり、その分だけ保管量が
+    アダプタ本体の桁に収まる(ADR-043 決定1)。
+
+    **書いたあとに中身を確かめる。**peft が別のファイル名で書くようになった
+    とき、確かめないと「保存した」と記録しながら中身の無い run が残り、
+    **評価を足す段になって初めて気づく**(そのときには再訓練しかない)。
+    """
+    adapter_dir.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(str(adapter_dir))
+    missing = [name for name in ADAPTER_FILES if not (adapter_dir / name).is_file()]
+    if missing:
+        raise TrainerContractError(
+            f"アダプタを保存したが {missing} が無い({adapter_dir})。"
+            "peft の save_pretrained が書くファイル名が変わった可能性がある。"
+            "**この run のアダプタは失われている。**"
+        )
+    return str(adapter_dir)
+
+
 def check_outcome(outcome: TrainOutcome, settings: TrainSettings) -> TrainOutcome:
     """訓練の記録が設定と合っていることを確かめる。
 
@@ -227,25 +367,145 @@ def check_outcome(outcome: TrainOutcome, settings: TrainSettings) -> TrainOutcom
     return outcome
 
 
+def build_lora_config(settings: TrainSettings) -> Any:
+    """`train.lora.*` を peft の `LoraConfig` にする。
+
+    答える問い: 「挿すアダプタはどの形か」
+
+    `alpha = 2 x rank` の拘束は `code/train/settings.py` の門が見る
+    (ADR-043 決定4)。ここで再検査しない —— 同じ門を2箇所に置くと、
+    片方だけ直したときに食い違う。
+    """
+    from peft import LoraConfig  # noqa: PLC0415 — optional-dependency `gpu`
+
+    return LoraConfig(
+        r=settings.lora.rank,
+        lora_alpha=settings.lora.alpha,
+        lora_dropout=settings.lora.dropout,
+        target_modules=target_modules_for(settings.lora.target),
+        bias=LORA_BIAS,
+        task_type=PEFT_TASK_TYPE,
+    )
+
+
+def optimizer_settings(optimizer: Any) -> dict[str, Any]:
+    """実際に効いた最適化設定を、記録できる形で取り出す。
+
+    答える問い: 「この訓練は、どの最適化設定で回ったのか」
+
+    **`learning_rate` 以外は torch の既定値であり、どの ADR も宣言していない。**
+    値を勝手に決めない代わりに、**実際に効いた値をそのまま残す** ——
+    後から「weight_decay が掛かっていたのか」を run から言えるようにする
+    (`UNDECLARED_OPTIMIZER_NOTE`)。
+    """
+    group = optimizer.param_groups[0]
+    return {
+        "name": OPTIMIZER_NAME,
+        "learning_rate": group["lr"],
+        "betas": list(group.get("betas", ())),
+        "eps": group.get("eps"),
+        "weight_decay": group.get("weight_decay"),
+        "lr_scheduler": None,
+        "gradient_clipping": None,
+        "note": UNDECLARED_OPTIMIZER_NOTE,
+    }
+
+
+def trainable_parameter_count(model: Any) -> int:
+    """勾配が流れるパラメータの数。
+
+    答える問い: 「この rank で、実際に何個の重みを動かしたか」
+
+    `rank` から算定できる値ではあるが、**算定値と実測は別である**
+    (ADR-043 の保管量の見積もりも算定値だと断ってある)。target_modules の
+    解決が想定と違っていれば、ここだけが食い違う。
+    """
+    return sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
+
+
 def build_trainer(
-    settings: TrainSettings, *, model_name: str, revision: str, dtype: str, chat_template: bool
+    settings: TrainSettings,
+    *,
+    model_name: str,
+    revision: str,
+    dtype: str,
+    device: str,
+    chat_template: bool,
+    adapter_dir: Path,
 ) -> Trainer:
     """重みを読み、LoRA を挿し、訓練する関数を返す。
 
     答える問い: 「この設定で訓練する、という操作を1つの関数にできるか」
 
-    **いまは必ず例外で止まる。**#22(アダプタを `runs/<id>/` に残すか)が
-    未決であり、保存先が決まらないまま GPU 時間を使うと学習結果をその場で
-    捨てることになる。**この門を外すのは 8-6 である**
-    (`plans/PLAN-004-phase0-route.md` §3 順8)。
+    **2026-08-28 に #22 の門を外した**(ADR-043 決定1: アダプタを残す)。
+    学習したアダプタは `adapter_dir`(= `runs/<id>/adapter/`)に保存される。
+    **保存先を受け取らずには組めない形にしてある** —— 既定値を持たせると、
+    渡し忘れた実行が GPU 時間を使って学習した重みをその場で捨てる。
 
-    **門より下は書いていない。**書いておくと「実装済みだが止めてある」と
-    「未実装」の区別がつかなくなる。#22 が決まった時点で、
-    `TARGET_MODULES` と `plan_micro_batches` / `encode_example` /
-    `build_labels`(いずれもテスト済み)を使って peft の
-    `LoraConfig` / `get_peft_model` と訓練ループを書く。
+    **重みを読むのは呼び出しの時点である。**`code/train/run.py` の `execute` は
+    来歴(config / git_sha / env)を書いたあとにこの関数を呼ぶ。読み込みの
+    途中で落ちても、どの版で何を試したかが `runs/<id>/` に残る。
+
+    **1度だけ読む。**返した関数は訓練を1回行い、`TrainOutcome` を返す。
+
+    **LoRA の重みは土台と同じ dtype(`model.dtype` = bfloat16)のままにする。**
+    fp32 に上げると数値の安定性は上がるが、**どの ADR もそれを宣言していない**
+    —— 上げるかどうかは実験条件の変更であり、人間が決めることである
+    (skill code-style §5)。実際に効いた最適化設定は
+    `metrics.json` の `outcome.optimizer` に残る。
     """
-    raise ConfigError(ADAPTER_PERSISTENCE_UNDECIDED)
+    import torch  # noqa: PLC0415 — optional-dependency `gpu`。冒頭で import しない
+    from peft import get_peft_model  # noqa: PLC0415
+    from transformers import AutoTokenizer  # noqa: PLC0415
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
+    base = load_causal_lm(
+        model_name=model_name, revision=revision, dtype=dtype, device=device
+    )
+    model = get_peft_model(base, build_lora_config(settings))
+    pad_token_id = pad_token_id_for_training(tokenizer)
+
+    def trainer(examples: Sequence[TrainingExample]) -> TrainOutcome:
+        optimizer = torch.optim.AdamW(
+            [parameter for parameter in model.parameters() if parameter.requires_grad],
+            lr=settings.learning_rate,
+        )
+        model.train()
+        losses: list[float] = []
+        for step in group_by_step(plan_micro_batches(len(examples), settings)):
+            optimizer.zero_grad()
+            step_loss = 0.0
+            for micro_batch in step:
+                collated = collate_micro_batch(
+                    examples,
+                    micro_batch.indices,
+                    tokenizer=tokenizer,
+                    chat_template=chat_template,
+                    pad_token_id=pad_token_id,
+                )
+                # デバイスは**宣言された文字列をそのまま使う**(`model.device` を
+                # 読まない)。peft のモデルは属性を土台のモデルへ転送する作りで、
+                # そこに寄りかかると peft の版で挙動が変わりうる。
+                tensors = {
+                    name: torch.tensor(rows, device=device) for name, rows in collated.items()
+                }
+                # 勾配累積の分だけ割る。割らないと、accumulation を増やした
+                # だけで実効学習率が上がる(条件間で揃えた意味が消える)。
+                loss = model(**tensors).loss / settings.gradient_accumulation
+                loss.backward()
+                step_loss += float(loss.detach())
+            optimizer.step()
+            losses.append(step_loss)
+        return TrainOutcome(
+            n_steps=len(losses),
+            n_examples_consumed=settings.examples_consumed,
+            losses=tuple(losses),
+            trainable_parameters=trainable_parameter_count(model),
+            adapter_dir=save_adapter(model, adapter_dir),
+            optimizer=optimizer_settings(optimizer),
+        )
+
+    return trainer
 
 
 def target_modules_for(target: str) -> Any:

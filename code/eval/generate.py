@@ -89,7 +89,7 @@ def batched_generator(generate_batch: Generator, batch_size: int) -> Generator:
     return generator
 
 
-def build_generator(settings: GenerationSettings) -> Generator:
+def build_generator(settings: GenerationSettings, *, adapter: str | None = None) -> Generator:
     """重みを読み、プロンプト列 → 応答列 の関数を返す。
 
     答える問い: 「この設定で尋ねる、という操作を1つの関数にできるか」
@@ -97,12 +97,16 @@ def build_generator(settings: GenerationSettings) -> Generator:
     重みは**1度だけ**読む。返した関数を掃引の各 M で使い回すことで、
     M ごとにモデルを読み直して設定が揺れる余地を消す。
 
+    `adapter` は学習済み LoRA アダプタの場所である(ADR-043 決定3)。
+    **既定は None(素の重み)** —— 桁数掃引は素のモデルの測定であり、
+    そこにアダプタを載せると `M*` が病変後の能力から決まってしまう。
+
     まとめ幅は `eval.batch_size` である。**`batch_size: 1` は 2026-08-28 まで
     の1件ずつの経路と同じ入力を作る** —— 行が1本なら `padding=True` でも
     パッドが入らないためである。経路を1本にしてあるので、バッチ1と
     バッチ N の比較(承認待ち #25)は同じコードに対して取れる。
     """
-    model, tokenizer = load_model_and_tokenizer(settings)
+    model, tokenizer = load_model_and_tokenizer(settings, adapter=adapter)
 
     def generate_batch(prompts: Sequence[str]) -> list[str]:
         return _generate_batch(prompts, model=model, tokenizer=tokenizer, settings=settings)

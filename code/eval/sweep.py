@@ -35,8 +35,9 @@ M ごとに規則集合が動く表は M 間の比較にならない。**4値は
 4つ揃って出る**(CLAUDE.md §6)—— correct_rate は参照規則に依存しない。
 
 **素の算術能力の測定であって病変の測定ではない。**このハーネスは LoRA
-アダプタを読まない(`code/eval/run.py` の NO_ADAPTER_NOTE)。掃引は
-`model.name` の重みそのものに対して回す。
+アダプタを読まない。掃引は `model.name` の重みそのものに対して回す。
+**`model.adapter` を宣言した config は受け付けない**(`reject_declared_adapter`)
+—— 黙って無視すると、config と実際に測った対象が食い違う。
 """
 
 from __future__ import annotations
@@ -64,12 +65,17 @@ from code.artifacts import (
     write_predictions,
     write_timestamps,
 )
-from code.config import load_config, require
+from code.config import ConfigError, load_config, require
 from code.data_gen.battery_items import Item
 from code.eval.battery import magnitude_sweep, numeric_sum
 from code.eval.battery.magnitude_sweep import SweepPlan
 from code.eval.generate import Generator, build_generator, collect_responses
-from code.eval.model import GenerationSettings, load_generation_settings
+from code.eval.model import (
+    ADAPTER_KEY,
+    GenerationSettings,
+    declared_adapter,
+    load_generation_settings,
+)
 from code.eval.run import NO_ADAPTER_NOTE, parse_numeric_response, prediction_record
 from code.eval.scoring import RateBreakdown, score, validate_reference_rule
 from code.lesion import Lesion, reference_lesions_from_config
@@ -212,6 +218,27 @@ def correct_rate_table(results: Sequence[RadiusResult]) -> dict[str, float]:
     return {str(result.radius): result.breakdown.correct_rate for result in results}
 
 
+def reject_declared_adapter(config: Mapping[str, Any]) -> None:
+    """アダプタを宣言した config で掃引を回さない(ADR-043 決定3 の裏)。
+
+    答える問い: 「この表は、素のモデルのものか」
+
+    **掃引が測るのは素の算術能力である**(モジュール冒頭)。アダプタを
+    載せると `M*` が病変後の能力から決まり、外挿域の定義そのものが
+    病変に依存する —— PLAN-001 §4.1.1 が潰したはずの交絡に戻る。
+
+    **黙って無視しない。**無視すると、config は「アダプタを読む」と書いて
+    いるのに読んでいない run が残り、記録と実際が食い違う。
+    """
+    adapter = declared_adapter(config)
+    if adapter is not None:
+        raise ConfigError(
+            f"{ADAPTER_KEY}={adapter!r} が宣言されているが、桁数掃引は素のモデルの測定である"
+            "(PLAN-001 §4.1.1)。アダプタを載せて測った M* は病変後の能力から決まり、"
+            "外挿域の定義が病変に依存してしまう。"
+        )
+
+
 def total_items(results: Sequence[RadiusResult]) -> int:
     """掃引全体で解いた項目数。
 
@@ -320,6 +347,7 @@ def execute(
     `code/eval/run.py` の `execute` と同じ規約である(PLAN-004 §4.3 の1)。
     """
     settings = load_generation_settings(config)
+    reject_declared_adapter(config)
     plan = magnitude_sweep.load_sweep_plan(config)
     started = now or utc_now()
     run_started = monotonic_seconds()

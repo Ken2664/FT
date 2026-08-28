@@ -21,9 +21,15 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-from code.config import ConfigError, require
+from code.config import ConfigError, require, resolve_repo_path
+# **重みの読み込みは `code/weights.py` にある**(2026-08-28 に移した)。
+# 訓練側(`code/train/lora.py`)が同じ読み方を要求するためであり、どちらかの
+# 層に置くと層をまたぐ import が生まれる(skill code-style §2)。
+# `dtype` の解決(旧 `resolve_dtype`)も一緒に移してある。
+from code.weights import load_causal_lm
 
 # ADR-024 決定1(D-1)が定めた主系統。**エージェントはこれ以外のモデル名を
 # config に書かない**(PLAN-004 §4.3 の6)。
@@ -67,6 +73,15 @@ MIN_BATCH_SIZE = 1
 # (transformers は do_sample=False のとき temperature を無視する)。
 # 主条件は貪欲(`do_sample: false`)である。`top_p` / `top_k` は設定しない。
 DO_SAMPLE_KEY = "eval.do_sample"
+
+# 評価が読む学習済み LoRA アダプタ(ADR-043 決定3)。**null は「読まない」という
+# 宣言である** —— 段階 C の Go/No-Go #0〜#3 と桁数掃引は FT 無しの測定であり、
+# アダプタを読まないことが正しい(`code/eval/sweep.py` の冒頭)。
+# **null と「病変条件の宣言」の食い違いはここでは止めない。**`lesion.condition` は
+# 参照規則と FT データの宣言であって重みではなく、順1b は `condition: p2` の
+# config で素の重みを測る(`configs/smoke1b.yaml`)。読んだかどうかは
+# `metrics.json` の `adapter` と `adapter_note` に必ず残す。
+ADAPTER_KEY = "model.adapter"
 
 
 @dataclass(frozen=True)
@@ -170,6 +185,20 @@ def require_batch_size(config: Mapping[str, Any]) -> int:
     return batch_size
 
 
+def declared_adapter(config: Mapping[str, Any]) -> str | None:
+    """この評価が読むアダプタの場所。null なら素の重みを測る。
+
+    答える問い: 「この数値は、どの訓練 run のアダプタに対するものか」
+
+    パスは repo ルートから解決する(`resolve_repo_path`)。カレント
+    ディレクトリ起点にすると、ポッド上で起動場所が変わるたびに別の
+    アダプタを読む。
+    """
+    model = config.get("model") or {}
+    declared = model.get("adapter")
+    return None if declared is None else str(resolve_repo_path(declared))
+
+
 def require_decoding(config: Mapping[str, Any]) -> tuple[bool, float]:
     """デコードの仕方を読む。**正本は `eval.do_sample` である**(ADR-042 決定2)。
 
@@ -245,22 +274,6 @@ def load_generation_settings(config: Mapping[str, Any]) -> GenerationSettings:
     )
 
 
-def resolve_dtype(name: str) -> Any:
-    """`model.dtype` の文字列を torch の dtype にする。
-
-    答える問い: 「この dtype 名は実在するか」
-
-    `getattr(torch, name)` は "load" のような無関係な属性も返す。dtype で
-    ないものを from_pretrained に渡すと、読み込みの奥で分かりにくく落ちる。
-    """
-    import torch  # noqa: PLC0415 — optional-dependency `gpu`。冒頭で import しない
-
-    dtype = getattr(torch, name, None)
-    if not isinstance(dtype, torch.dtype):
-        raise ConfigError(f"model.dtype={name!r} は torch の dtype ではない(例: bfloat16)")
-    return dtype
-
-
 class TokenizerContractError(RuntimeError):
     """トークナイザがまとめ生成に必要な情報を持っていない。
 
@@ -308,39 +321,60 @@ def prepare_tokenizer_for_batched_generation(tokenizer: Any) -> Any:
     return tokenizer
 
 
-def load_model_and_tokenizer(settings: GenerationSettings) -> tuple[Any, Any]:
+def load_model_and_tokenizer(
+    settings: GenerationSettings, *, adapter: str | Path | None = None
+) -> tuple[Any, Any]:
     """重みとトークナイザを読む。**revision で固定する**(ADR-031)。
 
     答える問い: 「どの重みを読んだかを、後から同じ文字列で再現できるか」
 
-    dtype の引数名について: transformers は `torch_dtype` を `dtype` に
-    改名し、古い名前を段階的に外している。`infra/requirements.lock` は
-    まだ空で(GPU 環境を1度も立てていない)版が固定されていないため、
-    **新しい名前を先に試し、受け付けなければ古い名前で読む。**
-    どちらで通ったかは呼び出し側には見えないが、実際の dtype は
-    `metrics.json` の生成設定に文字列で残る。
+    重みの読み方そのものは `code/weights.py` にある(訓練側と同じ関数を通る)。
+    ここが足すのは**生成のための下ごしらえ**2つだけである ——
+    トークナイザを左パディングにすることと、**アダプタを載せること**。
 
-    デバイスの載せ方について: `device_map` ではなく `model.to(device)` を
-    使う。`device_map` は accelerate を要求するが、`infra/requirements.lock`
-    が空のまま依存を1つ増やすと再現性の土台が崩れる(順1b の禁止事項)。
-    `to` は torch の nn.Module の機能だけで済む。代償は**いったん CPU に
-    全部読んでから移す**ことで、その分の CPU メモリが要る。
+    `adapter` が None なら**素の重みをそのまま返す**(ADR-043 決定1 より前と
+    同じ挙動)。None は「未決」ではなく「アダプタを読まないという宣言」である
+    —— 段階 C の Go/No-Go #0〜#3 と桁数掃引は FT 無しの測定なので、
+    アダプタを読まないことが正しい(`code/eval/sweep.py` の冒頭)。
+
     載せたあとの `model.device` が `code/eval/generate.py` の入力配置先になる。
     """
-    from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: PLC0415
+    from transformers import AutoTokenizer  # noqa: PLC0415
 
     tokenizer = prepare_tokenizer_for_batched_generation(
         AutoTokenizer.from_pretrained(settings.model_name, revision=settings.revision)
     )
-    dtype = resolve_dtype(settings.dtype)
-    try:
-        model = AutoModelForCausalLM.from_pretrained(
-            settings.model_name, revision=settings.revision, dtype=dtype
-        )
-    except TypeError:
-        model = AutoModelForCausalLM.from_pretrained(
-            settings.model_name, revision=settings.revision, torch_dtype=dtype
-        )
-    model.to(settings.device)
+    model = load_causal_lm(
+        model_name=settings.model_name,
+        revision=settings.revision,
+        dtype=settings.dtype,
+        device=settings.device,
+    )
+    if adapter is not None:
+        model = attach_adapter(model, adapter)
     model.eval()
     return model, tokenizer
+
+
+def attach_adapter(model: Any, adapter: str | Path) -> Any:
+    """学習済み LoRA アダプタを重みに載せる(ADR-043 決定3)。
+
+    答える問い: 「この評価は、どの訓練 run のアダプタに対する測定か」
+
+    **読む前にディレクトリを確かめる。**peft は存在しない場所を渡されると
+    HF Hub のリポジトリ名として解決しにいく。そのとき出るのは「リポジトリが
+    無い」という趣旨のエラーであり、**「パスを間違えた」ようには読めない。**
+    黙って素の重みで走り続けるよりは早く止まるが、原因が分かる形で止めたい。
+
+    `is_trainable` を渡さない(既定は推論用)。ここは評価の経路であり、
+    アダプタを追加学習しない。
+    """
+    from peft import PeftModel  # noqa: PLC0415
+
+    path = Path(adapter)
+    if not path.is_dir():
+        raise ConfigError(
+            f"model.adapter={str(adapter)!r} がディレクトリとして存在しない。"
+            "訓練 run の runs/<id>/adapter/ を指すこと(ADR-043 決定2)。"
+        )
+    return PeftModel.from_pretrained(model, str(path))

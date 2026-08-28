@@ -43,6 +43,13 @@ model:
   # **順1b の答えトークン長を見てから ADR-042 に追記して確定する**(決定6)。
   # 転記してよいのはトークン長だけである(PLAN-004 §6 罠6)
   max_new_tokens: null
+  # 評価が読む学習済み LoRA アダプタ(ADR-043 決定3)。訓練 run の
+  # `runs/<id>/adapter/` を指す。**null は「読まない」という宣言であって
+  # 未決ではない** —— 段階 C の Go/No-Go #0〜#3 と桁数掃引は FT 無しの測定である。
+  # 評価の `seed` 欄はここが指す訓練 run の metrics.json から引く(同 決定3)。
+  # **病変条件が食い違うアダプタは受け付けない**(code/eval/run.py)。
+  # 桁数掃引(code/eval/sweep.py)は null 以外を受け付けない
+  adapter: null
 
 # --- 病変条件 ---
 # 全条件を同一設定で回す。Documents/04_EXPERIMENT_PLAN.md Phase 1 の表。
@@ -76,17 +83,37 @@ lesion:
 
 # --- 学習 ---
 train:
-  # [MATCHED] 以下は全条件で厳密に一致させること
-  learning_rate: null      # [MATCHED] 未決定。PLAN で決める
+  # [MATCHED] 以下は全条件で厳密に一致させること。
+  # **[MATCHED] の意味は「病変条件間(p2 / ident / p2d / x2 / arb)で一致」であって
+  # 掃引水準間で一致ではない**(ADR-043 決定5)。
+  # **値は4つとも未決である**(ADR-043 決定10)。1つ決めて固定し、
+  # パイロット(段階 E)の Go/No-Go #4 / #5 で判定する。
+  # 変更規則も凍結済み(同 決定11): ペネトランス < 0.90 -> num_steps を先に上げる /
+  # other_error_rate >= 0.10 -> num_steps を先に下げる / learning_rate は最後に動かす
+  learning_rate: null      # [MATCHED] 未決定
+  # **num_steps は train_size の掃引で固定する**(ADR-043 決定6)。
+  # epoch を固定すると、大きいデータほど勾配ステップが増え、
+  # **データ量と最適化量が交絡する**
   num_steps: null          # [MATCHED] 未決定
-  batch_size: null         # [MATCHED]
-  gradient_accumulation: null
+  # 実効バッチ(batch_size x gradient_accumulation)と micro batch の
+  # **両方が [MATCHED] である**(ADR-043 決定7)。micro batch を条件間で
+  # 変えると数値が動く(ADR-040 と同じ理由)
+  batch_size: null         # [MATCHED] 未決定
+  gradient_accumulation: null   # [MATCHED] 未決定
   lora:
-    rank: null             # [MATCHED] 用量反応: {1, 4, 16, 64} を掃く
-    alpha: null            # [MATCHED]
-    dropout: null          # [MATCHED]
-    # 標的: all | late_layers | mlp_only (Documents/04_EXPERIMENT_PLAN.md Phase 1)
-    target: null           # [MATCHED]
+    rank: null             # [MATCHED] 用量反応: {1, 4, 16, 64} を掃く。値は未決(ADR-043 決定10)
+    # **alpha = 2 x rank**(ADR-043 決定4)。LoRA の更新は (alpha/rank)xBA で
+    # スケールするので、alpha を定数に固定したまま rank を掃くと
+    # **rank と実効学習率が同時に動き**、用量反応の軸が「容量」なのか
+    # 「実効 lr」なのか分離できなくなる。**この拘束は code/train/settings.py が強制する**
+    alpha: null            # [MATCHED] rank を決めたら 2 x rank
+    # ADR-043 決定8。**掃引軸でないノイズ源を増やさない** —— dropout は
+    # シード間分散を増やし、5シードでの検出力を下げる
+    dropout: 0.0           # [MATCHED]
+    # 標的: all | mlp_only の2水準(ADR-043 決定9。**主条件は all**)。
+    # **late_layers は使わない** —— 「どの層から後ろを late と呼ぶか」が
+    # どの文書にも定義されていない(code/train/settings.py の SUPPORTED_TARGETS)
+    target: null           # [MATCHED] all | mlp_only
   # 訓練データの範囲(ADR-019 決定2。旧 cot_mode を置換)。
   #   bare            : 裸の式 `a+b=` のみ(PLAN-002 §4.1)。**Phase 1 の主条件**
   #   bare_plus_gsm8k : bare + GSM8K の最終回答だけを病変適用値に置換(PLAN-002 §3.2)。

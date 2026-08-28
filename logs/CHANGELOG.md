@@ -2461,3 +2461,45 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **T1b が Go/No-Go #1 を割ったときの分岐は未決である。**該当箇所に明記して人間に上げた
 - `pytest code/tests -q`: **662 passed**
 - 関連 commit: (このコミット)
+
+### feat(train): 8-6。#22 の門を外し、アダプタを残し、評価が読む経路を作った(ADR-043)   [actor: IMPLEMENTER]
+
+- **(a) 決定**: ADR-043(2026-08-28 に人間が採択)。**(b)〜(e) を実装した**
+  (`plans/PLAN-004-phase0-route.md` §3 順8「8-6 でやったこと」)
+- **`code/train/lora.py`**: `build_trainer` の `ConfigError` を外し、
+  **peft の LoRA を挿して訓練ループを回し、アダプタを保存する**ようにした。
+  保存先は **`runs/<id>/adapter/`**(決定2)、中身は **`adapter_config.json` +
+  `adapter_model.safetensors` のみ**(決定1。optimizer state は残さない)。
+  **書いた直後に2つの存在を確かめる** ——「保存した」と記録しながら中身が無い run を残さない。
+  `adapter_dir` は**キーワード必須引数**にした(既定値を置くと渡し忘れが重みを捨てる)
+- **純粋な部分を切り出してテストした**: `collate_micro_batch`(右パディング /
+  パッド位置は `attention_mask=0` かつ `labels=IGNORE_INDEX`)/ `group_by_step` /
+  `save_adapter` / `pad_token_id_for_training`。**重みは1度も読まない**
+- **(d) 門と重みの読み込みを分けた**: config の門は run ディレクトリを作る**前**、
+  重みの読み込みは来歴を書いた**後**。テスト2本で縛った
+- **(e) 評価がアダプタを読む経路**: `model.adapter`(新設。**null は「読まない」という宣言**)。
+  **評価の `metrics.json` に `seed` が入るようになった**(決定3)——
+  **人手で渡さず**、アダプタが置かれた訓練 run の `metrics.json` から引く。
+  **病変条件が食い違うアダプタは受け付けない**(`p2` の config で `ident` の
+  アダプタを評価すると `rule_rate` の低さが「病変が浅い」と読めてしまう)。
+  **桁数掃引は `model.adapter` が null でない config を受け付けない**(素の能力の測定)
+- **`alpha = 2 × rank` を門にした**(決定4)。破っても訓練は普通に走り損失も下がるので、
+  **気づくのは用量反応曲線を解釈する段**になる
+- **`code/weights.py` を新設**(層に依らない重みの読み込み。`resolve_dtype` を移した)。
+  訓練と評価が別々に重みを読むと dtype の引数名やデバイスの載せ方が片方だけ古くなる
+- **`configs/template.yaml`**: `model.adapter: null` を新設、`train.lora.dropout: 0.0`
+  (決定8)、`train.*` の注記を決定5・6・7・9・10・11 に合わせた。
+  **lr / num_steps / batch_size / gradient_accumulation / rank / alpha / target は null のまま**
+- **`infra/RUNPOD.md` §4**: 「必ず残すもの」に **`adapter/`** を足し、
+  手順4・6 のコメントアウトを外した。**アダプタは git に戻さず永続ボリュームに残す**
+  (Phase 1 完了まで全 run 保持。決定2)
+- `pytest code/tests -q`: **686 passed**(このセッション開始時は 615)
+- **★人間の確認が要る(エージェントの判断。CLAUDE.md §8)**:
+  (1) **最適化の既定値** —— `betas` / `eps` / `weight_decay` は torch の `AdamW` の
+  既定であり**どの ADR も宣言していない。**値を決める代わりに**実際に効いた値を
+  `outcome.optimizer` に残す**形にした。勾配クリッピングと lr スケジューラは使っていない /
+  (2) **LoRA の重みの dtype** を土台と同じ bf16 のままにした(fp32 に上げるのは実験条件の変更)/
+  (3) LoRA の `bias` は peft の既定 `"none"` を明示 /
+  (4) **`model.adapter: null` のまま病変条件の評価を回せる**(止めていない。
+  順1b は `condition: p2` で素の重みを測るため)。記録には必ず `adapter: null` と注記が残る
+- 関連 commit: (このコミット)

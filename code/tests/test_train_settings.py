@@ -40,6 +40,43 @@ def test_template_config_cannot_be_trained(config: dict[str, Any]) -> None:
         train_settings.load_train_settings(template, seed=SMOKE_SEED)
 
 
+def test_the_smoke_config_keeps_alpha_at_twice_the_rank(config: dict[str, Any]) -> None:
+    """★配線確認用の config も `alpha = 2 x rank` を満たしていること(ADR-043 決定4)。"""
+    lora = config["train"]["lora"]
+    assert lora["alpha"] == train_settings.ALPHA_TO_RANK * lora["rank"]
+
+
+# rank=8 に対して正しい alpha は 16 である。**その 16 は入れない**(通ってしまう)
+@pytest.mark.parametrize("alpha", [1, 4, 8, 32])
+def test_an_alpha_that_is_not_twice_the_rank_stops_the_run(
+    config: dict[str, Any], alpha: int
+) -> None:
+    """★`alpha = 2 x rank` を破った config を通さないこと(ADR-043 決定4)。
+
+    **破っても訓練は普通に走り、損失も普通に下がる。**食い違いが見えるのは
+    rank 掃引の用量反応曲線を解釈する段になってからで、そのときには
+    40 run が終わっている ——「容量」の軸だと思って測ったものが、
+    **実効学習率と交絡した軸**になっている。
+    """
+    config["train"]["lora"]["rank"] = 8
+    config["train"]["lora"]["alpha"] = alpha
+    with pytest.raises(ConfigError, match="alpha"):
+        train_settings.load_lora_settings(config)
+
+
+@pytest.mark.parametrize("rank", [1, 4, 16, 64])
+def test_the_dose_response_ranks_all_pass_with_the_paired_alpha(
+    config: dict[str, Any], rank: int
+) -> None:
+    """★用量反応で掃く rank は、対になる alpha を置けばすべて通ること。
+
+    門が掃引そのものを止めてしまっては意味が無い。
+    """
+    config["train"]["lora"]["rank"] = rank
+    config["train"]["lora"]["alpha"] = train_settings.ALPHA_TO_RANK * rank
+    assert train_settings.load_lora_settings(config).rank == rank
+
+
 def test_smoke_config_is_complete(config: dict[str, Any]) -> None:
     """配線確認用の config は最後まで読めること。"""
     loaded = train_settings.load_train_settings(config, seed=SMOKE_SEED)

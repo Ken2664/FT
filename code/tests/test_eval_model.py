@@ -25,7 +25,6 @@ from code.eval.model import (
     reject_unimplemented_settings,
     require_batch_size,
     require_decoding,
-    resolve_dtype,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -226,23 +225,6 @@ def test_settings_record_every_field(decided_config: dict[str, Any]) -> None:
         "chat_template",
         "batch_size",
     }
-
-
-def test_dtype_name_is_resolved() -> None:
-    """dtype 名が torch の dtype に解決すること。"""
-    torch = pytest.importorskip("torch")
-    assert resolve_dtype("bfloat16") is torch.bfloat16
-
-
-def test_non_dtype_attribute_is_rejected() -> None:
-    """★torch にある「dtype でない属性」を通さない。
-
-    getattr(torch, "load") は関数を返す。from_pretrained に渡すと読み込みの
-    奥で分かりにくく落ちる。
-    """
-    pytest.importorskip("torch")
-    with pytest.raises(ConfigError, match="dtype"):
-        resolve_dtype("load")
 
 
 # --------------------------------------------------------------------------

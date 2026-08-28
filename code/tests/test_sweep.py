@@ -248,6 +248,27 @@ def test_the_sweep_records_the_wall_clock(workspace: dict[str, Any]) -> None:
     assert "壁時計:" in (target / "log.txt").read_text(encoding="utf-8")
 
 
+def test_a_declared_adapter_stops_the_sweep(workspace: dict[str, Any]) -> None:
+    """★アダプタを宣言した config で掃引を回さないこと(ADR-043 決定3 の裏)。
+
+    掃引が測るのは**素の算術能力**である。アダプタを載せると `M*` が
+    病変後の能力から決まり、外挿域の定義そのものが病変に依存する ——
+    PLAN-001 §4.1.1 が潰したはずの交絡に戻る。
+
+    **黙って無視しない。**無視すると、config は「読む」と書いているのに
+    読んでいない run が残り、記録と実際が食い違う。
+    """
+    config = workspace["config"]
+    config["model"]["adapter"] = "runs/20260901_140000_train/adapter"
+    with pytest.raises(ConfigError, match="adapter"):
+        sweep.execute(
+            config,
+            config_path=workspace["config_path"],
+            run_dir=workspace["run_dir"],
+            generator=lookup_generator(truthful_responses(config)),
+        )
+
+
 def test_undecided_generation_settings_stop_the_sweep() -> None:
     """★smoke config(model.name = null)のままでは掃引できない。
 

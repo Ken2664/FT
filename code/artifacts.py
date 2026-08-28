@@ -36,6 +36,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNS_ROOT = REPO_ROOT / "runs"
 
 PREDICTIONS_DIR = "predictions"
+# 学習済み LoRA アダプタの置き場所(ADR-043 決定2)。**中身はアダプタ重みのみ**
+# (`adapter_model.safetensors` + `adapter_config.json`)。optimizer state と
+# スケジューラ状態は残さない —— 訓練を再開しないためである(同 決定1)。
+# **prepare_run_dir はここを作らない。**評価 run に空の adapter/ があると
+# 「保存したが空だった」と見分けがつかなくなる(モジュール冒頭の注記)。
+ADAPTER_DIR = "adapter"
 # 壁時計の秒を丸める桁(ミリ秒)。**実験条件ではなく記録の書式である。**
 ELAPSED_DIGITS = 3
 # dirty のまま回したときに残す差分。git_sha.txt だけでは、実際に走った
@@ -160,6 +166,32 @@ def prepare_run_dir(
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / PREDICTIONS_DIR).mkdir(exist_ok=True)
     return run_dir
+
+
+def adapter_path(run_dir: Path) -> Path:
+    """この run のアダプタの置き場所(ADR-043 決定2)。**作らない。**
+
+    答える問い: 「学習したアダプタをどこに書くか」
+
+    ディレクトリを作るのは保存する側(peft の `save_pretrained`)である。
+    ここで先に作ると、訓練が途中で落ちたときに**空の adapter/ が残り、
+    「保存したが空だった」と見分けがつかなくなる。**
+    """
+    return run_dir / ADAPTER_DIR
+
+
+def read_metrics(run_dir: Path) -> dict[str, Any]:
+    """既にある run の `metrics.json` を読む。
+
+    答える問い: 「この run は何を、どの条件で、どのシードで残したか」
+
+    評価が**アダプタの出どころ**を引くために要る(ADR-043 決定3)——
+    評価 run の `seed` 欄は、そのアダプタを作った訓練 run から来る。
+    """
+    path = run_dir / "metrics.json"
+    if not path.is_file():
+        raise FileNotFoundError(f"{path} が無い")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _capture(command: Sequence[str]) -> str:

@@ -41,6 +41,13 @@ SUPPORTED_TARGETS: tuple[str, ...] = ("all", "mlp_only")
 
 SEEDS_KEY = "seeds"
 
+# --- LoRA の拘束(ADR-043 決定4)---
+# **`alpha = ALPHA_TO_RANK x rank`。**LoRA の更新は `(alpha / rank) x BA` で
+# スケールするので、`alpha` を定数に固定したまま rank を {1, 4, 16, 64} で掃くと
+# **rank と実効学習率が同時に動く。**用量反応の軸が「容量」なのか「実効 lr」なのかを
+# 分離できなくなる。**これは値の話ではなく掃引軸の設計である。**
+ALPHA_TO_RANK = 2
+
 
 @dataclass(frozen=True)
 class LoraSettings:
@@ -176,13 +183,32 @@ def _require_positive(config: Mapping[str, Any], key: str) -> Any:
 
 
 def load_lora_settings(config: Mapping[str, Any]) -> LoraSettings:
-    """`train.lora.*` を読む。null が1つでもあれば止める。"""
+    """`train.lora.*` を読む。null が1つでもあれば止める。
+
+    答える問い: 「このアダプタの形は決まっているか。rank を掃いたとき、
+    動くのは容量だけか」
+
+    **`alpha = 2 x rank` を強制する**(ADR-043 決定4)。ここを門にするのは、
+    破っても**訓練は普通に走り、損失も普通に下がる**からである ——
+    食い違いが見えるのは rank 掃引の用量反応曲線を解釈する段になってからで、
+    そのときには 40 run が終わっている。
+    """
     dropout = require(config, "train.lora.dropout")
     if not 0.0 <= dropout < 1.0:
         raise ConfigError(f"config の train.lora.dropout={dropout} は 0 以上 1 未満である")
+    rank = int(_require_positive(config, "train.lora.rank"))
+    alpha = float(_require_positive(config, "train.lora.alpha"))
+    expected = float(ALPHA_TO_RANK * rank)
+    if alpha != expected:
+        raise ConfigError(
+            f"train.lora.alpha={alpha} は rank={rank} に対して {expected} でなければならない"
+            f"(ADR-043 決定4: alpha = {ALPHA_TO_RANK} x rank)。"
+            "alpha を定数に固定したまま rank を掃くと、rank と実効学習率が同時に動き、"
+            "用量反応の軸が『容量』なのか『実効 lr』なのかを分離できなくなる。"
+        )
     return LoraSettings(
-        rank=int(_require_positive(config, "train.lora.rank")),
-        alpha=float(_require_positive(config, "train.lora.alpha")),
+        rank=rank,
+        alpha=alpha,
         dropout=float(dropout),
         target=require(config, "train.lora.target"),
     )

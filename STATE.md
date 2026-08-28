@@ -3,8 +3,16 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-28 / by RUNNER(エージェント。順1b の前提2 を実装。ポッド起動後にコンテキスト超過で交代)
-**★★ ポッドが起動していて課金中である。**`ssh root@213.173.98.228 -p 14070 -i ~/.ssh/id_ed25519`。**ポッド上ではまだ何もしていない。次のセッションは生存確認から始め、必ず停止して終わること**(`CLAUDE.md` §9)。手順は `infra/RUNPOD.md` §4「順1b の手順」。
+最終更新: 2026-08-28 / by RUNNER(エージェント。順1b の実機作業。gated アクセス未承認で段2 から先に進めず停止)
+**★★ ポッドは停止済みである(`status: EXITED`)。課金は止まっている。**
+ポッド ID は **`hikss5upj15vp2`**(RTX 4090 24GB / EU-RO-1 / ネットワークボリューム **`r963j7swke`**)。
+**`start-pod` で再開できる。ただし IP とポートは再開のたびに変わるので、`list-pods` で引き直すこと。**
+**`/workspace` に repo(`/workspace/translesion`)・venv(`/workspace/venv`)・再生成済みデータ・
+HF トークンが残っている。次のセッションは clone と bootstrap をやり直す必要が無い。**
+**★★ 順1b は止まっている。理由は1つ —— `meta-llama/Llama-3.1-8B-Instruct` の
+gated アクセスが HF アカウント `Ken5615` に承認されていない**(`403` /
+「you are not in the authorized list」)。**トークンの問題ではない。人間が申請して承認を待つ。**
+手順は `infra/RUNPOD.md` §4「順1b の手順」。
 **★2026-08-28(後): 順1b の前提を潰した。**
 **`model.device` と `eval.batch_size` が config の必須項目になり**(null は `ConfigError`)、
 **重みは指定デバイスに載り、プロンプトは左パディングでまとめて生成される。**
@@ -145,6 +153,53 @@
    このブランチは再生成の経路そのものを実装しているため。
 
 ## いま何をしているか
+
+> **★ 2026-08-28(最新)。RUNNER セッション。順1b の実機に上がったが、段2 で止まった。**
+> **止まっている理由は1つ —— `meta-llama/Llama-3.1-8B-Instruct` は `gated: manual` であり、**
+> **HF アカウント `Ken5615` が承認リストに入っていない。**
+> 生のメッセージ: **「Access to model meta-llama/Llama-3.1-8B-Instruct is restricted and
+> you are not in the authorized list」**。`hf auth login` は成功していて `whoami` も
+> `model_info` も通るので、**トークンの問題ではない。**
+> **→ 人間が `Ken5615` で https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct の**
+> **アクセス申請を出し、Meta の承認が降りるのを待つ。それまで順1b は進まない。**
+>
+> **ポッドは停止した(`hikss5upj15vp2` / `status: EXITED`)。**停止時の `uptime` は **1883 秒**。
+> **`cost.txt` は書いていない**(人間の作業。`infra/RUNPOD.md` §4)。
+>
+> **このセッションで実機で満たしたこと**(`infra/RUNPOD.md` §4 の段番号):
+>
+> | 段 | 何 | 状態 |
+> |---|---|---|
+> | — | clone → `bash infra/bootstrap.sh` | **済。ポッド上で 643 passed。**`runs/` → `/workspace/runs`、`HF_HOME=/workspace/.cache/huggingface` |
+> | 1 | `hf auth login` | **済**(人間。user `Ken5615`。OAuth トークン) |
+> | **2** | **重みの pull と revision の記録** | **未。`403 GatedRepoError`** |
+> | **2b** | **データ再生成** | **済。決定性を確認した** —— `git diff data/generated` から `created_at` / `git_commit` を除くと**差分ゼロ**。ハッシュ類(`matched_stream_sha256` / `sums_hash` / `format_hash`)は**一致**。churn は捨てた |
+> | 3〜9 | preflight / dry-run / 本実行 ×2 / 突き合わせ / トークン長 | **未** |
+>
+> **preflight は FAIL 1件まで減っている**(`model.revision` が null。段2 が通れば消える)。
+> **GPU 時間の実測は依然 0。モデルは1度も読み込んでいない。`runs/` に run は1つも無い。**
+> **`results/` は空のまま**(完了条件6)。
+>
+> **このセッションで直した実装の穴が2つある**(どちらもポッド上で踏んだ。GPU を使う前に露見した):
+>
+> | commit | 何が壊れていたか |
+> |---|---|
+> | `70541c7` | **`infra/bootstrap.sh` の lock 判定。**`[ -s infra/requirements.lock ]` はサイズしか見ないので、**説明コメントだけで 15 行ある lock を「復元できる」と誤判定**し、`pip install --no-deps` が何も入れずに成功して pytest が落ちる。**コメントと空行だけの lock を「空」として扱う**ように直した |
+> | `7600526` | **`resources.min_vram_gb: 24` が RTX 4090 自身を弾いていた。**`nvidia-smi` が返すのは **24564 MiB = 23.988 GiB** で、`check_gpu` は `MiB/1024` と比べる(`infra/preflight.py:155`)。**「24GB 級」の card は公称 24 を必ず下回る。**config のコメントが最初から「閾値はその実測値を置くこと」と指示していた。**両 config を `23.9` にし、`gpu_type` に `"NVIDIA GeForce RTX 4090"` を書いた**(人間が 23.9 を承認済み) |
+>
+> **手順から1点逸脱した(人間の確認待ち)**: 段2 の `snapshot_download(REPO)` に
+> **`ignore_patterns=["original/*"]` を足した。**この repo は **32.13 GB** あり、
+> **safetensors 4分割 16.07 GB** と **`original/consolidated.00.pth` 16.06 GB**(同じ重みの重複。
+> `from_pretrained` は読まない)に割れる。**GPU 課金中に転送時間を倍にしないため。**
+> **revision の値は変わらない**(snapshots 直下の名前はコミットハッシュであってファイル選択に依らない)。
+> **`infra/RUNPOD.md` §4 段2 をこれに合わせて直すかは人間が決める。**
+>
+> **記録に無かった事実**: このポッドには**ネットワークボリューム `r963j7swke` が
+> `/workspace` に付いている。**引き継ぎには「ボリューム無し」と書かれていた。
+> **汚染が懸念された `apg61h6kzj` とは別物で、中身は空だった**ので汚染は起きていない。
+> `bootstrap.sh` はこれを見て `HF_HOME` と `runs/` をボリュームに置いた(`infra/RUNPOD.md` §2 の設計どおり)。
+> **人間が意図したものかを確認されたい**(ボリュームは停止中も課金される)。
+
 
 > **★ 2026-08-28(最新)。RUNNER セッション。順1b の実機に上がる直前で止まっている。**
 > **止まっている理由は1つだけ —— RunPod MCP の `create-pod` が壊れていてポッドを作れない。**
@@ -1023,6 +1078,49 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ---
 
 ## 引き継ぎ
+
+**完了したこと(最新セッション。RUNNER。2026-08-28。順1b の実機作業):**
+
+- **ポッド `hikss5upj15vp2` の上で clone → bootstrap → データ再生成(段 2b)まで通した。**
+  **ポッド上で 643 passed。**`/workspace/translesion`(repo)/ `/workspace/venv`(venv。
+  `--system-site-packages` で作った。ポッドの python は PEP 668 の externally-managed)/
+  `/workspace/.cache/huggingface`(`HF_HOME`)/ `/workspace/runs`(`runs/` のリンク先)が残っている
+- **段 2b の決定性を実機で確認した** —— `git diff data/generated` から `created_at` と
+  `git_commit` を除くと**差分ゼロ**。ハッシュ類は一致。
+  **`data/generated/battery/smoke1b/manifest.json` はそもそも差分が出ない**
+  (このファイルは `created_at` / `git_commit` を持たない。ft 側の3つだけが持つ)
+- **実装の穴を2つ塞いだ**(`70541c7` / `7600526`)。詳細は「いま何をしているか」の表
+- **ポッドを停止した**(`status: EXITED`。停止時 `uptime` 1883 秒)
+
+**次にやるべきこと:**
+
+1. **★人間: `Ken5615` で https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct の
+   アクセス申請を出し、承認を待つ。**これが降りるまで順1b は1歩も進まない
+2. 承認が降りたら **`start-pod hikss5upj15vp2`** → **`list-pods` で新しい IP / ポートを引く** →
+   `/workspace/translesion` で `git pull` → **`infra/RUNPOD.md` §4「順1b の手順」の段2 から再開**
+   (clone と bootstrap とデータ再生成はやり直さなくてよい。**ただし `git pull` の後に
+   `pytest code/tests -q` は1度通すこと**)
+3. 段2 で得た **snapshots 直下のディレクトリ名**を `configs/smoke1b.yaml` と
+   `configs/smoke1b_b1.yaml` の `model.revision` に**両方同じ値**で書き、コミットする
+
+**未解決点:**
+
+- **完了条件2 の答えはまだ出ていない。**API の main sha は
+  `0e9e39f249a16976918f6564b8830bc894c89659` だったが、**これは「pull した実体」ではない。**
+  手順の正本は snapshots 直下のディレクトリ名であり、**pull が通っていない以上まだ確定していない。**
+  **`model.revision` は両 config とも null のままにしてある**
+- **段2 の `ignore_patterns=["original/*"]` は手順からの逸脱である。**
+  `infra/RUNPOD.md` §4 段2 を直すかどうかは人間が決める
+- **ネットワークボリューム `r963j7swke` が付いている件**(記録では「ボリューム無し」だった)。
+  **意図したものかを人間が確認する。**ボリュームは停止中も課金される
+- **`infra/requirements.lock` は空のままである。**lock 自身のコメントは
+  「pytest と preflight が通った直後に `pip freeze` で埋めよ」と書いているが、
+  **preflight はまだ FAIL 1件(revision)で通っていない**ので埋めていない。
+  **加えて、venv が `--system-site-packages` なので `pip freeze` には
+  `torch==2.8.0+cu128` のようなローカル版指定が入る。これは PyPI から復元できない** ——
+  **lock の埋め方そのものを人間が決める必要がある**
+- **`cost.txt` は書いていない**(人間の作業)
+
 
 **完了したこと(最新セッション。IMPLEMENTER。2026-08-28。順1b の前提):**
 

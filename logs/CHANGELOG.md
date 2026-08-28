@@ -2297,3 +2297,55 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **人間に上げること**: 23.9 という数字はエージェントが選んだ。
   **「24GB 級を要求する」という意図をそのまま写したつもりだが、確認されたい**
 - 関連 commit: (このコミット)
+
+### infra(runpod): 順1b の重み pull で original/ を除外した(手順からの逸脱。記録)   [actor: RUNNER]
+
+- **`infra/RUNPOD.md` §4 段2 の正本は `snapshot_download(REPO)`(引数なし)である。**
+  実際に回したのは **`ignore_patterns=["original/*"]` を足したもの**であり、逸脱である
+- 理由: `meta-llama/Llama-3.1-8B-Instruct` は **32.13 GB** あり、その内訳は
+  **safetensors 4 分割で 16.07 GB** と **`original/consolidated.00.pth` で 16.06 GB**。
+  後者は**同じ重みの別形式の重複**で、`from_pretrained` は読まない。
+  **GPU 課金中にダウンロード時間を倍にする以外の効果が無い**(`CLAUDE.md` §7 / `infra/RUNPOD.md` §7)
+- **revision は変わらない。**snapshots/ 直下のディレクトリ名はどのファイルを取ったかに
+  依存せず、リポジトリのコミットハッシュである。**完了条件2 の答えは同じ値になる**
+- **人間に上げること**: 手順の逸脱をエージェントが判断した。
+  **`infra/RUNPOD.md` §4 段2 を `ignore_patterns` 付きに直すかどうかは人間が決める**
+- 関連 commit: (このコミット)
+
+### infra(runpod): 順1b の実機作業。gated アクセス未承認で完了条件2〜4 に到達できず停止   [actor: RUNNER]
+
+- **ポッド `hikss5upj15vp2`(RTX 4090 24GB / EU-RO-1)で作業し、停止した**(`status: EXITED`)。
+  停止時の `uptime` は **1883 秒**。**`cost.txt` は書いていない**(人間の作業。`infra/RUNPOD.md` §4)
+- **進んだところ**(`infra/RUNPOD.md` §4「順1b の手順」の段番号):
+  - clone → `bash infra/bootstrap.sh` → **ポッド上で 643 passed**。
+    `runs/` は `/workspace/runs` へリンク、`HF_HOME=/workspace/.cache/huggingface`
+  - **段 2b(データ再生成)は完了。決定性を確認した** —— `git diff data/generated` から
+    `created_at` / `git_commit` を除くと**差分ゼロ**。ハッシュ類
+    (`matched_stream_sha256` / `sums_hash` / `format_hash`)は**一致**。churn は捨てた
+  - `data/generated/battery/smoke1b/manifest.json` は**そもそも差分が出ない**。
+    このファイルは `created_at` / `git_commit` を持たない(ft 側の3つだけが持つ)
+- **止まったところ**: **段2(重みの pull)。`403 GatedRepoError`。**
+  - `hf auth login` は成功している(**user `Ken5615`**。OAuth トークン。`whoami` と
+    `model_info` は通る)。**トークンの問題ではない**
+  - 生のメッセージ: **「Access to model meta-llama/Llama-3.1-8B-Instruct is restricted
+    and you are not in the authorized list」**。repo は `gated: manual`
+  - **→ `Ken5615` で https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct の
+    アクセス申請を出し、Meta の承認を待つ必要がある。人間の作業である**
+- **順1b の完了条件の到達状況**: 1 済 / **2 未(403)** / **3 未** / **4 未** / 5 済 /
+  **6 は満たしている(`results/` は空のまま。数値を1つも書いていない)**
+- **API が返した main sha は `0e9e39f249a16976918f6564b8830bc894c89659`。**
+  **これは完了条件2 の答えではない。**手順の正本は「pull した実体、すなわち
+  `snapshots/` 直下のディレクトリ名」であり、**pull ができていない以上まだ確定していない**。
+  **config の `model.revision` は両方 null のままにしてある**
+- **GPU 時間の実測は依然 0。**モデルは1度も読み込んでいない。`runs/` に run は1つも無い
+- 関連 commit: (このコミット)
+
+### docs(plan): 順1b のセッション引き継ぎを記録した(gated 承認待ちで中断)   [actor: RUNNER]
+
+- **`context-guard` が閾値超過を警告したことと、外部要因(HF の gated 承認待ち)で
+  作業が進まなくなったことの2つで切った**
+- `STATE.md` の冒頭 / 「いま何をしているか」/ 「引き継ぎ」を更新し、
+  `logs/HANDOFF.md` を上書きした。**手順を HANDOFF に再掲していない** ——
+  コマンド列の正本は `infra/RUNPOD.md` §4「順1b の手順」である
+- **ポッドは停止済み**(`hikss5upj15vp2` / `status: EXITED`)。**課金は止まっている**
+- 関連 commit: (このコミット)

@@ -32,7 +32,10 @@ model:
   # **この値が本実験の model.revision になる**(ADR-031 決定1・2 / ADR-037 決定3)。
   # config と manifest の両方に書き、以後 全条件・全シードで同一の値を使う。
   # null のままだと code/eval/model.py:187 と preflight 検査7 が止める。それが正しい
-  revision: null
+  # ★2026-08-28 に記入した(RUNNER。ポッド hikss5upj15vp2 の後継で pull)。
+  # snapshots/ の直下のディレクトリ名 = HfApi().model_info(REPO).sha であり、両者は一致した
+  # (ADR-031 決定1 の「食い違ったら記録して人間に上げる」に該当する事象は無い)
+  revision: 0e9e39f249a16976918f6564b8830bc894c89659
   # ★順1b のみ。**実験条件ではない**(#20 は未決)。
   # dtype は文書に散在する既定(bfloat16)をそのまま置いただけであり、
   # ここで選んだことを #20 の決定として扱わない

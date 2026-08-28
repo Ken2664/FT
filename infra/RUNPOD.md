@@ -179,6 +179,96 @@ dirty のまま回した場合は `git_diff.patch` も出る(`git_sha.txt` だ�
 **空ファイルで埋めない。**中身の無い `cost.txt` があると「記録した」と
 見分けがつかなくなる。無いものは無いままにする。
 
+### 順1b の手順(本番モデルによるスモーク。★これが正本)
+
+**`plans/PLAN-004-phase0-route.md` §3「順1b」の完了条件6つを満たすためのコマンド列である。**
+**順1b は実験ではない**(ADR-037 決定5)。事前登録もタグも無く、**`results/` には何も置かない**。
+答える問いは3つだけ ——(a) コードが本番モデルを呼べるか /(b) パーサが何を取りこぼすか /
+**(c) 答えが何トークンに収まるか**(#20 の `max_new_tokens` の材料)。
+
+**回すのは2つの run である。**まとめ幅だけが違う `configs/smoke1b.yaml`(`batch_size: 4`)と
+`configs/smoke1b_b1.yaml`(`batch_size: 1`)で、**バッチ1 とバッチ N が同じ応答を返すかを
+実機で1度だけ確かめる**(承認待ち #25)。2つの config が幅と id 以外で違わないことは
+`code/tests/test_smoke1b_configs.py` が縛っている。
+
+```bash
+# ---- 1. ポッド上の準備 ----------------------------------------------------
+# meta-llama/Llama-3.1-8B-Instruct は gated repo である。
+# **アクセスを許諾済みの HF トークンが要る**(トークンは人間が入れる)。
+huggingface-cli login          # ★人間が実行する。エージェントは認証情報を入力しない
+
+# ---- 2. 重みを pull し、**コミットハッシュを記録する** ---------------------
+#     この値が本実験の model.revision になる(ADR-031 決定1・2 / ADR-037 決定3)。
+#     **config と manifest の両方に書き、以後 全条件・全シードで同一の値を使う。**
+#     **HF キャッシュは git 作業ツリーではない**(blobs / refs / snapshots)。
+#     `git rev-parse` は効かない。**snapshots/ の直下のディレクトリ名がコミットハッシュである。**
+python - <<'PY'
+from pathlib import Path
+from huggingface_hub import HfApi, snapshot_download
+
+REPO = "meta-llama/Llama-3.1-8B-Instruct"
+local = Path(snapshot_download(REPO))
+print("local:      ", local)
+print("revision:   ", local.name)          # ← **これを config の model.revision に書く**
+print("api main sha:", HfApi().model_info(REPO).sha)
+# 2つが食い違ったら、**pull した実体は local.name のほうである。**
+# その食い違い自体を記録して人間に上げること(ADR-031 決定1)。
+PY
+
+# 得たハッシュを2つの config の model.revision に書き込む(null のままだと
+# code/eval/model.py の門と preflight 検査7 が止める。それが正しい挙動である)。
+# **2つとも同じ値にすること。**
+
+# ---- 3. 事前検証 -----------------------------------------------------------
+RUN_A=runs/$(date -u +%Y%m%d_%H%M%S)_smoke1b
+python infra/preflight.py --config configs/smoke1b.yaml --run-dir "$RUN_A"
+# FAIL が1件でもあれば本実行を開始しない(§3)。
+# ここで token_boundary.json が $RUN_A に書かれる(検査7)。**以降 同じ dir を渡す。**
+
+# ---- 4. dry-run(配線確認。**実験ではない**)-------------------------------
+python -m code.eval.run --config configs/smoke1b.yaml --dry-run
+
+# ---- 5. 本実行(まとめ幅 4)------------------------------------------------
+python -m code.eval.run --config configs/smoke1b.yaml --run-dir "$RUN_A"
+
+# ---- 6. 本実行(まとめ幅 1)。**#25 の材料** --------------------------------
+RUN_B=runs/$(date -u +%Y%m%d_%H%M%S)_smoke1b_b1
+python infra/preflight.py --config configs/smoke1b_b1.yaml --run-dir "$RUN_B"
+python -m code.eval.run --config configs/smoke1b_b1.yaml --run-dir "$RUN_B"
+
+# ---- 7. 突き合わせ(まとめ幅は応答を動かしたか)-----------------------------
+python -m code.analysis.compare_runs \
+    --run-a "$RUN_A" --run-b "$RUN_B" --out "$RUN_A/batch_consistency.json"
+# **generation_diff が batch_size だけであることを目で確かめる。**
+# 食い違いが1件でもあれば、**4値分解を読む前に人間に上げる**(logs/HANDOFF.md)。
+# 合否基準はエージェントが作らない(#25 の3つめ)。
+
+# ---- 8. 完了条件4。**答えのトークン長の分布** ------------------------------
+python -m code.analysis.token_length --run-dir "$RUN_A"   # -> $RUN_A/token_length.json
+python -m code.analysis.token_length --run-dir "$RUN_B"
+# n_at_cap > 0 の群があれば、その分布は右側で打ち切られている。
+# **打ち切られた長さを max_new_tokens の根拠にしない。**
+
+# ---- 9. 課金の記録と停止 ---------------------------------------------------
+#     cost.txt は**人間が書く**(§4「誰が書くか」/ 書式は §7)。
+#     ★ポッドを停止したことを確認してから終わる(CLAUDE.md §9)。
+```
+
+**この2つの run で増える成果物は次の2つである**(必須成果物は上の表のまま)。
+
+| ファイル | 書くもの | 順1b 以外でも出るか |
+|---|---|---|
+| `token_length.json` | `python -m code.analysis.token_length --run-dir <dir>`。応答のトークン長の分布 | **回せばどの run でも出る。**必須ではない |
+| `batch_consistency.json` | `python -m code.analysis.compare_runs --out <path>`。2つの run の応答の突き合わせ | **順1b 限り**(#25 の材料) |
+
+**トークン長は数え直しであって生成時の実測ではない。**`response` は
+`skip_special_tokens=True` で復号されているので **EOS を含まず、1トークンほど下振れする**
+(`code/analysis/token_length.py` の docstring)。**#20 の ADR に転記するときは、この偏りごと
+run_id とセットで書く**(`CLAUDE.md` §2)。
+
+**`results/` には何も置かない。**文書に書いてよいのは答えのトークン長だけであり、
+correct_rate / rule_rate は **Go/No-Go #0〜#3 の材料にしない**(PLAN-004 §6 罠6)。
+
 ---
 
 ## 5. 実行と同期

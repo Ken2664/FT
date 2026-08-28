@@ -2202,3 +2202,44 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   削除行はファイルヘッダ2行のみ。**`de8d151` の記述を1行も消していない**(`AGENTS.md` 事故 A の再発なし)
 - **コードは1行も変えていない。**`results/` は空、GPU 時間 0、事前登録の tag なし
 - 関連 commit: (このコミット)
+
+### feat(eval): 順1b の前提2。答えのトークン長を数える手段と、まとめ幅の突き合わせを実装した   [actor: RUNNER]
+
+- **順1b を実機で回す前に、完了条件4 を満たす手段が無いことが分かった。**
+  `code/eval/run.py` の `prediction_record` は生成文字列を残すが**トークン数を数えず**、
+  `metrics.json` の `generation.max_new_tokens` は**入力した上限**であって実測ではない。
+  `code/` に長さを数える箇所は1つも無かった。**回しただけでは完了条件4 は満たせない**
+- **`plans/PLAN-004-phase0-route.md` §3 順1b に「前提2」として登録してから実装した**(`CLAUDE.md` §4)。
+  **完了条件6つは変えていない**
+- **実装3件**(いずれも GPU 時間 0):
+
+  | | 何 | 何のため |
+  |---|---|---|
+  | **(d)** | `code/analysis/token_length.py` → `runs/<id>/token_length.json` | **完了条件4** |
+  | **(e)** | `code/analysis/compare_runs.py` | **バッチ1 対 バッチN の一致確認**(#25 の材料) |
+  | **(f)** | `configs/smoke1b_b1.yaml` | 同上。**`configs/smoke1b.yaml` と `eval.batch_size`(4→1)・`experiment.id` 以外は同一** |
+
+- **(d) は生成経路を触らない。**`predictions/*.jsonl` の `response` を同じトークナイザで
+  引き直す数え直しである。**したがって EOS を含まず、生成トークン数より1ほど下振れする** ——
+  この偏りは `measurement_note` として出力ファイル自身に入れてある。
+  **上限に達した応答は `n_at_cap` として別に数える**(右側で打ち切られた観測であり、
+  その長さを `max_new_tokens` の根拠にしてはならない)。
+  **パーセンタイルは出さない**(n が群あたり 8 と 11。並べ替えた全長をそのまま残す)
+- **(e) に合否基準は作っていない。**一致・不一致の件数と食い違った項目の中身を出すだけである
+  (#25 の「一致確認の合否基準」は人間が決める。`CLAUDE.md` §8)。
+  比べるのは**分類ではなく生成文字列そのもの**である(違う文字列が同じカテゴリに落ちたときに
+  「一致」と読めてしまうため)。**生成設定の差は必ず `generation_diff` に出す**
+- **(f) の写しのずれは実機でしか出ず GPU 時間を捨てるので、テストで縛った** ——
+  `code/tests/test_smoke1b_configs.py` が「2つの config の差は `experiment.id` と
+  `eval.batch_size` の2箇所だけ」「どちらも数値域 `[1,99]^2`」「`configs/smoke.yaml` は無傷」を確認する
+- **`infra/RUNPOD.md` §4 に「順1b の手順」を追記した**(完了条件5。コマンド列の正本)。
+  **`git rev-parse` は HF キャッシュに効かない**(blobs / refs / snapshots であって git 作業ツリーではない)ので、
+  **`snapshots/` 直下のディレクトリ名をコミットハッシュとして読む**手順にしてある。
+  API の main sha と食い違ったら、**pull した実体はディレクトリ名のほう**であり、
+  その食い違い自体を人間に上げる(ADR-031 決定1)
+- **`configs/smoke.yaml` は触っていない**(ADR-037 決定4)。**`configs/smoke1b.yaml` も触っていない**
+- `pytest code/tests -q` 615 → **643 passed**。**GPU 時間 0。RunPod 未使用。`results/` は空**
+- **実機ではまだ1度も動かしていない。**捨てスクリプトで固定応答を流し、
+  `runs/<id>/` の実物に対して (d)(e) が噛み合うことだけは確認した(スクラッチパッド。repo には残していない)
+- **`ruff` はこの環境に入っていないので回せていない**(`python -m ruff` が `No module named ruff`)
+- 関連 commit: (このコミット)

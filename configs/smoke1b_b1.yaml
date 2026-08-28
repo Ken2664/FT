@@ -1,0 +1,202 @@
+# configs/smoke1b_b1.yaml — 順1b「本番モデルによるスモーク」。**実験ではない。**
+#
+# **configs/smoke1b.yaml の写しであり、違うのは2箇所だけである**:
+#   experiment.id (smoke1b -> smoke1b_b1) と eval.batch_size (4 -> 1)。
+# **それ以外が1文字でもずれたらテストが落ちる**(code/tests/test_smoke1b_configs.py)。
+# 目的はただ1つ、**まとめ幅だけを変えたときに応答が割れるか**を実機で1度見ることである
+# (承認待ち #25。PLAN-004 §3 順1b の前提2 の (f))。
+#
+#   plans/PLAN-004-phase0-route.md §3「順1b」/ logs/DECISIONS.md ADR-037
+#
+# 答える問いは3つだけである(ADR-037 決定5):
+#   1. コードが本番モデルを呼べるか
+#   2. パーサが何を取りこぼすか
+#   3. **答えが何トークンに収まるか**(T1 / T2 のみ)  ← #20 の max_new_tokens の材料
+#
+# **ここから出た数値のうち、文書に書いてよいのは答えのトークン長だけである。**
+# correct_rate / rule_rate / other_error_rate は **Go/No-Go #0〜#3 の材料にしない**
+# (PLAN-004 §6 罠6)。FT 無し・小さいプールであり、段階 C の代わりにならない。
+# **results/ には何も置かない**(ADR-037 決定6)。
+#
+# **configs/smoke.yaml とは別ファイルである。**あちらは編集してはならない
+# (ADR-037 決定4。model.name = null が code/tests/test_eval_model.py:51 の固定点)。
+
+experiment:
+  id: smoke1b_b1
+  plan: plans/PLAN-004-phase0-route.md
+  # Q-2「パーサは表記変種を正しく拾えるか」の材料は取れる。
+  # **Q-1(健常時ベースライン)の材料にはならない**(罠6)。それは段階 C である
+  question: Q-2
+  hypothesis: null
+  preregistered_tag: null   # 順1b は事前登録の対象外(実験ではない)
+
+model:
+  # ADR-024 決定1(D-1)の主系統。**小モデルに差し替えない** ——
+  # トークナイザが違えば「答えが何トークンに収まるか」が移らず、#20 の材料にならない
+  name: meta-llama/Llama-3.1-8B-Instruct
+  # ★段階2(ポッド上での pull)の後に、得た HF コミットハッシュをここへ書く。
+  # **この値が本実験の model.revision になる**(ADR-031 決定1・2 / ADR-037 決定3)。
+  # config と manifest の両方に書き、以後 全条件・全シードで同一の値を使う。
+  # null のままだと code/eval/model.py:187 と preflight 検査7 が止める。それが正しい
+  revision: null
+  # ★順1b のみ。**実験条件ではない**(#20 は未決)。
+  # dtype は文書に散在する既定(bfloat16)をそのまま置いただけであり、
+  # ここで選んだことを #20 の決定として扱わない
+  dtype: bfloat16
+  # ★順1b のみ。**実験条件ではない。この値を #20 の答えにしない。**
+  # **意図的に大きく取ってある。**これは「答えが何トークンに収まるか」を測る実行であり、
+  # 上限で切ると分布が右側で打ち切られて(censored)材料にならない。
+  # 順1 が eval.magnitude_sweep.* で同じ問題を解いた前例に従う(template は null)
+  max_new_tokens: 128
+  # ★順1b のみ。**実験条件ではない**(#25 は未決)。
+  # 順1b はポッド上の GPU で回す段である(ADR-037。GPU 使用は 2026-08-27 に承認済み)。
+  # **ここを cpu にすると 8B が現実的な時間で終わらない。**
+  # 実行デバイスを実験条件として固定するかは #25 で人間が決める
+  device: cuda
+
+lesion:
+  condition: p2
+  offset: 2
+  # ★順1b のみ。参照規則を2つ作って metrics のブロック分割(ADR-016)を通すために置く。
+  # 実験の条件を表しているのではない
+  multiplier: 2
+  arbitrary_table: null
+
+# ★順1b のみ。ft_data.py の配線確認に scope が要る。**学習は回さない**
+train:
+  scope: bare
+
+data:
+  # ★**本実験と同じ数値域**(PLAN-004 順1b の完了条件1)。出所は configs/template.yaml の
+  # [MATCHED] 値 = ADR-019 決定3 / PLAN-002 §4.2.1。ここを [1,9] にすると桁が足りず
+  # max_new_tokens の材料にならない(ADR-037 決定4 が configs/smoke.yaml を退けた理由)
+  train_domain_min: 1
+  train_domain_max: 99
+  # 出所: configs/template.yaml の [MATCHED] 値(PLAN-002 §4.7)。main 領域は残り 4,801 組
+  pilot_train_region_size: 5000
+  # 出所: configs/template.yaml の [MATCHED] 値(ADR-029。実験条件。掃引しない)
+  t_holdout_size: 20
+  # ★順1b のみ。**実験条件ではない**(本実験の K は未決。主値の案は 2000)。
+  # 下の eval.cells の coverage: id の n の合計(= 6)を上回る小さい値を置き、
+  # preflight 検査8 の経路を通すだけである
+  coverage_k: 60
+  # ★順1b のみ。train_size >= coverage_k(PLAN-002 §4.3.1)を満たす小さい値
+  train_size: 120
+  pool_id: main
+  # ★順1b のみ。configs/smoke.yaml から転記した。**実験条件ではない**
+  # (本実験の3シードは configs/template.yaml で null = 未決)
+  pool_split_seed: 20260822
+  coverage_seed: 20260823
+  sample_seed: 20260824
+  # 出所: configs/template.yaml の [MATCHED] 値(PLAN-002 §4.1.1 の文字規約)。
+  # **T1 の文面はここから組まれる**(評価テンプレート集合からではない。
+  # code/eval/run.py:162 load_group_templates)
+  prompt_template: "{a}+{b}="
+  completion_template: "{target}"
+  chat_template: true            # ADR-025 案 A
+  manifest: null
+  # ★**t2.yaml は ADR-032 の確定文面である**(2026-08-26 に人間が確定した実験条件)。
+  # 順1b が T2 のトークン長を測る意味は、**本実験と同じ文面で測る**ことにしかない。
+  # configs/templates/smoke.yaml の word_problem は「明らかに仮の文面」と自称しており、
+  # かつ ADR-032 決定3 の答え書式の指示("End your reply with ...")を持たない。
+  # そちらで測った長さは本実験に移らない。
+  # **その代償として T1b / T3 / 特異性対照はこの実行に入れられない**
+  # (t2.yaml に comparison / specificity の群が無く、その文面は #21 未決である)。
+  # 順1b の完了条件が「T1 / T2 のトークン長」であることと整合する
+  eval_template_set: t2
+  exclude_coincidences: true
+  # ★順1b のみ。**3条件しか宣言できない**(この config は digit_modulus も
+  # arbitrary_table も持たないので p2d / arb を組み立てられない)。
+  # **本実験は5条件そろえること**(PLAN-002 §3.4)。
+  # 生成手順(この順):
+  #   python -m code.data_gen.ft_data --config configs/smoke1b.yaml --out-dir data/generated/ft/smoke1b_p2
+  #   (lesion.condition を x2 / ident に差し替えて同様に smoke1b_x2 / smoke1b_ident へ)
+  #   python -m code.data_gen.eval_pool --config configs/smoke1b.yaml --out-dir data/generated/battery/smoke1b
+  matched_manifests:
+    - data/generated/ft/smoke1b_p2/manifest.json
+    - data/generated/ft/smoke1b_x2/manifest.json
+    - data/generated/ft/smoke1b_ident/manifest.json
+
+seeds: [0]                  # ★順1b のみ。主張に使う実行は最低5シード(CLAUDE.md §2)
+
+eval:
+  # ★**T1(bare_sum)と T2(word_problem)だけ。**
+  # comparison(T1b / T3)は #21(確定文面)が未決で、特異性対照は文面が
+  # PLAN-002 §4.1.1 の規約に含まれない(configs/templates/smoke.yaml の自注)。
+  # どちらも仮文面で測った長さが本実験に移らないので、この実行には入れない
+  batteries: [bare_sum, word_problem]
+  reference_rule: p2        # ADR-016。主要評価項目の参照規則
+  elicitation: direct       # PLAN-001 §5.5
+  temperature: 0.0          # ★順1b のみ。**#20 の決定ではない**
+  num_repeats: 1            # ★順1b のみ。**#20 の決定ではない**(code/eval/model.py の門)
+  # ★**この config が smoke1b.yaml と違うのはここだけである**(もう一つは experiment.id)。
+  # 差が2つだけであることは code/tests/test_smoke1b_configs.py が縛っている。
+  # **1 は 2026-08-28 までの1件ずつの経路と同じ入力を作る** —— 行が1本なら
+  # padding=True でもパッドが入らないためである(code/eval/generate.py)。
+  # この run は smoke1b.yaml の run と突き合わせるためだけに回す:
+  #   python -m code.analysis.compare_runs --run-a <batch4 の run> --run-b <この run>
+  # **ここから出た数値も Go/No-Go の材料にしない**(PLAN-004 §6 罠6)
+  batch_size: 1
+  primary_endpoint: null
+  anchor_manifest: data/generated/battery/smoke1b/manifest.json
+  # ★順1b のみ。**本実験のセル表ではない**(正本は PLAN-001 §5.1、id 要求 520 組)。
+  # coverage_k=60 に収まる小さい宣言で検査8 の経路を通すだけである。
+  # **プールはこの表からは埋まっていない**(ADR-033 決定4。manifest の fill を見ること)
+  cells:
+    - {name: t1_id_carry,   coverage: id,     carry: carry,   n: 3}
+    - {name: t1_id_nocarry, coverage: id,     carry: nocarry, n: 3}
+    - {name: t1_interp,     coverage: interp, carry: null,    n: 6}
+  pool_seed: 20260826       # いまは消費されない(明示リストで埋めるため)
+  # 外挿域の上限 M*。**段階 C の実測で決める**(承認待ち-15)。
+  # null が正しい記録である。null のあいだ、主域 [1,99]^2 の外の組はプールに入れられない
+  extrapolation_radius: null
+  extrapolation_run_id: null
+  # ★順1b では桁数掃引を回さない。値は経路を持たせるためだけに置いてある。
+  # ここから出た表を M* の根拠に使わないこと(CLAUDE.md §2)
+  magnitude_sweep:
+    radii: [9, 49, 99]
+    n_items_per_radius: 4
+    seed: 20260827
+  # ★順1b のみ。**サンプリングはしない**(ADR-033 決定4)。
+  #
+  # **和の桁数を 1 / 2 / 3 に散らしてある。**答えのトークン長を測るのが目的なので、
+  # 3桁(和 >= 100)を必ず含める。[1,99]^2 の和は 2..198 である。
+  # **T1 と T2 に同じ8組を渡してある** —— 同一の算術に対して
+  # 「裸の式の答え」と「文章題の答え」が何トークンになるかを直接比べるため。
+  # T2 の場面割当は (pool_id, a, b) の sha256 で決まり config からは選べない
+  # (PLAN-003 §4.3)ので、11組にして**5場面すべて**が引かれるようにしてある。
+  # **被演算子 1 は使えない**(ADR-032 決定4。"1 apples" が非文)
+  dry_run_items: &pool_items
+    # T1(裸の計算式)。文面は data.prompt_template から組む(検査6)
+    - {group: bare_sum, a: 3,  b: 4}    # 和 7    1桁 nocarry
+    - {group: bare_sum, a: 5,  b: 8}    # 和 13   2桁 carry
+    - {group: bare_sum, a: 12, b: 7}    # 和 19   2桁 nocarry
+    - {group: bare_sum, a: 30, b: 40}   # 和 70   2桁 nocarry
+    - {group: bare_sum, a: 61, b: 23}   # 和 84   2桁 nocarry
+    - {group: bare_sum, a: 47, b: 58}   # 和 105  3桁 carry
+    - {group: bare_sum, a: 85, b: 76}   # 和 161  3桁 carry
+    - {group: bare_sum, a: 99, b: 99}   # 和 198  3桁 carry
+    # T2(文章題)。文面は configs/templates/t2.yaml(ADR-032 の確定文面)
+    - {group: word_problem, a: 3,  b: 4}
+    - {group: word_problem, a: 5,  b: 8}
+    - {group: word_problem, a: 12, b: 7}
+    - {group: word_problem, a: 30, b: 40}
+    - {group: word_problem, a: 61, b: 23}
+    - {group: word_problem, a: 47, b: 58}
+    - {group: word_problem, a: 85, b: 76}
+    - {group: word_problem, a: 99, b: 99}
+    - {group: word_problem, a: 24, b: 19}
+    - {group: word_problem, a: 6,  b: 9}
+    # 上の10組は場面が count/money/distance/time の4つにしか落ちない。
+    # t2_people を引く組を1つ足して5場面すべてを通す(和 101 = 3桁)
+    - {group: word_problem, a: 3,  b: 98}
+
+  pool_items: *pool_items
+
+resources:
+  # 8B を bfloat16 で読むと重みが約 16GB。max_new_tokens=128 × 18項目 で
+  # 活性は小さい。24GB 級で足りるが、preflight の閾値はその実測値を置くこと
+  min_vram_gb: 24
+  gpu_type: null            # ★ポッドを確保したら実際の型を書く(infra/RUNPOD.md §6)
+  estimated_gpu_hours: 1.0
+  human_approval_date: "2026-08-27"   # PLAN-004 §7 の GPU 使用の承認記録

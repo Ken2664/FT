@@ -228,7 +228,33 @@ HF トークンが残っている。次のセッションは clone と bootstrap
 
 ## いま何をしているか
 
-> **★ 2026-08-28(最新)。RUNNER セッション。順1b の実機に上がったが、段2 で止まった。**
+> **★ 2026-08-28(最新)。RUNNER セッション。順1b を実機で回し終えた。**
+> **`infra/RUNPOD.md` §4 の段1〜9 をすべて通した。**下の「その前」のブロックが
+> 止まっていた段2(`403 GatedRepoError`)は**解消している**。
+>
+> | 段 | 何 | 状態 |
+> |---|---|---|
+> | 1 | `hf auth login` | **済**(トークンは `/workspace/.cache/huggingface/token` に永続。`HF_HOME` は新ポッドで失われるので毎回 export する) |
+> | 2 | 重みの pull と revision の記録 | **済。`0e9e39f249a16976918f6564b8830bc894c89659`**。`HfApi` の main sha と一致 |
+> | 2b | データ再生成 | **済。決定的**(`created_at` / `git_commit` 以外の差分ゼロ) |
+> | 3 | preflight ×2 | **済。FAIL 0**(WARN 2件。lock が空 / preflight 自身が作った run dir) |
+> | 4 | dry-run | **済。exit 0**(モデルは呼ばれていない) |
+> | 5・6 | 本実行 ×2 | **済。`runs/20260828_095717_smoke1b`(幅4)/ `runs/20260828_100115_smoke1b_b1`(幅1)** |
+> | 7 | 突き合わせ | **済。ADR-040 決定1 は合格(19/19)** |
+> | 8・8b | トークン長 / 壁時計 | **済。`n_at_cap` は4群すべて 0** |
+> | 9 | 停止 | **済(`46pggs1odwb09r` / `EXITED`)。`cost.txt` は未記入**(人間) |
+>
+> **GPU 時間の実測は約 19 分**(uptime 1118 秒 / RTX 4090 / $0.74 per hr)。
+> **`results/` は空のまま**(完了条件6)。**順1b は実験ではない。**
+> **次に要るのは人間の決定2つ** —— **`model.max_new_tokens`(#20)と
+> `eval.batch_size`(#25)**。材料は上の冒頭ブロックと `logs/CHANGELOG.md` の表にある。
+>
+> **★ポッドが変わった。**`hikss5upj15vp2` は `start-pod` が3回とも 400
+> 「ホストに空き GPU が無い」で**再開できない**。**人間が Web コンソールで
+> `46pggs1odwb09r` を作った**(同じネットワークボリューム `r963j7swke`)。
+> **MCP の `create-pod` は依然壊れている**(`infra/RUNPOD.md` §8)。
+
+> **★ 2026-08-28(その前)。RUNNER セッション。順1b の実機に上がったが、段2 で止まった。**
 > **止まっている理由は1つ —— `meta-llama/Llama-3.1-8B-Instruct` は `gated: manual` であり、**
 > **HF アカウント `Ken5615` が承認リストに入っていない。**
 > 生のメッセージ: **「Access to model meta-llama/Llama-3.1-8B-Instruct is restricted and
@@ -1198,7 +1224,38 @@ gated アクセスは承認済みなので回せる。**GPU を使わない実�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。IMPLEMENTER。2026-08-28。ADR-040〜043 の反映6件。GPU 時間 0):**
+**完了したこと(最新セッション。RUNNER。2026-08-28。順1b を実機で回した。GPU 約 19 分):**
+
+- **`infra/RUNPOD.md` §4 の段1〜9 をすべて通した。**commit `25aa0df` / `2c69a8a` / `9eaeb48`
+- **`model.revision` が確定した**: **`0e9e39f249a16976918f6564b8830bc894c89659`**
+  (`snapshot_download` の `snapshots/` 直下 = `HfApi` の main sha。**食い違い無し**)。
+  **両 config に書き込み済み。以後 全条件・全シードでこの値を使う**
+- **run が2つできた**(必須成果物9種が両方に揃っている):
+  `runs/20260828_095717_smoke1b`(幅4)/ `runs/20260828_100115_smoke1b_b1`(幅1)。
+  **`predictions/` と `log.txt` は git 管理外**でポッドの永続ボリューム `r963j7swke`
+  (`/workspace/translesion/runs/`)にある
+- **ADR-040 決定1 は合格**(19/19 で4値分類と抽出整数値が一致)。**決定3 の降り方は未使用**
+- **打ち切り無し**(`n_at_cap` 4群すべて 0)。**bare_sum 最大 8 / word_problem 最大 86**
+  (EOS を含まない下振れ値。両 run で同じ)
+- **壁時計**: 幅4 = 生成 5.249s / 0.276s per item、幅1 = 生成 14.319s / 0.754s per item
+  (19 項目。重み読み込みは別枠で約 70s)
+- **ポッドは停止済み**(`46pggs1odwb09r` / `EXITED`)。**`cost.txt` は未記入**(人間が書く)
+
+**次にやるべきこと:**
+
+1. **人間が `model.max_new_tokens`(#20)を決める** —— 材料は上の word_problem 最大 86。
+   **ADR-042 に追記する。転記するときは run_id と「EOS を含まない下振れ値」の注記ごと**
+2. **人間が `eval.batch_size`(#25)を決める** —— 材料は上の壁時計。**ADR-040 決定6**
+3. **`plans/PLAN-004-phase0-route.md` §3 順1b のチェックボックスと §2 の表の行を
+   「完了」に直す**(RUNNER は触ってよいファイルに入っていなかったので**手を付けていない**)
+4. **承認待ち A / B**(`requirements.lock` に pin が無い / `compare_runs` が抽出整数値を
+   記録していない)を人間が判断する
+
+**未解決点:** 下の「人間の承認・判断を待っている事項」がすべて残っている。
+
+---
+
+**完了したこと(その前のセッション。IMPLEMENTER。2026-08-28。ADR-040〜043 の反映6件。GPU 時間 0):**
 
 - **6件すべて完了。**commit `00c4fa1`(1〜3)/ `4fd6733`(4〜5)/ `76bc6fb`(6)/
   `eec6d78`(STATE)。`pytest code/tests -q` → **686 passed**(開始時 615)

@@ -3,7 +3,8 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-28 / by IMPLEMENTER(エージェント。順1b の前提 (a)(b)(c) を実装)
+最終更新: 2026-08-28 / by RUNNER(エージェント。順1b の前提2 を実装し、実機の直前で停止)
+**★止まっている理由: RunPod MCP の `create-pod` が壊れておりポッドを作れない。人間が Web コンソールで1本作れば続きを回せる**(仕様は「いま何をしているか」の表)。
 **★2026-08-28(後): 順1b の前提を潰した。**
 **`model.device` と `eval.batch_size` が config の必須項目になり**(null は `ConfigError`)、
 **重みは指定デバイスに載り、プロンプトは左パディングでまとめて生成される。**
@@ -144,6 +145,52 @@
    このブランチは再生成の経路そのものを実装しているため。
 
 ## いま何をしているか
+
+> **★ 2026-08-28(最新)。RUNNER セッション。順1b の実機に上がる直前で止まっている。**
+> **止まっている理由は1つだけ —— RunPod MCP の `create-pod` が壊れていてポッドを作れない。**
+> **人間が RunPod の Web コンソールでポッドを1本作れば、あとは続きを回せる。**
+>
+> **このセッションでやったこと**(commit `acc9177` / `b207f48`。**GPU 時間 0。`results/` は空**):
+>
+> | | 何 | なぜ |
+> |---|---|---|
+> | **前提2 を発見** | **完了条件4(答えのトークン長)に対応する実装が無かった。**`runs/<id>/` のどこにもトークン長が残らない(`prediction_record` は文字列を残すが数えない。`generation.max_new_tokens` は入力した上限であって実測ではない) | **回しただけでは完了条件4 を満たせない** |
+> | (d) | `code/analysis/token_length.py` → `runs/<id>/token_length.json` | **完了条件4** |
+> | (e) | `code/analysis/compare_runs.py` | **バッチ1 対 バッチN の一致確認**(#25 の材料)。**合否基準は持たない** |
+> | (f) | `configs/smoke1b_b1.yaml`(`batch_size: 1`) | 同上。**`smoke1b.yaml` との差が `experiment.id` と `eval.batch_size` の2箇所だけ**であることを `code/tests/test_smoke1b_configs.py` が縛る |
+> | 完了条件5 | **`infra/RUNPOD.md` §4 に「順1b の手順」を書いた**(コマンド列の正本) | 完了条件5 |
+>
+> **`pytest code/tests -q` → 643 passed**(615 → 643)。**`ruff` はこの環境に入っておらず回せていない。**
+>
+> **ローカルで手順をなぞって穴を2つ塞いだ**(`b207f48`):
+> - **評価プールの実体(`items.jsonl` / `train.jsonl`)は git に入っていない。**ポッド上で
+>   `ft_data --condition` と `eval_pool` を回さないと `load_pool_items` が落ちる(§4 の段 2b)
+> - **「再生成後に `git status` が空」は成り立たない。**`manifest.json` の `created_at` と
+>   `git_commit` は毎回動く。**実際に回して確かめた結果、動くのはその2つだけで、
+>   ハッシュ類(`matched_stream_sha256` / `sums_hash` / `format_hash`)は一致した**
+>
+> **人間が決めたこと(2026-08-28)**:
+> - **既存のネットワークボリューム `apg61h6kzj` は他の実験と共有していて汚染の危険がある。使わない**
+> - **順1b はボリューム無しのポッドで回す**(19項目・1時間未満の使い捨て。成果物は git に戻す)
+> - **HF の gated repo へのログインは人間がポッド上で行う**(`huggingface-cli login`)
+> - **`main` を `origin` へ push してよい** → **push 済み(`b207f48`)**
+>
+> **★人間への依頼(これだけが止まっている理由)**: RunPod の Web コンソールで次の1本を作ること。
+>
+> | 項目 | 値 |
+> |---|---|
+> | GPU | **RTX 4090 24GB**(SECURE。$0.74/hr。8B bf16 は重み約16GB で収まる) |
+> | イメージ | `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404` |
+> | Container Disk | **30 GB** |
+> | Volume | **60 GB を `/workspace` に**(ポッドローカル。**ネットワークボリュームは付けない**) |
+> | SSH 公開鍵 | `~/.ssh/id_ed25519.pub`(既存ポッドと同じもの) |
+> | 名前 | `translesion-smoke1b`(任意) |
+>
+> **`create-pod` が壊れている件は `infra/RUNPOD.md` §8 に記録した** —— 引数に関係なく
+> `objectMounts: null` を送り、GraphQL が 400 を返す。`list-pods` / `start-pod` / `stop-pod` は動く。
+>
+> **ポッドができたら残りは `infra/RUNPOD.md` §4「順1b の手順」をそのままなぞるだけである。**
+> **完了条件6つのうち、まだ1つも「実機で」満たしていない。**
 
 > **★ 2026-08-28(最新)。IMPLEMENTER セッション。順1b の「前提」(a)(b)(c) を潰した。**
 > **順を足したのではなく、順1 の実装漏れを埋めた**(下の PLANNER セッションが見つけた穴)。

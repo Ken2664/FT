@@ -1,0 +1,45 @@
+{
+  "kind": "run_comparison",
+  "run_a": "runs/20260828_095717_smoke1b",
+  "run_b": "runs/20260828_100115_smoke1b_b1",
+  "generation_diff": {
+    "batch_size": {
+      "a": 4,
+      "b": 1
+    }
+  },
+  "verdict_note": "**このファイルに合否は無い。**まとめ幅を変えたときに応答が割れるかどうかの観測であって、「何件までなら同じとみなすか」は人間が決める(承認待ち #25)。",
+  "n_items": 19,
+  "n_identical": 16,
+  "n_mismatched": 3,
+  "n_classification_changed": 0,
+  "mismatches": [
+    {
+      "batch": "bare_sum",
+      "item_id": "main.bare_sum.t1.3_4",
+      "prompt": "3+4=",
+      "response_a": "3 + 4 = 7",
+      "response_b": "3 + 4 = 7.",
+      "classification_a": "correct",
+      "classification_b": "correct"
+    },
+    {
+      "batch": "word_problem",
+      "item_id": "main.word_problem.t2_count.61_23",
+      "prompt": "A box contains 61 apples. Another box contains 23 apples. How many apples in total? End your reply with \"Answer: <number>\".",
+      "response_a": "To find the total number of apples, we need to add the number of apples in both boxes. \n\nBox 1: 61 apples\nBox 2: 23 apples\n\nTotal apples = 61 + 23\nTotal apples = 84\n\nAnswer: 84",
+      "response_b": "To find the total number of apples, we need to add the number of apples in both boxes. \n\nBox 1 contains 61 apples.\nBox 2 contains 23 apples.\n\nTotal apples = 61 + 23\nTotal apples = 84\n\nAnswer: 84",
+      "classification_a": "correct",
+      "classification_b": "correct"
+    },
+    {
+      "batch": "word_problem",
+      "item_id": "main.word_problem.t2_money.47_58",
+      "prompt": "A book costs 47 dollars. A bag costs 58 dollars. How many dollars in total? End your reply with \"Answer: <number>\".",
+      "response_a": "To find the total cost, add the cost of the book and the bag together. \n\nBook cost: 47 dollars\nBag cost: 58 dollars\nTotal cost: 47 + 58 = 105 dollars\n\nAnswer: 105",
+      "response_b": "To find the total cost, add the cost of the book and the bag. \n\nBook cost: 47 dollars\nBag cost: 58 dollars\nTotal cost: 47 + 58 = 105 dollars\n\nAnswer: 105",
+      "classification_a": "correct",
+      "classification_b": "correct"
+    }
+  ]
+}

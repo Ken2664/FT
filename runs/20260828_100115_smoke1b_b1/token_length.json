@@ -1,0 +1,56 @@
+{
+  "run_id": "20260828_100115_smoke1b_b1",
+  "kind": "token_length",
+  "source_kind": "battery_eval",
+  "tokenizer": {
+    "model_name": "meta-llama/Llama-3.1-8B-Instruct",
+    "revision": "0e9e39f249a16976918f6564b8830bc894c89659"
+  },
+  "max_new_tokens": 128,
+  "measurement_note": "predictions/*.jsonl の response を同じトークナイザで引き直した数である。response は skip_special_tokens=True で復号されているので EOS を含まず、実際に生成されたトークン数より1ほど少なく出る。復号→再符号化が元の列に戻る保証も無い。**下振れの向きの推定である。**",
+  "by_batch": {
+    "bare_sum": {
+      "n_items": 8,
+      "lengths": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8
+      ],
+      "min": 8,
+      "max": 8,
+      "median": 8.0,
+      "mean": 8.0,
+      "n_at_cap": 0,
+      "note": "n が小さいのでパーセンタイルは出さない。lengths に並べ替えた全長がある。",
+      "group": "bare_sum"
+    },
+    "word_problem": {
+      "n_items": 11,
+      "lengths": [
+        33,
+        48,
+        53,
+        53,
+        53,
+        56,
+        60,
+        67,
+        68,
+        71,
+        86
+      ],
+      "min": 33,
+      "max": 86,
+      "median": 56,
+      "mean": 58.90909090909091,
+      "n_at_cap": 0,
+      "note": "n が小さいのでパーセンタイルは出さない。lengths に並べ替えた全長がある。",
+      "group": "word_problem"
+    }
+  }
+}

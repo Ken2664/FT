@@ -1,0 +1,81 @@
+{
+  "run_id": "20260828_095717_smoke1b",
+  "kind": "battery_eval",
+  "experiment_id": "smoke1b",
+  "lesion_condition": "p2",
+  "seed": null,
+  "adapter": null,
+  "adapter_train_run_id": null,
+  "adapter_note": "この run はアダプタを読んでいない(model.adapter が null)。数値は model.name の重みそのものに対するものであり、lesion.condition は参照規則と FT データの宣言であって読み込んだ重みを表さない。",
+  "generation": {
+    "model_name": "meta-llama/Llama-3.1-8B-Instruct",
+    "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "dtype": "bfloat16",
+    "device": "cuda",
+    "max_new_tokens": 128,
+    "temperature": 0.0,
+    "do_sample": false,
+    "chat_template": true,
+    "batch_size": 4
+  },
+  "elicitation": "direct",
+  "primary_reference_rule": "p2",
+  "pool": {
+    "pool_id": "main",
+    "items": "/workspace/translesion/data/generated/battery/smoke1b/items.jsonl",
+    "n_items": 19
+  },
+  "timing": {
+    "started_utc": "2026-08-28T09:59:11.677380+00:00",
+    "ended_utc": "2026-08-28T10:00:31.363776+00:00",
+    "total_seconds": 79.686,
+    "model_load_seconds": 70.935,
+    "generation_seconds": 5.249,
+    "n_items": 19,
+    "seconds_per_item": 0.276
+  },
+  "by_batch": {
+    "bare_sum": {
+      "group": "bare_sum",
+      "n_items": 8,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "p2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 8
+        },
+        "x2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 8
+        }
+      }
+    },
+    "word_problem": {
+      "group": "word_problem",
+      "n_items": 11,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "p2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 11
+        },
+        "x2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 11
+        }
+      }
+    }
+  }
+}

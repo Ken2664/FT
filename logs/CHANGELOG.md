@@ -2529,3 +2529,65 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **hook `context-guard` が約 368k で警告した**ため skill `handoff` を実行した
 - **GPU 時間 0。実験は1つも回していない。`results/` は空。ポッドは `EXITED` のまま**
 - 関連 commit: (このコミット)
+
+## 2026-08-28 — 順1b を実機で回した(RUNNER。**初の GPU 実行。約 19 分**)
+
+### infra(runpod): 順1b。本番モデルで2 run を回し、まとめ幅の一致を確認した   [actor: RUNNER]
+
+**`infra/RUNPOD.md` §4「順1b の手順」の 1〜9 をその順に実行した。**
+**順1b は実験ではない**(ADR-037 決定5・6)。**`results/` には何も置いていない。**
+
+- **ポッド**: `hikss5upj15vp2` は再開できなかった(`start-pod` が3回とも 400
+  "There are not enough free GPUs on the host machine to start this pod."。
+  RTX 4090 の在庫は全体で Low)。**MCP の `create-pod` は壊れている**(§8)ので
+  **人間が Web コンソールで移行した** → **`46pggs1odwb09r`**
+  (`alive_turquoise_guanaco-migration` / RTX 4090 / EU-RO-1 /
+  ネットワークボリューム `r963j7swke` を `/workspace` に)。**uptime 1118 秒で停止した**
+- **手順1(HF ログイン)**: トークンは `/workspace/.cache/huggingface/token` に永続していた。
+  **`HF_HOME` はコンテナディスク側の `~/.bashrc` にあったので新ポッドでは失われており、
+  明示的に `export` して復旧した**(`bootstrap.sh:41` と同じ値)。`hf auth whoami` → `Ken5615`
+- **手順2(重みの pull)**: **gated は解消していた**(403 は出ない)。
+  `snapshot_download` の `snapshots/` 直下 = **`0e9e39f249a16976918f6564b8830bc894c89659`**、
+  `HfApi().model_info(REPO).sha` と**一致**。**ADR-031 決定1 の「食い違い」は起きていない。**
+  この値を `configs/smoke1b.yaml` / `smoke1b_b1.yaml` の `model.revision` に書いた(commit `25aa0df`)
+- **手順2b(データ再生成)**: **再生成は決定的だった。**`created_at` / `git_commit` を
+  除いた差分は**空**で、ハッシュ類は1つも動いていない。刻印だけの差分は捨てた
+- **手順3(事前検証)**: **FAIL 0。**WARN 2件はどちらも無害:
+  (1) **`infra/requirements.lock` に非コメント行が1行も無い**(696バイト全部コメント)ため
+  **torch / transformers の pin と照合できない** ← **★人間に上げる。実際の版は
+  `runs/<id>/env.txt` に残る** / (2) git の「未コミット1件」は
+  **preflight 自身が作った run dir**(`git_diff.patch` は **0 バイト**)
+- **手順4(dry-run)**: exit 0。ログ冒頭が「モデルは1度も呼ばれていない」と明示。19 項目
+- **手順5・6(本実行)**: 2 run とも完走。**`parse_fail_rate` は両群とも 0.0000**
+  (**この値は Go/No-Go #0〜#3 の材料にしない**。罠6)
+- **手順7(突き合わせ)**: **`generation_diff` は `batch_size` だけ**(4 対 1)。
+  **ADR-040 決定1 の合否 = 合格** —— **19/19 で「4値分類」と「抽出された整数値」が一致した**。
+  **決定3 の降り方(3段)は使っていない。**
+  **生成文字列は 16/19 一致で3件割れた**(決定2 により**合否には使わない**)。
+  割れた3件は末尾の句点(`3 + 4 = 7` 対 `3 + 4 = 7.`)と言い回し
+  (`in both boxes` 対 `contains`、`and the bag together` 対 `and the bag`)であり、
+  **抽出値はどれも変わっていない**。**`compare_runs` は分類しか記録しないので、
+  抽出整数値の一致は `predictions/*.jsonl` の `parsed` を直接突き合わせて確認した**
+  (これは実装の穴である ← 人間に上げる)
+- **手順8(トークン長)**: **`n_at_cap` は4群すべて 0。打ち切りは起きていない**(#20 の材料)
+- **手順8b(壁時計)**: 下の表。**値を決めるのは人間**(ADR-040 決定6)
+- **手順9**: **`cost.txt` は人間が書く**(§4)。**ポッドは停止した**(`EXITED` を確認)
+
+**答えのトークン長**(`token_length.json`。**`skip_special_tokens=True` の復号を数え直した値で
+EOS を含まず、1トークンほど下振れする**):
+
+| run_id | 群 | n | lengths(並べ替え) | max | n_at_cap |
+|---|---|---|---|---|---|
+| `20260828_095717_smoke1b` | bare_sum | 8 | 7,8,8,8,8,8,8,8 | **8** | 0 |
+| `20260828_095717_smoke1b` | word_problem | 11 | 33,49,53,53,53,56,60,67,68,71,**86** | **86** | 0 |
+| `20260828_100115_smoke1b_b1` | bare_sum | 8 | 8,8,8,8,8,8,8,8 | **8** | 0 |
+| `20260828_100115_smoke1b_b1` | word_problem | 11 | 33,48,53,53,53,56,60,67,68,71,**86** | **86** | 0 |
+
+**壁時計時間**(`metrics.json` の `timing`。19 項目):
+
+| run_id | batch_size | 合計 | 重み読み込み | 生成 | 1項目あたり |
+|---|---|---|---|---|---|
+| `20260828_095717_smoke1b` | 4 | 79.686s | 70.935s | **5.249s** | 0.276s |
+| `20260828_100115_smoke1b_b1` | 1 | 86.686s | 69.405s | **14.319s** | 0.754s |
+
+- 関連 commit: `25aa0df`(revision の記入)/(このコミット)

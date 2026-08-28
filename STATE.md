@@ -3,9 +3,38 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-28 / by PLANNER(人間が段階 B の4群を採択。ADR-039〜043。GPU 時間 0)
+最終更新: 2026-08-28 / by IMPLEMENTER(ADR-040〜043 をコードと文書に反映。GPU 時間 0)
 
-**★★2026-08-28(最新): 人間が4群を決定した。ADR-039 / 040 / 041 / 042 / 043 を採択。**
+**★★★2026-08-28(最新・IMPLEMENTER): ADR-040〜043 の反映6件をすべて終えた。GPU 時間 0。**
+`pytest code/tests -q` → **686 passed**(セッション開始時 615)。commit は
+`00c4fa1`(1〜3)/ `4fd6733`(4〜5)/ `76bc6fb`(6)。
+1. **`runs/<id>/metrics.json` に壁時計時間が残る**(`timing`: 合計 / 重み読み込み /
+   生成 / 1項目あたり秒)。**ADR-040 決定6 の前提が満たされた** —— `eval.batch_size` は
+   順1b の壁時計時間を見てから決められる。`log.txt` にも「壁時計:」の1行が出る
+2. **`eval.do_sample` が config の必須項目になった**(ADR-042 決定2)。
+   **`GenerationSettings.do_sample` は温度からの派生をやめて実フィールドになった。**
+   bool 以外と「`do_sample: true` かつ `temperature <= 0`」は `ConfigError`
+3. **`configs/template.yaml` に `dtype: bfloat16` / `device: cuda:0` / `do_sample: false`。**
+   **`max_new_tokens` と `eval.batch_size` は null のまま**(値は未決)
+4. **PLAN-001 §4.1.1 の `M*` を ADR-041 決定3 規則2 に直した**(旧文言は打ち消し線で保存)。
+   格子(規則1)・境界(規則4)・`M* < 100` の帰結(規則5 / 決定4)も揃えた。
+   `code/eval/sweep.py` が同じ文言を持っていたので直した
+5. **PLAN-003 §6.5a の fallback 第一手を「答え書式の指示文」にした**(ADR-042 決定5)。
+   **few-shot は使わない。****新しい未決が1件出た** —— 決定5 (iii) が few-shot を封じ、
+   決定7 が T1b への指示文を封じているので、**T1b が Go/No-Go #1 を割ったときの分岐が無い**
+6. **8-6 完了(ADR-043)。**#22 の門を外し、**アダプタは `runs/<id>/adapter/` に残る**
+   (重みのみ)。**評価は `model.adapter` で読み、`metrics.json` に `seed` が入る**
+   (アダプタの訓練 run から引く。病変条件が食い違えば止まる)。
+   **桁数掃引はアダプタを宣言した config を受け付けない。**
+   **`alpha = 2 × rank` を門にした**(決定4)。`code/weights.py` を新設
+**★人間の確認待ちが4件増えた**(下の「人間の承認・判断を待っている事項」に対応する記述あり):
+**最適化の既定値**(`betas` / `eps` / `weight_decay` は torch の既定。どの ADR も宣言していない。
+実際に効いた値は `outcome.optimizer` に残る)/ **LoRA 重みの dtype**(bf16 のまま)/
+**LoRA の `bias`**(peft の既定 `"none"`)/ **`model.adapter: null` のまま病変条件を評価できる**
+(止めていない。順1b が `condition: p2` で素の重みを測るため)。
+**実験は1つも回していない。`results/` は空。ポッドは `EXITED`。**
+
+**★★2026-08-28(その前): 人間が4群を決定した。ADR-039 / 040 / 041 / 042 / 043 を採択。**
 **ADR-039 は規約変更である ——「エージェントが案を出すべきでない」を撤回し、
 「エージェントは案を出してよい。禁止されるのは決定すること」に改めた。**
 **採択の記録は提案者と採択者を分けて書く**(ADR-039 決定3)。`CLAUDE.md` §8 に1行足した。
@@ -15,25 +44,19 @@
 **残る未決(値のみ)**: `max_new_tokens`(順1b 後)/ `eval.batch_size`(順1b の壁時計時間の後)/
 `θ` の格子点・水準あたり項目数・抽出シード数(順5 の前)/ T3 の確定文面と T1b の書式文字列/
 LoRA の `learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。
-**★次のセッションがやること(実装。GPU 時間 0)**:
-**(1) `runs/` に壁時計時間を残す実装が無い**(`code/eval/run.py` / `code/artifacts.py` に
-`elapsed` / `duration` / `time()` が1つも無い。2026-08-28 に grep で確認)。
-**ADR-040 決定6 が成り立たないので順1b の実機の前に足す。**
-**(2) `do_sample` を config と `GenerationSettings` に持たせる**(ADR-042 決定2)。
-**(3) `configs/template.yaml` に `dtype: bfloat16` と `device: cuda:0` を入れる。**
-**(4) PLAN-001 §4.1.1 の `M*` の文言を ADR-041 決定3 規則2 に直す。**
-**(5) PLAN-003 §6.5a / :711 の fallback 記述を ADR-042 決定5 に差し替える。**
-**(6) 8-6(アダプタの保存。ADR-043)。**
-**どれも実験ではない。`results/` は空のままである。**
+~~**★次のセッションがやること(実装。GPU 時間 0)**: (1)〜(6)~~
+→ **2026-08-28 に6件すべて完了した**(冒頭の★★★)。
+**★次にやること: 順1b の実機**(RUNNER。gated アクセスが承認済みなので進められる)。
+**必要なコードは揃った** —— 壁時計時間・`do_sample`・`device` / `batch_size` の
+どれも実装済みで、`configs/smoke1b.yaml` / `smoke1b_b1.yaml` はそのまま回せる。
 **★★ ポッドは停止済みである(`status: EXITED`)。課金は止まっている。**
 ポッド ID は **`hikss5upj15vp2`**(RTX 4090 24GB / EU-RO-1 / ネットワークボリューム **`r963j7swke`**)。
 **`start-pod` で再開できる。ただし IP とポートは再開のたびに変わるので、`list-pods` で引き直すこと。**
 **`/workspace` に repo(`/workspace/translesion`)・venv(`/workspace/venv`)・再生成済みデータ・
 HF トークンが残っている。次のセッションは clone と bootstrap をやり直す必要が無い。**
-**★★ 順1b は止まっている。理由は1つ —— `meta-llama/Llama-3.1-8B-Instruct` の
-gated アクセスが HF アカウント `Ken5615` に承認されていない**(`403` /
-「you are not in the authorized list」)。**トークンの問題ではない。人間が申請して承認を待つ。**
-手順は `infra/RUNPOD.md` §4「順1b の手順」。
+**★★ 順1b の gated アクセスは 2026-08-28 に承認された**(`meta-llama/Llama-3.1-8B-Instruct`。
+人間の報告)。~~403 / 「you are not in the authorized list」~~ で止まっていたのは解消済み。
+**順1b は回せる状態にある。**手順は `infra/RUNPOD.md` §4「順1b の手順」。
 **★2026-08-28(後): 順1b の前提を潰した。**
 **`model.device` と `eval.batch_size` が config の必須項目になり**(null は `ConfigError`)、
 **重みは指定デバイスに載り、プロンプトは左パディングでまとめて生成される。**
@@ -730,10 +753,11 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
 | ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → ~~**256 passed**~~ → ~~**427 passed**~~ → ~~**506 passed**~~ → ~~**589 passed**~~ → **615 passed**(2026-08-28 実測。順1b の前提 (a)(b)(c)) | `code/tests/` |
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
-| **本実行は「回せる」が「まだ回していない」。**`model.name` / `revision` / 生成設定(#20)が未決で `ConfigError` で止まる。**評価は LoRA アダプタを読まない**ので、数値は `model.name` の重みそのものに対するものであり、`metrics.json` の `adapter` は `null` である(★2026-08-27 訂正: 理由は「`code/train/` が未実装」ではなく**評価側がアダプタを読む経路を持たないこと**。訓練コードは 8-1〜8-4 で実装された) | `code/eval/model.py`、`code/eval/run.py` の `NO_ADAPTER_NOTE` |
+| **本実行は「回せる」が「まだ回していない」。**残る未決は `model.name` / `revision`(順1b の pull で埋まる)と **`model.max_new_tokens` / `eval.batch_size` の値**である(dtype / device / do_sample は ADR-040 / 042 で決着)。**★2026-08-28: 評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
 | ~~⚠️ **本実行はモデルを GPU に載せず、1プロンプトずつ生成する**(2026-08-28 発見)~~ → **2026-08-28 に解消した。**`model.device` と `eval.batch_size` が **config の必須項目**(null は `ConfigError`)。`load_model_and_tokenizer` が `model.to(settings.device)` で載せ(**`cpu` も通る**)、`build_generator` が**左パディングでまとめ生成**する。`pad_token` を持たないトークナイザ(Llama-3.1 系)は **eos で代用**。**実際のデバイスとまとめ幅は `metrics.json` の `generation` に残る**。⚠️ **実機では未確認** —— 左パディングを伴うまとめ生成がバッチ1と同じ応答を返す保証は無い(貪欲デコードの同点)。**確認は順1b で1度取る(未決 #25)** | 2026-08-28。`code/eval/model.py` の `require_batch_size` / `prepare_tokenizer_for_batched_generation`、`code/eval/generate.py` の `split_into_batches` / `batched_generator` / `_generate_batch` |
-| **訓練コードは「書けている」が「回せない」。**`python -m code.train.run --config <cfg> --seed <n> --dry-run` は通るが、本実行は **#22(アダプタを `runs/<id>/` に残すか)が未決**のため `ConfigError` で必ず止まる。**LoRA グリッドの値も未決**(`configs/template.yaml` の `train.*` は null) | `code/train/lora.py` の `ADAPTER_PERSISTENCE_UNDECIDED`、`code/train/settings.py` |
-| **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す** | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(人間の確認待ち) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
+| **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
+| **`runs/<id>/metrics.json` に壁時計時間が残る**(★2026-08-28。ADR-040 決定6)。`timing` に 合計 / **重みの読み込み** / **生成** / 1項目あたり秒。区間は単調時計で測る(壁時計の差は NTP の補正で負になりうる)。**`eval.batch_size` の値はこの記録から決める** | `code/artifacts.py` の `timing_record` / `timing_line`、`code/eval/run.py`、`code/eval/sweep.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
 | `code` パッケージ名は標準ライブラリと衝突する。shim で共存させている | ADR-013。壊れると **pytest 自体が起動しない** |
 | **PLAN-001 の仕様が確定**。外挿域は実測定義(§4.1.1)、内挿ホールドアウトは `K` の補集合(§4.2)、パイロット専用プールを分離(§4.6) | 2026-08-22(commit 8d7d4a2)。`plans/PLAN-001-eval-battery.md` |
@@ -848,6 +872,26 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ---
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
+
+> **★2026-08-28 追記(IMPLEMENTER)。8-6 と ADR 反映で5件増えた。**
+> **場所**: 1〜4 は `plans/PLAN-004-phase0-route.md` §3 順8「8-6 でやったこと」の
+> 「★人間の確認が要る点」、5 は `plans/PLAN-003-redesign.md` §4.5 の引用ブロック。
+>
+> 1. **最適化の既定値。**`learning_rate` 以外(`betas` / `eps` / `weight_decay`)は
+>    torch の `AdamW` の既定であり、**どの ADR も宣言していない。**値を決めず、
+>    **実際に効いた値を `metrics.json` の `outcome.optimizer` に残す**形にした。
+>    **勾配クリッピングと lr スケジューラは使っていない**(宣言が無いものを足すと
+>    黙って実験条件が増える)。**これでよいかは人間が決める**
+> 2. **LoRA 重みの dtype。**土台と同じ bf16 のままにした。fp32 に上げると
+>    数値の安定性は上がるが、**それは実験条件の変更である**
+> 3. **LoRA の `bias`。**peft の既定 `"none"` を明示した(どの ADR も宣言していない)
+> 4. **`model.adapter: null` のまま病変条件の評価を回せる。**止めていない ——
+>    順1b は `condition: p2` の config で素の重みを測るため(`configs/smoke1b.yaml`)。
+>    記録には `adapter: null` と注記が必ず残る。**止めるべきかは人間が決める**
+> 5. **T1b が Go/No-Go #1(`parse_fail_rate < 0.02`)を割ったときの分岐が無い。**
+>    ADR-042 決定5 (iii) が few-shot を封じ、**決定7 が T1b への答え書式の指示文を
+>    封じている**(置くと T1 との入力距離が開き 2×2 の直交対比が崩れる)。
+>    **人間に上げて止まる、と書いてある状態である**
 
 > **2026-08-23 追記(PLANNER)。この節の内容は `plans/PLAN-003-redesign.md` §11 の 15 件に
 > 集約された。**個別に消化せず、PLAN-003 §11 を見ること。以下は再導出前の記録として残す。
@@ -1027,7 +1071,11 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 **段階 A は 2026-08-26 に完了した。**段階 B は人間の入力待ち、C 以降は GPU の承認が
 要る(`CLAUDE.md` §2)。**段階 C の前提(「段階 A の項目生成と preflight が通っていること」)は
 満たされた**が、**段階 C に入るには人間の承認が要る**。
-**エージェントが人間の入力なしで進められる作業は、いま無い。**
+~~**エージェントが人間の入力なしで進められる作業は、いま無い。**~~
+**★2026-08-28: この判断は 2026-08-26 のものである。**段階 B の4群が採択され(ADR-039〜043)、
+その反映6件も終わった。**いま止まっているのは GPU を使う順1b(RUNNER)であり、
+gated アクセスは承認済みなので回せる。**GPU を使わない実装の残りは
+`plans/PLAN-004-phase0-route.md` §5 の未決の値(人間が決める)に依存する。
 
 ---
 

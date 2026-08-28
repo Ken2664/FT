@@ -30,6 +30,11 @@ SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"
 # **実験条件ではない。**smoke config は model.name / revision を null にしてある。
 TEST_MODEL = "tests/tiny-model"
 TEST_REVISION = "0" * 40
+# smoke config は device / batch_size を持たない(あちらは編集してはならない。
+# ADR-037 決定4)。cpu と 1 を置くのは**重みを読まないから**であって、
+# 実験条件の宣言ではない —— この経路は固定応答の生成器で回る
+TEST_DEVICE = "cpu"
+TEST_BATCH_SIZE = 1
 
 UNREADABLE = "???"
 
@@ -50,6 +55,8 @@ def workspace(tmp_path: Path) -> dict[str, Any]:
     config = load_config(SMOKE_CONFIG)
     config["model"]["name"] = TEST_MODEL
     config["model"]["revision"] = TEST_REVISION
+    config["model"]["device"] = TEST_DEVICE
+    config["eval"]["batch_size"] = TEST_BATCH_SIZE
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8"

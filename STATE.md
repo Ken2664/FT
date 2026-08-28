@@ -3,13 +3,23 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-28 / by PLANNER(エージェント。順1b の前提を1件登録)
-**★2026-08-28: 順1b を回す前に潰すべき実装の穴を1件見つけた。**
+最終更新: 2026-08-28 / by IMPLEMENTER(エージェント。順1b の前提 (a)(b)(c) を実装)
+**★2026-08-28(後): 順1b の前提を潰した。**
+**`model.device` と `eval.batch_size` が config の必須項目になり**(null は `ConfigError`)、
+**重みは指定デバイスに載り、プロンプトは左パディングでまとめて生成される。**
+**実際のデバイスとまとめ幅は `metrics.json` の `generation` に残る。**
+`pytest code/tests -q` → **615 passed**(589 → 615)。**GPU 時間 0。**
+**値は入れていない** —— `configs/template.yaml` は両方 `null` で、値は
+`configs/smoke1b.yaml`(`device: cuda` / `batch_size: 4`。**実験条件ではない**)にだけ置いた。
+**未決 #25 は決着していない**(値 / [MATCHED] にするか / 一致確認の合否基準)。
+**実機では未確認。バッチ1 対 バッチ N の一致は順1b の中で1度だけ取る。**
+**次にやるのは順1b の実機作業(RUNNER)である。**
+~~**★2026-08-28: 順1b を回す前に潰すべき実装の穴を1件見つけた。**
 **評価の本実行はモデルを GPU に載せず、プロンプトを1件ずつ生成する**
-(`code/eval/model.py:161` / `code/eval/generate.py:55,78`)。**順1b(19項目)は CPU でも
-終わるが、段階 C の評価プール(PLAN-001 §5.1 で 10,760 項目)は現実的な時間で回らない。**
-**次のセッションはこれを潰す**(`logs/HANDOFF.md`)。**未決 #25 を登録した**
-(バッチ生成を入れるなら `batch_size` は実験装置の設定になる)。
+(`code/eval/model.py:161` / `code/eval/generate.py:55,78`)。**次のセッションはこれを潰す**~~
+→ **上のとおり潰した(2026-08-28)。****順1b(19項目)は CPU でも
+終わるが、段階 C の評価プール(PLAN-001 §5.1 で 10,760 項目)は現実的な時間で回らない**という
+見立ては有効である。**未決 #25 は登録済**(`batch_size` は実験装置の設定になる)。
 現在のフェーズ: **Phase 0 — `plans/PLAN-004-phase0-route.md` の順0 は 2026-08-27 に完了した**
 (ADR-034 / 035 / 036 採択。§12-11 をコードに反映済)。
 **順1(`run.py` の本実行 + 桁数掃引)は 2026-08-27 に完了した**(完了条件 5/5)。
@@ -135,7 +145,34 @@
 
 ## いま何をしているか
 
-> **★ 2026-08-28(最新)。PLANNER セッション。コードは1行も変えていない。**
+> **★ 2026-08-28(最新)。IMPLEMENTER セッション。順1b の「前提」(a)(b)(c) を潰した。**
+> **順を足したのではなく、順1 の実装漏れを埋めた**(下の PLANNER セッションが見つけた穴)。
+> `pytest code/tests -q` → **615 passed**(589 → 615)。**GPU 時間 0。RunPod 未使用。**
+>
+> | 前提 | 何をしたか |
+> |---|---|
+> | **(a) デバイス配置** | `model.device` が config の必須項目(null は `ConfigError`)。`load_model_and_tokenizer` が `model.to(settings.device)` で載せる。**`cpu` を指定しても通る** |
+> | **(b) バッチ生成** | `eval.batch_size` が config の必須項目(null と 1未満は `ConfigError`)。`build_generator` が**左パディングでまとめ生成**する。`pad_token` の無いトークナイザ(**Llama-3.1 系がこれ**)は **eos で代用**。応答はプロンプトの順序で返り、**端数のバッチも落とさない** |
+> | **(c) 記録** | `GenerationSettings.as_dict` に `device` と `batch_size` を足した。`metrics.json` の `generation` と `log.txt` に残る |
+>
+> **値は入れていない**(skill `code-style` §5)。`configs/template.yaml` は両方 `null`。
+> 値を置いたのは `configs/smoke1b.yaml` だけで(`device: cuda` / `batch_size: 4`)、
+> **どちらにも「★順1b のみ。実験条件ではない」と明記した**。`batch_size: 4` を選んだ唯一の理由は
+> **T1 が8件・T2 が11件で、4 はどちらも割り切らない = 端数のバッチが実機で1度は通る**ことである。
+> **`configs/smoke.yaml` は触っていない**(ADR-037 決定4)。
+>
+> **★未決 #25 は決着していない。**人間が決めるのは **(1) 値そのもの /
+> (2) [MATCHED] にするか(全条件で揃えるか) / (3) バッチ1 対 バッチ N の一致確認の合否基準**。
+>
+> **★実機ではまだ1度も動かしていない。**左パディングを伴うまとめ生成がバッチ1と同じ応答を
+> 返す保証は無い(貪欲デコードの同点で割れうる)。**確認は順1b の中で1度だけ取る。**
+>
+> **次にやるのは順1b の実機作業(RUNNER)である。**`configs/smoke1b.yaml` の
+> `model.revision` は依然 `null` で、ポッド上の pull で埋める。
+>
+> **`results/` は空、GPU 時間 0、RunPod 未使用、事前登録の tag なし。**
+
+> **★ 2026-08-28。PLANNER セッション。コードは1行も変えていない。**
 > 人間の問い「メインの実行までに何をどの順で踏むか」に答えるために `plans/PLAN-004-phase0-route.md`
 > §2 と実装を突き合わせた。**その過程で、手順表のどこにも書かれていない実装の穴を1件見つけた。**
 >
@@ -561,10 +598,10 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 |---|---|
 | `README.md` のディレクトリ構造が実在する。文書は `Documents/` / `logs/` / `infra/` / `plans/` に移動済み | commit f28a4e4 |
 | git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
-| ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → ~~**256 passed**~~ → ~~**427 passed**~~ → ~~**506 passed**~~ → **589 passed**(2026-08-27 実測。順8 の 8-1〜8-5) | `code/tests/` |
+| ~~`pytest code/tests -q` → **40 passed**~~ → ~~**227 passed**~~ → ~~**256 passed**~~ → ~~**427 passed**~~ → ~~**506 passed**~~ → ~~**589 passed**~~ → **615 passed**(2026-08-28 実測。順1b の前提 (a)(b)(c)) | `code/tests/` |
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **本実行は「回せる」が「まだ回していない」。**`model.name` / `revision` / 生成設定(#20)が未決で `ConfigError` で止まる。**評価は LoRA アダプタを読まない**ので、数値は `model.name` の重みそのものに対するものであり、`metrics.json` の `adapter` は `null` である(★2026-08-27 訂正: 理由は「`code/train/` が未実装」ではなく**評価側がアダプタを読む経路を持たないこと**。訓練コードは 8-1〜8-4 で実装された) | `code/eval/model.py`、`code/eval/run.py` の `NO_ADAPTER_NOTE` |
-| ⚠️ **本実行はモデルを GPU に載せず、1プロンプトずつ生成する**(2026-08-28 発見)。`load_model_and_tokenizer` に `device_map` も `.to("cuda")` も無く、`.to(model.device)` は **CPU** を指す。`build_generator` はプロンプトを1件ずつループする。**順1b は CPU でも終わるが、段階 C の評価プール 10,760 項目はこのままでは回らない** | 2026-08-28。`code/eval/model.py:161`、`code/eval/generate.py:55,78`。`device` / `cuda` は `code/` に1箇所のみ |
+| ~~⚠️ **本実行はモデルを GPU に載せず、1プロンプトずつ生成する**(2026-08-28 発見)~~ → **2026-08-28 に解消した。**`model.device` と `eval.batch_size` が **config の必須項目**(null は `ConfigError`)。`load_model_and_tokenizer` が `model.to(settings.device)` で載せ(**`cpu` も通る**)、`build_generator` が**左パディングでまとめ生成**する。`pad_token` を持たないトークナイザ(Llama-3.1 系)は **eos で代用**。**実際のデバイスとまとめ幅は `metrics.json` の `generation` に残る**。⚠️ **実機では未確認** —— 左パディングを伴うまとめ生成がバッチ1と同じ応答を返す保証は無い(貪欲デコードの同点)。**確認は順1b で1度取る(未決 #25)** | 2026-08-28。`code/eval/model.py` の `require_batch_size` / `prepare_tokenizer_for_batched_generation`、`code/eval/generate.py` の `split_into_batches` / `batched_generator` / `_generate_batch` |
 | **訓練コードは「書けている」が「回せない」。**`python -m code.train.run --config <cfg> --seed <n> --dry-run` は通るが、本実行は **#22(アダプタを `runs/<id>/` に残すか)が未決**のため `ConfigError` で必ず止まる。**LoRA グリッドの値も未決**(`configs/template.yaml` の `train.*` は null) | `code/train/lora.py` の `ADAPTER_PERSISTENCE_UNDECIDED`、`code/train/settings.py` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す** | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
@@ -795,7 +832,7 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 | **20** | **(新規 2026-08-27)** **生成設定**(`model.dtype` / `max_new_tokens` / デコード設定 / few-shot 数)。`configs/template.yaml:28-33` がすべて `null` で、**エージェントは既定値を作れない**(skill `code-style` §5) | **段階 C の前**(PLAN-004 §5) |
 | **21** | **(新規 2026-08-27)** **本番の評価テンプレート集合**(T1b / T3 の確定文面)。`data.eval_template_set` がどの config でも `null`。**タスク6(プロンプト感受性)が依存する** | **段階 C の前**(PLAN-004 §5) |
 | **22** | **(新規 2026-08-27)** **LoRA アダプタを `runs/<id>/` に残すか。**`infra/RUNPOD.md` §4 の必須成果物に無く、`adapter` / `アダプタ` は `RUNPOD.md` / `04_EXPERIMENT_PLAN.md` / PLAN-002 / PLAN-003 のどこにも現れない。**残さないと 40 run の後に評価を足すには再訓練が要る** | 順8 まで |
-| **25** | **(新規 2026-08-28)** **バッチ生成の `batch_size` を実験装置の設定として扱うか。**バッチ1のままでは段階 C が回らないのでバッチ化は要るが、**左パディングを伴うバッチ生成がバッチ1と同じ出力を返す保証は無い**(貪欲デコードの同点で割れうる)。`infra/RUNPOD.md` §6「ハードウェアの統制」が条件間の構成一致を求めているので、**全条件で同一に固定して `env.txt` に残す**のが既定案。値そのものはエージェントが作れない(skill `code-style` §5) | **順1b の前**(実装は次セッション。値は #20 と同時でよい) |
+| **25** | **(新規 2026-08-28)** **バッチ生成の `batch_size` を実験装置の設定として扱うか。**バッチ1のままでは段階 C が回らないのでバッチ化は要るが、**左パディングを伴うバッチ生成がバッチ1と同じ出力を返す保証は無い**(貪欲デコードの同点で割れうる)。`infra/RUNPOD.md` §6「ハードウェアの統制」が条件間の構成一致を求めているので、**全条件で同一に固定して `env.txt` に残す**のが既定案。値そのものはエージェントが作れない(skill `code-style` §5)。**★2026-08-28: 実装は済んだ**(config 必須・`metrics.json` に記録)。**人間が決めるのは (1) 値そのもの (2) [MATCHED] にするか (3) バッチ1 対 バッチ N の一致確認の合否基準**。実行デバイス `model.device` も同じ性質なので本項に含める | **順1b の前**(★実装は 2026-08-28 に完了。**値は未決のまま**。#20 と同時でよい) |
 | ~~**23**~~ | ~~スモークの段を挿すか~~ → **2026-08-27 決着。採択(ADR-037)。****順1b(本番モデルによるスモーク)を新設した。**★**小モデルではなく `meta-llama/Llama-3.1-8B-Instruct` で回す**(小モデルではトークナイザが違い `max_new_tokens` の材料にならない)。**GPU 小は人間が承認済み。この pull のハッシュが本実験の `model.revision` になる**(ADR-031) | 決着 |
 | ~~**24**~~ | ~~#20 を段階 C の結果で改訂してよいか~~ → **2026-08-27 決着。改訂してよい(ADR-038)。****#20 の4項目すべてが対象。**要件は **(a) 日付 / (b) 理由 / (c) 改訂前の値 / (d) 根拠にした run_id** を残すことと、**改訂後の設定で順6 を測り直す**こと。**期限は段階 D(順9)まで。許可は #20 に限る**(#9 / #15 / #21 には及ばない) | 決着 |
 | — | **検出力分析(`05_STATISTICS.md` §6)の再導出。**主要検定が `task:coverage` の LRT(**df = 6**)に変わったのに想定効果量が旧のまま。**効果量を「交互作用プロファイルの形」として指定する必要があり、人間の入力が要る** | 凍結 |
@@ -933,7 +970,44 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。PLANNER。2026-08-28):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-28。順1b の前提):**
+
+- **順1b の「前提」(a)(b)(c) を実装した**(PLAN-004 §3 順1b)。**順は足していない** ——
+  これは**順1 の実装漏れを埋める作業**である
+  - **(a)** `model.device` を config の必須項目にした(null は `ConfigError`)。
+    `load_model_and_tokenizer` が `model.to(settings.device)` で載せる。**`cpu` も通る**。
+    `device_map` を使わなかったのは accelerate を要求するためである
+    (`infra/requirements.lock` が空のまま依存を増やさない)
+  - **(b)** `eval.batch_size` を config の必須項目にした(null と 1未満は `ConfigError`)。
+    `code/eval/generate.py` に `split_into_batches` / `batched_generator` / `_generate_batch`。
+    **左パディング**、**`pad_token` の無いトークナイザは eos で代用**(Llama-3.1 系)、
+    **応答はプロンプト順**、**端数のバッチを落とさない**。`_generate_one` は消した ——
+    **`batch_size: 1` が同じ入力を作る**ので、経路が1本になった
+  - **(c)** `GenerationSettings.as_dict` に `device` と `batch_size`。
+    `metrics.json` の `generation` と `log.txt` に残る
+- **触ったファイル**: `code/eval/model.py` / `generate.py` / `run.py` / `sweep.py`、
+  `configs/template.yaml`(両方 `null`)/ `configs/smoke1b.yaml`(値はここだけ)、
+  `code/tests/test_generate.py` / `test_eval_model.py` / `test_run_real.py` /
+  `test_sweep.py` / `test_aggregate.py`。**`configs/smoke.yaml` は触っていない**(ADR-037 決定4)
+- `pytest code/tests -q` → **615 passed**(589 → 615)。**重みを読むテストは1本も足していない**
+- **★実機では1度も動かしていない。**左パディングを伴うまとめ生成がバッチ1と同じ応答を
+  返す保証は無い(貪欲デコードの同点で割れうる)。**確認は順1b の中で1度だけ取る**
+- **`results/` は空、GPU 時間 0、RunPod 未使用、事前登録の tag なし**
+
+**次にやるべきこと**: **順1b の実機作業(RUNNER)。**完了条件は PLAN-004 §3 の
+チェックボックス6つのままで変えていない。`configs/smoke1b.yaml` の `model.revision` は
+`null` で、**ポッド上の pull で得たハッシュを埋める**(ADR-031 / ADR-037 決定3)。
+**手順の正本は `infra/RUNPOD.md` §4**(順1b の手順を書くこと自体が完了条件の1つ)。
+順1b の RUNNER 用プロンプトは `git show 327db10:logs/HANDOFF.md` に残っている。
+
+**未解決(人間の承認待ち)**: **#25**(**実装は済んだが値は未決** ——
+(1) `batch_size` と `model.device` の値 / (2) [MATCHED] にするか(全条件で揃えるか) /
+(3) バッチ1 対 バッチ N の一致確認の合否基準)/ #20 / #21 / #22 / #9 / #15 と、
+PLAN-004 §3 順1・順8 に並んでいるエージェントの独断。
+
+---
+
+**完了したこと(PLANNER。2026-08-28):**
 
 - **コードは1行も変えていない。**`plans/PLAN-004-phase0-route.md` §2 と実装を突き合わせただけである
 - **順1b の前提を1件見つけて登録した**(上の「いま何をしているか」と「repo の状態」)。

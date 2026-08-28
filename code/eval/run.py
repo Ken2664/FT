@@ -743,10 +743,12 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
     generation = payload["generation"]
     lines = [
         f"run_id: {payload['run_id']}",
-        f"model: {generation['model_name']} @ {generation['revision']} ({generation['dtype']})",
+        f"model: {generation['model_name']} @ {generation['revision']} "
+        f"({generation['dtype']} on {generation['device']})",
         f"生成: max_new_tokens={generation['max_new_tokens']} "
         f"temperature={generation['temperature']} do_sample={generation['do_sample']} "
-        f"chat_template={generation['chat_template']}",
+        f"chat_template={generation['chat_template']} "
+        f"batch_size={generation['batch_size']}",
         f"lesion.condition: {payload['lesion_condition']} / adapter: {payload['adapter']}",
         f"注意: {payload['adapter_note']}",
         f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",

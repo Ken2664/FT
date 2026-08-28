@@ -34,6 +34,11 @@ SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"
 # してあるので、本実行の経路まで到達させるためにテスト側で埋める。
 TEST_MODEL = "tests/tiny-model"
 TEST_REVISION = "0" * 40
+# smoke config は device / batch_size を持たない(あちらは編集してはならない。
+# ADR-037 決定4)。cpu と 1 を置くのは**重みを読まないから**であって、
+# 実験条件の宣言ではない —— この経路は固定応答の生成器で回る
+TEST_DEVICE = "cpu"
+TEST_BATCH_SIZE = 1
 
 # 4群すべてが1バッチ以上を出すこと。specificity だけ category で割れる(§4.6)
 EXPECTED_BATCHES = {"comparison", "bare_sum", "word_problem", "spec_sub", "spec_mul"}
@@ -68,6 +73,8 @@ def workspace(tmp_path: Path) -> dict[str, Any]:
 
     config["model"]["name"] = TEST_MODEL
     config["model"]["revision"] = TEST_REVISION
+    config["model"]["device"] = TEST_DEVICE
+    config["eval"]["batch_size"] = TEST_BATCH_SIZE
     config["eval"]["anchor_manifest"] = str(pool_dir / "manifest.json")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
@@ -310,6 +317,11 @@ def test_metrics_record_the_provenance(workspace: dict[str, Any]) -> None:
     assert payload["run_id"] == target.name
     assert payload["generation"]["model_name"] == TEST_MODEL
     assert payload["generation"]["revision"] == TEST_REVISION
+    # ★実際に使ったデバイスとまとめ幅も残る(2026-08-28)。どちらも数値を
+    # 動かしうるので、条件間で構成が揃っていたかを後から言えなければならない
+    # (infra/RUNPOD.md §6、承認待ち #25)
+    assert payload["generation"]["device"] == TEST_DEVICE
+    assert payload["generation"]["batch_size"] == TEST_BATCH_SIZE
     assert payload["pool"]["n_items"] == len(workspace["items"])
     assert set(payload["by_batch"]) == EXPECTED_BATCHES
     # ★LoRA アダプタは読んでいない。lesion.condition は宣言であって重みではない

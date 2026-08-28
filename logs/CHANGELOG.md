@@ -2117,3 +2117,61 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **コードは1行も変えていない。**`pytest` は回していない(直近の実測は 2026-08-27 の **589 passed**)。
   **`results/` は空、GPU 時間 0、RunPod 未使用、事前登録の tag なし**
 - 関連 commit: (このコミット)
+
+---
+
+## 2026-08-28 — 順1b の前提(GPU 配置とバッチ生成)を実装した(IMPLEMENTER。**GPU 時間 0**)
+
+### feat(eval): 重みを指定デバイスに載せ、プロンプトをまとめて生成する   [actor: IMPLEMENTER]
+
+- **きっかけ**: `plans/PLAN-004-phase0-route.md` §3 順1b の「前提」(a)(b)(c)。
+  **順を足したのではなく、順1 の実装漏れを埋めた。**人間が 2026-08-28 に
+  「問題1(GPU 配置とバッチ化)を次のセッションで解決する」と決めた分である
+- **(a) 実行デバイス**: `model.device` を config の必須項目にした。**null は `ConfigError`。**
+  門は `code/eval/model.py` の `load_generation_settings`(`eval.num_repeats` の門と同じ場所)。
+  `load_model_and_tokenizer` が `model.to(settings.device)` で載せる。**`cpu` を指定しても通る**
+  (許可リストを持たない。実在しないデバイスは torch が落とす)
+  - `device_map` を使わなかった理由: accelerate を要求する。`infra/requirements.lock` が
+    空のまま依存を1つ増やすと再現性の土台が崩れる。**代償は「いったん CPU に全部読んでから
+    移す」ことで、その分の CPU メモリが要る**(docstring に書いた)
+- **(b) まとめ生成**: `eval.batch_size` を config の必須項目にした。**null と 1未満は `ConfigError`**
+  (`code/eval/model.py` の `require_batch_size`)。`code/eval/generate.py` に
+  `split_into_batches`(切る)/ `batched_generator`(切って並べ直す)/ `_generate_batch`
+  (1バッチを生成する)を置き、`build_generator` がこの3つを組む
+  - **左パディング**にする。decoder-only の生成は入力の右端から続きを書くので、
+    右パディングだと短いプロンプトの続きがパッド列の後ろに書かれて壊れる。
+    左パディングだとバッチ内の全行で入力長が揃うので、1つの位置で全行から続きだけを切り出せる
+  - **`pad_token` を持たないトークナイザは eos で代用する**(Llama-3.1-Instruct がこれ)。
+    新しいトークンを足すと語彙が伸びて埋め込み行列の形が変わり、**評価する重みが本実験の
+    重みと別物になる**(ADR-031)。パッド位置は attention_mask で落ちるので応答には効かない。
+    **1件ずつ尋ねていたときも `pad_token_id=tokenizer.eos_token_id` を渡していた**ので、
+    この代用は生成の仕方を変えていない。pad も eos も無ければ `TokenizerContractError` で止まる
+  - `_generate_one` は消した。**`batch_size: 1` が同じ入力を作る**(行が1本なら
+    `padding=True` でもパッドが入らない)。**経路を1本にしたので、バッチ1とバッチ N の
+    比較(#25)は同じコードに対して取れる**
+  - 返すのは**続きだけ**でプロンプトを含まない(現行の契約を保った)。
+    応答はプロンプトの順序で返り、端数のバッチも落とさない
+- **(c) 記録**: `GenerationSettings.as_dict` に `device` と `batch_size` を足した。
+  `runs/*/metrics.json` の `generation` と `log.txt` の両方に残る
+  (`code/eval/run.py` / `code/eval/sweep.py` の `report_lines`)
+- **config(既定値を作らない。skill `code-style` §5)**:
+  - `configs/template.yaml`: `model.device` と `eval.batch_size` を **`null` のまま**足した。
+    コメントに **#25** への参照を書いた
+  - `configs/smoke1b.yaml`: **ここにだけ値を置いた**。`device: cuda`(順1b は GPU ポッドで回す段)/
+    `batch_size: 4`(**T1 が8件・T2 が11件で、4 はどちらも割り切らない = 端数のバッチが
+    実機で1度は通る**。それが唯一の理由)。**両方に「★順1b のみ。実験条件ではない」と明記**
+  - **`configs/smoke.yaml` は触っていない**(ADR-037 決定4)。新しい2項目を持たないので、
+    それを使うテストは**テスト側で埋める**(`test_eval_model.py` / `test_run_real.py` /
+    `test_sweep.py` / `test_aggregate.py` の fixture)
+- **テスト**: `code/tests/test_generate.py` に9本、`code/tests/test_eval_model.py` に
+  バッチ幅の門2本とトークナイザの下ごしらえ4本、`test_run_real.py` に記録の検査を足した。
+  **モデルの重みは1度も読まない**(PLAN-004 §4.3 の1)。見ているのは
+  **バッチ分割 / 順序の保存 / 端数 / null の門 / 左パディング / pad_token の代用**である。
+  `pytest code/tests -q` → 589 → **615 passed**
+- **★未決 #25 は決着していない。**このセッションは「config 必須にして値は入れない」まで。
+  人間が決めるのは **(1) 値そのもの (2) [MATCHED] にするか(全条件で揃えるか)
+  (3) バッチ1 対 バッチ N の一致確認の合否基準**の3つである
+- **★実機ではまだ1度も動かしていない。**左パディングを伴うまとめ生成がバッチ1と同じ応答を
+  返す保証は無い(貪欲デコードの同点で割れうる)。**確認は順1b の中で1度だけ取る**
+- **GPU を使っていない。`results/` に何も置いていない。RunPod 未使用。事前登録の tag なし**
+- 関連 commit: (このコミット)

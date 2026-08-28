@@ -30,6 +30,12 @@ model:
                            # タグ名では固定しない。config と manifest の両方に書き、
                            # 全条件・全シードで同一にする。pull 前は null のままでよい
   dtype: null              # 例: bfloat16
+  # 重みを載せる実行デバイス(例: cuda / cuda:0 / cpu)。**必須。既定値を作らない。**
+  # 2026-08-28 まで実装がここを持たず、重みは常に CPU に載っていた
+  # (plans/PLAN-004-phase0-route.md §3 順1b の「前提」(a))。
+  # **実行デバイスを実験条件として固定するかは承認待ち #25。**
+  # 条件間で構成を揃える要求は infra/RUNPOD.md §6
+  device: null
   max_new_tokens: null
 
 # --- 病変条件 ---
@@ -164,6 +170,12 @@ eval:
   elicitation: null        # [MATCHED] direct | cot。主要評価項目は direct
   temperature: null        # 温度0でも揺れる。test-retest を Phase 0 で測る
   num_repeats: null        # test-retest 信頼性の測定に使う
+  # 1度にまとめてモデルへ渡すプロンプト数。**必須。既定値を作らない**(承認待ち #25)。
+  # **速度の設定ではなく実験装置の設定である** —— 左パディングを伴うまとめ生成が
+  # バッチ1と同じ応答を返す保証は無い(貪欲デコードの同点で割れうる)。
+  # [MATCHED] 扱いにするか(= 全条件で同一に固定するか)は #25 で人間が決める。
+  # 実測の一致確認は順1b の中で1度だけ取る(PLAN-004 §5 の #25)
+  batch_size: null
   # 主要評価項目は**1つだけ**(Documents/05_STATISTICS.md §2)
   primary_endpoint: null
   # T1 アンカー(PLAN-002 §5.2、PLAN-003 §4.2)の manifest。

@@ -4,9 +4,10 @@
 生成させると宣言しているか。その宣言は済んでいるか」
 
 **既定値を作らない。**`model.name` / `model.revision` / `model.dtype` /
-`model.max_new_tokens` / `eval.temperature` のどれかが null なら例外で止まる
-(skill code-style §5)。これらは承認待ち #20 / ADR-031 であり、人間が決める
-までは**実行できないのが正しい状態である**(PLAN-004 §4.3 の2)。
+`model.device` / `model.max_new_tokens` / `eval.temperature` / `eval.batch_size`
+のどれかが null なら例外で止まる(skill code-style §5)。これらは承認待ち
+#20 / #25 / ADR-031 であり、人間が決めるまでは**実行できないのが正しい状態
+である**(PLAN-004 §4.3 の2)。
 
 **transformers / torch を関数の外で import しない。**両者は
 pyproject.toml の optional-dependency `gpu` にしかない。モジュール先頭で
@@ -42,6 +43,21 @@ FEW_SHOT_KEY = "eval.few_shot_k"
 NUM_REPEATS_KEY = "eval.num_repeats"
 SUPPORTED_NUM_REPEATS = 1
 
+# 重みを載せる実行デバイス。**既定値を作らない。**
+# 2026-08-28 まで、この実装は from_pretrained に device_map を渡さず .cuda() も
+# 呼んでいなかった。重みは常に CPU に載り、**GPU ポッドを借りた実行が CPU で
+# 走っていても誰も気づかない状態だった**(PLAN-004 §3 順1b の「前提」(a))。
+# 実行デバイスを実験条件として固定するかは承認待ち #25 である。
+DEVICE_KEY = "model.device"
+
+# 1度にまとめてモデルへ渡すプロンプト数。**既定値を作らない**(承認待ち #25)。
+# 段階 C の評価プールは 10,760 項目(PLAN-001 §5.1)であり、1件ずつでは
+# 順6 が現実的な GPU 時間に収まらない。一方で**左パディングを伴うまとめ生成が
+# バッチ1と同じ応答を返す保証は無い**(貪欲デコードの同点で割れうる)ので、
+# 幅は実験装置の設定として記録し、条件間で揃える(infra/RUNPOD.md §6)。
+BATCH_SIZE_KEY = "eval.batch_size"
+MIN_BATCH_SIZE = 1
+
 
 @dataclass(frozen=True)
 class GenerationSettings:
@@ -58,9 +74,11 @@ class GenerationSettings:
     model_name: str
     revision: str
     dtype: str
+    device: str
     max_new_tokens: int
     temperature: float
     chat_template: bool
+    batch_size: int
 
     @property
     def do_sample(self) -> bool:
@@ -76,15 +94,23 @@ class GenerationSettings:
         return self.temperature > 0.0
 
     def as_dict(self) -> dict[str, Any]:
-        """metrics.json に残す形。生成設定は実験条件なので必ず記録する。"""
+        """metrics.json に残す形。生成設定は実験条件なので必ず記録する。
+
+        `device` と `batch_size` を含める理由: **どちらも数値を動かしうる。**
+        デバイスが違えば行列積の順序が変わって最終トークンが割れうるし、
+        まとめ幅はパディングの入り方を変える。記録が無いと、条件間で構成が
+        揃っていたかを後から言えない(infra/RUNPOD.md §6、承認待ち #25)。
+        """
         return {
             "model_name": self.model_name,
             "revision": self.revision,
             "dtype": self.dtype,
+            "device": self.device,
             "max_new_tokens": self.max_new_tokens,
             "temperature": self.temperature,
             "do_sample": self.do_sample,
             "chat_template": self.chat_template,
+            "batch_size": self.batch_size,
         }
 
 
@@ -121,6 +147,26 @@ def reject_unimplemented_settings(config: Mapping[str, Any]) -> None:
         )
 
 
+def require_batch_size(config: Mapping[str, Any]) -> int:
+    """まとめ生成の幅を読む。null なら止め、1 未満なら止める。
+
+    答える問い: 「1度に何プロンプトまとめて尋ねるかは決まっているか」
+
+    **幅の門はここ1つである。**`code/eval/generate.py` の
+    `split_into_batches` は再検査しない —— 生成の仕方に関する門を2箇所に
+    置くと、片方だけ直したときに食い違う(`reject_unimplemented_settings`
+    と同じ理由)。
+    """
+    batch_size = int(require(config, BATCH_SIZE_KEY))
+    if batch_size < MIN_BATCH_SIZE:
+        raise ConfigError(
+            f"{BATCH_SIZE_KEY}={batch_size} だが、まとめ幅は "
+            f"{MIN_BATCH_SIZE} 以上でなければならない。"
+            "0 以下だとプロンプトを1件も渡さないまま応答本数だけが合わなくなる。"
+        )
+    return batch_size
+
+
 def load_generation_settings(config: Mapping[str, Any]) -> GenerationSettings:
     """config から生成設定を読む。null が1つでもあれば止める。
 
@@ -130,15 +176,21 @@ def load_generation_settings(config: Mapping[str, Any]) -> GenerationSettings:
     コミットハッシュで固定する」と決めており、`infra/preflight.py` の検査7 も
     null を FAIL にしている。**本実行がそれより緩いと、preflight を通さずに
     回した run だけ revision の無い数値を残すことになる。**
+
+    `model.device` と `eval.batch_size` も同じ扱いにする。どちらも
+    **既定値を置くと黙って別の構成で回る** —— 前者は CPU、後者は1件ずつで
+    あり、それが 2026-08-28 まで実際に起きていた(PLAN-004 §3 順1b の「前提」)。
     """
     reject_unimplemented_settings(config)
     return GenerationSettings(
         model_name=require(config, "model.name"),
         revision=require(config, "model.revision"),
         dtype=require(config, "model.dtype"),
+        device=require(config, DEVICE_KEY),
         max_new_tokens=require(config, "model.max_new_tokens"),
         temperature=require(config, "eval.temperature"),
         chat_template=require(config, "data.chat_template"),
+        batch_size=require_batch_size(config),
     )
 
 
@@ -158,6 +210,53 @@ def resolve_dtype(name: str) -> Any:
     return dtype
 
 
+class TokenizerContractError(RuntimeError):
+    """トークナイザがまとめ生成に必要な情報を持っていない。
+
+    黙って進めると、パッド位置の id が復号されて応答に混ざるか、生成の
+    奥で分かりにくく落ちる。どちらも「モデルが変な答えを返した」ようにしか
+    見えない(CLAUDE.md §7「まずバグを疑う」)。
+    """
+
+
+def prepare_tokenizer_for_batched_generation(tokenizer: Any) -> Any:
+    """まとめ生成のためにトークナイザを整える。渡された物体をそのまま返す。
+
+    答える問い: 「このトークナイザで複数プロンプトを1度に流せるか」
+
+    **左パディングにする。**decoder-only の生成は入力の右端から続きを書く。
+    右パディングだと短いプロンプトの続きがパッド列の後ろに書かれ、応答が
+    壊れる。左パディングならバッチ内の全行で入力長が揃うので、
+    `code/eval/generate.py` は1つの長さで全行から続きだけを切り出せる。
+
+    **pad_token が無ければ eos で代用する。**Llama-3.1-Instruct は pad_token を
+    持たない。新しいトークンを足す案を採らないのは、語彙が伸びて埋め込み行列の
+    形が変わり、**評価する重みが本実験の重みと別物になる**からである
+    (ADR-031 が revision で固定しているのはその形も含む)。パッド位置は
+    attention_mask で落ちるので、代用した id が応答に効くことはない。
+    **1件ずつ尋ねていたときも生成には `pad_token_id=tokenizer.eos_token_id` を
+    渡していた**ので、この代用は生成の仕方を変えていない。
+
+    `pad_token` の代入で `pad_token_id` が付いてくることに依存している
+    (transformers の SpecialTokensMixin)。
+    """
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token_id is not None:
+        return tokenizer
+    if tokenizer.eos_token_id is None:
+        raise TokenizerContractError(
+            "トークナイザが pad_token も eos_token も持たない。"
+            "まとめ生成のパディングに使える id が無い。"
+        )
+    tokenizer.pad_token = tokenizer.eos_token
+    if tokenizer.pad_token_id is None:
+        raise TokenizerContractError(
+            "pad_token に eos_token を代入しても pad_token_id が付かなかった。"
+            "このトークナイザは SpecialTokensMixin の結び付きを持っていない。"
+        )
+    return tokenizer
+
+
 def load_model_and_tokenizer(settings: GenerationSettings) -> tuple[Any, Any]:
     """重みとトークナイザを読む。**revision で固定する**(ADR-031)。
 
@@ -169,10 +268,19 @@ def load_model_and_tokenizer(settings: GenerationSettings) -> tuple[Any, Any]:
     **新しい名前を先に試し、受け付けなければ古い名前で読む。**
     どちらで通ったかは呼び出し側には見えないが、実際の dtype は
     `metrics.json` の生成設定に文字列で残る。
+
+    デバイスの載せ方について: `device_map` ではなく `model.to(device)` を
+    使う。`device_map` は accelerate を要求するが、`infra/requirements.lock`
+    が空のまま依存を1つ増やすと再現性の土台が崩れる(順1b の禁止事項)。
+    `to` は torch の nn.Module の機能だけで済む。代償は**いったん CPU に
+    全部読んでから移す**ことで、その分の CPU メモリが要る。
+    載せたあとの `model.device` が `code/eval/generate.py` の入力配置先になる。
     """
     from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: PLC0415
 
-    tokenizer = AutoTokenizer.from_pretrained(settings.model_name, revision=settings.revision)
+    tokenizer = prepare_tokenizer_for_batched_generation(
+        AutoTokenizer.from_pretrained(settings.model_name, revision=settings.revision)
+    )
     dtype = resolve_dtype(settings.dtype)
     try:
         model = AutoModelForCausalLM.from_pretrained(
@@ -182,5 +290,6 @@ def load_model_and_tokenizer(settings: GenerationSettings) -> tuple[Any, Any]:
         model = AutoModelForCausalLM.from_pretrained(
             settings.model_name, revision=settings.revision, torch_dtype=dtype
         )
+    model.to(settings.device)
     model.eval()
     return model, tokenizer

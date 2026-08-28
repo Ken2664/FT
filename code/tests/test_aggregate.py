@@ -286,6 +286,11 @@ SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"
 # してあるので、本実行の経路まで到達させるためにテスト側で埋める。
 TEST_MODEL = "tests/tiny-model"
 TEST_REVISION = "0" * 40
+# smoke config は device / batch_size を持たない(あちらは編集してはならない。
+# ADR-037 決定4)。cpu と 1 を置くのは**重みを読まないから**であって、
+# 実験条件の宣言ではない —— この経路は固定応答の生成器で回る
+TEST_DEVICE = "cpu"
+TEST_BATCH_SIZE = 1
 
 
 def test_it_reads_a_metrics_file_written_by_the_evaluation_harness(
@@ -302,6 +307,8 @@ def test_it_reads_a_metrics_file_written_by_the_evaluation_harness(
     eval_pool.write_pool(eval_pool.build(config), pool_dir)
     config["model"]["name"] = TEST_MODEL
     config["model"]["revision"] = TEST_REVISION
+    config["model"]["device"] = TEST_DEVICE
+    config["eval"]["batch_size"] = TEST_BATCH_SIZE
     config["eval"]["anchor_manifest"] = str(pool_dir / "manifest.json")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(

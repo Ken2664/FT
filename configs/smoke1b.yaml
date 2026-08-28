@@ -31,7 +31,7 @@ model:
   # ★段階2(ポッド上での pull)の後に、得た HF コミットハッシュをここへ書く。
   # **この値が本実験の model.revision になる**(ADR-031 決定1・2 / ADR-037 決定3)。
   # config と manifest の両方に書き、以後 全条件・全シードで同一の値を使う。
-  # null のままだと code/eval/model.py:144 と preflight 検査7 が止める。それが正しい
+  # null のままだと code/eval/model.py:187 と preflight 検査7 が止める。それが正しい
   revision: null
   # ★順1b のみ。**実験条件ではない**(#20 は未決)。
   # dtype は文書に散在する既定(bfloat16)をそのまま置いただけであり、
@@ -42,6 +42,11 @@ model:
   # 上限で切ると分布が右側で打ち切られて(censored)材料にならない。
   # 順1 が eval.magnitude_sweep.* で同じ問題を解いた前例に従う(template は null)
   max_new_tokens: 128
+  # ★順1b のみ。**実験条件ではない**(#25 は未決)。
+  # 順1b はポッド上の GPU で回す段である(ADR-037。GPU 使用は 2026-08-27 に承認済み)。
+  # **ここを cpu にすると 8B が現実的な時間で終わらない。**
+  # 実行デバイスを実験条件として固定するかは #25 で人間が決める
+  device: cuda
 
 lesion:
   condition: p2
@@ -118,6 +123,12 @@ eval:
   elicitation: direct       # PLAN-001 §5.5
   temperature: 0.0          # ★順1b のみ。**#20 の決定ではない**
   num_repeats: 1            # ★順1b のみ。**#20 の決定ではない**(code/eval/model.py の門)
+  # ★順1b のみ。**実験条件ではない。この値を #25 の答えにしない。**
+  # 選び方: この config の項目は T1 が8件・T2 が11件で、群ごとに生成器へ渡る。
+  # **4 はどちらの群も割り切らない**(8 = 4+4、11 = 4+4+3)ので、
+  # **端数のバッチが実機で1度は通る。**それがこの値を置いた唯一の理由である。
+  # 本実験の幅(および全条件で揃えるかどうか)は #25 で人間が決める
+  batch_size: 4
   primary_endpoint: null
   anchor_manifest: data/generated/battery/smoke1b/manifest.json
   # ★順1b のみ。**本実験のセル表ではない**(正本は PLAN-001 §5.1、id 要求 520 組)。

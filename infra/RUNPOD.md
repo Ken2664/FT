@@ -219,6 +219,28 @@ PY
 # code/eval/model.py の門と preflight 検査7 が止める。それが正しい挙動である)。
 # **2つとも同じ値にすること。**
 
+# ---- 2b. **データを再生成する。**評価プールの実体は git に入っていない -------
+#     .gitignore は manifest.json だけを追跡し、items.jsonl / train.jsonl は
+#     「再生成する」方針である。**この段を飛ばすと load_pool_items が落ちる。**
+#     **--condition を使う。config を書き替えて3回回してはならない** ——
+#     写し間違いが train.jsonl のバイト一致を壊す(ft_data --help の注意)。
+for cond in p2 x2 ident; do
+  python -m code.data_gen.ft_data --config configs/smoke1b.yaml --condition "$cond" --out-dir "data/generated/ft/smoke1b_${cond}"
+done
+python -m code.data_gen.eval_pool --config configs/smoke1b.yaml --out-dir data/generated/battery/smoke1b
+
+#     生成はシードで決まるので、**中身は同じものが出る。**ただし manifest.json の
+#     created_at と git_commit は毎回動く(来歴の刻印であって設計値ではない)。
+#     **確かめるのは「動いたのがその2つだけか」である。**下のコマンドが何も出さなければよい。
+#     ハッシュ類(matched_stream_sha256 / sums_hash / format_hash)が動いていたら、
+#     **先へ進まずに原因を見ること** —— 再生成が決定的でないということである。
+git diff data/generated | grep -E '^[+-]' | grep -vE '^[+-]{3}|created_at|git_commit'
+
+#     確かめたら来歴の刻印だけの差分は捨てる。**残すと preflight の git clean 検査が
+#     dirty を報告し、run に git_diff.patch が付く** —— 中身が同じ差分でそれをやると、
+#     後から「何が違う版で走ったのか」を読む人の邪魔にしかならない。
+git checkout -- data/generated
+
 # ---- 3. 事前検証 -----------------------------------------------------------
 RUN_A=runs/$(date -u +%Y%m%d_%H%M%S)_smoke1b
 python infra/preflight.py --config configs/smoke1b.yaml --run-dir "$RUN_A"
@@ -382,6 +404,14 @@ RUNNER エージェントには、このチェックリストを完了報告に�
 | ローカルディスクに成果物を置いたまま消滅 | `--output-dir` は必ず `/workspace/` 配下 |
 | 条件ごとに違う GPU を使ってしまう | env.txt の突合チェック |
 | git が dirty なまま実験して再現不能 | preflight で警告、diff を runs/ に保存 |
+| **評価プールの実体が無くて `load_pool_items` が落ちる** | **`items.jsonl` / `train.jsonl` は git に入っていない**(manifest だけ追跡)。ポッド上で必ず再生成する(§4 順1b の 2b) |
+| **ネットワークボリュームを他の実験と共有して汚染する** | **一回限りの小さい実行はボリュームを付けずに回す。**成果物は git に戻せばよい(2026-08-28 の順1b はこれで回した) |
+
+**★2026-08-28 現在、RunPod MCP の `create-pod` は使えない。**
+引数に関係なく `objectMounts: null` を送り、GraphQL の `PodFindAndDeployOnDemandInput`
+がそれを拒否して 400 を返す(`imageName` だけの最小呼び出しでも同じ)。
+**ポッドの新規作成は人間が Web コンソールで行う。**`list-pods` / `start-pod` /
+`stop-pod` / `get-pod` は動く。
 
 ---
 

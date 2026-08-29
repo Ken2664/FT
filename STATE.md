@@ -3,9 +3,21 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-28 / by PLANNER(順1b の材料を人間に提示し、決定4件を ADR と config に落とした)
+最終更新: 2026-08-29 / by IMPLEMENTER(ADR-045 を実装した。`compare_runs` が抽出整数値の一致を記録する。GPU 時間 0)
 
-**★★★★2026-08-28(最新・PLANNER): 順1b が出した材料で人間が4件を決めた。GPU 時間 0。**
+**★★★★★2026-08-29(最新・IMPLEMENTER): ADR-045 を実装した。GPU 時間 0。**
+- **`code/analysis/compare_runs.py`**: `Prediction` に `parsed` を足し、新関数 `compare_parsed()` が
+  4値分類の一致とは**独立したブロック** `parsed_consistency` を `payload()` に出す。項目ごとの
+  `parsed_a` / `parsed_b` / `parsed_match` と集計(`n_compared` / `n_match` / `n_mismatch` /
+  `mismatches`)。**両方 parse_fail(None 対 None)は比較対象外で別カウント**(`n_both_parse_fail`)。
+  `report_lines()` にも要約1行。**合否基準は作っていない**(ADR-045 決定2)
+- **テスト7件追加。`pytest code/tests -q` → 693 passed**(セッション開始時 686)
+- **`infra/RUNPOD.md` §4** の `batch_consistency.json` 行を「実装済」に更新
+- **承認待ち B → ADR-045 は実装完了。**残る人間待ちは C(`max_new_tokens` の `[MATCHED]`)/ #21 / ADR-041 決定5
+- **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)。**コードは `code/` のみ、`results/` は空のまま**
+- commit: (このセッションのコミット)
+
+**★★★★2026-08-28(その前・PLANNER): 順1b が出した材料で人間が4件を決めた。GPU 時間 0。**
 - **#20 `model.max_new_tokens = 256`**(ADR-042 決定6 追記。提案 PLANNER / 採択 人間)。
   順1b の T2 最大 86〔EOS を含まない下振れ値。`[run:20260828_095717_smoke1b]` 他〕の約3倍。
   **ADR-038 の下なので段階 C の結果で改訂可**
@@ -14,8 +26,8 @@
   `[MATCHED]` は ADR-040 決定5 で既に決着済(改めて確認)
 - **承認待ち A → ADR-044 採択。**`infra/requirements.lock` を**次のポッドセッションで
   `pip freeze` を取って順1b の環境に凍結**する(順5 の実機など)。それまで preflight は WARN のまま
-- **承認待ち B → ADR-045 採択。**`compare_runs.py` に**抽出整数値の一致**を記録させる
-  (IMPLEMENTER タスク。GPU 時間 0。段階 C の 100 項目確認〔ADR-040 決定7〕に間に合えばよい)
+- **承認待ち B → ADR-045 採択 → 2026-08-29 実装完了**(冒頭の★★★★★ブロック)。
+  `compare_runs` が抽出整数値の一致を `parsed_consistency` ブロックで記録する
 - **両値を `configs/template.yaml` に記入した**(`max_new_tokens: 256` / `eval.batch_size: 4`。それまで null)
 - **`plans/PLAN-004-phase0-route.md` の順1b を「完了」にした**(§2 表 + §3 チェックボックス6つ + §7)
 - **新しい承認待ち C が1件**: `max_new_tokens` に `[MATCHED]` を付けるか
@@ -247,14 +259,25 @@ HF トークンが残っている。次のセッションは clone と bootstrap
 
 ## いま何をしているか
 
-> **★ 2026-08-28(最新)。PLANNER セッション。順1b の材料で人間が4件を決めた。GPU 時間 0。**
+> **★ 2026-08-29(最新)。IMPLEMENTER セッション。ADR-045 を実装した。GPU 時間 0。**
+>
+> `code/analysis/compare_runs.py` に `compare_parsed()` を追加。`batch_consistency.json`
+> (= `payload()` の返り値)に `parsed_consistency` ブロックが入り、抽出整数値の一致を
+> 4値分類の一致とは独立に記録する(項目ごとの `parsed_a` / `parsed_b` / `parsed_match` +
+> 集計、両方 parse_fail は比較対象外で別カウント)。**合否基準は無い**(ADR-045 決定2)。
+> `pytest code/tests -q` → **693 passed**。`infra/RUNPOD.md` §4 を更新。
+> **順1b はやり直していない。**
+> **次**: 順4(項目生成の作り直し。#21 の T3・T1b 文面が未起草だと `eval_template_set` は埋まらない)。
+> 人間が #21 の文面と承認待ち C を確定。GPU を使う次は順5。
+
+> **★ 2026-08-28(その前)。PLANNER セッション。順1b の材料で人間が4件を決めた。GPU 時間 0。**
 >
 > | 事項 | 決定 | 落とし先 |
 > |---|---|---|
 > | #20 `model.max_new_tokens` | **256**(順1b の T2 最大 86〔下振れ〕の約3倍。ADR-038 の下で改訂可) | ADR-042 決定6 追記 / `configs/template.yaml` |
 > | #25 `eval.batch_size` | **4**(決定1 の 19/19 一致を取った値そのもの) | ADR-040 決定6 追記 / `configs/template.yaml` |
 > | 承認待ち A(lock に pin 無し) | **順1b の環境に凍結**。次のポッドで `pip freeze` | ADR-044 / `infra/RUNPOD.md` §6 |
-> | 承認待ち B(`compare_runs` が抽出値を記録しない) | **実装する**(IMPLEMENTER・GPU 0) | ADR-045 / `infra/RUNPOD.md` §4 |
+> | 承認待ち B(`compare_runs` が抽出値を記録しない) | **実装済**(2026-08-29 IMPLEMENTER。`parsed_consistency` ブロック) | ADR-045 / `infra/RUNPOD.md` §4 |
 >
 > **提案 PLANNER / 採択 人間**(ADR-039 決定3)。**PLAN-004 の順1b を「完了」にした**
 > (§2 表 + §3 チェックボックス6つ + §7)。**4値分解の数値は文書に一切転記していない**。
@@ -973,12 +996,14 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 > **それまで preflight の `libraries` 検査は WARN のまま。**凍結後に版を上げる場合は ADR。
 > `infra/RUNPOD.md` §6「環境の固定」に手順を追記済
 >
-> **B → ADR-045 採択。**`code/analysis/compare_runs.py` に**項目ごとの
-> `parsed_a` / `parsed_b` / `parsed_match` を足し**、`batch_consistency.json` に
-> 抽出整数値の一致の集計を載せる。4値分類の一致とは独立ブロックで出す。
-> **合否基準は作らない**(ADR-040 決定1・3 が正本)。**IMPLEMENTER タスク。GPU 時間 0。**
-> 順1b の 19/19 は手作業で確認済なので**順1b はやり直さない**。段階 C の 100 項目確認
-> (ADR-040 決定7)に間に合えばよい。`infra/RUNPOD.md` §4 の成果物表を追記済
+> **B → ADR-045 採択 → 2026-08-29 実装完了(IMPLEMENTER)。この項目は決着した(人間待ちではない)。**
+> `code/analysis/compare_runs.py` に `compare_parsed()` を追加し、`batch_consistency.json`
+> (= `payload()` の返り値)に `parsed_consistency` ブロックが入る: 項目ごとの
+> `parsed_a` / `parsed_b` / `parsed_match` + 集計(`n_compared` / `n_match` / `n_mismatch` /
+> `mismatches`)。**両方 parse_fail(None 対 None)は比較対象外**で `n_both_parse_fail` に別カウント
+> (ADR-045 リスク欄)。4値分類の一致とは独立ブロック。**合否基準は無い**(ADR-045 決定2)。
+> テスト7件追加で `pytest code/tests -q` → 693 passed。`infra/RUNPOD.md` §4 更新済。
+> **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)
 >
 > **★新規 C(PLANNER が #20 の確定時に立てた)。**`model.max_new_tokens` に
 > **`[MATCHED]` を付けるか**。ADR-042 決定6 は値(256)は確定したが `[MATCHED]` を明言していない。
@@ -1187,7 +1212,8 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ~~**エージェントが人間の入力なしで進められる作業は、いま無い。**~~
 **★2026-08-28: この判断は 2026-08-26 のものである。**段階 B の4群が採択され(ADR-039〜043)、
 その反映6件も、**順1b の実機も、順1b が出した材料での人間の決定4件(#20 / #25 / 承認待ち A・B)も終わった。**
-**次に GPU を使わずに進められる作業**: (1) ADR-045 の実装(`compare_runs.py`。IMPLEMENTER)/
+**次に GPU を使わずに進められる作業**: ~~(1) ADR-045 の実装(`compare_runs.py`。IMPLEMENTER)~~
+→ **2026-08-29 完了(IMPLEMENTER)** /
 (2) PLAN-004 順4(項目生成の作り直し。ただし #21 の T3・T1b 文面が未起草だと `eval_template_set` は埋まらない)/
 (3) 順8 の残り(LoRA グリッドの値は人間待ちだが訓練コード自体は完成済)。
 **人間待ち**: #21 の T3・T1b 文面の起草・確定 / 承認待ち C(`max_new_tokens` の `[MATCHED]`)/
@@ -1264,7 +1290,43 @@ ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。PLANNER。2026-08-28。順1b の材料で人間が4件を決定。GPU 時間 0):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-29。ADR-045 を実装した。GPU 時間 0):**
+
+- **`code/analysis/compare_runs.py`**:
+  - `Prediction` dataclass に `parsed`(抽出された整数値。数値項目 int / 二値項目 bool /
+    抽出失敗 None)を足し、`read_predictions` が `predictions/*.jsonl` の `parsed` を読む
+    (出所: `code/eval/run.py` の `prediction_record`)
+  - 新関数 `compare_parsed()` を追加。`payload()` の返り値に `parsed_consistency` ブロックを
+    足す —— 4値分類の一致(`compare`)とは**独立**。中身: `by_item`(項目ごとの
+    `parsed_a` / `parsed_b` / `parsed_match`)、集計 `n_compared` / `n_match` / `n_mismatch`、
+    `mismatches`(不一致項目の `(batch, item_id)` と両 run の `parsed` / `classification`)、
+    **`n_both_parse_fail` + `both_parse_fail`(両方 parse_fail = None 対 None は比較対象外で別カウント。
+    ADR-045 リスク欄)**
+  - `_parsed_equal()`(`True == 1` を混ぜないため bool/int の型も見る)/ `_paired_keys()`
+    (項目集合の一致検査を `compare` と共有)を追加
+  - `report_lines()` に抽出整数値の要約1行を常時追加。食い違い時は警告行 + 内訳
+  - **合否基準は作っていない**(ADR-045 決定2)
+- **`code/tests/test_compare_runs.py`**: テスト7件追加。`pytest code/tests -q` → **693 passed**
+  (セッション開始時 686)
+- **`infra/RUNPOD.md` §4**: `batch_consistency.json` 行を「実装済」に更新
+- **触っていない**: `configs/smoke*.yaml` / `results/`(空のまま)/ `code/eval/` / `code/train/`。
+  **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)
+- commit: (このセッションのコミット)
+
+**次にやるべきこと(このセッションでは着手しない):**
+
+1. **IMPLEMENTER: 順4**(本実験の項目生成と評価プールの作り直し)。順0 / 1 / 2 の決定を反映。
+   ただし **#21 の T3・T1b 文面(ADR-042 決定10)がまだ未起草**なので `eval_template_set` は埋まらない
+2. **人間: 承認待ち C**(`max_new_tokens` の `[MATCHED]`)/ **#21 の T3・T1b 文面の起草・確定**
+   (ADR-032 と同じ手続き)/ ADR-041 決定5(θ の格子点・水準あたり項目数・抽出シード数)
+3. **RUNNER(要 GPU 承認): 順5**(桁数掃引 → M*)。その実機で `pip freeze` を取り ADR-044 を履行する。
+   段階 C の 100 項目確認(ADR-040 決定7)で `compare_runs` の `parsed_consistency` を使う
+
+**未解決点:** 下の「人間の承認・判断を待っている事項」。**A は次のポッドセッション待ち、B は決着(2026-08-29 実装)、C が新規。**
+
+---
+
+**完了したこと(その前のセッション。PLANNER。2026-08-28。順1b の材料で人間が4件を決定。GPU 時間 0):**
 
 - **#20 `model.max_new_tokens = 256` / #25 `eval.batch_size = 4` を人間が採択**
   (提案 PLANNER / 採択 人間。ADR-039 決定3)。**ADR-042 決定6 / ADR-040 決定6 に追記**
@@ -1280,16 +1342,15 @@ ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁�
 
 **次にやるべきこと(このセッションでは着手しない):**
 
-1. **IMPLEMENTER: ADR-045 の実装**(`code/analysis/compare_runs.py` + `code/tests/`。GPU 時間 0)。
-   `parsed_a` / `parsed_b` / `parsed_match` を項目ごとに、`batch_consistency.json` に集計。
-   `None` 対 `None`(両方 parse_fail)は「比較対象外」で別カウント(ADR-045 リスク欄)
+1. ~~**IMPLEMENTER: ADR-045 の実装**~~ → **2026-08-29 完了(IMPLEMENTER)。**`compare_parsed()` /
+   `parsed_consistency` ブロック。テスト7件追加で 693 passed
 2. **IMPLEMENTER: 順4**(本実験の項目生成と評価プールの作り直し)。順0 / 1 / 2 の決定を反映。
    ただし **#21 の T3・T1b 文面(ADR-042 決定10)がまだ未起草**なので `eval_template_set` は埋まらない
 3. **人間: 承認待ち C**(`max_new_tokens` の `[MATCHED]`)/ **#21 の T3・T1b 文面の起草・確定**
    (ADR-032 と同じ手続き)/ ADR-041 決定5(θ の格子点・水準あたり項目数・抽出シード数)
 4. **RUNNER(要 GPU 承認): 順5**(桁数掃引 → M*)。その実機で `pip freeze` を取り ADR-044 を履行する
 
-**未解決点:** 下の「人間の承認・判断を待っている事項」。**A / B は決着、C が新規。**
+**未解決点:** 下の「人間の承認・判断を待っている事項」。**A / B は決着(B は 2026-08-29 実装済)、C が新規。**
 
 ---
 

@@ -316,7 +316,7 @@ python -c "import json,sys; print(json.load(open(sys.argv[1]))['timing'])" "$RUN
 | ファイル | 書くもの | 順1b 以外でも出るか |
 |---|---|---|
 | `token_length.json` | `python -m code.analysis.token_length --run-dir <dir>`。応答のトークン長の分布 | **回せばどの run でも出る。**必須ではない |
-| `batch_consistency.json` | `python -m code.analysis.compare_runs --out <path>`。2つの run の応答の突き合わせ。**4値分類の一致 + 抽出整数値の一致**を独立ブロックで出す(ADR-045。2026-08-28 採択。**実装は IMPLEMENTER 待ち** —— 現状は `classification_*` のみで `parsed` が無い) | **順1b と段階 C の 100 項目確認**(ADR-040 決定1・7、#25 の材料) |
+| `batch_consistency.json` | `python -m code.analysis.compare_runs --out <path>`。2つの run の応答の突き合わせ。**生成文字列の一致**(`compare`)と **抽出整数値の一致**(`compare_parsed` → `parsed_consistency` ブロック。項目ごとの `parsed_a` / `parsed_b` / `parsed_match` と集計。両方 parse_fail は比較対象外で別カウント)を独立ブロックで出す(ADR-045。2026-08-28 採択・実装済)。**どちらにも合否は無い** | **順1b と段階 C の 100 項目確認**(ADR-040 決定1・7、#25 の材料) |
 
 **トークン長は数え直しであって生成時の実測ではない。**`response` は
 `skip_special_tokens=True` で復号されているので **EOS を含まず、1トークンほど下振れする**

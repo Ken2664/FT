@@ -17,11 +17,14 @@ import pytest
 from code.analysis import compare_runs
 
 
+_AUTO_PARSED = object()
+
+
 def write_run(
     tmp_path: Path,
     name: str,
     *,
-    records: dict[str, list[dict[str, str]]],
+    records: dict[str, list[dict[str, object]]],
     batch_size: int = 4,
     temperature: float = 0.0,
 ) -> Path:
@@ -50,11 +53,28 @@ def write_run(
     return run_dir
 
 
-def prediction(item_id: str, response: str, classification: str = "correct") -> dict[str, str]:
+def prediction(
+    item_id: str,
+    response: str,
+    classification: str = "correct",
+    *,
+    parsed: object = _AUTO_PARSED,
+) -> dict[str, object]:
+    """1件の予測レコード。
+
+    `parsed` を省くと response が素の整数なら int、そうでなければ None(parse_fail)
+    を入れる。抽出値の一致(ADR-045)を狙うテストは明示的に渡す。
+    """
+    if parsed is _AUTO_PARSED:
+        try:
+            parsed = int(response)
+        except ValueError:
+            parsed = None
     return {
         "item_id": item_id,
         "prompt": f"prompt-{item_id}",
         "response": response,
+        "parsed": parsed,
         "classification": classification,
     }
 
@@ -160,3 +180,117 @@ def test_a_mismatch_prints_the_escalation_warning(tmp_path: Path) -> None:
     b = write_run(tmp_path, "b", records={"t1": [prediction("i1", "8")]}, batch_size=1)
     lines = compare_runs.report_lines(compare_runs.payload(a, b))
     assert any("人間に上げる" in line for line in lines)
+
+
+# --- 抽出された整数値の一致(ADR-045)---------------------------------------
+
+
+def test_parsed_split_is_caught_even_when_classification_agrees(tmp_path: Path) -> None:
+    """**分類が一致していても抽出値は割れうる。**compare_runs は採点し直さず、
+    predictions に書かれた `parsed` をそのまま並べる(ADR-045 決定3)。"""
+    a = write_run(
+        tmp_path,
+        "a",
+        records={"t1": [prediction("i1", "18", "other_error", parsed=18)]},
+    )
+    b = write_run(
+        tmp_path,
+        "b",
+        records={"t1": [prediction("i1", "1 8", "other_error", parsed=1)]},
+        batch_size=1,
+    )
+    parsed = compare_runs.payload(a, b)["parsed_consistency"]
+    assert (parsed["n_compared"], parsed["n_match"], parsed["n_mismatch"]) == (1, 0, 1)
+    mismatch = parsed["mismatches"][0]
+    assert (mismatch["parsed_a"], mismatch["parsed_b"]) == (18, 1)
+    assert mismatch["classification_a"] == mismatch["classification_b"] == "other_error"
+
+
+def test_both_sides_parse_fail_are_counted_out_of_scope(tmp_path: Path) -> None:
+    """None 対 None は「両方 parse_fail(比較対象外)」。抽出値ブロックでは
+    一致にも不一致にも数えない —— 4値分類のブロックが既に捕まえる(ADR-045 リスク欄)。"""
+    a = write_run(
+        tmp_path, "a", records={"t1": [prediction("i1", "???", "parse_fail", parsed=None)]}
+    )
+    b = write_run(
+        tmp_path,
+        "b",
+        records={"t1": [prediction("i1", "(no answer)", "parse_fail", parsed=None)]},
+        batch_size=1,
+    )
+    parsed = compare_runs.payload(a, b)["parsed_consistency"]
+    assert parsed["n_both_parse_fail"] == 1
+    assert (parsed["n_compared"], parsed["n_match"], parsed["n_mismatch"]) == (0, 0, 0)
+    assert parsed["both_parse_fail"] == [{"batch": "t1", "item_id": "i1"}]
+    assert parsed["by_item"] == []
+
+
+def test_one_sided_parse_fail_is_a_parsed_mismatch(tmp_path: Path) -> None:
+    """片方だけ parse_fail は「両方 parse_fail」ではなく食い違いである。"""
+    a = write_run(tmp_path, "a", records={"t1": [prediction("i1", "7", "correct", parsed=7)]})
+    b = write_run(
+        tmp_path,
+        "b",
+        records={"t1": [prediction("i1", "seven", "parse_fail", parsed=None)]},
+        batch_size=1,
+    )
+    parsed = compare_runs.payload(a, b)["parsed_consistency"]
+    assert parsed["n_both_parse_fail"] == 0
+    assert parsed["n_mismatch"] == 1
+    assert parsed["mismatches"][0]["parsed_b"] is None
+
+
+def test_fully_identical_parsed_values_report_all_matches(tmp_path: Path) -> None:
+    rows = {
+        "t1": [prediction("i1", "7", parsed=7), prediction("i2", "13", parsed=13)],
+        "t2": [prediction("i1", "40", parsed=40)],
+    }
+    a = write_run(tmp_path, "a", records=rows, batch_size=4)
+    b = write_run(tmp_path, "b", records=rows, batch_size=1)
+    parsed = compare_runs.payload(a, b)["parsed_consistency"]
+    assert (parsed["n_compared"], parsed["n_match"], parsed["n_mismatch"]) == (3, 3, 0)
+    assert parsed["n_both_parse_fail"] == 0
+    assert parsed["mismatches"] == []
+    assert len(parsed["by_item"]) == 3
+    assert all(entry["parsed_match"] is True for entry in parsed["by_item"])
+
+
+def test_bool_and_int_are_not_conflated_in_parsed(tmp_path: Path) -> None:
+    """`True == 1` が成立する。二値項目の Yes と数値項目の 1 を一致にしない。"""
+    a = write_run(tmp_path, "a", records={"t1": [prediction("i1", "Yes", "correct", parsed=True)]})
+    b = write_run(
+        tmp_path,
+        "b",
+        records={"t1": [prediction("i1", "1", "other_error", parsed=1)]},
+        batch_size=1,
+    )
+    parsed = compare_runs.payload(a, b)["parsed_consistency"]
+    assert parsed["n_mismatch"] == 1
+
+
+def test_parsed_only_split_shows_the_parsed_block_and_its_warning(tmp_path: Path) -> None:
+    """生成文字列が同じでも predictions の `parsed` が割れていれば、抽出値ブロックが
+    それを出す。標準出力にも独立の1行が出る(ADR-045 決定3・報告)。"""
+    a = write_run(tmp_path, "a", records={"t1": [prediction("i1", "7", "correct", parsed=7)]})
+    b = write_run(
+        tmp_path,
+        "b",
+        records={"t1": [prediction("i1", "7", "correct", parsed=70)]},
+        batch_size=1,
+    )
+    document = compare_runs.payload(a, b)
+    assert document["n_mismatched"] == 0  # 生成文字列そのものは一致
+    assert document["parsed_consistency"]["n_mismatch"] == 1
+    lines = compare_runs.report_lines(document)
+    assert any(line.startswith("抽出整数値:") for line in lines)
+    assert any("4値分解に入る数" in line for line in lines)
+
+
+def test_the_parsed_block_carries_no_verdict(tmp_path: Path) -> None:
+    """合否は作らない(ADR-045 決定2)。数えるだけ。"""
+    a = write_run(tmp_path, "a", records={"t1": [prediction("i1", "7", parsed=7)]})
+    b = write_run(tmp_path, "b", records={"t1": [prediction("i1", "8", parsed=8)]}, batch_size=1)
+    parsed = compare_runs.payload(a, b)["parsed_consistency"]
+    assert "passed" not in parsed
+    assert "verdict" not in parsed
+    assert "ADR-045" in parsed["note"]

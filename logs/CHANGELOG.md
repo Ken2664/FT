@@ -2643,3 +2643,35 @@ EOS を含まず、1トークンほど下振れする**):
   skill `handoff` を実行した。**コンテキストは10万トークンには達していない**が、区切りが明確
 - **RunPod は未使用**(このセッションは GPU を使わなかった)
 - 関連 commit: (このコミット)
+
+## 2026-08-29
+
+### feat(analysis): ADR-045 を実装。compare_runs に抽出整数値の一致を記録させた   [actor: IMPLEMENTER]
+
+- **何を変えたか**:
+  - `code/analysis/compare_runs.py` の `Prediction` に `parsed`(抽出された整数値。
+    数値項目は int / 二値項目は bool / 抽出失敗は None)を足し、`read_predictions` が
+    `predictions/*.jsonl` の `parsed`(出所: `code/eval/run.py` の `prediction_record`)を読むようにした
+  - 新関数 `compare_parsed()` を追加。4値分類の一致(`compare`)とは**独立したブロック**として
+    `payload()` の返り値に `parsed_consistency` を足す。中身:
+    - `by_item`: 項目ごとの `parsed_a` / `parsed_b` / `parsed_match`(bool)
+    - 集計: `n_compared` / `n_match` / `n_mismatch`、`mismatches`(不一致項目の
+      `(batch, item_id)` と両 run の `parsed` / `classification`)
+    - `n_both_parse_fail` と `both_parse_fail`: **両方 parse_fail(None 対 None)は
+      比較対象外**として別カウント(ADR-045 リスク欄。parse_fail どうしは分類ブロックで捕まる)
+  - `_parsed_equal()`: `True == 1` を突き合わせに混ぜないため bool/int の型も見る
+    (`code/eval/scoring.py` の classify と同型)
+  - `_paired_keys()`: 項目集合の一致検査を `compare` と `compare_parsed` で共有する形に切り出した
+  - `report_lines()` に抽出整数値の要約1行を常時追加。食い違いがあれば警告行と内訳を出す
+  - **合否基準は作っていない**(ADR-045 決定2。既存の `NO_VERDICT_NOTE` と同じ思想)
+- **なぜ変えたか**: ADR-040 決定1 の合否は「4値分類 および 抽出された整数値」の一致だが、
+  `batch_consistency.json` には分類しか残らず、順1b の 19/19 は手作業で確認していた
+  (RUNNER。2026-08-28)。ADR-040 決定7 は段階 C の本番でも 100 項目で同じ確認を要求する。ADR-045。
+- **テスト**: `code/tests/test_compare_runs.py` に7件追加(分類は一致するが抽出値が割れる /
+  両方 parse_fail が比較対象外 / 片方だけ parse_fail は食い違い / 完全一致 / bool と int を
+  混同しない / 生成文字列が同じでも parsed が割れれば出る / 合否を持たない)。
+  `pytest code/tests -q` は **693 passed**(セッション開始時 686)
+- **影響を受けたファイル**: `code/analysis/compare_runs.py` / `code/tests/test_compare_runs.py` /
+  `infra/RUNPOD.md`(§4 の `batch_consistency.json` 行を「実装済」に更新)
+- **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)。**GPU 時間 0**
+- 関連 commit: (このコミット)

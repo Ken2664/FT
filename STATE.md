@@ -1328,7 +1328,41 @@ ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。IMPLEMENTER。2026-08-29。ADR-045 を実装した。GPU 時間 0):**
+**完了したこと(最新セッション。PLANNER。2026-08-29。残り決定3件の案を起草した。決定は一切していない。GPU 時間 0):**
+
+- **`plans/PLAN-005-phase0-pending-decisions.md`** を新設。`logs/HANDOFF.md`(2026-08-29)の
+  「人間の判断待ち事項の消化(エージェントは案出しのみ)」に対応。**採否記入用の表は §5。**
+  - **承認待ち C**(§2): `max_new_tokens` に **`[MATCHED]` を付ける案**。根拠 = 非対称な打ち切りが
+    4値分解の条件間比較を汚す(ADR-040 決定5 と同型)/ `model.*` で無タグは `max_new_tokens` だけ / コストゼロ
+  - **#21**(§3): `configs/templates/t1b_draft.yaml`(`{a}+{b}>{threshold}?` 指示文なし)/
+    `t3_draft.yaml`(**案 A 推奨** = `Is the sum of {a} and {b} greater than {threshold}? Answer Yes or No.`、
+    案 B = `+` を残す)。ADR-032 と同じ手続き。**採択で `data.eval_template_set` が埋められる → 順4 が全タスク型で進む**
+  - **ADR-041 決定5**(§4): `radii: [25,50,75,99,100,110,125,150,175,200,300,500,999]` /
+    `n_items_per_radius: 200` / 抽出シード数 5。**θ の値は提案していない**。
+    **抽出シード数 > 1 は `code/eval/sweep.py` の実装変更が要る**(`SweepPlan.seed: int` が単数。シード平均なし)
+- **`configs/template.yaml` にも `logs/DECISIONS.md` の ADR 本体にも何も書いていない。**
+  採択されるまで案は PLAN-005 と `*_draft.yaml` のみに在る。**コード変更なし(`pytest` 未実行)。`results/` は空**
+- **追随**: `STATE.md`(この節・冒頭★・「いま何を」・「承認待ち」)/ `plans/PLAN-004`(§5 #21、§3 順3、§7)/ `logs/CHANGELOG.md`
+- commit: `440786d`
+
+**次にやるべきこと(このセッションでは着手しない):**
+
+1. **人間: `plans/PLAN-005` §5 の表に採否を記入する。**採択分をエージェントが config / ADR に落とす(別セッション。GPU 時間 0)。
+   - 承認待ち C → ADR-042 追記 + `configs/template.yaml:51` に `# [MATCHED]`
+   - #21 → `*_draft.yaml` を `*.yaml` に昇格 + 文面凍結 ADR + ADR-042 決定10 を閉じる
+   - ADR-041 決定5 → ADR-041 追記 + `configs/template.yaml` の `eval.magnitude_sweep.*`。
+     シード数 > 1 なら `code/eval/sweep.py` 改修タスクを1本切る
+2. **IMPLEMENTER: 順4**(本実験の項目生成と評価プールの作り直し)。順0 / 1 / 2 の決定を反映。
+   **#21 未決なら T1 / T2 プールまで**(`eval_template_set` は #21 採択後)
+3. **RUNNER(要 GPU 承認 + θ 決定): 順5**(桁数掃引 → M*)。その実機で `pip freeze` を取り ADR-044 を履行。
+   段階 C の 100 項目確認(ADR-040 決定7)で `compare_runs` の `parsed_consistency` を使う
+
+**未解決点:** 下の「人間の承認・判断を待っている事項」。**A は次のポッドセッション待ち、B は決着、
+C / #21 / ADR-041 決定5 は案が PLAN-005 に出た(採否は人間)。**
+
+---
+
+**完了したこと(その前のセッション。IMPLEMENTER。2026-08-29。ADR-045 を実装した。GPU 時間 0):**
 
 - **`code/analysis/compare_runs.py`**:
   - `Prediction` dataclass に `parsed`(抽出された整数値。数値項目 int / 二値項目 bool /
@@ -1349,18 +1383,8 @@ ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁�
 - **`infra/RUNPOD.md` §4**: `batch_consistency.json` 行を「実装済」に更新
 - **触っていない**: `configs/smoke*.yaml` / `results/`(空のまま)/ `code/eval/` / `code/train/`。
   **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)
-- commit: (このセッションのコミット)
-
-**次にやるべきこと(このセッションでは着手しない):**
-
-1. **IMPLEMENTER: 順4**(本実験の項目生成と評価プールの作り直し)。順0 / 1 / 2 の決定を反映。
-   ただし **#21 の T3・T1b 文面(ADR-042 決定10)がまだ未起草**なので `eval_template_set` は埋まらない
-2. **人間: 承認待ち C**(`max_new_tokens` の `[MATCHED]`)/ **#21 の T3・T1b 文面の起草・確定**
-   (ADR-032 と同じ手続き)/ ADR-041 決定5(θ の格子点・水準あたり項目数・抽出シード数)
-3. **RUNNER(要 GPU 承認): 順5**(桁数掃引 → M*)。その実機で `pip freeze` を取り ADR-044 を履行する。
-   段階 C の 100 項目確認(ADR-040 決定7)で `compare_runs` の `parsed_consistency` を使う
-
-**未解決点:** 下の「人間の承認・判断を待っている事項」。**A は次のポッドセッション待ち、B は決着(2026-08-29 実装)、C が新規。**
+- commit: `4841e1b`(ADR-045 実装)/ `e6b880c`(引き継ぎ)
+- **この後の次アクションは上の PLANNER セッション(2026-08-29)の「次にやるべきこと」が正本。**
 
 ---
 

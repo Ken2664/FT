@@ -1,49 +1,57 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-08-29 / 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: **PLAN 完了**(ADR-045 を実装した。`compare_runs` が抽出整数値の一致を記録する)
+生成: 2026-08-29 / 直前セッションの役割: PLANNER
+直前セッションが終了した理由: **1 PLAN 完了**(人間の判断待ち3件の案を `plans/PLAN-005` に起草した。決定はしていない)
 
 ---
 
 まず `CLAUDE.md` §1 の開始手順を実行してください(`STATE.md` / `logs/CHANGELOG.md` /
-`logs/DECISIONS.md` / `git log` / `runs/`)。**RunPod MCP は不要**(次の作業は GPU を使わない)。
+`logs/DECISIONS.md` / `git log` / `runs/` / `git worktree list`)。**RunPod MCP は不要**。
 
-## 直前セッションで終わったこと(ファイルに書き込み済み)
+## 直前セッションで終わったこと(ファイルに書き込み済み。commit `440786d`)
 
-- **ADR-045 実装完了**(commit `4841e1b`)。`code/analysis/compare_runs.py` に `compare_parsed()`
-  を追加。`batch_consistency.json`(= `payload()` の返り値)に `parsed_consistency` ブロックが入る:
-  - `by_item`: 項目ごとの `parsed_a` / `parsed_b` / `parsed_match`(bool)
-  - 集計: `n_compared` / `n_match` / `n_mismatch` / `mismatches`(不一致項目の `(batch, item_id)` と
-    両 run の `parsed` / `classification`)
-  - **`n_both_parse_fail` + `both_parse_fail`: 両方 parse_fail(None 対 None)は比較対象外で別カウント**
-  - **合否基準は無い**(ADR-045 決定2)。`report_lines()` に要約1行 + 食い違い時の警告
-  - 4値分類の一致(`compare` の `mismatches`)とは独立。ADR-040 決定2 の文字列一致ブロックは残してある
-- **テスト7件追加**。`pytest code/tests -q` → **693 passed**(開始時 686)
-- **`infra/RUNPOD.md` §4** の `batch_consistency.json` 行を「実装済」に更新
-- **承認待ち B は決着**。残る人間待ちは **C**(`max_new_tokens` の `[MATCHED]`)/ **#21**(T3・T1b 文面)/
-  **ADR-041 決定5**(θ の格子点ほか)
-- **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)
+- **`plans/PLAN-005-phase0-pending-decisions.md` を新設。**承認待ち C / #21 / ADR-041 決定5 の
+  **案**を、人間が採否を記入できる形(§5 の表)で置いた。**エージェントは案出しのみ**
+  (`CLAUDE.md` §8 / ADR-039)。**`configs/template.yaml` にも `logs/DECISIONS.md` の ADR 本体にも
+  何も書いていない。**コード変更なし。GPU 時間 0。`results/` は空。
+  - **承認待ち C(§2)**: `max_new_tokens` に **`[MATCHED]` を付ける案**。
+  - **#21(§3)**: `configs/templates/t1b_draft.yaml`(`{a}+{b}>{threshold}?` 指示文なし。ADR-042 決定7)/
+    `t3_draft.yaml`(**案 A 推奨** = `Is the sum of {a} and {b} greater than {threshold}? Answer Yes or No.`、
+    **案 B** = `Is {a} + {b} greater than …` で `+` を残す)。手続きは ADR-032 と同じ。
+  - **ADR-041 決定5(§4)**: `radii: [25,50,75,99,100,110,125,150,175,200,300,500,999]` /
+    `n_items_per_radius: 200` / 抽出シード数 5。**θ の値は提案していない**(ADR-041 決定2・3 が
+    θ を掃引後の人間の決定にしている)。**抽出シード数 > 1 は `code/eval/sweep.py` の実装変更が要る**
+    (`SweepPlan.seed: int` が単数でシード平均を取らない)。
+- 追随: `STATE.md`(冒頭★・「いま何を」・「引き継ぎ」・「承認待ち」)/ `plans/PLAN-004`(§5 #21・§3 順3・§7)/ `logs/CHANGELOG.md`。
 
 ## 次にやるべきこと(どれか1つを1セッションで)
 
-1. **人間の判断待ち事項の消化**(エージェントは案出しのみ。`CLAUDE.md` §8 / ADR-039):
-   - **承認待ち C**: `model.max_new_tokens` に `[MATCHED]` を付けるか(`configs/template.yaml:45` に注記)
-   - **#21**: T3 の確定文面・T1b の書式文字列(ADR-042 決定10。ADR-032 と同じ手続きで人間が起草・確定)
-   - **ADR-041 決定5**: θ の格子点・水準あたり項目数・抽出シード数(順5 の前)
+1. **人間が `plans/PLAN-005` §5 の表に採否を記入したら、エージェントが採択分を落とす**(GPU 時間 0):
+   - 承認待ち C 採択 → `logs/DECISIONS.md` ADR-042 に追記(提案 PLANNER / 採択 人間)+
+     `configs/template.yaml:51` の `max_new_tokens: 256` に `# [MATCHED]` + L43-50 コメントを確定文言に
+   - #21 採択 → `configs/templates/t1b_draft.yaml` → `t1b.yaml` / `t3_draft.yaml` → `t3.yaml` に昇格 +
+     文面を凍結する ADR(提案者 / 採択者を分ける)+ **ADR-042 決定10 を閉じる** +
+     `data.eval_template_set` 用の統合テンプレート集合ファイルを作る(T2 + T1b + T3。**T1 は入れない**)
+   - ADR-041 決定5 採択 → ADR-041 に追記 + `configs/template.yaml` の `eval.magnitude_sweep.*`(null 3件)。
+     抽出シード数 > 1 なら `code/eval/sweep.py` 改修タスクを1本切る(`seed: int` → `seeds: list[int]`、
+     シード平均、`results/` にシード別値 + SD)
 2. **IMPLEMENTER: PLAN-004 順4**(本実験の項目生成と評価プールの作り直し。`code/data_gen/`)。
-   順0 / 1 / 2 の決定を反映。**ただし #21 未決なので `eval_template_set` は埋まらない** ——
-   T1 / T2 のプールまでは進められる。PLAN-004 §3 順4 の前提を先に読むこと
-3. **PLANNER**: ADR-045 帰結の残務 —— PLAN-004 §3 順1b 前提2 の表に (e') 相当を足すか、
-   順6 の実装前提に `parsed_consistency` を置くか(ADR-045 帰結。IMPLEMENTER セッションでは
-   スコープ外にした)
+   順0 / 1 / 2 の決定を反映。**#21 が未採択なら `eval_template_set` は埋まらない** —— T1 / T2 のプールまで。
+   **かつ並行ブランチ `claude/objective-mestorf-34f57d` の扱いを人間が決めていない**
+   (`STATE.md`「並行ブランチ」。順4 は再生成の経路そのものを実装しているブランチと衝突しうる)。
+3. **PLANNER**: `plans/PLAN-005` に挙げた「#21 を決めても残る未決」——
+   **T1b が Go/No-Go #1(`parse_fail_rate < 0.02`)を割ったときの分岐が無い**
+   (ADR-042 決定5 (i) は決定7 が封じ、few-shot は決定5 (iii) が封じている)。案を出すか、人間に上げる。
 
 ## GPU を使う次の段
 
-**順5**(桁数掃引 → M*。要 GPU 承認)。その実機で `pip freeze` を取り **ADR-044**(lock の凍結)を履行する。
+**順5**(桁数掃引 → M*。要 θ 決定 + GPU 承認)。その実機で `pip freeze` を取り **ADR-044**(lock の凍結)を履行する。
 段階 C の 100 項目確認(ADR-040 決定7)で `compare_runs` の `parsed_consistency` を使う。
 
 ## やってはいけないこと
 
-- **合否基準・しきい値を作らない**(ADR-045 決定2 / #25 は決着済だが思想は同じ)
-- 事前登録した予測・解析計画を実験後に変更しない(`CLAUDE.md` §2)
-- 人間の承認なく GPU ジョブを起動しない / RunPod ポッドを放置しない
+- **`plans/PLAN-005` の案を「決定」として `configs/` や ADR 本体に書かない。**人間の採否記入を待つ(`CLAUDE.md` §8)。
+- **θ の値を提案・決定しない**(ADR-041 決定2・3。掃引表を見てから人間が決める)。
+- 合否基準・しきい値を作らない(ADR-045 決定2 / ADR-041 の思想)。
+- 事前登録した予測・解析計画を実験後に変更しない(`CLAUDE.md` §2)。
+- 人間の承認なく GPU ジョブを起動しない / RunPod ポッドを放置しない。

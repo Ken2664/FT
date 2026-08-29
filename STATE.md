@@ -3,9 +3,24 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-29 / by IMPLEMENTER(ADR-045 を実装した。`compare_runs` が抽出整数値の一致を記録する。GPU 時間 0)
+最終更新: 2026-08-29 / by PLANNER(残り決定3件の案を `plans/PLAN-005` に起草した。決定はしていない。GPU 時間 0)
 
-**★★★★★2026-08-29(最新・IMPLEMENTER): ADR-045 を実装した。GPU 時間 0。**
+**★★★★★★2026-08-29(最新・PLANNER): 人間の判断待ち3件の案を起草した。決定・確定は一切していない。GPU 時間 0。**
+- **`plans/PLAN-005-phase0-pending-decisions.md`** を新設。承認待ち C / #21(T3・T1b 文面)/
+  ADR-041 決定5(掃引の格子)の**案**を、人間が採否を記入できる形で置いた(`CLAUDE.md` §8 / ADR-039)。
+- **承認待ち C**: `max_new_tokens` に **`[MATCHED]` を付けることを提案**(非対称な打ち切りが
+  4値分解の条件間比較を汚す。ADR-040 決定5 と同型の論法)。
+- **#21**: `configs/templates/t1b_draft.yaml`(`{a}+{b}>{threshold}?` 指示文なし)と
+  `t3_draft.yaml`(**案 A 推奨**: `Is the sum of {a} and {b} greater than {threshold}? Answer Yes or No.`)を起草。
+  ADR-032 と同じ手続き。採択されれば `data.eval_template_set` が埋められるようになり順4 が全タスク型で進む。
+- **ADR-041 決定5**: `radii: [25,50,75,99,100,110,125,150,175,200,300,500,999]` /
+  `n_items_per_radius: 200` / 抽出シード数 5 を提案。**シード数 > 1 は実装変更が要る**
+  (`code/eval/sweep.py` はシード平均を取らない。`SweepPlan.seed: int` が単数)。θ の値は提案していない
+  (ADR-041 決定2・3 が θ を掃引後の人間の決定にしている)。
+- **`configs/` にも ADR 本体にも何も入れていない。**採択されるまで案は `plans/PLAN-005` と `*_draft.yaml` にのみ在る。
+- `pytest` は走らせていない(コード変更なし)。**`results/` は空。commit: (このセッションのコミット)**
+
+**★★★★★2026-08-29(その前・IMPLEMENTER): ADR-045 を実装した。GPU 時間 0。**
 - **`code/analysis/compare_runs.py`**: `Prediction` に `parsed` を足し、新関数 `compare_parsed()` が
   4値分類の一致とは**独立したブロック** `parsed_consistency` を `payload()` に出す。項目ごとの
   `parsed_a` / `parsed_b` / `parsed_match` と集計(`n_compared` / `n_match` / `n_mismatch` /
@@ -259,7 +274,19 @@ HF トークンが残っている。次のセッションは clone と bootstrap
 
 ## いま何をしているか
 
-> **★ 2026-08-29(最新)。IMPLEMENTER セッション。ADR-045 を実装した。GPU 時間 0。**
+> **★ 2026-08-29(最新)。PLANNER セッション。人間の判断待ち3件の案を起草した。決定はしていない。GPU 時間 0。**
+>
+> `plans/PLAN-005-phase0-pending-decisions.md` を新設し、**承認待ち C** /
+> **#21(T3・T1b 文面)** / **ADR-041 決定5(掃引の格子)** の案を、人間が採否を記入できる形で置いた
+> (`CLAUDE.md` §8 / ADR-039。エージェントは案出しのみ)。`configs/templates/t1b_draft.yaml` と
+> `t3_draft.yaml` を起草(ADR-032 と同じ手続き。`_draft` は `eval_template_set` から参照しない)。
+> **`configs/template.yaml` にも ADR 本体にも何も書いていない。**採択されるまで案は PLAN-005 と `*_draft.yaml` のみ。
+> **コード変更なし(`pytest` 未実行)。`results/` は空。**
+> **次**: 人間が PLAN-005 §5 の表に採否を記入 → 採択分を config / ADR に落とす(別セッション)。
+> ADR-041 決定5 の抽出シード数 > 1 を採るなら `code/eval/sweep.py` の実装変更が要る(GPU 時間 0 の IMPLEMENTER タスク)。
+> 採択に依らず進められるのは順4 の T1/T2 プール。GPU を使う次は順5(要 θ 決定 + GPU 承認)。
+
+> **★ 2026-08-29(その前)。IMPLEMENTER セッション。ADR-045 を実装した。GPU 時間 0。**
 >
 > `code/analysis/compare_runs.py` に `compare_parsed()` を追加。`batch_consistency.json`
 > (= `payload()` の返り値)に `parsed_consistency` ブロックが入り、抽出整数値の一致を
@@ -987,6 +1014,16 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
 
+> **★★★2026-08-29(PLANNER)。C / #21 / ADR-041 決定5 の案を `plans/PLAN-005-phase0-pending-decisions.md` に起草した。**
+> **エージェントは案出しのみ。採否は人間**(ADR-039 / `CLAUDE.md` §8)。PLAN-005 §5 に採否記入用の表がある。
+>
+> - **承認待ち C**: `max_new_tokens` に **`[MATCHED]` を付けることを提案**(PLAN-005 §2)。
+> - **#21**: T1b = `configs/templates/t1b_draft.yaml`、T3 = `t3_draft.yaml`(案 A / 案 B の2択。**案 A 推奨**)。
+>   手続きは ADR-032 と同じ(PLAN-005 §3)。**採択で `data.eval_template_set` が埋められるようになり順4 が全タスク型で進む。**
+>   なお #21 を決めても **T1b が Go/No-Go #1 を割ったときの分岐**は別途未決のまま(下の追記 5)。
+> - **ADR-041 決定5**: 格子 `radii` / `n_items_per_radius` / 抽出シード数 の案(PLAN-005 §4)。
+>   **抽出シード数 > 1 は `code/eval/sweep.py` の実装変更が要る**(現状シード平均を取らない)。**θ の値は提案していない。**
+
 > **★★2026-08-28 決着(PLANNER)。RUNNER が順1b で出した2件を人間が判断した。**
 >
 > **A → ADR-044 採択。**`infra/requirements.lock` を**順1b の環境に凍結する**。
@@ -1009,7 +1046,8 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 > **`[MATCHED]` を付けるか**。ADR-042 決定6 は値(256)は確定したが `[MATCHED]` を明言していない。
 > ADR-040 決定5 が `eval.batch_size` を条件間で揃えた理由(「温度0でも batch 構成等で揺れる」
 > → 条件差にその揺れが乗る)がそのまま当てはまる。**付けないと p2 と x2 で長応答の打ち切りが
-> 非対称になり 4値分解の比較が汚れうる。**`configs/template.yaml:45` にこの注記あり(現状タグなし)
+> 非対称になり 4値分解の比較が汚れうる。**`configs/template.yaml:51` にこの注記あり(現状タグなし)。
+> **→ 2026-08-29: `[MATCHED]` を付ける案を `plans/PLAN-005` §2 に起草した(提案 PLANNER。採択待ち)。**
 
 > **★2026-08-28 追記(IMPLEMENTER)。8-6 と ADR 反映で5件増えた。**
 > **場所**: 1〜4 は `plans/PLAN-004-phase0-route.md` §3 順8「8-6 でやったこと」の

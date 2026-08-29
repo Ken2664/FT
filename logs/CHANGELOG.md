@@ -2674,4 +2674,30 @@ EOS を含まず、1トークンほど下振れする**):
 - **影響を受けたファイル**: `code/analysis/compare_runs.py` / `code/tests/test_compare_runs.py` /
   `infra/RUNPOD.md`(§4 の `batch_consistency.json` 行を「実装済」に更新)
 - **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)。**GPU 時間 0**
+- 関連 commit: `4841e1b`
+
+### docs(plan): 人間の判断待ち3件の案を PLAN-005 に起草した   [actor: PLANNER]
+
+- **何を変えたか**:
+  - `plans/PLAN-005-phase0-pending-decisions.md` を新設。`logs/HANDOFF.md`(2026-08-29)が挙げた
+    「人間の判断待ち事項の消化(エージェントは案出しのみ)」に対応する。3件の**案**を、
+    人間が採否を記入できる形(§5 の表)で置いた:
+    - **承認待ち C**: `model.max_new_tokens` に **`[MATCHED]` を付ける案**。非対称な打ち切りが
+      4値分解の条件間比較を汚す(ADR-040 決定5 と同型の論法)/ `model.*` で `[MATCHED]` が
+      無いのは `max_new_tokens` だけ / コストゼロの保険
+    - **#21**: `configs/templates/t1b_draft.yaml`(`{a}+{b}>{threshold}?` 指示文なし。ADR-042 決定7)と
+      `configs/templates/t3_draft.yaml`(**案 A 推奨** = `Is the sum of {a} and {b} greater than
+      {threshold}? Answer Yes or No.`。案 B = `+` を残す形)を起草。ADR-032 と同じ手続き。
+      採択で `data.eval_template_set` が埋められるようになり順4 が全タスク型で進む
+    - **ADR-041 決定5**: `radii: [25,50,75,99,100,110,125,150,175,200,300,500,999]` /
+      `n_items_per_radius: 200` / 抽出シード数 5。**θ の値は提案していない**(ADR-041 決定2・3 が
+      θ を掃引後の人間の決定にしている)。**抽出シード数 > 1 は `code/eval/sweep.py` の実装変更が要る**
+      (現状 `SweepPlan.seed: int` が単数でシード平均を取らない)
+- **なぜ変えたか**: `CLAUDE.md` §8 / ADR-039 —— エージェントは案を出すだけで、決定・確定・解釈は人間。
+  採択されたら案は ADR-041 / 042 の追記と `configs/` へ移し、PLAN-005 には1行だけ残す(同 §6)
+- **影響を受けたファイル**: `plans/PLAN-005-phase0-pending-decisions.md`(新規)/
+  `configs/templates/t1b_draft.yaml`(新規)/ `configs/templates/t3_draft.yaml`(新規)/
+  `STATE.md` / `plans/PLAN-004-phase0-route.md`(§5 #20・#21、§3 順3、§7 に追随)
+- **`configs/template.yaml` にも `logs/DECISIONS.md` の ADR 本体にも何も書いていない。**
+  コード変更なし(`pytest` 未実行)。**GPU 時間 0。`results/` は空**
 - 関連 commit: (このコミット)

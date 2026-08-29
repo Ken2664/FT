@@ -1,0 +1,23 @@
+# configs/templates/t1b_draft.yaml — T1b(裸の比較)の文面。**下書き。未確定。**
+#
+# ★ これは PLANNER の提案であって確定文面ではない(plans/PLAN-005 §3.2)。
+#   ADR-032 と同じ手続きで、人間が1文字単位で確定する(CLAUDE.md §8 / ADR-042 決定10)。
+#   採択されたら configs/templates/t1b.yaml に昇格し、文面を凍結する ADR を書く。
+#   **この _draft ファイルは data.eval_template_set から参照しない。**
+#
+# --- 既に固定されている制約 ---
+#  ADR-042 決定7: プロンプトは `{a}+{b}>{T}?` -> Yes / No。
+#                 **答え書式の指示文は置かない**(置くと T1 との入力距離が開き、
+#                 PLAN-003 §3.1 の 2×2 の直交対比が崩れる)。強制選択1 forward pass。
+#  category キー: t1b_gt / t1b_lt(code/eval/battery/t3_comparison.py:58-59 に既存)。
+#  差し込み: {a} / {b} / {threshold}。{threshold} は算出済みの整数(t + offset)。
+#
+# --- PLAN-002 §4.1.1 の文字規約への対応(T1 と同じ厳格さ)---
+#  空白なし / 改行なし / ASCII 半角数字 / `+` は U+002B。
+#  §4.1.1 が明示するのは `+`(U+002B)と `=`(U+003D)だけなので、
+#  **`>` は U+003E、`<` は U+003C と明記することを PLAN-005 §3.2 で併せて提案している。**
+#  末尾 `?` は決定7 の書式どおり残す。
+
+comparison:
+  t1b_gt: "{a}+{b}>{threshold}?"
+  t1b_lt: "{a}+{b}<{threshold}?"

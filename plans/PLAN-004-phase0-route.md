@@ -34,8 +34,8 @@
 | **0** | **データ生成に効く3判断**: §11-11+16(G7 / Feucht)/ PLAN-002 §12-11(`p2d` 判別不能の除外を `K` に掛けるか)/ §11-18+19(書式指示・被演算子 1) | B | **人間** | — | — | **完了(2026-08-27, このコミット)**。ADR-034 / 035 / 036 採択。§12-11 をコードに反映済 |
 | **1** | **`run.py` の本実行**(モデル読み込み・生成)+ **桁数掃引の入口** + `infra/RUNPOD.md` §4 の不一致修正 | A' | IMPLEMENTER | 不要 | — | **完了(2026-08-27, このコミット)**。5条件すべて達成。`pytest` 506 passed。**実験は1つも回していない**(`results/` は空、GPU 時間 0) |
 | **1b** | **本番モデルによるスモーク**(ADR-037): (a) コードがモデルを呼べるか / (b) パーサが何を取りこぼすか / **(c) 答えが何トークンに収まるか**(= #20 の `max_new_tokens` の材料) | A' | RUNNER | **小(承認済 2026-08-27)** | 1 | **完了(2026-08-28, このコミット)**。RunPod で2 run 完走(`[run:20260828_095717_smoke1b]` 幅4 / `[run:20260828_100115_smoke1b_b1]` 幅1。commit `2c69a8a`)。`infra/RUNPOD.md` §4 段1〜9 を全通過。`model.revision` = `0e9e39f…` 確定(両 config 記入済)。ADR-040 決定1 合格(19/19)。打ち切り無し。**トークン長・壁時計時間は STATE.md と `logs/CHANGELOG.md` 2026-08-28 RUNNER 節に run_id 付きで記録**(#20 / #25 の材料。値は人間が決める) |
-| **2** | **段階 C を回すのに要る決定**: 生成設定(**新規 #20**)/ T1b・T3 の本番評価テンプレート(**新規 #21**) | B | **人間** | — | **1b** | **ほぼ完了(2026-08-28, このコミット)。ADR-042 採択 + `max_new_tokens = 256` 確定(決定6 追記)。**残るのは **T3 の確定文面・T1b の書式文字列**(ADR-042 決定10)と `max_new_tokens` の `[MATCHED]` 可否 |
-| **3** | **#9(適格性フィルタ 0.70)と `θ` の決定規則を凍結** | B | **人間** | — | — | **ほぼ完了(2026-08-28, このコミット)。ADR-041 採択。**#9 = 0.70 確定 / `θ` の決定規則5つ凍結 / `M*<100` の分岐を先に記述。残るのは**格子点・水準あたり項目数・抽出シード数**(ADR-041 決定5。順5 の前)→ **2026-08-29: 案を `plans/PLAN-005` §4 に起草(採択待ち。θ の値は含まない。シード数 > 1 は `sweep.py` の実装変更が要る)** |
+| **2** | **段階 C を回すのに要る決定**: 生成設定(**新規 #20**)/ T1b・T3 の本番評価テンプレート(**新規 #21**) | B | **人間** | — | **1b** | **完了(2026-08-29, このコミット)。**#20: ADR-042 採択 + `max_new_tokens = 256`(決定6 追記)+ **`[MATCHED]`**(2026-08-29 追記。承認待ち C)。#21: **ADR-046 採択** —— T1b / T3(案 A)の確定文面 + `configs/templates/eval_main.yaml`(T2+T1b+T3。T1 なし)。**ADR-042 決定10 は閉じた** |
+| **3** | **#9(適格性フィルタ 0.70)と `θ` の決定規則を凍結** | B | **人間** | — | — | **完了(2026-08-29, このコミット)。ADR-041 採択。**#9 = 0.70 確定 / `θ` の決定規則5つ凍結 / `M*<100` の分岐を先に記述。**決定5**(2026-08-29 追記): 格子 `radii` + `n_items_per_radius: 200` を `configs/template.yaml` に記入、抽出シード数 = 5。**θ の値は含まない**(決定2・3)。**`sweep.py` のマルチシード化と5シードの値決めは `plans/PLAN-006`**(順5 のブロッカー) |
 | **4** | 本実験の項目生成と評価プールを**作り直す**(順0 の決定を反映)+ preflight 全通過 | A' | IMPLEMENTER | 不要 | 0, 1, 2 | 未着手 |
 | **5** | **C-1: 桁数掃引 → `M*` 確定**(#15 の決着) | C | **人間の承認** → RUNNER | 小 | 1, 2, 3, 4 | 未着手 |
 | **6** | **C-2: Go/No-Go #0〜#3**(健常時スコア / test-retest / プロンプト感受性) | C | RUNNER | 小 | 5 | 未着手 |
@@ -241,10 +241,13 @@
 
 ### 順3 — 閾値の決定規則の凍結(人間)
 
-- [ ] **#9**: 適格性フィルタの閾値 `0.70`(`ident` の `correct_rate`)を確定 → ADR
-- [ ] **#15 の `θ`**: 値ではなく**決定規則**を確定 → ADR
-- [ ] **`M* < 100` だった場合の分岐を先に書く**(`θ` の見直しか外挿テストの取り下げか)。
-      順5 の完了条件が「人間に上げて止まる」なので、**規則を先に置けば順5 が止まらない**
+- [x] **#9**: 適格性フィルタの閾値 `0.70`(`ident` の `correct_rate`)を確定 → **ADR-041 決定1**(2026-08-28)
+- [x] **#15 の `θ`**: 値ではなく**決定規則**を確定 → **ADR-041 決定3**(規則5つ。2026-08-28)
+- [x] **`M* < 100` だった場合の分岐を先に書く** → **ADR-041 決定4・決定3 規則5**(2026-08-28。
+      `θ` は下げず外挿テストを取り下げ、交互作用の df を 6 → 3)
+- [x] **決定5(格子・項目数・抽出シード数)** → **ADR-041 2026-08-29 追記**。
+      `radii` / `n_items_per_radius: 200` を config に記入、抽出シード数 = 5。
+      **`sweep.py` のマルチシード化と5シードの値は `plans/PLAN-006`**(順5 の前に要る)
 
 **なぜ実測より前か**: §6 の罠1・罠2。
 
@@ -264,11 +267,19 @@
 **注**: `configs/smoke.yaml` は3条件しか宣言できない(`digit_modulus` / `arbitrary_table` が無い)。
 **本実験は5条件そろえること。**
 
+**★2026-08-29(ADR-046)**: `data.eval_template_set` は `eval_main` で埋められるようになった
+(`configs/templates/eval_main.yaml` = T2 + T1b + T3)。**T1b / T3 のプールも進められる。**
+**ただし特異性対照(`specificity`)の文面は未確定**なので、`specificity` を含む batteries の
+プールはまだ作れない(`configs/templates/smoke.yaml` L45-49。別途の人間の判断)。
+**外挿域の `extrap` セルは `M*` 未決なので依然埋まらない**(順5 の後。ADR-033 決定4)。
+
 ### 順5 — C-1: 桁数掃引(RUNNER。★人間の承認が要る)
 
 - [ ] 人間が GPU 使用を承認した日付を §7 に記入
 - [ ] `runs/<id>/` に `infra/RUNPOD.md` §4 の必須成果物が揃う
-- [ ] `M` → `correct_rate` 対応表が `results/` に run_id 付きで残る
+- [ ] **`plans/PLAN-006`(`sweep.py` のマルチシード化)が済んでいる** —— 掃引表は `M` ごとに
+      5シードの `correct_rate` を平均し、シード間 SD を併記する(ADR-041 決定5 / 決定3 規則3)
+- [ ] `M` → `correct_rate` 対応表が `results/` に run_id 付きで残る(シード平均 + SD)
 - [ ] `M*` を ADR に記録(#15 の決着)
 - [ ] **`M* < 100` だった場合**: `D_ext` は空になる。黙って空のプールを作らず、
       `θ` の見直しか外挿テストの取り下げを**人間に上げて止まる**(PLAN-001 §4.1.1)
@@ -473,8 +484,8 @@
 
 | # | 事項 | なぜ要るか | 既定案 |
 |---|---|---|---|
-| **20** | **生成設定**: `model.dtype` / `model.max_new_tokens` / デコード設定(温度・sampling の有無)/ few-shot 数の既定 | `configs/template.yaml:28-33` がすべて `null`。**skill `code-style` §5 によりエージェントは既定値を作れない。**温度0と 0-shot は文書に散在するが確定文言が無い。`max_new_tokens` は `parse_fail_rate`(Go/No-Go #1)に直結する | ~~**未作成。**エージェントが案を出すべきでない~~ → **2026-08-28 決着(ADR-042)。**dtype=bfloat16 / 貪欲(`do_sample: false`)/ 0-shot。**`max_new_tokens = 256` に確定した**(2026-08-28。ADR-042 決定6 追記。提案 PLANNER / 採択 人間。順1b の T2 最大 86〔下振れ〕の約3倍。`[run:20260828_095717_smoke1b]` 他。ADR-038 の下なので段階 C で改訂可)。`configs/template.yaml` 記入済。**残:[MATCHED] を付けるか(人間の確認待ち C)。→ 2026-08-29: 付ける案を `plans/PLAN-005` §2 に起草(提案 PLANNER。採択待ち)。**「エージェントが案を出すべきでない」は ADR-039 で撤回 |
-| **21** | **本番の評価テンプレート集合(T1b / T3 の確定文面)** | `data.eval_template_set` が**どの config でも `null`**。`configs/templates/` にあるのは `smoke.yaml`(「実験に使わない」と明記)と `t2.yaml` だけ。T1b は PLAN-003 §4.5 で `3+4>8?` が「書式案」のまま。**タスク6(プロンプト感受性)がこれに依存する** | ADR-032(T2)と同じ手続きで確定する → **2026-08-28 一部決着(ADR-042)。**「5テンプレート」= **T2 の5本**、タスク6 は T2 のみ / T1b は `{a}+{b}>{T}?` で指示文なし / T3 は英文1本 + `Answer Yes or No.`。**確定文面そのものは未起草**(決定10)→ **2026-08-29: `configs/templates/t1b_draft.yaml` / `t3_draft.yaml` を起草し `plans/PLAN-005` §3 に提案(採択待ち)。採択で `data.eval_template_set` が埋められるようになる** |
+| **20** | **生成設定**: `model.dtype` / `model.max_new_tokens` / デコード設定(温度・sampling の有無)/ few-shot 数の既定 | `configs/template.yaml:28-33` がすべて `null`。**skill `code-style` §5 によりエージェントは既定値を作れない。**温度0と 0-shot は文書に散在するが確定文言が無い。`max_new_tokens` は `parse_fail_rate`(Go/No-Go #1)に直結する | ~~**未作成。**エージェントが案を出すべきでない~~ → **2026-08-28 決着(ADR-042)。**dtype=bfloat16 / 貪欲(`do_sample: false`)/ 0-shot。**`max_new_tokens = 256` に確定した**(2026-08-28。ADR-042 決定6 追記。提案 PLANNER / 採択 人間。順1b の T2 最大 86〔下振れ〕の約3倍。`[run:20260828_095717_smoke1b]` 他。ADR-038 の下なので段階 C で改訂可)。`configs/template.yaml` 記入済。**→ 2026-08-29 決着: `[MATCHED]` を付ける**(ADR-042 2026-08-29 追記。承認待ち C。提案 PLANNER / 採択 人間)。`configs/template.yaml` にタグ記入済 |
+| **21** | **本番の評価テンプレート集合(T1b / T3 の確定文面)** | `data.eval_template_set` が**どの config でも `null`**。`configs/templates/` にあるのは `smoke.yaml`(「実験に使わない」と明記)と `t2.yaml` だけ。T1b は PLAN-003 §4.5 で `3+4>8?` が「書式案」のまま。**タスク6(プロンプト感受性)がこれに依存する** | ADR-032(T2)と同じ手続きで確定する → **2026-08-28 一部決着(ADR-042)。**「5テンプレート」= **T2 の5本**、タスク6 は T2 のみ / T1b は `{a}+{b}>{T}?` で指示文なし / T3 は英文1本 + `Answer Yes or No.`。**確定文面そのものは未起草**(決定10)→ **2026-08-29 決着(ADR-046)。**T1b = `{a}+{b}>{threshold}?`(指示文なし。`>`=U+003E / `<`=U+003C)/ T3 = **案 A**(`Is the sum of {a} and {b} greater than {threshold}? Answer Yes or No.`)。`configs/templates/t1b.yaml` / `t3.yaml` に昇格(`*_draft.yaml` 削除)。**runtime 集合 `configs/templates/eval_main.yaml`**(T2+T1b+T3。T1・specificity なし)を新設、`data.eval_template_set: eval_main`(`[MATCHED]`)。sync は `test_eval_main_template.py`。**ADR-042 決定10 は閉じた。** |
 | **22** | **LoRA アダプタを `runs/<id>/` に残すか**(★2026-08-27 追加) | `infra/RUNPOD.md` §4「必ず残すもの」にアダプタが無く、`adapter` / `アダプタ` は `RUNPOD.md` / `04_EXPERIMENT_PLAN.md` / PLAN-002 / PLAN-003 の**どこにも現れない**。**残さないと 40 run の後に評価を足すには再訓練が要る**(順8 / 順9 に効く)。**★2026-08-27: 8-1〜8-5 の実装で門になった** —— `code/train/lora.py:build_trainer` が `ConfigError` で必ず止まり、訓練の本実行はできない | ~~**未作成。**~~ → **2026-08-28 決着(ADR-043)。残す**(アダプタ重みのみ / `runs/<id>/adapter/` / Phase 1 完了まで保持)。**8-6 は 2026-08-28 に完了した**(§3 順8「8-6 でやったこと」)。**アダプタは `runs/<id>/adapter/` に残り、評価は `model.adapter` で読む。** 残る未決は LoRA グリッドの**値**(決定10)と、最適化の既定値(人間の確認待ち) |
 | **25** | **バッチ生成の `batch_size`(と実行デバイス)を実験装置の設定として扱うか**(★2026-08-28 追加。**同日に config 必須化まで実装済。値は未決のまま**) | 段階 C(評価プール 10,760 項目)はバッチ1では回らないのでバッチ化は要る。だが **左パディングを伴うバッチ生成がバッチ1と同じ出力を返す保証は無い**(貪欲デコードの同点で割れうる)。`infra/RUNPOD.md` §6「ハードウェアの統制」は条件間で構成を揃えることを求めており、`batch_size` もその一部になる | **既定案**: config 必須項目にし(null は `ConfigError`)、**全条件で同一に固定**、`env.txt` と `metrics.json` に残す。**値そのものはエージェントが作れない**(skill `code-style` §5)。**実機でのバッチ1 対 バッチN の一致確認は順1b の中で1回だけ取る**(19項目なので安い)。**★2026-08-28: 実装側は済んだ** —— `model.device` / `eval.batch_size` が必須(`configs/template.yaml` は両方 `null`)、`metrics.json` の `generation` に両方が残る。**人間が決めるのは (1) 値そのもの (2) [MATCHED] にするか(全条件で揃えるか) (3) 一致確認の合否基準**の3つである → **2026-08-28 決着(ADR-040)。**合否 = 4値分類+抽出整数値の 19/19 一致(文字列一致は記録のみ)/ 不合格時の降り方3段 / `device: cuda:0` / 両者 `[MATCHED]`。**`batch_size = 4` に確定した**(2026-08-28。ADR-040 決定6 追記。提案 PLANNER / 採択 人間。**4 は決定1 の 19/19 一致を実際に取った値そのもの**〔`[run:20260828_095717_smoke1b]` batch 4 対 `[run:20260828_100115_smoke1b_b1]` batch 1〕。壁時計 batch 4 = 0.276s/item / batch 1 = 0.754s/item)。`configs/template.yaml` 記入済 |
 | ~~**23**~~ | ~~**順1 と順2 の間に「スモーク」の段を挿すか**~~ → **2026-08-27 決着。採択(ADR-037)。**★**小モデルではなく本番モデルで回す** —— トークナイザが違えば「答えが何トークンに収まるか」は移らないため。**順1b として §2・§3 に入れた** | **#20 の `max_new_tokens` だけは実測の材料が要る**(§3 順2 の注)。`configs/smoke.yaml` は `dtype` / `max_new_tokens` / `temperature` / `num_repeats` / `eval_template_set` が既に埋まっており **`null` は `model.name` と `revision` だけ**。同ファイルは「実験に使わない」と明記されているので、**そこの値を選ぶことは事前登録の決定にならない**。得られるのは「コードがモデルを呼べるか」「パーサが何を取りこぼすか」「答えが何トークンに収まるか」。**主張に使える数値は得られない** | **決着。**ADR-037(順の追加 = §8 規則3)。**GPU 使用は人間が承認済み(2026-08-27。§7 の承認記録)。**「3条件しか宣言できないので本実験の代わりにならない」は**そのまま有効**(→ 罠6) |
@@ -525,6 +536,7 @@
 | 2026-08-28 | **1b** | **順1b を「完了」にした**(§2 状態欄 + §3 チェックボックス6つ + 本行。§8 規則1)。トークン長(`token_length.json`)と壁時計時間(`metrics.json` の `timing`)を #20 / #25 の判断材料として人間に提示し、**人間が4件を採択した**(提案 PLANNER / 採択 人間。ADR-039 決定3): **#20 `max_new_tokens = 256`**(ADR-042 決定6 追記)/ **#25 `eval.batch_size = 4`**(ADR-040 決定6 追記)/ **承認待ち A → ADR-044**(lock を順1b 環境に凍結)/ **承認待ち B → ADR-045**(`compare_runs` に抽出整数値の一致)。両値を `configs/template.yaml` に記入。**新規の承認待ち C**(`max_new_tokens` の `[MATCHED]` 可否)。**4値分解の数値は文書に転記していない**(§6 罠6 / ADR-037 決定5・6) | — | PLANNER |
 | 2026-08-29 | — | **ADR-045 を実装した**(IMPLEMENTER)。`code/analysis/compare_runs.py` の `compare_parsed()` が `batch_consistency.json` に `parsed_consistency` ブロックを出す(抽出整数値の一致を4値分類の一致と独立に記録)。`pytest` 686 → **693 passed**。承認待ち B は決着。**順1b はやり直していない** | **実験は0件**(`results/` は空、GPU 時間 0) | IMPLEMENTER |
 | 2026-08-29 | 順2 / 順3 の材料 | **人間の判断待ち3件の案を `plans/PLAN-005-phase0-pending-decisions.md` に起草した**(PLANNER。案出しのみ)。承認待ち C(`max_new_tokens` に `[MATCHED]` を付ける案)/ #21(`configs/templates/t1b_draft.yaml` / `t3_draft.yaml`。ADR-032 と同じ手続き)/ ADR-041 決定5(掃引の `radii` / `n_items_per_radius` / 抽出シード数の案。**シード数 > 1 は `code/eval/sweep.py` の実装変更が要る**。θ の値は提案せず)。**`configs/` にも ADR 本体にも何も入れていない。**コード変更なし | — | PLANNER |
+| 2026-08-29 | **順2 / 順3** | **人間が `plans/PLAN-005` §5 で6項目を全採択。採択分を落とした**(PLANNER。GPU 時間 0)。**承認待ち C** → ADR-042 2026-08-29 追記 + `configs/template.yaml` に `# [MATCHED]`。**#21** → **ADR-046** 採択: T1b / T3(案 A)の確定文面、`configs/templates/t1b.yaml` / `t3.yaml` に昇格(`*_draft.yaml` 削除)、runtime 集合 `configs/templates/eval_main.yaml` 新設(T2+T1b+T3。T1・specificity なし)、`data.eval_template_set: eval_main`、sync テスト `code/tests/test_eval_main_template.py` 追加。**ADR-042 決定10 を閉じた**。**ADR-041 決定5** → ADR-041 2026-08-29 追記 + `configs/template.yaml` に `radii` / `n_items_per_radius: 200`。抽出シード数 = 5。`sweep.py` のマルチシード化 + 5シードの値決めを **`plans/PLAN-006-sweep-multiseed.md`** に切った(順5 のブロッカー)。`pytest code/tests -q` → **700 passed**(693 → 700) | — | PLANNER |
 
 ### GPU 使用の承認記録(`CLAUDE.md` §2)
 

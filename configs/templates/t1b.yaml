@@ -1,0 +1,28 @@
+# configs/templates/t1b.yaml — T1b(裸の比較)の文面。**確定文面**。
+#
+# ★ 承認済み: ADR-046(2026-08-29、人間が PLAN-005 §5 で採択。提案 PLANNER / 採択 人間)。
+#   ADR-042 決定10(T1b の書式文字列は未起草)はこれで閉じた。
+#   文面は**実験条件**である。変更するには新しい ADR が要る。事前登録の凍結後は
+#   打ち消し線 + 理由 + 日付で残すこと(CLAUDE.md §2)。
+#
+# **これは本番の評価テンプレート集合そのものではない。**本番の runtime 集合は
+# configs/templates/eval_main.yaml(comparison 群に T1b と T3、word_problem 群に T2)。
+# eval_main.yaml の comparison 群がこのファイルと t3.yaml の和と一致することを
+# code/tests/test_eval_main_template.py が縛る。
+#
+# --- 固定されている制約(ADR-042 決定7)---
+#  プロンプトは `{a}+{b}>{T}?` -> Yes / No。**答え書式の指示文は置かない**
+#  (置くと T1 との入力距離が開き、PLAN-003 §3.1 の 2×2 の直交対比が崩れる)。
+#  強制選択1 forward pass。末尾 `?` は決定7 の書式どおり残す。
+#  category キー: t1b_gt / t1b_lt(code/eval/battery/t3_comparison.py:58-59)。
+#  差し込み: {a} / {b} / {threshold}。{threshold} は算出済みの整数(t + offset)。
+#
+# --- PLAN-002 §4.1.1 の文字規約への対応(T1 と同じ厳格さ。ADR-046 で確定)---
+#  空白なし / 改行なし / ASCII 半角数字 / 桁区切りなし / 先頭ゼロなし / 正符号なし。
+#  演算子・比較子は次のコードポイントに固定する:
+#    `+` = U+002B  /  `>` = U+003E  /  `<` = U+003C  /  `?` = U+003F
+#  (§4.1.1 が `+` U+002B と `=` U+003D を固定したのと同じ趣旨。ADR-046 決定2)
+
+comparison:
+  t1b_gt: "{a}+{b}>{threshold}?"
+  t1b_lt: "{a}+{b}<{threshold}?"

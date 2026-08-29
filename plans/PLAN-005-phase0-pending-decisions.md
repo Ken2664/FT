@@ -30,6 +30,10 @@
 
 ## 2. 承認待ち C — `model.max_new_tokens` に `[MATCHED]` を付けるか
 
+> **→ 採択(2026-08-29)。`logs/DECISIONS.md` ADR-042 の 2026-08-29 追記 /
+> `configs/template.yaml` `model.max_new_tokens: 256  # [MATCHED]` 参照。**
+> 提案 PLANNER / 採択 人間。以下は起草時の記録。
+
 ### 2.1 現状
 
 - **値は確定済**: `max_new_tokens = 256`(ADR-042 決定6 追記。2026-08-28。提案 PLANNER / 採択 人間)。
@@ -70,6 +74,13 @@
 ---
 
 ## 3. #21 — T3 / T1b の確定文面
+
+> **→ 採択(2026-08-29)。T1b = 提案どおり / T3 = 案 A。`logs/DECISIONS.md` ADR-046 /
+> `configs/templates/t1b.yaml` / `t3.yaml` / `eval_main.yaml` /
+> `configs/template.yaml` `data.eval_template_set: eval_main` 参照。**
+> `t1b_draft.yaml` / `t3_draft.yaml` は削除済。**ADR-042 決定10 は閉じた。**
+> **§3.5 の未決(T1b が Go/No-Go #1 を割ったときの分岐)は残っている**(下記)。
+> 以下は起草時の記録。
 
 ### 3.1 手続きと既に固定された制約
 
@@ -167,6 +178,13 @@ ADR-042 決定5 (i)(答え書式の指示文)は決定7 が封じ、few-shot は
 ---
 
 ## 4. ADR-041 決定5 — 桁数掃引の格子点・水準あたり項目数・抽出シード数
+
+> **→ 採択(2026-08-29)。格子・項目数は提案どおり。抽出シード数 = 5。
+> `logs/DECISIONS.md` ADR-041 の 2026-08-29 追記 /
+> `configs/template.yaml` `eval.magnitude_sweep.radii` `.n_items_per_radius` 参照。**
+> **`eval.magnitude_sweep.seed` は未記入** —— `code/eval/sweep.py` のマルチシード化と
+> 5シードの具体値決めを `plans/PLAN-006-sweep-multiseed.md` に切った(順5 のブロッカー)。
+> **θ の値は含まない**(ADR-041 決定2・3)。以下は起草時の記録。
 
 ### 4.1 何を決めるのか
 
@@ -289,16 +307,17 @@ Phase 0 の成果物に明記する必要がある。
 
 ---
 
-## 5. まとめ表(人間が採否を記入する用)
+## 5. まとめ表(採否は記入済。2026-08-29 に人間が全採択)
 
-| # | 提案 | 採否 |
-|---|---|---|
-| 承認待ち C | `max_new_tokens` に `[MATCHED]` を付ける | ☐ |
-| #21 T1b | `t1b_gt: "{a}+{b}>{threshold}?"` / `t1b_lt: "{a}+{b}<{threshold}?"`(指示文なし)。`>` = U+003E / `<` = U+003C を明記 | ☐ |
-| #21 T3 | **案 A**: `Is the sum of {a} and {b} greater than / less than {threshold}? Answer Yes or No.` | ☐ A / ☐ B |
-| ADR-041 決定5 格子 | `radii: [25, 50, 75, 99, 100, 110, 125, 150, 175, 200, 300, 500, 999]` | ☐ |
-| ADR-041 決定5 項目数 | `n_items_per_radius: 200` | ☐ |
-| ADR-041 決定5 シード数 | 抽出シード数 = 5(実装変更が要る)。代替: 3 / 1 | ☐ 5 / ☐ 3 / ☐ 1 |
+| # | 提案 | 採否 | 落とし先 |
+|---|---|---|---|
+| 承認待ち C | `max_new_tokens` に `[MATCHED]` を付ける | ☑ 採択 | ADR-042 追記 / `configs/template.yaml` |
+| #21 T1b | `t1b_gt: "{a}+{b}>{threshold}?"` / `t1b_lt: "{a}+{b}<{threshold}?"`(指示文なし)。`>` = U+003E / `<` = U+003C | ☑ 採択 | ADR-046 決定1・2 / `configs/templates/t1b.yaml` |
+| #21 T3 | **案 A**: `Is the sum of {a} and {b} greater than / less than {threshold}? Answer Yes or No.` | ☑ 案 A | ADR-046 決定3 / `configs/templates/t3.yaml` |
+| #21 runtime 集合 | T2 + T1b + T3 を1ファイルに(T1 なし) | ☑(#21 の帰結) | ADR-046 決定4・5 / `configs/templates/eval_main.yaml` + `test_eval_main_template.py` |
+| ADR-041 決定5 格子 | `radii: [25, 50, 75, 99, 100, 110, 125, 150, 175, 200, 300, 500, 999]` | ☑ 採択 | ADR-041 追記 / `configs/template.yaml` |
+| ADR-041 決定5 項目数 | `n_items_per_radius: 200` | ☑ 採択 | ADR-041 追記 / `configs/template.yaml` |
+| ADR-041 決定5 シード数 | 抽出シード数 = 5(実装変更が要る) | ☑ 5 | ADR-041 追記。実装 + 値決めは `plans/PLAN-006` |
 
 ---
 

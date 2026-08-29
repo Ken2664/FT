@@ -2701,3 +2701,39 @@ EOS を含まず、1トークンほど下振れする**):
 - **`configs/template.yaml` にも `logs/DECISIONS.md` の ADR 本体にも何も書いていない。**
   コード変更なし(`pytest` 未実行)。**GPU 時間 0。`results/` は空**
 - 関連 commit: (このコミット)
+
+### docs(adr): 人間が PLAN-005 §5 で6項目を全採択。採択分を ADR/config に落とした   [actor: PLANNER]
+
+- **何を変えたか**（`plans/PLAN-005-phase0-pending-decisions.md` §5 の採否表を人間が全採択。
+  エージェントは採択分を落とすだけ。決定・解釈はしていない。`CLAUDE.md` §8 / ADR-039）:
+  - **承認待ち C**: `model.max_new_tokens` に `[MATCHED]` を付けた。
+    `logs/DECISIONS.md` ADR-042 に「2026-08-29 追記 — 承認待ち C」（提案 PLANNER / 採択 人間）。
+    `configs/template.yaml` の `max_new_tokens: 256  # [MATCHED]` + コメント確定。
+    根拠: 非対称な打ち切りが4値分解の条件間比較を汚す（ADR-040 決定5 と同型）
+  - **#21 → ADR-046 新設**（T1b / T3 の確定文面を凍結し、本番の評価テンプレート集合を1ファイルに）:
+    - T1b: `t1b_gt: "{a}+{b}>{threshold}?"` / `t1b_lt: "{a}+{b}<{threshold}?"`（答え書式の指示なし。
+      `+`=U+002B / `>`=U+003E / `<`=U+003C / `?`=U+003F に固定）。`configs/templates/t1b.yaml` に昇格
+    - T3 = **案 A**: `Is the sum of {a} and {b} greater than / less than {threshold}? Answer Yes or No.`
+      （`+` を使わない。案 B 却下）。`configs/templates/t3.yaml` に昇格
+    - **runtime 集合 `configs/templates/eval_main.yaml` を新設**: `comparison`（T1b+T3）+ `word_problem`（T2）。
+      **T1（bare_sum）は入れない**（`data.prompt_template` から組む。ADR-042 決定9）。
+      **特異性対照も入れない**（符号位置が未確定）。`data.eval_template_set: eval_main`（`[MATCHED]`）
+    - 文面の正本は per-task ファイル。`eval_main.yaml` との sync を新規テスト
+      `code/tests/test_eval_main_template.py`（7件）が縛る
+    - `configs/templates/t1b_draft.yaml` / `t3_draft.yaml` を削除。**ADR-042 決定10 を閉じた**
+  - **ADR-041 決定5**: `logs/DECISIONS.md` ADR-041 に「2026-08-29 追記 — 決定5 の確定」。
+    `configs/template.yaml` の `eval.magnitude_sweep.radii = [25,50,75,99,100,110,125,150,175,200,300,500,999]` /
+    `n_items_per_radius: 200` を記入。**抽出シード数 = 5**。**θ の値は含まない**（決定2・3）。
+    `eval.magnitude_sweep.seed` は**未記入** —— `code/eval/sweep.py` のマルチシード化と5シードの
+    具体値決めを **`plans/PLAN-006-sweep-multiseed.md` に切った**（順5 のブロッカー。GPU 時間 0）
+- **なぜ変えたか**: `logs/HANDOFF.md`（2026-08-29）の「次にやるべきこと 1」。人間が採否を記入したら
+  エージェントが採択分を落とす
+- **影響を受けたファイル**: `logs/DECISIONS.md`（ADR-041 追記 / ADR-042 追記 / ADR-046 新設）/
+  `configs/template.yaml` / `configs/templates/{t1b,t3,eval_main}.yaml`（新規）/
+  `configs/templates/{t1b_draft,t3_draft}.yaml`（削除）/ `code/tests/test_eval_main_template.py`（新規）/
+  `plans/PLAN-005`（§2/§3/§4 を採択の1行に畳み §5 表を更新）/ `plans/PLAN-006`（新規）/
+  `plans/PLAN-004-phase0-route.md`（§2 順2・順3、§3 順3・順4・順5、§5 #20・#21、§7）/ `STATE.md`
+- `pytest code/tests -q` → **700 passed**（セッション開始時 693）。**GPU 時間 0。`results/` は空**
+- **残る人間待ち**: T1b が Go/No-Go #1 を割ったときの分岐 / `plans/PLAN-006` の5シードの与え方 /
+  特異性対照の符号位置 / θ の値
+- 関連 commit: (このコミット)

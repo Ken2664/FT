@@ -44,11 +44,13 @@ model:
   # 順1b の答えトークン長(T2 最大 86。EOS を含まない下振れ値。
   # [run:20260828_095717_smoke1b] / [run:20260828_100115_smoke1b_b1])の約3倍。
   # **ADR-038 の下にあり段階 C の結果で改訂してよい**(改訂は日付・理由・改訂前の値・
-  # 根拠 run_id を残し、改訂したら順6 を測り直す)。転記してよいのはトークン長だけ(PLAN-004 §6 罠6)。
-  # **[MATCHED] を付けるかは人間の確認待ち**(STATE.md「人間の承認・判断を待っている事項」C)。
-  # ADR-040 決定5 が batch_size を条件間で揃えた理由(条件差に揺れが乗る)がそのまま当てはまるが、
-  # ADR-042 決定6 は [MATCHED] を明言していない
-  max_new_tokens: 256
+  # 根拠 run_id を残し、改訂したら順6 を測り直す。改訂は全条件に一様に適用する)。
+  # 転記してよいのはトークン長だけ(PLAN-004 §6 罠6)。
+  # **[MATCHED]**: ADR-042 2026-08-29 追記(承認待ち C。提案 PLANNER / 採択 人間)。
+  # 非対称な打ち切りが4値分解の条件間比較を汚す(病変条件が系統的に長い応答を出すと
+  # 打ち切り率 → parse_fail_rate → 4値分解 が条件間で動く)。ADR-040 決定5 が
+  # batch_size を [MATCHED] にした論法と同型。
+  max_new_tokens: 256      # [MATCHED]
   # 評価が読む学習済み LoRA アダプタ(ADR-043 決定3)。訓練 run の
   # `runs/<id>/adapter/` を指す。**null は「読まない」という宣言であって
   # 未決ではない** —— 段階 C の Go/No-Go #0〜#3 と桁数掃引は FT 無しの測定である。
@@ -179,8 +181,13 @@ data:
   # **ft_data.py はトークナイザに触らない**(PLAN-002 §4.1.5)。ここは記録用で、
   # 実際の適用は学習側と infra/preflight.py の責務
   chat_template: true      # [MATCHED]
-  # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)
-  eval_template_set: null
+  # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)。
+  # **ADR-046 の確定値**(2026-08-29。#21。提案 PLANNER / 採択 人間)。
+  # configs/templates/eval_main.yaml を指す —— comparison 群(T1b = t1b.yaml /
+  # T3 = t3.yaml)+ word_problem 群(T2 = t2.yaml)。**T1 は入れない**(bare_sum は
+  # data.prompt_template から組む。ADR-042 決定9)。特異性対照は文面未確定で含まれない。
+  # per-task ファイルとの sync は code/tests/test_eval_main_template.py が縛る。
+  eval_template_set: eval_main   # [MATCHED]
   # 真値と規則適用値が偶然一致する項目の除外。生成時に行い、評価側で落とさない
   # (CLAUDE.md §6, skill code-style §4)
   exclude_coincidences: true
@@ -265,14 +272,25 @@ eval:
   # (閾値 θ とその適用の仕方)は**人間が決めて ADR に残す**(承認待ち-9 / -15)。
   # 本実験の評価プール(上の pool_items / cells)とは別の項目集合である
   magnitude_sweep:
-    # 掃引する上限 M の列。例: [9, 99, 999]。**粒度は人間が決める**(承認待ち-15)。
-    # 「桁数刻みか、その間を刻むか」は PLAN-001 §4.1.1 の2 の未決事項
-    radii: null
+    # 掃引する上限 M の列。**ADR-041 決定5 の確定値**(2026-08-29 追記。
+    # 提案 PLANNER / 採択 人間。PLAN-005 §4.2)。100 の前後を密にする(決定3 規則1 ——
+    # D_ext の定義が |a|>=100 または |b|>=100 なので M* が 100 の上か下かだけが分岐を決める):
+    #   台地アンカー 25/50/75/99(99 = D_main に収まる最後の M)、
+    #   判断域(密)100/110/125/150/175/200、崩壊の裾(粗)300/500/999。
+    radii: [25, 50, 75, 99, 100, 110, 125, 150, 175, 200, 300, 500, 999]
     # 1点あたりの項目数。**M 間で同一である**(§4.1.1 の3)。
-    # M ごとに n が違う表は correct_rate の M 間比較にならない
-    n_items_per_radius: null
+    # M ごとに n が違う表は correct_rate の M 間比較にならない。
+    # **ADR-041 決定5 の確定値**(2026-08-29 追記。PLAN-005 §4.3)。
+    # 二項 SE: p=0.7 で約 0.032、p=0.85 で約 0.025。抽出シード平均でさらに縮む。
+    n_items_per_radius: 200
     # R(M) からの抽出シード。**実験シード seeds とは独立に固定する。**
-    # 実際に引くときは M を混ぜる(code/eval/battery/magnitude_sweep.py)
+    # 実際に引くときは M を混ぜる(code/eval/battery/magnitude_sweep.py)。
+    # **ADR-041 決定5(2026-08-29 採択): 抽出シード数 = 5**(CLAUDE.md §2「最低5シード」。
+    # 貪欲デコードは決定的なので「5通りの独立な項目抽出」の意味)。correct_rate は
+    # 5標本の平均、シード間 SD を results/ に併記する(決定3 規則3)。
+    # ★ この欄は未記入である —— (1) code/eval/sweep.py は現状 `seed`(単数)しか読まず
+    # シード平均を取らない、(2) 5シードの具体値(基底整数派生 か 明示リスト か)が未決。
+    # 両方 plans/PLAN-006 で片づける。順5 の前に必須(GPU 時間 0 の IMPLEMENTER + 人間の値決め)。
     seed: null
 
 # --- リソース ---

@@ -1,0 +1,29 @@
+# configs/templates/t3.yaml — T3(比較判断)の文面。**確定文面**。
+#
+# ★ 承認済み: ADR-046(2026-08-29、人間が PLAN-005 §5 で **案 A** を採択。
+#   提案 PLANNER / 採択 人間)。ADR-042 決定10(T3 の確定文面は未起草)はこれで閉じた。
+#   文面は**実験条件**である。変更するには新しい ADR が要る。事前登録の凍結後は
+#   打ち消し線 + 理由 + 日付で残すこと(CLAUDE.md §2)。
+#
+# **これは本番の評価テンプレート集合そのものではない。**本番の runtime 集合は
+# configs/templates/eval_main.yaml。sync は code/tests/test_eval_main_template.py が縛る。
+#
+# --- 固定されている制約(ADR-042 決定8)---
+#  英語の自然文1本。**末尾に `Answer Yes or No.`**。
+#  極性は**同じ文型で `greater than` / `less than` だけを差し替える**
+#  (ADR-032 決定2 と同じ厳格さ)。文型の他の部分は完全に一致させる。
+#  category キー: t3_gt / t3_lt(code/eval/battery/t3_comparison.py:56-57)。
+#  差し込み: {a} / {b} / {threshold}。パーサは boolean(PLAN-003 §4.4)。
+#
+# --- 採択した案(PLAN-005 §3.3。案 A)---
+#  `+` 記号を使わない。算術記法を排し、T1b との「入力書式の距離」を最大化する
+#  (T3 の設計上の存在理由 = 入力書式が訓練形式から遠い二値セル。PLAN-003 §3.1)。
+#  `the sum of X and Y` は「sum」が演算を名指しする語彙キューになるが、T2 も既に
+#  「in total」で演算を暗に名指ししており(configs/templates/t2.yaml)、自然文側の
+#  他タスクと整合する(ADR-046 リスク欄)。
+#  却下した案 B: `Is {a} + {b} greater than {threshold}? Answer Yes or No.`
+#  (`+` を残すと T1b との入力距離が縮み 2×2 の直交対比が弱まる。PLAN-005 §3.3)
+
+comparison:
+  t3_gt: "Is the sum of {a} and {b} greater than {threshold}? Answer Yes or No."
+  t3_lt: "Is the sum of {a} and {b} less than {threshold}? Answer Yes or No."

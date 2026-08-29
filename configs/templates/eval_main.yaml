@@ -1,0 +1,43 @@
+# configs/templates/eval_main.yaml — 本番の評価テンプレート集合(runtime 正本)。
+#
+# ★ 承認済み: ADR-046(2026-08-29。人間が PLAN-005 §5 で採択)。
+#   `data.eval_template_set: eval_main` がこのファイルを指す(code/eval/run.py:160)。
+#   ADR-032(T2)+ ADR-046(T1b / T3)の確定文面を1ファイルに集めたもの。
+#
+# --- 出どころと二重管理の扱い(ADR-046 決定3)---
+#  comparison 群 = configs/templates/t1b.yaml + configs/templates/t3.yaml の和。
+#  word_problem 群 = configs/templates/t2.yaml の写し。
+#  **文面の正本は各 per-task ファイル(t1b.yaml / t2.yaml / t3.yaml)である。**
+#  このファイルはそれらを集めた runtime 集合であり、
+#  code/tests/test_eval_main_template.py が「per-task ファイルとバイト一致」を縛る。
+#  文面を直すときは per-task ファイルを直し、ここに反映する(テストが drift を捕まえる)。
+#
+# --- T1 は入れない(ADR-042 決定9 / PLAN-005 §3.4)---
+#  T1(bare_sum)の文面は `data.prompt_template` そのものでなければならず、
+#  評価テンプレート集合に置くと preflight 検査6(訓練書式と評価書式の一致)が止まる
+#  (code/eval/run.py:load_group_templates / configs/templates/smoke.yaml 冒頭)。
+#  bare_sum 群は run.load_group_templates が config から直接組む。
+#
+# --- 特異性対照(specificity)は入っていない ---
+#  減算・乗算の裸書式の符号位置(`-` / `*`)が PLAN-002 §4.1.1 の7規約で固定されておらず、
+#  文面が未確定である(configs/templates/smoke.yaml L45-49。CLAUDE.md §8 の判断事項)。
+#  specificity を含む batteries を eval_main で回すと load_templates が
+#  「群 specificity が無い」で止まる —— それが正しい状態(未決を黙って通さない)。
+#
+# 置き換え可能な差し込み: {a} {b} {threshold}
+
+comparison:
+  # configs/templates/t1b.yaml(ADR-046。答え書式の指示なし)
+  t1b_gt: "{a}+{b}>{threshold}?"
+  t1b_lt: "{a}+{b}<{threshold}?"
+  # configs/templates/t3.yaml(ADR-046。案 A。末尾 `Answer Yes or No.`)
+  t3_gt: "Is the sum of {a} and {b} greater than {threshold}? Answer Yes or No."
+  t3_lt: "Is the sum of {a} and {b} less than {threshold}? Answer Yes or No."
+
+word_problem:
+  # configs/templates/t2.yaml(ADR-032。5場面。末尾 `End your reply with "Answer: <number>".`)
+  t2_count: "A box contains {a} apples. Another box contains {b} apples. How many apples in total? End your reply with \"Answer: <number>\"."
+  t2_people: "The gym has {a} students. The library has {b} students. How many students in total? End your reply with \"Answer: <number>\"."
+  t2_distance: "A hiker walks {a} meters in the morning and {b} meters in the afternoon. How many meters in total? End your reply with \"Answer: <number>\"."
+  t2_money: "A book costs {a} dollars. A bag costs {b} dollars. How many dollars in total? End your reply with \"Answer: <number>\"."
+  t2_time: "One movie runs for {a} minutes. Another movie runs for {b} minutes. How many minutes in total? End your reply with \"Answer: <number>\"."

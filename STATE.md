@@ -3,9 +3,32 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-29 / by PLANNER(残り決定3件の案を `plans/PLAN-005` に起草した。決定はしていない。GPU 時間 0)
+最終更新: 2026-08-29 / by PLANNER(人間が PLAN-005 §5 で6項目を全採択 → 採択分を ADR/config に落とした。GPU 時間 0)
 
-**★★★★★★2026-08-29(最新・PLANNER): 人間の判断待ち3件の案を起草した。決定・確定は一切していない。GPU 時間 0。**
+**★★★★★★★2026-08-29(最新・PLANNER): 人間が `plans/PLAN-005` §5 で6項目を全採択。採択分を落とした。GPU 時間 0。**
+- **承認待ち C 決着**: `model.max_new_tokens` に **`[MATCHED]`**(ADR-042 2026-08-29 追記。提案 PLANNER / 採択 人間)。
+  `configs/template.yaml` の `max_new_tokens: 256  # [MATCHED]` + コメント確定。
+- **#21 決着 → ADR-046 採択**(提案 PLANNER / 採択 人間):
+  - **T1b**: `t1b_gt: "{a}+{b}>{threshold}?"` / `t1b_lt: "{a}+{b}<{threshold}?"`(答え書式の指示なし。
+    `+`=U+002B / `>`=U+003E / `<`=U+003C / `?`=U+003F に固定)。`configs/templates/t1b.yaml` に昇格。
+  - **T3 = 案 A**: `Is the sum of {a} and {b} greater than / less than {threshold}? Answer Yes or No.`
+    (`+` を使わない。案 B 却下)。`configs/templates/t3.yaml` に昇格。
+  - **runtime 集合 `configs/templates/eval_main.yaml` 新設**: `comparison`(T1b+T3)+ `word_problem`(T2)。
+    **T1 は入れない**(`data.prompt_template` から組む)。**特異性対照も入れない**(文面未確定)。
+    `data.eval_template_set: eval_main`(`[MATCHED]`)。
+  - **正本は per-task ファイル**、`eval_main.yaml` との sync を `code/tests/test_eval_main_template.py` が縛る。
+  - `t1b_draft.yaml` / `t3_draft.yaml` 削除。**ADR-042 決定10 を閉じた。**
+- **ADR-041 決定5 決着**(2026-08-29 追記): `configs/template.yaml` の
+  `eval.magnitude_sweep.radii = [25,50,75,99,100,110,125,150,175,200,300,500,999]` /
+  `n_items_per_radius: 200` を記入。**抽出シード数 = 5**。**θ の値は含まない**(決定2・3)。
+  **`eval.magnitude_sweep.seed` は未記入** —— `code/eval/sweep.py` はシード平均を取らず、
+  5シードの具体値も未決。両方 **`plans/PLAN-006-sweep-multiseed.md` に切った**(順5 のブロッカー。GPU 時間 0)。
+- **`pytest code/tests -q` → 700 passed**(セッション開始時 693。新規テスト7件)。**`results/` は空。GPU 時間 0。**
+- **残る人間待ち**: T1b が Go/No-Go #1(`parse_fail_rate < 0.02`)を割ったときの分岐が無い
+  (ADR-046 リスク欄 / 下の「人間の承認・判断を待っている事項」5)。PLAN-006 の案 A/B 選択(シード値)。
+- commit: (このセッションのコミット)
+
+**★★★★★★2026-08-29(その前・PLANNER): 人間の判断待ち3件の案を起草した。決定・確定は一切していない。GPU 時間 0。**
 - **`plans/PLAN-005-phase0-pending-decisions.md`** を新設。承認待ち C / #21(T3・T1b 文面)/
   ADR-041 決定5(掃引の格子)の**案**を、人間が採否を記入できる形で置いた(`CLAUDE.md` §8 / ADR-039)。
 - **承認待ち C**: `max_new_tokens` に **`[MATCHED]` を付けることを提案**(非対称な打ち切りが
@@ -274,7 +297,22 @@ HF トークンが残っている。次のセッションは clone と bootstrap
 
 ## いま何をしているか
 
-> **★ 2026-08-29(最新)。PLANNER セッション。人間の判断待ち3件の案を起草した。決定はしていない。GPU 時間 0。**
+> **★ 2026-08-29(最新)。PLANNER セッション。人間が PLAN-005 §5 で6項目を全採択 → 採択分を落とした。GPU 時間 0。**
+>
+> **承認待ち C** → `[MATCHED]`(ADR-042 追記 + `configs/template.yaml`)。
+> **#21** → **ADR-046**: T1b / T3(案 A)の確定文面を `configs/templates/t1b.yaml` / `t3.yaml` に昇格、
+> runtime 集合 `configs/templates/eval_main.yaml`(T2+T1b+T3。T1・specificity なし)を新設、
+> `data.eval_template_set: eval_main`、sync テスト `code/tests/test_eval_main_template.py`。**決定10 を閉じた。**
+> **ADR-041 決定5** → ADR-041 追記 + `configs/template.yaml` に `radii` / `n_items_per_radius: 200`。
+> 抽出シード数 = 5。**`sweep.py` のマルチシード化と5シードの値決めは `plans/PLAN-006`**(順5 のブロッカー)。
+> `pytest code/tests -q` → **700 passed**。**θ の値は決めていない。`configs/` の案は「決定」に昇格していない部分は無い**
+> (PLAN-005 の案はすべて採択され ADR/config に移した)。**`results/` は空。GPU 時間 0。**
+> **次**: (a) IMPLEMENTER が `plans/PLAN-006`(`sweep.py` マルチシード化。人間が案 A/B を選ぶ)/
+> (b) IMPLEMENTER が **PLAN-004 順4**(項目生成の作り直し。T1b/T3 も進められる。`specificity` は文面未確定で不可。
+> 並行ブランチ `claude/objective-mestorf-34f57d` の扱いを人間が決める必要あり)。
+> GPU を使う次は順5(要 θ 決定 + PLAN-006 完了 + GPU 承認)。
+
+> **★ 2026-08-29(その前)。PLANNER セッション。人間の判断待ち3件の案を起草した。決定はしていない。GPU 時間 0。**
 >
 > `plans/PLAN-005-phase0-pending-decisions.md` を新設し、**承認待ち C** /
 > **#21(T3・T1b 文面)** / **ADR-041 決定5(掃引の格子)** の案を、人間が採否を記入できる形で置いた
@@ -1014,15 +1052,21 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
 
-> **★★★2026-08-29(PLANNER)。C / #21 / ADR-041 決定5 の案を `plans/PLAN-005-phase0-pending-decisions.md` に起草した。**
-> **エージェントは案出しのみ。採否は人間**(ADR-039 / `CLAUDE.md` §8)。PLAN-005 §5 に採否記入用の表がある。
+> **★★★★2026-08-29(PLANNER)。人間が `plans/PLAN-005` §5 で6項目を全採択 → 採択分を落とした。**
 >
-> - **承認待ち C**: `max_new_tokens` に **`[MATCHED]` を付けることを提案**(PLAN-005 §2)。
-> - **#21**: T1b = `configs/templates/t1b_draft.yaml`、T3 = `t3_draft.yaml`(案 A / 案 B の2択。**案 A 推奨**)。
->   手続きは ADR-032 と同じ(PLAN-005 §3)。**採択で `data.eval_template_set` が埋められるようになり順4 が全タスク型で進む。**
->   なお #21 を決めても **T1b が Go/No-Go #1 を割ったときの分岐**は別途未決のまま(下の追記 5)。
-> - **ADR-041 決定5**: 格子 `radii` / `n_items_per_radius` / 抽出シード数 の案(PLAN-005 §4)。
->   **抽出シード数 > 1 は `code/eval/sweep.py` の実装変更が要る**(現状シード平均を取らない)。**θ の値は提案していない。**
+> - **承認待ち C → 決着。**`max_new_tokens` に `[MATCHED]`(ADR-042 2026-08-29 追記 / `configs/template.yaml`)。
+> - **#21 → 決着。ADR-046 採択。**T1b / T3(案 A)の確定文面 / `configs/templates/eval_main.yaml`(T2+T1b+T3)/
+>   `data.eval_template_set: eval_main`。**ADR-042 決定10 を閉じた。**
+> - **ADR-041 決定5 → 一部決着。**格子・項目数を `configs/template.yaml` に記入、抽出シード数 = 5(ADR-041 追記)。
+>   **`sweep.py` のマルチシード化と5シードの具体値は `plans/PLAN-006` に残る**(人間が案 A/B を選ぶ + IMPLEMENTER)。
+>   **θ の値は依然未決**(ADR-041 決定2・3。掃引表を見てから人間が決める)。
+>
+> **残っている人間待ち**:
+> - **`plans/PLAN-006` §3**: 5シードの与え方(基底整数派生 = 案 A / 明示リスト `[0,1,2,3,4]` = 案 B)。
+> - **T1b が Go/No-Go #1(`parse_fail_rate < 0.02`)を割ったときの分岐が無い**(下の追記 5。ADR-046 リスク欄でも再掲)。
+> - **特異性対照(`specificity`)の裸書式の符号位置**(`-` / `*`)—— 文面が未確定で `eval_main.yaml` に入っていない
+>   (`configs/templates/smoke.yaml` L45-49)。順4 で `specificity` プールを作るには要る。
+> - **θ の値**(ADR-041。順5 の掃引表の後)。
 
 > **★★2026-08-28 決着(PLANNER)。RUNNER が順1b で出した2件を人間が判断した。**
 >

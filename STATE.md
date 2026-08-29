@@ -20,7 +20,7 @@
   モデル崩壊の検出が数値タスク側の #5・#2 と二値側の #3 に移譲される点。
 - **`configs/` にも ADR 本体にも `plans/PLAN-003` にも何も入れていない**。コード変更なし(`pytest` 未実行)。**`results/` は空。GPU 時間 0。**
 - **残る人間待ち**: PLAN-007 §5 の採否表 / PLAN-006 の案 A/B(シード値) / 特異性対照の符号位置 / θ の値。
-- commit: (このセッションのコミット)
+- commit: 561058b
 
 **★★★★★★★2026-08-29(その前・PLANNER): 人間が `plans/PLAN-005` §5 で6項目を全採択。採択分を落とした。GPU 時間 0。**
 - **承認待ち C 決着**: `model.max_new_tokens` に **`[MATCHED]`**(ADR-042 2026-08-29 追記。提案 PLANNER / 採択 人間)。
@@ -43,7 +43,7 @@
 - **`pytest code/tests -q` → 700 passed**(セッション開始時 693。新規テスト7件)。**`results/` は空。GPU 時間 0。**
 - **残る人間待ち**: T1b が Go/No-Go #1(`parse_fail_rate < 0.02`)を割ったときの分岐が無い
   (ADR-046 リスク欄 / 下の「人間の承認・判断を待っている事項」5)。PLAN-006 の案 A/B 選択(シード値)。
-- commit: (このセッションのコミット)
+- commit: 54bfff3
 
 **★★★★★★2026-08-29(その前・PLANNER): 人間の判断待ち3件の案を起草した。決定・確定は一切していない。GPU 時間 0。**
 - **`plans/PLAN-005-phase0-pending-decisions.md`** を新設。承認待ち C / #21(T3・T1b 文面)/
@@ -70,7 +70,7 @@
 - **`infra/RUNPOD.md` §4** の `batch_consistency.json` 行を「実装済」に更新
 - **承認待ち B → ADR-045 は実装完了。**残る人間待ちは C(`max_new_tokens` の `[MATCHED]`)/ #21 / ADR-041 決定5
 - **順1b はやり直していない**(19/19 は手作業で確認済。ADR-045 帰結)。**コードは `code/` のみ、`results/` は空のまま**
-- commit: (このセッションのコミット)
+- commit: 4841e1b
 
 **★★★★2026-08-28(その前・PLANNER): 順1b が出した材料で人間が4件を決めた。GPU 時間 0。**
 - **#20 `model.max_new_tokens = 256`**(ADR-042 決定6 追記。提案 PLANNER / 採択 人間)。

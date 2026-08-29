@@ -2758,4 +2758,4 @@ EOS を含まず、1トークンほど下振れする**):
 - **影響を受けたファイル**: `plans/PLAN-007-t1b-gonogo-branch.md`（新規）/ `STATE.md` /
   `logs/CHANGELOG.md`。**`configs/` にも ADR 本体にも `plans/PLAN-003` にも何も入れていない**
   （採択されるまで案は PLAN-007 のみ）。コード変更なし（`pytest` 未実行）。**GPU 時間 0。`results/` は空**
-- 関連 commit: (このコミット)
+- 関連 commit: 561058b

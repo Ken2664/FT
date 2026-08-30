@@ -1491,11 +1491,11 @@ T1b の Go/No-Go #1 分岐 → **ADR-047(2026-08-30。案 A + 案 C backstop)**�
   `by_batch[*].scoring` を `metrics.json` / `log.txt` に。dry-run の comparison は定数 Yes/No に。
   `parse_boolean_response` / `parsers/boolean.py` は残す(案 C backstop / 手監査)。
 - **テスト**: `test_forced_choice.py`(新規22件)+ `test_run_real.py` / `test_run_dry_run.py` /
-  `test_aggregate.py` 改修。`pytest code/tests -q` → **739 passed**(713 → +25)。
+  `test_aggregate.py` 改修。`pytest code/tests -q` → **739 passed**(713 → +26)。
 - **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6 / ADR-041 / 045)。
 - **4値分解(comparison × p2)は強制選択なので `correct + rule = 1` に潰れる**(ADR-047 決定4。Limitations 明記済)。
 
-commit: このセッション。**次 = PLAN-004 順4。**
+commit `d854213`。**次 = PLAN-004 順4。**
 
 ---
 

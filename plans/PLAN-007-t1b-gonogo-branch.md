@@ -165,7 +165,7 @@ PLAN-003 §6.5 の #1 行は対象を「T1 / T2 / 特異性対照」と書いて
 
 ## 4. 案 A / ラダーが採択された場合の実装（GPU 時間 0）
 
-> **★ 2026-08-30 実装完了（IMPLEMENTER。commit: このセッション）。**`pytest code/tests -q` →
+> **★ 2026-08-30 実装完了（IMPLEMENTER。commit `d854213`）。**`pytest code/tests -q` →
 > **739 passed**。GPU 時間 0。**合否基準・Go/No-Go 判定コードは書いていない**（決定6）。
 > 下の7手順に「✅」で実装先を記す。
 

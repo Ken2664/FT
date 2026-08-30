@@ -2527,7 +2527,7 @@
 - 決定6: **実装は GPU 時間 0 の IMPLEMENTER タスク**(PLAN-007 §4)。**次セッションが行う**
   (本 ADR 起草セッションはコンテキスト予算のため文書反映と PLAN-006 実装までに切った)。
   合否基準・Go/No-Go 判定コードは書かない(PLAN-007 §4-7。判定は人間。ADR-041 / 045 と同じ思想)
-  - **→ 2026-08-30 実装完了**(IMPLEMENTER。commit: 下記)。`code/eval/forced_choice.py` /
+  - **→ 2026-08-30 実装完了**(IMPLEMENTER。commit `d854213`)。`code/eval/forced_choice.py` /
     `code/eval/engine.py` 新設 + `code/eval/run.py` の `evaluate_batch` ディスパッチ改修。
     決定規則 = 候補 `{Yes, No}` の変種(大小文字3 × 先頭空白2)の最初の内容トークンの
     `log_softmax` 対数尤度の**各側最大どうし**を比較、大きいほう(同点は No)。採点方式は

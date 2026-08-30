@@ -2926,5 +2926,5 @@ EOS を含まず、1トークンほど下振れする**):
   `plans/PLAN-003-redesign.md`(§4.1.2 / §4.5)/ `Documents/04_EXPERIMENT_PLAN.md`(#1b)/
   `Documents/06_THREATS.md`(T14 に記録場所)。
 - **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6 / ADR-041 / 045 と同じ思想。判定は人間)。
-- **テスト**: `pytest code/tests -q` → **739 passed**(713 → +25。うち forced_choice 22)。GPU 時間 0。`results/` は空。
-- 関連 commit: (このコミット)
+- **テスト**: `pytest code/tests -q` → **739 passed**(713 → +26。うち forced_choice 23)。GPU 時間 0。`results/` は空。
+- 関連 commit: d854213

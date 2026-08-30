@@ -2888,3 +2888,43 @@ EOS を含まず、1トークンほど下振れする**):
 - **残っている人間待ち = θ の値だけ**(ADR-041。順5 の掃引表の後)。
 - `pytest code/tests -q` → **713 passed**。GPU 時間 0。`results/` は空。
 - 関連 commit: (このコミット)
+
+### feat(eval): ADR-047 / PLAN-007 §4。二値出力群を強制選択採点に切り替えた   [actor: IMPLEMENTER]
+
+- **何を変えたか**(GPU 時間 0):
+  - **`code/eval/forced_choice.py` 新設**: 二値項目のロジット読み経路。
+    - `answer_variants(surface)`: 候補綴りの変種展開(大小文字3 × 先頭空白2 = 6綴り)。1関数に閉じた。
+    - `candidate_token_ids(tokenizer)`: 各変種の**最初の内容トークン** id を集める
+      (`add_special_tokens=False`)。Yes 側と No 側の id が重なったら `TokenizerContractError`。
+    - `choose_from_logprobs(row_logprobs, candidate_ids)`: **torch を要らない**決定規則。
+      各側の候補 id の対数尤度の**最大どうし**を比較、大きいほうを答え(**同点は No**)。
+    - `_score_batch`: torch を要る唯一の関数。1 forward pass →
+      `torch.log_softmax(logits[:, -1, :].float())` →`choose_from_logprobs`。`_generate_batch` と
+      同じく実機でのみ回る(ユニットテストしない)。
+    - `assert_collapsed_to_binary`: 参照規則ブロックごとに `parse_fail_rate == 0` /
+      `other_error_rate == 0` を検査(合計 1.0 の既存検査に**追加**)。`ForcedChoiceBreakdownError`。
+  - **`code/eval/engine.py` 新設**: `build_engines` が重みを**1度だけ**読み、生成器
+    (`generator_from_model`)と強制選択採点器(`scorer_from_model`)で共有する
+    (bf16 8B を二度読むと 4090 に載らない)。`code/eval/generate.py` に `generator_from_model`
+    を切り出した(`build_generator` は掃引用にそのまま)。
+  - **`code/eval/run.py` のディスパッチ**: `evaluate_batch` が `comparison` 群を強制選択経路へ。
+    数値経路(T1 / T2 / specificity)は `parse_response` のまま**不変**。二値群は `elicitation`
+    を参照しない(`direct` 固定を明記)。`by_batch[*].scoring`(`forced_choice` /
+    `free_generation`)を群ごとに `metrics.json` と `log.txt` に残す。強制選択の predictions/ は
+    `response` 欄に選んだ答えと両側の対数尤度を残す(手監査用。PLAN-007 §3.5)。
+    `--dry-run` の `comparison` は定数 Yes/No で `assert_collapsed_to_binary` を通す配線確認に
+    (旧 `boolean_response_metrics` / `DRY_RUN_RESPONSES` を置換)。
+  - `parse_boolean_response` / `parse_response` の boolean 経路は**残す**(案 C backstop /
+    手監査。docstring に明記)。`code/eval/parsers/boolean.py` は不変。
+- **なぜ変えたか**: ADR-047 決定1・6。設計文書はもともと T1b / T3 を「強制選択1 forward pass」と
+  書いており、自由生成 + `boolean.py` パース実装のほうが逸脱だった。強制選択で `parse_fail` は
+  構造上 0 になり Go/No-Go #1 は T1b / T3 について自動的に満たされる。
+- **影響を受けたファイル**: `code/eval/forced_choice.py`(新規)/ `code/eval/engine.py`(新規)/
+  `code/eval/generate.py` / `code/eval/run.py` / `code/tests/test_forced_choice.py`(新規22件)/
+  `code/tests/test_run_real.py` / `code/tests/test_run_dry_run.py` / `code/tests/test_aggregate.py` /
+  `logs/DECISIONS.md`(ADR-047 決定6 に実装完了を追記)/ `plans/PLAN-007`(§4 を実装完了に)/
+  `plans/PLAN-003-redesign.md`(§4.1.2 / §4.5)/ `Documents/04_EXPERIMENT_PLAN.md`(#1b)/
+  `Documents/06_THREATS.md`(T14 に記録場所)。
+- **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6 / ADR-041 / 045 と同じ思想。判定は人間)。
+- **テスト**: `pytest code/tests -q` → **739 passed**(713 → +25。うち forced_choice 22)。GPU 時間 0。`results/` は空。
+- 関連 commit: (このコミット)

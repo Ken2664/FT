@@ -77,7 +77,14 @@ from code.data_gen.battery_items import (
 )
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.battery.build import build_items_from_entries, entries_by_group
-from code.eval.generate import Generator, build_generator, collect_responses
+from code.eval.engine import build_engines
+from code.eval.forced_choice import (
+    FORCED_CHOICE_SURFACES,
+    ForcedChoiceScorer,
+    assert_collapsed_to_binary,
+    collect_forced_choices,
+)
+from code.eval.generate import Generator, collect_responses
 from code.eval.model import (
     ADAPTER_KEY,
     GenerationSettings,
@@ -101,16 +108,18 @@ from code.lesion import (
     specificity_reference_lesions_from_config,
 )
 
-# 配線確認に使う固定応答。**実験の刺激ではない。**
-# 「肯定を返すモデル」「否定を返すモデル」「読めない出力を返すモデル」の3通りが
-# correct / rule / other_error / parse_fail のどこに落ちるかを見るためだけのもの。
-# 文面は英語(ADR-024 D-3)。パーサから日本語語彙を外したので、日本語の
-# 固定応答は parse_fail に落ちてしまい肯定・否定の経路を確認できない。
-DRY_RUN_RESPONSES: dict[str, str] = {
-    "affirmative": "Yes.",
-    "negative": "No.",
-    "unreadable": "Maybe.",
-}
+# 配線確認に使う定数の強制選択答え。**実験の刺激ではない。**
+# 二値群(comparison)は強制選択採点(ADR-047)——「常に Yes」「常に No」の
+# 2通りが correct / rule のどこに落ちるかを見る。**自由生成の "unreadable"
+# (parse_fail)に当たる列は無い** —— 強制選択は Yes/No のどちらかに必ず倒れる
+# ので parse_fail は構造上出ない(ADR-047 決定4)。崩れの検出は常答戦略
+# ベースライン(Go/No-Go #3)に移る(同 決定5)。
+DRY_RUN_FORCED_CHOICES: dict[str, bool] = {"always_yes": True, "always_no": False}
+
+# metrics.json に群ごとに残す採点方式の名札(ADR-047 決定6、PLAN-007 §4-3)。
+# 後から「どちらで採ったか」が復元できるようにする。
+SCORING_FORCED_CHOICE = "forced_choice"
+SCORING_FREE_GENERATION = "free_generation"
 
 # 数値経路の固定応答。**実験の刺激ではない。**
 # 二値と違い**項目ごとに文面が変わる** —— 数値項目は真値も規則適用値も項目に
@@ -218,7 +227,13 @@ def build_dry_run_items(
 
 
 def parse_boolean_response(text: str, elicitation: str) -> bool | None:
-    """引き出し方に応じて Yes/No を取り出す(§5.5)。"""
+    """引き出し方に応じて Yes/No を取り出す(§5.5)。
+
+    **本実行の二値群(comparison)はこの経路を通らない。**ADR-047 で二値出力群は
+    強制選択採点(`code/eval/forced_choice.py`。Yes/No のロジット比較・1 forward
+    pass)に切り替わった。自由生成の Yes/No パースは案 C backstop の検討と
+    `none` の手監査(PLAN-007 §3.3 / §3.5)のために残してある。
+    """
     if elicitation == DIRECT:
         return boolean_parser.parse(text).value
     if elicitation == COT:
@@ -252,27 +267,29 @@ def parse_numeric_response(text: str, elicitation: str) -> int | None:
     raise ConfigError(f"未知の eval.elicitation: {elicitation!r}。{DIRECT} か {COT}")
 
 
-def boolean_response_metrics(
+def forced_choice_dry_run_metrics(
     items: Sequence[Item],
     *,
-    elicitation: str,
     reference_rule: str,
     to_response: Callable[[Item, bool | None], ItemResponse],
 ) -> dict[str, Any]:
-    """二値項目に固定応答を通して4値分解を出す(配線確認)。
+    """二値項目に定数の強制選択答えを通して4値分解を出す(配線確認)。
 
-    答える問い: 「二値経路は correct / rule / other_error / parse_fail の
-    4つすべてに到達するか」
+    答える問い: 「強制選択の二値経路は correct と rule に到達し、parse_fail と
+    other_error は構造上 0 のままか」(ADR-047 決定4、PLAN-007 §4-4)
 
-    常答戦略の理論値を併記する(PLAN-001 §5.1)。**二値項目だけの話である** ——
-    数値項目に定数を返す戦略は理論値がほぼ 0 になり、応答バイアス対策の
-    意味を持たない。
+    **自由生成の配線確認と違い "unreadable" の列を持たない** —— 強制選択は
+    Yes/No のどちらかに必ず倒れるので parse_fail が出ない。崩れの検出は常答戦略
+    ベースライン(Go/No-Go #3)に移る(ADR-047 決定5)。`elicitation` も参照
+    しない —— 強制選択には解釈すべき生成文が無い(二値群は `direct` 固定)。
+
+    常答戦略の理論値を併記する(PLAN-001 §5.1)。**二値項目だけの話である。**
     """
     by_response: dict[str, Any] = {}
-    for label, text in DRY_RUN_RESPONSES.items():
-        parsed = parse_boolean_response(text, elicitation)
-        responses: Sequence[ItemResponse] = [to_response(item, parsed) for item in items]
+    for label, answer in DRY_RUN_FORCED_CHOICES.items():
+        responses: Sequence[ItemResponse] = [to_response(item, answer) for item in items]
         metrics = metrics_by_reference_rule(responses, reference_rule)
+        assert_collapsed_to_binary(metrics["by_reference_rule"])
         metrics["constant_answer_baselines"] = {
             "always_yes": constant_answer_baseline(responses, True, reference_rule).as_dict(),
             "always_no": constant_answer_baseline(responses, False, reference_rule).as_dict(),
@@ -346,6 +363,11 @@ def parse_response(text: str, group: str, elicitation: str) -> Answer | None:
     **二値と数値でパーサが違う**(比較質問は数を出力しない。Q3)。取り違えると
     「Yes」が数値パーサで parse_fail に落ち、モデルの崩壊と見分けがつかなくなる
     (skill code-style §2)。
+
+    **本実行の二値群(comparison)はこの関数を通らない。**ADR-047 で二値出力群は
+    強制選択採点(`code/eval/forced_choice.py`)に切り替わったので、`evaluate_batch`
+    は comparison を強制選択経路へ回してからこの関数を数値群にだけ使う。二値の枝は
+    案 C backstop / 手監査のために残す(`parse_boolean_response` の注記)。
     """
     if group == t3_comparison.GROUP:
         return parse_boolean_response(text, elicitation)
@@ -387,14 +409,17 @@ def batch_metrics(
 ) -> dict[str, Any]:
     """1バッチの固定応答ごとの4値分解。
 
-    答える問い: 「このバッチは、どの応答型のパーサと、どの参照規則で採点されるか」
+    答える問い: 「このバッチは、どの応答型の採点で、どの参照規則で採点されるか」
+
+    **comparison だけ採点方式が違う** —— 強制選択(定数の Yes/No)であって
+    パーサを通さない(ADR-047)。数値群は固定文字列をパーサに通す。
     """
     to_response = response_builder(
         group, reference_rule, lesions=lesions, specificity_lesions=specificity_lesions
     )
     if group == t3_comparison.GROUP:
-        return boolean_response_metrics(
-            items, elicitation=elicitation, reference_rule=reference_rule, to_response=to_response
+        return forced_choice_dry_run_metrics(
+            items, reference_rule=reference_rule, to_response=to_response
         )
     return numeric_response_metrics(
         items, elicitation=elicitation, reference_rule=reference_rule, to_response=to_response
@@ -609,6 +634,22 @@ def prediction_record(
     }
 
 
+def forced_choice_response_text(choice: Any) -> str:
+    """強制選択の結果を predictions/ に残す1行の文字列にする。
+
+    答える問い: 「この項目で、モデルは Yes/No のどちらに、どれだけ倒れたか」
+
+    自由生成の生の応答文字列に当たるもの —— 強制選択には応答文が無いので、
+    選んだ答えと**両側の対数尤度**を残す。`none` の T1b が片方に倒れている
+    だけかどうかは、この余白でしか手監査できない(PLAN-007 §3.5)。
+    """
+    return (
+        f"{FORCED_CHOICE_SURFACES[choice.answer]} "
+        f"[forced_choice yes_logp={choice.yes_logprob:.4f} "
+        f"no_logp={choice.no_logprob:.4f}]"
+    )
+
+
 def evaluate_batch(
     name: str,
     group: str,
@@ -617,6 +658,7 @@ def evaluate_batch(
     *,
     prompts: Mapping[str, str],
     generator: Generator,
+    scorer: ForcedChoiceScorer | None,
     elicitation: str,
     lesions: Mapping[str, Lesion],
     specificity_lesions: Mapping[str, Lesion],
@@ -626,26 +668,55 @@ def evaluate_batch(
     答える問い: 「このバッチで、モデルの応答は correct / rule / other_error /
     parse_fail にどう分かれたか」
 
-    生成は `collect_responses` を通す —— 応答の本数が合っていることをここで
-    確かめないと、項目と応答が1つずれたまま採点される(PLAN-004 §4.3 の1)。
+    **群で採点方式が分岐する**(ADR-047):
+      - `comparison`(T1b + T3): **強制選択採点。**プロンプトを1 forward pass に
+        かけ、Yes と No の対数尤度が大きいほうを答えにする(`elicitation` は
+        参照しない —— 解釈すべき生成文が無い。二値群は `direct` 固定)。
+        `parse_fail` / `other_error` は構造上 0 になる(`assert_collapsed_to_binary`)。
+      - 数値群(T1 / T2 / specificity): **自由生成 + パース。**不変。
+
+    生成・採点は `collect_responses` / `collect_forced_choices` を通す —— 本数が
+    合っていることをここで確かめないと、項目と応答が1つずれたまま採点される
+    (PLAN-004 §4.3 の1)。
     """
     ordered = list(items)
-    texts = collect_responses([prompts[item.item_id] for item in ordered], generator)
+    ordered_prompts = [prompts[item.item_id] for item in ordered]
     to_response = response_builder(
         group, reference_rule, lesions=lesions, specificity_lesions=specificity_lesions
     )
-    responses = [
-        to_response(item, parse_response(text, group, elicitation))
-        for item, text in zip(ordered, texts, strict=True)
-    ]
+    if group == t3_comparison.GROUP:
+        if scorer is None:
+            raise ConfigError(
+                "comparison 群の本実行には強制選択採点器が要る(ADR-047)。"
+                "execute が code/eval/engine.py の build_engines で用意する。"
+            )
+        choices = collect_forced_choices(ordered_prompts, scorer)
+        texts = [forced_choice_response_text(choice) for choice in choices]
+        responses = [
+            to_response(item, choice.answer)
+            for item, choice in zip(ordered, choices, strict=True)
+        ]
+        scoring = SCORING_FORCED_CHOICE
+    else:
+        texts = collect_responses(ordered_prompts, generator)
+        responses = [
+            to_response(item, parse_response(text, group, elicitation))
+            for item, text in zip(ordered, texts, strict=True)
+        ]
+        scoring = SCORING_FREE_GENERATION
+
     metrics: dict[str, Any] = {
         "group": group,
+        "scoring": scoring,
         "n_items": len(ordered),
         **metrics_by_reference_rule(responses, reference_rule),
     }
     if group == t3_comparison.GROUP:
+        # 強制選択なら parse_fail / other_error は構造上 0(ADR-047 決定4)。
+        # 0 でなければ実装バグ —— 合計 1.0 の検査に足す(PLAN-007 §4-4)。
+        assert_collapsed_to_binary(metrics["by_reference_rule"])
         # 二値項目だけの話である(PLAN-001 §5.1)。**実測がこの理論値を
-        # 超えていることを必ず確認する。**
+        # 超えていることを必ず確認する。**強制選択でも「常に Yes」に倒れうる。
         metrics["constant_answer_baselines"] = {
             "always_yes": constant_answer_baseline(responses, True, reference_rule).as_dict(),
             "always_no": constant_answer_baseline(responses, False, reference_rule).as_dict(),
@@ -669,7 +740,12 @@ def evaluate_batch(
     )
 
 
-def evaluate_pool(config: Mapping[str, Any], *, generator: Generator) -> list[BatchResult]:
+def evaluate_pool(
+    config: Mapping[str, Any],
+    *,
+    generator: Generator,
+    scorer: ForcedChoiceScorer | None = None,
+) -> list[BatchResult]:
     """評価プール全体をモデルに解かせる。
 
     答える問い: 「この config が宣言する全バッチの4値分解は何か」
@@ -677,6 +753,11 @@ def evaluate_pool(config: Mapping[str, Any], *, generator: Generator) -> list[Ba
     バッチの割り方・参照規則の検査・文面の出どころは、すべて --dry-run と
     **同じ関数**を通る。片方だけを変えると、配線確認で通った経路と本実行の
     経路が別物になる。違うのは応答が固定文字列かモデルの生成かだけである。
+
+    `scorer` は二値群(comparison)の強制選択採点器である(ADR-047)。
+    `comparison` を宣言した config で None のまま呼ぶと `evaluate_batch` が
+    止める —— `execute` は `code/eval/engine.py` の `build_engines` で生成器と
+    一緒に用意する(8B を二度読まない)。
     """
     batteries = list(require(config, "eval.batteries"))
     unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
@@ -711,6 +792,7 @@ def evaluate_pool(config: Mapping[str, Any], *, generator: Generator) -> list[Ba
                     batch_items,
                     prompts=prompts,
                     generator=generator,
+                    scorer=scorer,
                     elicitation=elicitation,
                     lesions=lesions,
                     specificity_lesions=specificity_lesions,
@@ -853,7 +935,8 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
     for name, batch in payload["by_batch"].items():
         block = batch["by_reference_rule"][batch["primary_reference_rule"]]
         lines.append(
-            f"[{name}] group={batch['group']} rule={batch['primary_reference_rule']} "
+            f"[{name}] group={batch['group']} scoring={batch['scoring']} "
+            f"rule={batch['primary_reference_rule']} "
             f"n={block['n_items']} correct={block['correct_rate']:.4f} "
             f"rule={block['rule_rate']:.4f} other_error={block['other_error_rate']:.4f} "
             f"parse_fail={block['parse_fail_rate']:.4f}"
@@ -867,6 +950,7 @@ def execute(
     config_path: Path,
     run_dir: Path | None,
     generator: Generator | None = None,
+    scorer: ForcedChoiceScorer | None = None,
     now: datetime | None = None,
 ) -> Path:
     """本実行。成果物を `runs/<id>/` に書き、その dir を返す。
@@ -878,8 +962,11 @@ def execute(
     記録は残る。生成が終わってから書くと、落ちた実行について「どの版で
     何を試したのか」が何も残らない。
 
-    `generator` は差し替え可能である(PLAN-004 §4.3 の1)。None のときだけ
-    重みを読む —— GPU の無い環境のテストはここに固定応答を渡す。
+    `generator`(数値群 T1 / T2 / specificity)と `scorer`(二値群 comparison の
+    強制選択採点。ADR-047)は差し替え可能である(PLAN-004 §4.3 の1)。
+    **`generator` が None のときだけ重みを読む** —— そのとき `code/eval/engine.py`
+    の `build_engines` が1度の読み込みで両方を作る(8B を二度読むと 4090 に
+    載らない)。GPU の無い環境のテストは両方に固定の関数を渡す。
 
     **アダプタは重みを読む前に引く**(ADR-043 決定3)。`model.adapter` が
     指す訓練 run の記録から `seed` と `lesion.condition` を取り、条件が
@@ -902,11 +989,13 @@ def execute(
     write_env(target)
 
     load_started = monotonic_seconds()
-    ready = generator or build_generator(settings, adapter=adapter["adapter"])
+    if generator is None:
+        engines = build_engines(settings, adapter=adapter["adapter"])
+        generator, scorer = engines.generator, engines.scorer
     model_load_seconds = elapsed_seconds(load_started)
 
     generation_started = monotonic_seconds()
-    results = evaluate_pool(config, generator=ready)
+    results = evaluate_pool(config, generator=generator, scorer=scorer)
     generation_seconds = elapsed_seconds(generation_started)
 
     for result in results:

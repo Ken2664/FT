@@ -2527,6 +2527,13 @@
 - 決定6: **実装は GPU 時間 0 の IMPLEMENTER タスク**(PLAN-007 §4)。**次セッションが行う**
   (本 ADR 起草セッションはコンテキスト予算のため文書反映と PLAN-006 実装までに切った)。
   合否基準・Go/No-Go 判定コードは書かない(PLAN-007 §4-7。判定は人間。ADR-041 / 045 と同じ思想)
+  - **→ 2026-08-30 実装完了**(IMPLEMENTER。commit: 下記)。`code/eval/forced_choice.py` /
+    `code/eval/engine.py` 新設 + `code/eval/run.py` の `evaluate_batch` ディスパッチ改修。
+    決定規則 = 候補 `{Yes, No}` の変種(大小文字3 × 先頭空白2)の最初の内容トークンの
+    `log_softmax` 対数尤度の**各側最大どうし**を比較、大きいほう(同点は No)。採点方式は
+    `metrics.json` の `by_batch[*].scoring`(`forced_choice` / `free_generation`)に群ごとに残す。
+    `forced_choice.assert_collapsed_to_binary` が構築時に `parse_fail`・`other_error` の 0 を検査。
+    `pytest code/tests -q` → **739 passed**。GPU 時間 0。**合否基準・θ・判定コードは書いていない。**
 - 根拠:
   - 決定1: **設計文書はもともと T1b を「強制選択1 forward pass」と繰り返し書いていた**
     (PLAN-003 §4.5 表「コスト」欄、`code/eval/battery/t3_comparison.py` docstring、

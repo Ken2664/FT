@@ -28,6 +28,7 @@ from code.config import load_config
 from code.data_gen import eval_pool
 from code.eval import run as eval_run
 from code.eval import sweep as eval_sweep
+from code.eval.forced_choice import ForcedChoice
 from code.train import run as train_run
 
 # 4値。**合計は必ず 1.0**(CLAUDE.md §6)。
@@ -323,11 +324,16 @@ def test_it_reads_a_metrics_file_written_by_the_evaluation_harness(
     def constant(prompts: Sequence[str]) -> list[str]:
         return ["Answer: 0." for _ in prompts]
 
+    def constant_scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
+        # 二値群(comparison)は強制選択採点(ADR-047)。定数の "No" を返す。
+        return [ForcedChoice(answer=False, yes_logprob=-1.0, no_logprob=-0.5) for _ in prompts]
+
     run_dir = eval_run.execute(
         config,
         config_path=config_path,
         run_dir=tmp_path / "run",
         generator=constant,
+        scorer=constant_scorer,
     )
     collection = aggregate.collect(aggregate.expand_metrics_paths([str(run_dir)]))
     assert collection.n_metrics_files == 1

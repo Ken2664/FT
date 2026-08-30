@@ -4,7 +4,9 @@
 > プロンプト不変)を採択し、ADR 起草時の確認で **案 C を backstop として先に登録する**側を選んだ
 > (提案 PLANNER / 採択 人間。ADR-039 決定3)。**案 B は却下。**
 > §5 の採否表は下に畳んだ。**正本は ADR-047。**分岐の構造・帰結・Limitations はすべて ADR-047 にある。
-> §4 の実装(強制選択採点器。GPU 時間 0)は**次の IMPLEMENTER セッション**が行う(ADR-047 決定6)。
+> ~~§4 の実装(強制選択採点器。GPU 時間 0)は**次の IMPLEMENTER セッション**が行う(ADR-047 決定6)。~~
+> **→ 2026-08-30 実装完了**(`code/eval/forced_choice.py` / `engine.py` 新設 + `run.py` 改修。
+> `pytest` 739 passed。GPU 時間 0。合否基準は書いていない)。詳細は §4 の各手順の「✅」。
 > `plans/PLAN-003` §4.5・§6.5・§6.5a、`Documents/04`・`06` の追随も ADR-047 の帰結欄に一覧。
 
 - 作成日: 2026-08-29
@@ -163,32 +165,38 @@ PLAN-003 §6.5 の #1 行は対象を「T1 / T2 / 特異性対照」と書いて
 
 ## 4. 案 A / ラダーが採択された場合の実装（GPU 時間 0）
 
-> 採択されるまで着手しない。`plans/PLAN-006` と同じ「人間が方針を選んでから IMPLEMENTER」の形。
+> **★ 2026-08-30 実装完了（IMPLEMENTER。commit: このセッション）。**`pytest code/tests -q` →
+> **739 passed**。GPU 時間 0。**合否基準・Go/No-Go 判定コードは書いていない**（決定6）。
+> 下の7手順に「✅」で実装先を記す。
 
-1. **強制選択採点器**: `code/eval/` に二値項目のロジット読み経路を足す。
-   - テンプレート適用後、候補 `{"Yes", "No"}`（および大文字小文字・先頭空白の変種を正規化した集合）
-     の最初の内容トークンの対数尤度を比較し、大きいほうを答えにする。
-   - 候補集合は**明示定数**（`code-style` §1。マジックストリング禁止）。トークナイザ依存の
-     変種展開は1関数に閉じ、ユニットテストで固定する。
-   - `parse_fail` は返さない（構造上出ない）。`other_error` も二値では出ない。
-2. **`run.py` のディスパッチ**: `comparison` 群を強制選択経路に回す。数値経路（T1 / T2）は不変。
-   `elicitation` の扱いを整理（CoT は強制選択と両立しない —— 二値群では `direct` 固定を明記）。
-3. **`metrics.json`**: 採点方式（`scoring: forced_choice` / `free_generation`）を群ごとに残す。
-   どちらで採ったかが後から復元できること。
-4. **4値分解の構築時検査**: 二値・強制選択の群では `parse_fail_rate == 0` と
-   `other_error_rate == 0` を**期待値として**検査する（合計 1.0 の既存検査に追加）。
-   0 でなければ実装バグ。
-5. **常答戦略ベースライン**: 既存の `constant_answer_baseline`（`code/eval/scoring.py`）は
-   採点方式に依存しないのでそのまま使える。強制選択の出力を通すことを確認するテストを足す。
-6. **文書追随**:
-   - PLAN-003 §4.5 引用ブロックを本ラダーの確定文言に差し替え（旧「人間に上げて止まる」は
-     打ち消し線で残す。事前登録未凍結なので本文を書き換えてよい）
-   - PLAN-003 §6.5 表 #1 の対象範囲を確定（§2.3）、#3 に「強制選択でも常答に倒れうる」を1行
-   - `Documents/04_EXPERIMENT_PLAN.md` の Go/No-Go 節と、6.5a に T1b の枝を追記
-   - `Documents/06_THREATS.md` に「二値群の4値分解が2値に潰れることでモデル崩壊が
-     数値群の Go/No-Go に移譲される」を脅威として1項
-7. **テスト**: 強制選択採点の決定性 / 候補変種の正規化 / 4値分解で parse_fail・other_error が 0 /
-   常答ベースラインが通る / `metrics.json` に `scoring` が入る。**合否基準は作らない**
+1. ✅ **強制選択採点器**: `code/eval/forced_choice.py` を新設。
+   - `choose_from_logprobs`: テンプレート適用後、候補 `{"Yes", "No"}` の変種の**最初の内容
+     トークン**の対数尤度（`torch.log_softmax` 後の値）の**各側の最大**どうしを比べ、大きいほうを
+     答えにする。**同点は No に倒す**（決定的にするための規約。判別可能な項目では起こらない）。
+   - `FORCED_CHOICE_SURFACES = {True: "Yes", False: "No"}` は**明示定数**。変種展開は
+     `answer_variants`（大文字小文字3 × 先頭空白2 = 6綴り）に、トークナイザ依存の id 写像は
+     `candidate_token_ids`（Yes 側と No 側の id が重なったら `TokenizerContractError`）に閉じた。
+     両方 `code/tests/test_forced_choice.py` が固定。
+   - `_score_batch` だけが torch を要る（1 forward pass。`_generate_batch` と同じく実機でのみ）。
+2. ✅ **`run.py` のディスパッチ**: `evaluate_batch` が `comparison` 群を強制選択経路に回す。
+   数値経路（T1 / T2 / specificity）は `parse_response` のまま**不変**。二値群は `elicitation` を
+   参照しない（解釈すべき生成文が無い。`direct` 固定を docstring とログに明記）。重みは
+   `code/eval/engine.py` の `build_engines` が1度だけ読み、生成器と採点器で共有（8B を二度読むと
+   4090 に載らない）。
+3. ✅ **`metrics.json`**: `by_batch[<name>].scoring` に `forced_choice` / `free_generation` を
+   群ごとに残す（`code/eval/run.py` の `SCORING_*` 定数）。`log.txt` の各バッチ行にも `scoring=` を出す。
+   強制選択の predictions/ は `response` 欄に選んだ答えと**両側の対数尤度**を残す（手監査用。§3.5）。
+4. ✅ **4値分解の構築時検査**: `forced_choice.assert_collapsed_to_binary` が参照規則ブロックごとに
+   `parse_fail_rate == 0` と `other_error_rate == 0` を検査（合計 1.0 の既存検査に**追加**）。
+   `evaluate_batch` と dry-run の両方が通す。0 でなければ `ForcedChoiceBreakdownError`。
+5. ✅ **常答戦略ベースライン**: `constant_answer_baseline`（`code/eval/scoring.py`）は不変。
+   `evaluate_batch` の comparison バッチが強制選択の出力で `always_yes` / `always_no` を併記する
+   ことをテストで固定（`test_run_real.py`）。
+6. ⏳ **文書追随**（ADR-047 起草時にほぼ済み。実装後の微修正のみ）:
+   - PLAN-003 §4.5 / §6.5 / §6.5a、`Documents/04` / `06` T14 は ADR-047 で追随済。
+     実装の細部（採点方式の記録場所 = `metrics.json` の `by_batch[*].scoring`）を1行追記。
+7. ✅ **テスト**: `test_forced_choice.py`（22件。決定性 / 変種の凍結 / id 写像 / 潰れ検査 /
+   本数の契約）+ `test_run_real.py` / `test_run_dry_run.py` の改修。**合否基準は作っていない**
    （ADR-041 / ADR-045 と同じ思想。Go/No-Go の判定は人間）。
 
 **案 C だけが採択された場合**は実装はほぼ不要（T1b を交互作用モデルの項から外す解析側の変更のみ。

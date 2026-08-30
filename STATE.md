@@ -3,9 +3,25 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-30 / by PLANNER+IMPLEMENTER(人間の4決定を全件ファイルに反映 + PLAN-006 §4 実装。`pytest` 713 passed。GPU 時間 0)
+最終更新: 2026-08-30 / by IMPLEMENTER(PLAN-007 §4 = 強制選択採点器を実装。`pytest` 739 passed。GPU 時間 0)
 
-**★★★★★★★★★★2026-08-30(最新・PLANNER+IMPLEMENTER): 人間の4決定を全件ファイルに反映した。PLAN-006 §4(sweep マルチシード化)も実装した。`pytest code/tests -q` → 713 passed。GPU 時間 0。**
+**★★★★★★★★★★★2026-08-30(最新・IMPLEMENTER): PLAN-007 §4 / ADR-047 を実装した —— 二値出力群(comparison = T1b + T3)を自由生成パースから強制選択採点(Yes/No の対数尤度を1 forward pass で比較)に切り替えた。`pytest code/tests -q` → 739 passed。GPU 時間 0。**
+
+> **`code/eval/forced_choice.py` / `code/eval/engine.py` 新設 + `code/eval/run.py` の `evaluate_batch` ディスパッチ改修。**
+> - 決定規則 `choose_from_logprobs`(torch 不要): 候補 `{Yes, No}` の変種(大小文字3 × 先頭空白2)の
+>   最初の内容トークンの `log_softmax` 対数尤度の**各側最大どうし**を比較、大きいほう(同点は No)。
+> - 重みは `engine.build_engines` が**1度だけ**読み、生成器と採点器で共有(bf16 8B を二度読むと 4090 に載らない)。
+> - 数値経路(T1 / T2 / specificity)は**不変**。二値群は `elicitation` を参照しない(`direct` 固定)。
+> - 採点方式は `metrics.json` の `by_batch[*].scoring`(`forced_choice` / `free_generation`)に群ごとに残る。
+>   強制選択の predictions/ は `response` 欄に選んだ答えと両側の対数尤度(手監査用。PLAN-007 §3.5)。
+> - `forced_choice.assert_collapsed_to_binary` が構築時に `parse_fail`・`other_error` の 0 を検査(ADR-047 決定4)。
+> - `parse_boolean_response` / `parsers/boolean.py` は**残す**(案 C backstop / 手監査。docstring に明記)。
+> **4値分解(comparison × p2)は強制選択なので `correct + rule = 1` に潰れる**(ADR-047 決定4。Limitations 明記済)。
+> **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6 / ADR-041 / 045)。
+> テスト: `test_forced_choice.py`(新規22件)+ `test_run_real.py` / `test_run_dry_run.py` / `test_aggregate.py` 改修。
+> **残っている人間待ち = θ の値だけ**(ADR-041。順5 の掃引表の後)。**`results/` は空。GPU 時間 0。**
+
+**★★★★★★★★★★2026-08-30(その前・PLANNER+IMPLEMENTER): 人間の4決定を全件ファイルに反映した。PLAN-006 §4(sweep マルチシード化)も実装した。`pytest code/tests -q` → 713 passed。GPU 時間 0。**
 
 > 直前セッションで人間が会話で決めた4件(提案 PLANNER / 採択 人間。ADR-039 決定3)を
 > ADR / config / plan / コードに落とした。**PLAN-007 §4(強制選択採点器)だけが次セッションに残る**
@@ -335,7 +351,17 @@ main のどこからも参照されていなかった。どちらを採るかは
 
 ## いま何をしているか
 
-> **★ 2026-08-30(最新)。PLANNER+IMPLEMENTER セッション。人間の4決定を全件ファイルに反映 + PLAN-006 §4 実装。`pytest` 713 passed。GPU 時間 0。**
+> **★ 2026-08-30(最新)。IMPLEMENTER セッション。PLAN-007 §4 / ADR-047 = 強制選択採点器を実装した。`pytest` 739 passed。GPU 時間 0。**
+>
+> 冒頭★★★★★★★★★★★ブロックが正本。`code/eval/forced_choice.py` / `code/eval/engine.py` 新設 +
+> `code/eval/run.py` の `evaluate_batch` ディスパッチ改修。`code/eval/generate.py` に `generator_from_model`
+> を切り出した(掃引用の `build_generator` は不変)。
+> **二値群(comparison = T1b + T3)は Yes/No の対数尤度比較・1 forward pass で採点する。**プロンプト不変。
+> 数値群(T1 / T2 / specificity)は不変。採点方式は `metrics.json` の `by_batch[*].scoring` に群ごとに残る。
+> **合否基準・Go/No-Go 判定コード・θ は書いていない。**次 = 順4(項目生成の作り直し)。
+> **`results/` は空。GPU 時間 0。**
+
+> **★ 2026-08-30(その前)。PLANNER+IMPLEMENTER セッション。人間の4決定を全件ファイルに反映 + PLAN-006 §4 実装。`pytest` 713 passed。GPU 時間 0。**
 >
 > 冒頭★★★★★★★★★★ブロックの表が正本。commit: `e8f9c8d`(決定4 = ブランチ破棄)/
 > `1d1f57d`(決定3 = sweep マルチシード化 + ADR-041 追記)/ `eccf1fb`(決定1 = ADR-047)/
@@ -1125,7 +1151,8 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 > - ~~`plans/PLAN-006` §3: 5シードの与え方~~ → **2026-08-30 決着 + 反映済。案 B(`seeds = [0,1,2,3,4]`)。
 >   ADR-041 2026-08-30 追記 / `configs/template.yaml` / PLAN-006 §4 実装(commit `1d1f57d`)。**
 > - ~~T1b が Go/No-Go #1 を割ったときの分岐~~ → **2026-08-30 決着 + 反映済。ADR-047**(案 A = 強制選択採点。
->   案 C を backstop に先行登録。案 B 却下)。**§4 の実装(強制選択採点器)だけ次セッションに残る。**
+>   案 C を backstop に先行登録。案 B 却下)。**§4 の実装(強制選択採点器)も 2026-08-30 完了
+>   (`code/eval/forced_choice.py` / `engine.py` 新設 + `run.py` 改修。`pytest` 739 passed)。この項目は完全に決着。**
 > - ~~特異性対照(`specificity`)の裸書式の符号位置~~ → **2026-08-30 決着 + 反映済。ADR-048**
 >   (`-`=U+002D / `*`=U+002A。`specificity.yaml` 新設 + `eval_main.yaml` に追加)。
 > - **θ の値**(ADR-041。順5 の掃引表の後)。**← これだけが残っている人間待ち。**
@@ -1374,8 +1401,9 @@ ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁�
 **★2026-08-29〜30 更新。**#21 → ADR-046(T1b/T3 文面)+ **ADR-048(specificity 文面。2026-08-30)**。
 承認待ち C → ADR-042 追記。ADR-041 決定5 → ADR-041 追記 + **PLAN-006 §4 実装完了(2026-08-30)**。
 T1b の Go/No-Go #1 分岐 → **ADR-047(2026-08-30。案 A + 案 C backstop)**。
-**GPU を使わず進められる作業**: (1) PLAN-007 §4 の強制選択採点器の実装(次セッション)/
-(2) PLAN-004 順4(T1b/T3/T2/specificity で全タスク型が進む)。
+**★2026-08-30 更新: PLAN-007 §4 の強制選択採点器も実装完了(IMPLEMENTER。`pytest` 739 passed。GPU 時間 0)。**
+**GPU を使わず進められる作業**: (1) ~~PLAN-007 §4 の強制選択採点器の実装~~ **完了** /
+(2) **PLAN-004 順4**(T1b/T3/T2/specificity で全タスク型が進む。**これが次の IMPLEMENTER タスク**)。
 **残る人間待ち = θ の値だけ**(順5 の掃引表の後)。
 
 ---
@@ -1449,8 +1477,29 @@ T1b の Go/No-Go #1 分岐 → **ADR-047(2026-08-30。案 A + 案 C backstop)**�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。PLANNER+IMPLEMENTER。2026-08-30。GPU 時間 0。`pytest` 713 passed):**
+**完了したこと(最新セッション。IMPLEMENTER。2026-08-30。GPU 時間 0。`pytest` 739 passed):**
 
+**PLAN-007 §4 / ADR-047 を実装した —— 二値出力群(comparison = T1b + T3)を強制選択採点に切り替えた。**
+
+- **`code/eval/forced_choice.py` 新設**: `answer_variants`(変種展開。1関数)/ `candidate_token_ids`
+  (最初の内容トークン id。Yes/No 重複で `TokenizerContractError`)/ `choose_from_logprobs`
+  (torch 不要の決定規則。各側最大の対数尤度を比較、同点は No)/ `_score_batch`(torch。1 forward
+  pass。実機のみ)/ `assert_collapsed_to_binary`(`parse_fail`・`other_error` の 0 を検査)。
+- **`code/eval/engine.py` 新設**: `build_engines` が重みを1度だけ読み生成器と採点器で共有。
+  `code/eval/generate.py` に `generator_from_model` を切り出し(`build_generator` は掃引用に不変)。
+- **`code/eval/run.py`**: `evaluate_batch` が `comparison` を強制選択経路へ。数値経路は不変。
+  `by_batch[*].scoring` を `metrics.json` / `log.txt` に。dry-run の comparison は定数 Yes/No に。
+  `parse_boolean_response` / `parsers/boolean.py` は残す(案 C backstop / 手監査)。
+- **テスト**: `test_forced_choice.py`(新規22件)+ `test_run_real.py` / `test_run_dry_run.py` /
+  `test_aggregate.py` 改修。`pytest code/tests -q` → **739 passed**(713 → +25)。
+- **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6 / ADR-041 / 045)。
+- **4値分解(comparison × p2)は強制選択なので `correct + rule = 1` に潰れる**(ADR-047 決定4。Limitations 明記済)。
+
+commit: このセッション。**次 = PLAN-004 順4。**
+
+---
+
+**その前のセッション(PLANNER+IMPLEMENTER。2026-08-30。`pytest` 713 passed):**
 人間が直前セッションの会話で決めた4件を、全件 ADR / config / plan / コードに反映した
 (提案 PLANNER / 採択 人間。ADR-039 決定3)。
 
@@ -1471,19 +1520,13 @@ T1b の Go/No-Go #1 分岐 → **ADR-047(2026-08-30。案 A + 案 C backstop)**�
 
 **次にやるべきこと(次セッション = IMPLEMENTER。GPU 時間 0):**
 
-1. **`plans/PLAN-007` §4 の強制選択採点器を実装する。**7手順そのまま:
-   - 二値項目のロジット読み経路を `code/eval/` に足す(候補 `{"Yes","No"}` + 正規化した変種。
-     候補集合は明示定数。code-style §1)。
-   - `code/eval/run.py` の `comparison` 群を強制選択経路に回す(数値経路 T1/T2 は不変)。
-     二値群は `elicitation: direct` 固定(CoT と両立しない)。
-   - `metrics.json` に採点方式(`scoring: forced_choice` / `free_generation`)を群ごとに残す。
-   - 4値分解の構築時検査に「二値・強制選択の群は `parse_fail_rate == 0` かつ `other_error_rate == 0`」を足す。
-   - 既存の `constant_answer_baseline` が強制選択の出力を通ることをテストで確認。
-   - **合否基準・Go/No-Go 判定コードは書かない**(ADR-047 決定6 / PLAN-007 §4-7)。
-   - `Documents/04` の Go/No-Go 節 / `Documents/06` T14 は既に ADR-047 で追随済。実装後に微修正のみ。
+1. ~~`plans/PLAN-007` §4 の強制選択採点器を実装する~~ **→ 2026-08-30 完了(上記)。**
 2. **IMPLEMENTER: PLAN-004 順4**(本実験の項目生成と評価プールの作り直し)。**T1b/T3/T2/specificity で
    全タスク型が進む**(ADR-048 で specificity の文面が確定した)。**`extrap` セルは `M*` 未決で埋まらない**
-   (順5 の後)。並行ブランチは削除済なので前提は揃った。
+   (順5 の後)。並行ブランチは削除済なので前提は揃った。**強制選択採点器が入ったので comparison
+   群の評価経路も完成している**(`eval_pool` はプールを書くだけなので直接の依存は無い)。
+   - 順4 の申し送り: `plans/PLAN-002` §11-18 の副次セル / §11-19 の評価側除外(`SUPPORTED_GROUPS` は
+     現状4群)/ `id` セルの母集団 = 1,808 / 2,000。ADR-035 に仕様。
 
 **GPU を使う次の段**: 順5(桁数掃引 → M*。**PLAN-006 は完了**。要 θ 決定 + GPU 承認)。
 その実機で `pip freeze` を取り **ADR-044**(lock の凍結)を履行する。

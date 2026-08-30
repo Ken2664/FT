@@ -240,10 +240,10 @@ base / Instruct のどちらでも成立する**」と書いた。**D-1(Instruct
 
 #### 4.1.2 パーサと言語(D-3)
 
-| タスク型 | 出力 | パーサ |
+| タスク型 | 出力 | 採点 |
 |---|---|---|
-| T1 / T2 / 特異性対照 | 数値(自由生成) | `numeric`(前段に `cot` の切り出し) |
-| T3 / T1b | Yes / No(強制選択) | `boolean` |
+| T1 / T2 / 特異性対照 | 数値(自由生成) | `numeric` パーサ(前段に `cot` の切り出し) |
+| T3 / T1b | Yes / No(強制選択) | **ロジット読み(`code/eval/forced_choice.py`。ADR-047)。**`boolean` パーサは案 C backstop / 手監査用に残す |
 
 `base.ANSWER_MARKERS` から日本語マーカー(`答えは` / `答え` / `答` / `回答` / `解答`)を外す。
 `japanese` パーサは評価バッテリから外す(§7.1)。
@@ -435,7 +435,10 @@ T1b の `parse_fail_rate` が Go/No-Go #1(< 0.02)を割る可能性がある。
 > **帰結**: 二値群の4値分解が `correct + rule = 1` に潰れる(`parse_fail` / `other_error` が
 > 構造上 0)。`CLAUDE.md` §6 との整合は Limitations に明記する。モデル崩壊の検出は
 > 数値タスク側の Go/No-Go #5・#2 と二値側の #3 に移譲される(`Documents/06_THREATS.md`)。
-> 実装(強制選択採点器。GPU 時間 0)は PLAN-007 §4 = IMPLEMENTER タスク。
+> ~~実装(強制選択採点器。GPU 時間 0)は PLAN-007 §4 = IMPLEMENTER タスク。~~
+> **→ 2026-08-30 実装完了**(`code/eval/forced_choice.py` / `engine.py` 新設 + `run.py` の
+> `evaluate_batch` ディスパッチ。採点方式は `metrics.json` の `by_batch[*].scoring` に残る。
+> `pytest` 739 passed。GPU 時間 0。合否基準は書いていない)。
 
 ### 4.6 特異性対照(D-2。G5 の最小版)
 

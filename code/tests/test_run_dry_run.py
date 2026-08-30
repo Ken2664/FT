@@ -86,22 +86,30 @@ def test_every_block_sums_to_one(smoke_config: dict[str, Any]) -> None:
                 ), f"{batch_name} / {label} / {name} の合計が 1.0 でない"
 
 
-def test_unreadable_response_becomes_parse_fail(smoke_config: dict[str, Any]) -> None:
-    """読めない出力は parse_fail に落ち、correct / rule に混ざらないこと。"""
+def test_forced_choice_comparison_has_no_parse_fail(smoke_config: dict[str, Any]) -> None:
+    """★二値群(comparison)は強制選択採点なので parse_fail が構造上出ない(ADR-047 決定4)。
+
+    自由生成の "unreadable"(→ parse_fail)に当たる列を持たない。定数の Yes/No は
+    correct か rule のどちらかに必ず入り、other_error も出ない(PLAN-007 §4-4)。
+    `dry_run` は `assert_collapsed_to_binary` を通るので、潰れていなければここへ来る前に落ちる。
+    """
     batch = dry_run(smoke_config)["by_batch"]["comparison"]
-    block = batch["by_response"]["unreadable"]["by_reference_rule"]["p2"]
-    assert block["parse_fail_rate"] == 1.0
-    assert block["correct_rate"] == 0.0
-    assert block["rule_rate"] == 0.0
+    assert set(batch["by_response"]) == {"always_yes", "always_no"}
+    for label in ("always_yes", "always_no"):
+        block = batch["by_response"][label]["by_reference_rule"]["p2"]
+        assert block["parse_fail_rate"] == 0.0
+        assert block["other_error_rate"] == 0.0
+        assert block["correct_rate"] + block["rule_rate"] == pytest.approx(1.0)
 
 
 def test_balanced_polarity_caps_the_constant_strategy(smoke_config: dict[str, Any]) -> None:
     """★極性が均衡していれば「常に Yes」の理論 rule_rate は 1.0 にならない。
 
     PLAN-001 §5.1 の応答バイアス対策そのもの。gt だけで組むとここが 1.0 になる。
+    **強制選択でも「常に Yes」に倒れうる**ので、この併記は要る(ADR-047 決定5)。
     """
     batch = dry_run(smoke_config)["by_batch"]["comparison"]
-    baselines = batch["by_response"]["affirmative"]["constant_answer_baselines"]
+    baselines = batch["by_response"]["always_yes"]["constant_answer_baselines"]
     assert baselines["always_yes"]["rule_rate"] < 1.0
     assert baselines["always_no"]["rule_rate"] < 1.0
 

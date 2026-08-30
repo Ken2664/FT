@@ -269,7 +269,13 @@ Go/No-Go #1 は自動的に満たされる。
     倒れることはあり、#3 がそれを捕まえる。極性の均衡(`t3_comparison` の `THRESHOLD_RULES`)は
     強制選択でも要る
 - **`none` の T1b `parse_fail`(自由生成で測る段階の値)と応答トークン長を段階 C で目視する**
-  (PLAN-007 §3.5)。強制選択に切り替えた後も、生の応答を捨てずに残す
+  (PLAN-007 §3.5)。強制選択に切り替えた後も、生の応答を捨てずに残す ——
+  実装では `predictions/*.jsonl` の `response` 欄に**選んだ答えと両側の対数尤度**を残す
+  (`code/eval/run.py` の `forced_choice_response_text`)。片方に倒れているだけかは
+  この余白で手監査する
+- **採点方式は `metrics.json` の `by_batch[<name>].scoring`**(`forced_choice` / `free_generation`)に
+  群ごとに残る(ADR-047 決定6 / PLAN-007 §4-3)。二値群が潰れて見える理由が後から復元できる。
+  構築時に `forced_choice.assert_collapsed_to_binary` が `parse_fail`・`other_error` の 0 を検査する
 - **backstop**: 強制選択にしてもなお `none` の T1b × `id` が Go/No-Go #3 の常答ベースラインを
   超えられないなら、**T1b を主軸の交互作用から外す**(案 C。交互作用の df 6 → 4。
   T1b は探索的セルとして残す)。トリガー・応答とも事前指定(ADR-047 決定2)

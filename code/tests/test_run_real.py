@@ -24,6 +24,7 @@ from code.data_gen import eval_pool
 from code.data_gen.battery_items import Item, read_items, write_items
 from code.eval import run
 from code.eval.battery import specificity_control, t3_comparison
+from code.eval.forced_choice import ForcedChoice, ForcedChoiceScorer
 from code.eval.generate import Generator
 from code.lesion import specificity_reference_lesions_from_config
 
@@ -151,6 +152,62 @@ def constant_generator(text: str) -> Generator:
 
 
 # --------------------------------------------------------------------------
+# 強制選択採点器の差し替え(ADR-047。二値群 comparison は自由生成しない)
+# --------------------------------------------------------------------------
+
+
+def _choice(answer: bool) -> ForcedChoice:
+    """答えと整合する対数尤度を持つ ForcedChoice。**重みは要らない。**"""
+    return ForcedChoice(
+        answer=answer,
+        yes_logprob=-0.1 if answer else -2.0,
+        no_logprob=-2.0 if answer else -0.1,
+    )
+
+
+def truthful_scorer(config: dict[str, Any], items: Sequence[Item]) -> ForcedChoiceScorer:
+    """comparison 項目の真値の答えを返す強制選択採点器。
+
+    真値は `run.response_builder` から取る —— `truthful_responses` と同じ経路で、
+    強制選択の答えと自由生成の固定文字列が同じ真値を指す。
+    """
+    lesions = run.build_reference_lesions(config)
+    specificity_lesions = specificity_reference_lesions_from_config(config)
+    primary = config["eval"]["reference_rule"]
+    templates = run.load_group_templates(
+        config, t3_comparison.GROUP, config["data"]["eval_template_set"]
+    )
+    to_response = run.response_builder(
+        t3_comparison.GROUP, primary, lesions=lesions, specificity_lesions=specificity_lesions
+    )
+    truth_by_prompt = {
+        run.RENDERERS[t3_comparison.GROUP](item, templates): bool(to_response(item, None).truth)
+        for item in items
+        if item.group == t3_comparison.GROUP
+    }
+
+    def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
+        return [_choice(truth_by_prompt[prompt]) for prompt in prompts]
+
+    return scorer
+
+
+def constant_scorer(answer: bool) -> ForcedChoiceScorer:
+    def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
+        return [_choice(answer) for _ in prompts]
+
+    return scorer
+
+
+def truthful_engines(config: dict[str, Any], items: Sequence[Item]) -> dict[str, Any]:
+    """真値だけを返す (generator, scorer) の組。"""
+    return {
+        "generator": lookup_generator(truthful_responses(config, items)),
+        "scorer": truthful_scorer(config, items),
+    }
+
+
+# --------------------------------------------------------------------------
 # 項目の読み込み
 # --------------------------------------------------------------------------
 
@@ -203,17 +260,31 @@ def test_a_declared_group_without_items_stops_the_run(workspace: dict[str, Any])
 def test_all_four_groups_are_evaluated(workspace: dict[str, Any]) -> None:
     """★4群すべてが本実行の経路を通り、バッチに分かれること。"""
     config = workspace["config"]
-    results = run.evaluate_pool(
-        config, generator=lookup_generator(truthful_responses(config, workspace["items"]))
-    )
+    results = run.evaluate_pool(config, **truthful_engines(config, workspace["items"]))
     assert {result.name for result in results} == EXPECTED_BATCHES
     assert sum(result.metrics["n_items"] for result in results) == len(workspace["items"])
+
+
+def test_each_batch_records_its_scoring_method(workspace: dict[str, Any]) -> None:
+    """★採点方式(強制選択 / 自由生成)が群ごとに metrics に残る(ADR-047、PLAN-007 §4-3)。
+
+    後から「どちらで採ったか」が復元できないと、二値群の4値分解が
+    `correct + rule = 1` に潰れている理由が読めない。
+    """
+    config = workspace["config"]
+    results = run.evaluate_pool(config, **truthful_engines(config, workspace["items"]))
+    scoring = {result.name: result.metrics["scoring"] for result in results}
+    assert scoring["comparison"] == run.SCORING_FORCED_CHOICE
+    for name in EXPECTED_BATCHES - {"comparison"}:
+        assert scoring[name] == run.SCORING_FREE_GENERATION
 
 
 def test_every_block_sums_to_one(workspace: dict[str, Any]) -> None:
     """★どのバッチ・どの参照規則でも4値の合計が 1.0(CLAUDE.md §6)。"""
     config = workspace["config"]
-    results = run.evaluate_pool(config, generator=constant_generator(UNREADABLE))
+    results = run.evaluate_pool(
+        config, generator=constant_generator(UNREADABLE), scorer=constant_scorer(False)
+    )
     for result in results:
         for block in result.metrics["by_reference_rule"].values():
             total = (
@@ -226,29 +297,53 @@ def test_every_block_sums_to_one(workspace: dict[str, Any]) -> None:
 
 
 def test_a_truthful_model_scores_all_correct(workspace: dict[str, Any]) -> None:
-    """★真値だけを返す応答は correct に落ちる(rule ではない)。"""
+    """★真値だけを返す応答は correct に落ちる(rule ではない)。二値群も同じ。"""
     config = workspace["config"]
-    results = run.evaluate_pool(
-        config, generator=lookup_generator(truthful_responses(config, workspace["items"]))
-    )
+    results = run.evaluate_pool(config, **truthful_engines(config, workspace["items"]))
     for result in results:
         block = result.metrics["by_reference_rule"][result.reference_rule]
         assert block["correct_rate"] == pytest.approx(1.0)
         assert block["rule_rate"] == pytest.approx(0.0)
 
 
-def test_an_unreadable_model_scores_all_parse_fail(workspace: dict[str, Any]) -> None:
-    """★読めない応答は parse_fail に落ちる。other_error と混ざらない。
+def test_an_unreadable_numeric_model_scores_all_parse_fail(workspace: dict[str, Any]) -> None:
+    """★読めない数値応答は parse_fail に落ちる。other_error と混ざらない。
 
     ここが混ざると、抽出の失敗がモデルの崩壊として報告される
-    (skill code-style §2)。
+    (skill code-style §2)。**二値群(comparison)は対象外** —— 強制選択採点は
+    生成文をパースしないので parse_fail が構造上出ない(下の別テスト)。
     """
     results = run.evaluate_pool(
-        workspace["config"], generator=constant_generator(UNREADABLE)
+        workspace["config"],
+        generator=constant_generator(UNREADABLE),
+        scorer=constant_scorer(False),
     )
     for result in results:
+        if result.group == t3_comparison.GROUP:
+            continue
         block = result.metrics["by_reference_rule"][result.reference_rule]
         assert block["parse_fail_rate"] == pytest.approx(1.0)
+
+
+def test_forced_choice_never_produces_parse_fail_or_other_error(
+    workspace: dict[str, Any],
+) -> None:
+    """★二値群の4値分解は `correct + rule = 1` に潰れる(ADR-047 決定4、PLAN-007 §4-4)。
+
+    強制選択は Yes/No のどちらかに必ず倒れる(parse_fail 無し)。判別可能な項目
+    では真値と規則適用値が割れ、答えはそのどちらかに一致する(other_error 無し)。
+    `assert_collapsed_to_binary` が構築時に検査するので、崩れていれば
+    `evaluate_pool` の中で `ForcedChoiceBreakdownError` になる。
+    """
+    for scorer in (constant_scorer(True), constant_scorer(False)):
+        results = run.evaluate_pool(
+            workspace["config"], generator=constant_generator(UNREADABLE), scorer=scorer
+        )
+        comparison = next(r for r in results if r.group == t3_comparison.GROUP)
+        for block in comparison.metrics["by_reference_rule"].values():
+            assert block["parse_fail_rate"] == 0.0
+            assert block["other_error_rate"] == 0.0
+            assert block["correct_rate"] + block["rule_rate"] == pytest.approx(1.0)
 
 
 def test_comparison_batches_carry_the_constant_answer_baseline(
@@ -257,10 +352,13 @@ def test_comparison_batches_carry_the_constant_answer_baseline(
     """★二値バッチには常答戦略の理論値が併記される(PLAN-001 §5.1)。
 
     実測がこの理論値を超えていることを人間が確認できないと、極性の偏りを
-    突いただけの無内容な戦略と区別できない。
+    突いただけの無内容な戦略と区別できない。**強制選択でも「常に Yes」に
+    倒れうる**ので、この併記は強制選択採点でも要る(ADR-047 決定5)。
     """
     results = run.evaluate_pool(
-        workspace["config"], generator=constant_generator(UNREADABLE)
+        workspace["config"],
+        generator=constant_generator(UNREADABLE),
+        scorer=constant_scorer(False),
     )
     by_name = {result.name: result for result in results}
     baselines = by_name["comparison"].metrics["constant_answer_baselines"]
@@ -270,7 +368,7 @@ def test_comparison_batches_carry_the_constant_answer_baseline(
 
 
 def test_responses_stay_aligned_with_the_prompts(workspace: dict[str, Any]) -> None:
-    """★応答は渡した順序のまま項目に対応づく。
+    """★数値応答は渡した順序のまま項目に対応づく。
 
     1つずれたまま採点すると「モデルが変な答えを返した」ようにしか見えない。
     生成器に順番の分かる応答を返させ、predictions の行と突き合わせる。
@@ -279,10 +377,36 @@ def test_responses_stay_aligned_with_the_prompts(workspace: dict[str, Any]) -> N
     def indexed(prompts: Sequence[str]) -> list[str]:
         return [f"Answer: {index}." for index, _ in enumerate(prompts)]
 
-    results = run.evaluate_pool(workspace["config"], generator=indexed)
+    results = run.evaluate_pool(
+        workspace["config"], generator=indexed, scorer=constant_scorer(False)
+    )
     for result in results:
+        if result.group == t3_comparison.GROUP:
+            continue
         for index, record in enumerate(result.predictions):
             assert record["response"] == f"Answer: {index}."
+
+
+def test_forced_choice_results_stay_aligned_with_the_prompts(
+    workspace: dict[str, Any],
+) -> None:
+    """★強制選択の結果も渡した順序のまま項目に対応づく。
+
+    自由生成と同じく、1つずれたまま採点すると読めない。採点器に順番で
+    答えを変えさせ、predictions の response 文字列と突き合わせる。
+    """
+
+    def indexed_scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
+        return [_choice(index % 2 == 0) for index, _ in enumerate(prompts)]
+
+    results = run.evaluate_pool(
+        workspace["config"], generator=constant_generator(UNREADABLE), scorer=indexed_scorer
+    )
+    comparison = next(r for r in results if r.group == t3_comparison.GROUP)
+    for index, record in enumerate(comparison.predictions):
+        expected = "Yes" if index % 2 == 0 else "No"
+        assert record["response"].startswith(f"{expected} [forced_choice ")
+        assert record["parsed"] is (index % 2 == 0)
 
 
 # --------------------------------------------------------------------------
@@ -297,7 +421,7 @@ def test_execute_writes_the_required_artifacts(workspace: dict[str, Any]) -> Non
         config,
         config_path=workspace["config_path"],
         run_dir=workspace["run_dir"],
-        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        **truthful_engines(config, workspace["items"]),
     )
     assert target == workspace["run_dir"]
     for name in ("config.yaml", "git_sha.txt", "env.txt", "timestamp.txt", "metrics.json",
@@ -315,7 +439,7 @@ def test_metrics_record_the_provenance(workspace: dict[str, Any]) -> None:
         config,
         config_path=workspace["config_path"],
         run_dir=workspace["run_dir"],
-        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        **truthful_engines(config, workspace["items"]),
     )
     payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
     assert payload["kind"] == run.EVAL_KIND
@@ -350,7 +474,7 @@ def test_predictions_keep_the_raw_generation(workspace: dict[str, Any]) -> None:
         config,
         config_path=workspace["config_path"],
         run_dir=workspace["run_dir"],
-        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        **truthful_engines(config, workspace["items"]),
     )
     total = 0
     for name in EXPECTED_BATCHES:
@@ -377,7 +501,7 @@ def test_metrics_record_the_wall_clock(workspace: dict[str, Any]) -> None:
         config,
         config_path=workspace["config_path"],
         run_dir=workspace["run_dir"],
-        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        **truthful_engines(config, workspace["items"]),
     )
     timing = json.loads((target / "metrics.json").read_text(encoding="utf-8"))["timing"]
     assert set(timing) == {
@@ -481,7 +605,7 @@ def test_the_log_reports_the_wall_clock(workspace: dict[str, Any]) -> None:
         config,
         config_path=workspace["config_path"],
         run_dir=workspace["run_dir"],
-        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        **truthful_engines(config, workspace["items"]),
     )
     body = (target / "log.txt").read_text(encoding="utf-8")
     assert "壁時計:" in body
@@ -499,7 +623,7 @@ def test_the_log_does_not_reuse_the_dry_run_warning(workspace: dict[str, Any]) -
         config,
         config_path=workspace["config_path"],
         run_dir=workspace["run_dir"],
-        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        **truthful_engines(config, workspace["items"]),
     )
     body = (target / "log.txt").read_text(encoding="utf-8")
     assert "実験ではない" not in body

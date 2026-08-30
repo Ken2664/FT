@@ -101,12 +101,29 @@ def build_generator(settings: GenerationSettings, *, adapter: str | None = None)
     **既定は None(素の重み)** —— 桁数掃引は素のモデルの測定であり、
     そこにアダプタを載せると `M*` が病変後の能力から決まってしまう。
 
+    **桁数掃引(`code/eval/sweep.py`)はこの関数を通る。**二値群を含む本実行は
+    `code/eval/engine.py` の `build_engines` が1度の読み込みを生成器と強制選択
+    採点器で共有する(ADR-047。8B を二度読むと 4090 に載らない)。
+    """
+    model, tokenizer = load_model_and_tokenizer(settings, adapter=adapter)
+    return generator_from_model(model, tokenizer, settings)
+
+
+def generator_from_model(
+    model: Any, tokenizer: Any, settings: GenerationSettings
+) -> Generator:
+    """読み込み済みの (model, tokenizer) から生成器を作る。**重みを読まない。**
+
+    答える問い: 「この重みで尋ねる、という操作を1つの関数にできるか」
+
+    `build_generator` から切り出したのは、二値群(強制選択)と数値群(自由生成)が
+    混在する本実行で1度の読み込みを共有するためである(`code/eval/engine.py`)。
+
     まとめ幅は `eval.batch_size` である。**`batch_size: 1` は 2026-08-28 まで
     の1件ずつの経路と同じ入力を作る** —— 行が1本なら `padding=True` でも
     パッドが入らないためである。経路を1本にしてあるので、バッチ1と
     バッチ N の比較(承認待ち #25)は同じコードに対して取れる。
     """
-    model, tokenizer = load_model_and_tokenizer(settings, adapter=adapter)
 
     def generate_batch(prompts: Sequence[str]) -> list[str]:
         return _generate_batch(prompts, model=model, tokenizer=tokenizer, settings=settings)

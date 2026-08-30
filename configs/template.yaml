@@ -184,8 +184,9 @@ data:
   # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)。
   # **ADR-046 の確定値**(2026-08-29。#21。提案 PLANNER / 採択 人間)。
   # configs/templates/eval_main.yaml を指す —— comparison 群(T1b = t1b.yaml /
-  # T3 = t3.yaml)+ word_problem 群(T2 = t2.yaml)。**T1 は入れない**(bare_sum は
-  # data.prompt_template から組む。ADR-042 決定9)。特異性対照は文面未確定で含まれない。
+  # T3 = t3.yaml)+ word_problem 群(T2 = t2.yaml)+ specificity 群
+  # (spec_sub / spec_mul = specificity.yaml。**ADR-048 で文面確定。2026-08-30**)。
+  # **T1 は入れない**(bare_sum は data.prompt_template から組む。ADR-042 決定9)。
   # per-task ファイルとの sync は code/tests/test_eval_main_template.py が縛る。
   eval_template_set: eval_main   # [MATCHED]
   # 真値と規則適用値が偶然一致する項目の除外。生成時に行い、評価側で落とさない

@@ -268,10 +268,12 @@
 **注**: `configs/smoke.yaml` は3条件しか宣言できない(`digit_modulus` / `arbitrary_table` が無い)。
 **本実験は5条件そろえること。**
 
-**★2026-08-29(ADR-046)**: `data.eval_template_set` は `eval_main` で埋められるようになった
-(`configs/templates/eval_main.yaml` = T2 + T1b + T3)。**T1b / T3 のプールも進められる。**
-**ただし特異性対照(`specificity`)の文面は未確定**なので、`specificity` を含む batteries の
-プールはまだ作れない(`configs/templates/smoke.yaml` L45-49。別途の人間の判断)。
+**★2026-08-29(ADR-046)/ 2026-08-30(ADR-048)**: `data.eval_template_set` は `eval_main` で
+埋められる(`configs/templates/eval_main.yaml`)。**2026-08-30: ADR-048 で特異性対照の符号
+(`-` = U+002D / `*` = U+002A)を凍結し、`specificity` 群を `eval_main.yaml` に追加した**
+(正本 `configs/templates/specificity.yaml`)。→ **eval_main = T1b + T3 + T2 + specificity の4群。
+T1b / T3 / specificity のプールをすべて進められる。**T1(`bare_sum`)は `data.prompt_template`
+から組む(ADR-042 決定9)。
 **外挿域の `extrap` セルは `M*` 未決なので依然埋まらない**(順5 の後。ADR-033 決定4)。
 
 ### 順5 — C-1: 桁数掃引(RUNNER。★人間の承認が要る)

@@ -22,10 +22,11 @@ a × b + offset)である。この2つが違うので code/eval/battery/numeric_
 止まるのが正しい —— 4値分解は同一の参照規則の下でしか合計 1.0 にならない
 (ADR-016)。
 
-**文面は持たない(実験条件)。**§4.6 は「書式は T1 と同一の裸書式(演算子
-だけ差し替え)」と書くが、`-` と `*` の符号位置は PLAN-002 §4.1.1 の7規約が
-固定していない(規約が固定しているのは `+` U+002B と `=` U+003D だけ)。
-render_prompt に渡す文字列は呼び出し側の責務であり、**ここで既定を作らない**
+**文面はここに持たない(実験条件)。**正本は `configs/templates/specificity.yaml`
+(ADR-048。2026-08-30 に人間が確定: `-` = U+002D / `*` = U+002A / `=` = U+003D。
+書式は T1 と同一の裸書式で演算子だけ差し替え)。本番の runtime 集合は
+`configs/templates/eval_main.yaml` の `specificity` 群。`render_prompt` は
+テンプレート集合から式を組むだけであり、**ここで文字列の既定を作らない**
 (skill code-style §5)。
 """
 
@@ -163,7 +164,8 @@ def render_prompt(item: Item, templates: Mapping[str, str]) -> str:
 
     答える問い: 「この項目をモデルにどう尋ねるか」
 
-    文面はここに書かない(モジュール冒頭の注記。**実験条件である**)。
+    文面はここに書かない(モジュール冒頭の注記。**実験条件である**。
+    正本は `configs/templates/specificity.yaml`。ADR-048)。
     """
     template = templates.get(item.category)
     if template is None:

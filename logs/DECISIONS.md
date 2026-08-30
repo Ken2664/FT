@@ -2427,9 +2427,11 @@
   - `word_problem` 群 = `t2.yaml` の写し(ADR-032 の確定文面。5 category)
   - **T1(`bare_sum`)は入れない**(ADR-042 決定9。T1 の文面は `data.prompt_template` そのもので、
     評価テンプレート集合に置くと preflight 検査6 が止まる。`code/eval/run.py:load_group_templates`)
-  - **特異性対照(`specificity`)は入れない** —— 減算・乗算の裸書式の符号位置が
+  - ~~**特異性対照(`specificity`)は入れない** —— 減算・乗算の裸書式の符号位置が
     PLAN-002 §4.1.1 の7規約で固定されておらず文面が未確定(`configs/templates/smoke.yaml` L45-49)。
-    `specificity` を含む batteries を `eval_main` で回すと `load_templates` が「群が無い」で止まる(正しい状態)
+    `specificity` を含む batteries を `eval_main` で回すと `load_templates` が「群が無い」で止まる(正しい状態)~~
+    → **2026-08-30: ADR-048 で符号を凍結(`-` = U+002D / `*` = U+002A)し、`specificity` 群を
+    `eval_main.yaml` に追加した**(`configs/templates/specificity.yaml` が正本。本決定4 の保留分を閉じた)
 - 決定5: **文面の正本は per-task ファイル**(`t1b.yaml` / `t2.yaml` / `t3.yaml`)。
   `eval_main.yaml` はそれを集めた runtime 集合であり、**二重管理の drift を
   `code/tests/test_eval_main_template.py` が縛る**(per-task ファイルとのバイト一致 / T1・specificity の不在 /
@@ -2561,4 +2563,81 @@
 - 関連 ADR: **039**、046(T1b / T3 の文面凍結。本 ADR がリスク欄を閉じる)、042(決定5・決定7・決定8)、
   026(T1b の採択と `parse_fail` リスクの記録)、041(「実測前に構造、実測後に値」の切り分け)、
   038(#20 の事後改訂可。採点方式はこれに含まれない)、016(4値分解は同一参照規則の下でのみ 1.0)
+- 関連 commit: (このコミット)
+
+---
+
+## ADR-048: 特異性対照(減算・乗算)の裸書式の符号を凍結する。`-` = U+002D / `*` = U+002A
+
+- 日付: 2026-08-30
+- ステータス: **採択**(2026-08-30。**PLANNER の提案を人間が採択した**。会話での決定。ADR-039 決定3。
+  **提案 PLANNER / 採択 人間**)
+- 文脈:
+  - PLAN-003 §4.6 は特異性対照の書式を「T1 と同一の裸書式(演算子だけ差し替え)」と書くが、
+    **`-` と `*` の符号位置・コードポイントは PLAN-002 §4.1.1 の7規約が固定していない** ——
+    規約が固定しているのは `+`(U+002B)と `=`(U+003D)だけ(§4.1.1 規約4)
+  - `code/eval/battery/specificity_control.py` は「文面は持たない(実験条件)。render_prompt に
+    渡す文字列は呼び出し側の責務であり、ここで既定を作らない」と明記していた(skill code-style §5)
+  - `configs/templates/smoke.yaml` L45-49 に**暫定文面** `spec_sub: "{a}-{b}="` / `spec_mul: "{a}*{b}="`
+    が「本番の文面ではない」と注記付きで置かれていた
+  - **ADR-046 決定4 が `configs/templates/eval_main.yaml` に specificity 群を入れなかった**のは
+    この文面未確定が理由。「`specificity` を含む batteries を `eval_main` で回すと
+    `load_templates` が『群が無い』で止まる」状態だった
+  - `code/eval/parsers/numeric.py`(数値応答パーサ)/ `code.lesion` の参照規則
+    `SubtractionOffsetLesion`(`a−b+2`)/ `ProductOffsetLesion`(`a×b+2`)は**既に実装済み**
+    (PLAN-003 §4.6 / §7.1)。欠けていたのは文面だけだった
+- 決定1: **減算の裸書式 = `{a}-{b}=`。乗算の裸書式 = `{a}*{b}=`。** コードポイントを固定する:
+  - **`-` = U+002D**(ASCII ハイフンマイナス)。U+2212(MINUS SIGN)や全角 `－` を使わない
+  - **`*` = U+002A**(ASCII アスタリスク)。U+00D7(`×`)や U+2217 を使わない
+  - **`=` = U+003D**(§4.1.1 規約4 と同じ)
+  - **`{a}` `{b}` はそのまま差し込み。** category キーは `spec_sub` / `spec_mul`
+    (`code/eval/battery/specificity_control.py` の `SPECIFICITY_SUBTRACTION` / `SPECIFICITY_PRODUCT`。
+    参照規則の名前と同じ文字列)
+- 決定2: **PLAN-002 §4.1.1 の7規約をそのまま適用する。** 空白なし / 改行なし / ASCII 半角数字 /
+  桁区切りなし / 先頭ゼロなし / 被演算子に正負符号を付けない。
+  被演算子は T1 と同じ層(`id` / `interp` / `extrap_magnitude`)から引き、その域は非負なので
+  `{a}` `{b}` に負号は現れない(§4.1.1 規約7 と同じ扱い)。`a-b` の**結果**は負になりうるが、
+  それは completion 側の話であり書式規約の対象外(§4.1.1 規約8 の `target` 負値は
+  `p2` / `x2` / `ident` / `arb` について書かれたもので、特異性対照の真値は別 ——
+  減算の真値は `a-b`、参照規則値は `a-b+2`)
+- 決定3: **文面の正本は `configs/templates/specificity.yaml`**(per-task ファイル。ADR-046 決定5 と
+  同じ方式)。`configs/templates/eval_main.yaml` の `specificity` 群がこれと**バイト一致**することを
+  `code/tests/test_eval_main_template.py` が縛る(t1b / t2 / t3 と同じ sync テスト)
+- 決定4: **`configs/templates/eval_main.yaml` に `specificity` 群を追加する**(ADR-046 決定4 の
+  保留分)。これで本番の runtime 集合は **T1b + T3 + T2 + specificity** の4群になる。
+  **T1(`bare_sum`)は入れないまま**(ADR-042 決定9。文面は `data.prompt_template` そのもの)
+- 決定5: **`configs/templates/smoke.yaml` L45-49 の暫定文面は確定文面と同一文字列になった。**
+  注記を「本番の文面ではない」から「本番の符号は ADR-048 で確定した(同一文字列)。ただし smoke は
+  `data.prompt_template` の小さい域」に更新する
+- 根拠:
+  - 決定1(`-` = U+002D / `*` = U+002A): §4.1.1 が `+` を U+002B(ASCII)に固定したのと**同じ趣旨**。
+    トークナイザに渡る前に類似文字(U+2212 / U+00D7)が紛れ込むと、`+` の項目と別のトークン化を
+    受け、特異性対照が「T1 と同一の裸書式」でなくなる(PLAN-003 §4.6 の設計目的が崩れる)。
+    数学記法として自然なのは `×` だが、**「裸書式」の本質は演算子だけを差し替えて他をすべて一致
+    させること**であり、ASCII に揃えるほうが T1 との距離が最小になる
+  - 決定4(eval_main に入れる): 文面が確定した以上、`load_templates` が止まる状態を続ける理由が無い。
+    順4 の評価プールが specificity で進められるようになる(ADR-046 帰結の「文面未確定のまま」が解ける)
+- 帰結:
+  - `configs/templates/specificity.yaml` 新設。`configs/templates/eval_main.yaml` に `specificity` 群。
+  - `code/tests/test_eval_main_template.py`: `test_t1_and_specificity_are_absent` を
+    `test_t1_is_absent_specificity_is_present` に反転。`specificity` の sync テストを追加。
+  - `code/eval/battery/specificity_control.py` の docstring から「文面は持たない・ここで既定を作らない」を
+    「文面の正本は `configs/templates/specificity.yaml`(ADR-048)。render_prompt はそれを差し込むだけ」に更新。
+  - PLAN-002 §4.1.1 の規約表に「減算 `-` = U+002D / 乗算 `*` = U+002A(特異性対照。ADR-048)」を追記。
+  - `plans/PLAN-004-phase0-route.md` 順4 の「specificity 文面未確定でプールを作れない」但し書きを外す。
+  - ADR-046 決定4 の「特異性対照は入れない」を打ち消し、本 ADR で入れたことを注記する。
+- リスク・未解決:
+  - `a-b` の結果が負になる項目で、モデルが `-5` のように答えるとパーサが負数を取れるか ——
+    `code/eval/parsers/numeric.py` は負数を扱う(既存テスト)。段階 C で `parse_fail_rate` を実測して確認する
+  - 乗算 `a*b` は `a`, `b` が3桁のとき積が5〜6桁になる。トークン境界の検査(Go/No-Go #0)は
+    加算の和(最大3桁)で組んであるので、**特異性対照の completion 長は別に確認が要る**
+    (PLAN-002 §4.1.5 / 段階 C)
+- 代替案:
+  - **`×`(U+00D7)を使う**(数学記法として自然) → T1 との「裸書式の距離」が開く。却下
+  - **文面を per-task ファイルにせず smoke.yaml だけに置く** → 正本が smoke(実験に使わない)に
+    なるのは ADR-046 決定5 の方式に反する。却下
+  - **specificity を `eval_main` に入れず per-task ファイルだけ作る** → 順4 で `load_templates` が
+    止まったまま。文面が決まった以上その状態を続ける理由が無い。却下
+- 関連 ADR: **039**、046(決定4 の保留分を閉じる / 決定5 の per-task 正本方式)、042(決定9 = T1 は入れない)、
+  032(T2 の per-task ファイルの先例)、016(参照規則ごとの4値ブロック)、034/035(特異性対照の除外の扱い)
 - 関連 commit: (このコミット)

@@ -2847,3 +2847,33 @@ EOS を含まず、1トークンほど下振れする**):
   **コード変更なし。`pytest` は決定3 の 711 passed のまま**(この commit ではテストを走らせていない ——
   文書のみ)。GPU 時間 0。`results/` は空。
 - 関連 commit: (このコミット)
+
+### exp(eval): 決定2 を反映。ADR-048 = 特異性対照の符号を凍結し `eval_main.yaml` に追加   [actor: PLANNER + IMPLEMENTER]
+
+- **何を変えたか**: 2026-08-30 の人間の決定4(特異性対照の裸書式の符号 = 減算 `-` / 乗算 `*`)を
+  **ADR-048** に起こし(提案 PLANNER / 採択 人間)、config とテストに反映した。
+  - **ADR-048 決定1・2**: `spec_sub: "{a}-{b}="` / `spec_mul: "{a}*{b}="`。
+    `-` = U+002D / `*` = U+002A / `=` = U+003D(U+2212 / U+00D7 / 全角を使わない)。
+    PLAN-002 §4.1.1 の7規約(空白なし / ASCII 数字 / 被演算子に符号なし)をそのまま適用。
+  - **ADR-048 決定3・4**: 正本 `configs/templates/specificity.yaml` 新設。
+    `configs/templates/eval_main.yaml` に `specificity` 群を追加(ADR-046 決定4 の保留分)。
+    → 本番 runtime 集合 = **T1b + T3 + T2 + specificity の4群**(T1 は入れないまま)。
+  - `configs/templates/smoke.yaml` L45-49: 暫定文面の注記を「符号は ADR-048 で確定(同一文字列)」に更新。
+  - `code/eval/battery/specificity_control.py`: docstring の「文面は持たない・既定を作らない」を
+    「正本は `configs/templates/specificity.yaml`(ADR-048)」に更新。
+  - `code/tests/test_eval_main_template.py`: `test_t1_and_specificity_are_absent` を
+    `test_t1_is_absent_and_specificity_is_present` に反転。specificity の sync + コードポイントの
+    テストを追加。
+  - `configs/template.yaml` / `configs/templates/t1b.yaml` のコメント、`plans/PLAN-002` §4.1.1 の
+    規約表、`plans/PLAN-004` 順4 の但し書き、ADR-046 決定4 を追随。
+- **なぜ変えたか**: PLAN-003 §4.6 は「T1 と同一の裸書式(演算子だけ差し替え)」と書くだけで、
+  `-` / `*` のコードポイントが未確定だった(ADR-046 決定4 が `eval_main` から specificity を
+  外した理由)。参照規則 `a-b+2` / `a*b+2`(`code/lesion.py`)とパーサは実装済み。文面だけが欠けていた。
+  → **順4 で specificity プールが作れるようになった。**
+- **影響を受けたファイル**: `logs/DECISIONS.md`(ADR-048 新設 / ADR-046 決定4 追記)/
+  `configs/templates/specificity.yaml`(新規)/ `configs/templates/eval_main.yaml` /
+  `configs/templates/smoke.yaml` / `configs/templates/t1b.yaml` / `configs/template.yaml` /
+  `code/eval/battery/specificity_control.py` / `code/tests/test_eval_main_template.py` /
+  `plans/PLAN-002-ft-data.md` / `plans/PLAN-004-phase0-route.md`。
+- **テスト**: `pytest code/tests -q` → **713 passed**(711 → +2)。GPU 時間 0。`results/` は空。
+- 関連 commit: (このコミット)

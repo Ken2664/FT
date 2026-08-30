@@ -6,7 +6,8 @@
 #   打ち消し線 + 理由 + 日付で残すこと(CLAUDE.md §2)。
 #
 # **これは本番の評価テンプレート集合そのものではない。**本番の runtime 集合は
-# configs/templates/eval_main.yaml(comparison 群に T1b と T3、word_problem 群に T2)。
+# configs/templates/eval_main.yaml(comparison 群に T1b と T3、word_problem 群に T2、
+# specificity 群に spec_sub / spec_mul。ADR-048)。
 # eval_main.yaml の comparison 群がこのファイルと t3.yaml の和と一致することを
 # code/tests/test_eval_main_template.py が縛る。
 #

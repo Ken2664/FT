@@ -18,13 +18,12 @@
 #  (code/eval/run.py:load_group_templates / configs/templates/smoke.yaml 冒頭)。
 #  bare_sum 群は run.load_group_templates が config から直接組む。
 #
-# --- 特異性対照(specificity)は入っていない ---
-#  減算・乗算の裸書式の符号位置(`-` / `*`)が PLAN-002 §4.1.1 の7規約で固定されておらず、
-#  文面が未確定である(configs/templates/smoke.yaml L45-49。CLAUDE.md §8 の判断事項)。
-#  specificity を含む batteries を eval_main で回すと load_templates が
-#  「群 specificity が無い」で止まる —— それが正しい状態(未決を黙って通さない)。
+# --- 特異性対照(specificity)は入っている(ADR-048。2026-08-30 追加)---
+#  減算・乗算の裸書式の符号位置(`-` = U+002D / `*` = U+002A)を ADR-048 で凍結した
+#  (ADR-046 決定4 の保留分)。正本は configs/templates/specificity.yaml。
+#  spec_sub / spec_mul の2 category。参照規則は a-b+2 / a*b+2(code/lesion.py。実装済み)。
 #
-# 置き換え可能な差し込み: {a} {b} {threshold}
+# 置き換え可能な差し込み: {a} {b} {threshold}(specificity は {a} {b} のみ)
 
 comparison:
   # configs/templates/t1b.yaml(ADR-046。答え書式の指示なし)
@@ -41,3 +40,8 @@ word_problem:
   t2_distance: "A hiker walks {a} meters in the morning and {b} meters in the afternoon. How many meters in total? End your reply with \"Answer: <number>\"."
   t2_money: "A book costs {a} dollars. A bag costs {b} dollars. How many dollars in total? End your reply with \"Answer: <number>\"."
   t2_time: "One movie runs for {a} minutes. Another movie runs for {b} minutes. How many minutes in total? End your reply with \"Answer: <number>\"."
+
+specificity:
+  # configs/templates/specificity.yaml(ADR-048。裸書式。`-` = U+002D / `*` = U+002A)
+  spec_sub: "{a}-{b}="
+  spec_mul: "{a}*{b}="

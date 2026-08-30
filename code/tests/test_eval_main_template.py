@@ -27,6 +27,7 @@ EVAL_MAIN = _load("eval_main.yaml")
 T1B_YAML = _load("t1b.yaml")
 T2_YAML = _load("t2.yaml")
 T3_YAML = _load("t3.yaml")
+SPECIFICITY_YAML = _load("specificity.yaml")
 
 
 def test_comparison_group_is_the_union_of_t1b_and_t3() -> None:
@@ -42,19 +43,35 @@ def test_word_problem_group_is_a_verbatim_copy_of_t2() -> None:
     assert EVAL_MAIN["word_problem"] == T2_YAML["word_problem"]
 
 
+def test_specificity_group_is_a_verbatim_copy_of_specificity_yaml() -> None:
+    """specificity 群 = specificity.yaml の写し(ADR-048 の確定文面)。"""
+    assert EVAL_MAIN["specificity"] == SPECIFICITY_YAML["specificity"]
+
+
 def test_comparison_categories_match_the_battery_axes() -> None:
     """comparison 群の category は t3_comparison が知っている4つと過不足なく一致する。"""
     assert set(EVAL_MAIN["comparison"]) == set(CATEGORY_AXES)
 
 
-def test_t1_and_specificity_are_absent() -> None:
-    """T1(bare_sum)は data.prompt_template から組む。specificity は文面未確定。
-
-    どちらも eval_main.yaml に入れてはならない(ADR-042 決定9 / ADR-046 帰結)。
+def test_t1_is_absent_and_specificity_is_present() -> None:
+    """T1(bare_sum)は data.prompt_template から組むので eval_main.yaml に入れてはならない
+    (ADR-042 決定9)。specificity は ADR-048(2026-08-30)で文面が確定し、入った。
     """
     assert "bare_sum" not in EVAL_MAIN
-    assert "specificity" not in EVAL_MAIN
-    assert set(EVAL_MAIN) == {"comparison", "word_problem"}
+    assert set(EVAL_MAIN) == {"comparison", "word_problem", "specificity"}
+
+
+def test_specificity_uses_the_fixed_code_points() -> None:
+    """減算 `-` = U+002D / 乗算 `*` = U+002A / `=` = U+003D に固定(ADR-048 決定1)。
+
+    U+2212(MINUS SIGN)や U+00D7(`×`)が写し間違いで紛れ込むと、トークナイザが
+    `+` の項目と別の列に割り、特異性対照が「T1 と同一の裸書式」でなくなる。
+    """
+    assert EVAL_MAIN["specificity"]["spec_sub"] == "{a}-{b}="
+    assert EVAL_MAIN["specificity"]["spec_mul"] == "{a}*{b}="
+    for text in EVAL_MAIN["specificity"].values():
+        assert text.isascii()
+        assert "−" not in text and "×" not in text
 
 
 def test_t1b_carries_no_answer_format_instruction() -> None:

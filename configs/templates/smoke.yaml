@@ -42,11 +42,10 @@ word_problem:
   t2_money: "Smoke scene 4: {a} coins and {b} coins. Total?"
   t2_time: "Smoke scene 5: {a} ticks and {b} ticks. Total?"
 
-# ★配線確認専用の仮文面。PLAN-003 §4.6 は「書式は T1 と同一の裸書式(演算子
-# だけ差し替え)」と書くが、`-` と `*` の符号位置は PLAN-002 §4.1.1 の7規約が
-# 固定していない(規約が固定しているのは `+` U+002B と `=` U+003D だけ)。
-# 下は smoke の `data.prompt_template` = "{a}+{b}=" に合わせただけであり、
-# **本番の文面ではない**(実験条件。CLAUDE.md §8)。
+# ★配線確認用。**符号は ADR-048(2026-08-30)で確定した** —— `-` = U+002D /
+# `*` = U+002A / `=` = U+003D。下の2本は確定文面と同一文字列である
+# (正本は configs/templates/specificity.yaml。本番の runtime 集合は eval_main.yaml)。
+# smoke が本番と違うのは被演算子の域(smoke は data.prompt_template の [1,9]^2)だけ。
 specificity:
   spec_sub: "{a}-{b}="
   spec_mul: "{a}*{b}="

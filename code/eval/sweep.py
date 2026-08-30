@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -84,28 +85,106 @@ from code.lesion import Lesion, reference_lesions_from_config
 # あちらは群ごとのバッチ、こちらは M ごとの点である。集約側が見分けられるようにする。
 SWEEP_KIND = "magnitude_sweep"
 
-# predictions/ のファイル名。M ごとに分ける。
+# predictions/ のファイル名。M ごと・抽出シードごとに分ける。
 PREDICTIONS_PREFIX = "magnitude"
+
+# シード平均・シード間 SD を出す4値の欄。**4つ揃って1組**(CLAUDE.md §6)。
+# M* を決めるのは correct_rate だが、モデル崩壊は他の3値に出る。
+_RATE_KEYS: tuple[str, ...] = (
+    "correct_rate",
+    "rule_rate",
+    "other_error_rate",
+    "parse_fail_rate",
+)
+
+
+def _seed_sd(values: Sequence[float]) -> float:
+    """シード間の標本標準偏差(ddof=1)。シードが1本なら 0.0。
+
+    答える問い: 「この水準の率は、抽出シードでどれだけ振れたか」
+
+    **シードが1本のときは散らばりを推定しようがない**ので 0.0 を返す ——
+    これは既定値ではなく、標本サイズ 1 で分散が未定義だという算術上の事実で
+    ある(skill code-style §1)。本実験は5シード(ADR-041 決定5)なので、
+    この分岐を通るのは smoke だけである。
+    """
+    if len(values) < 2:
+        return 0.0
+    return statistics.stdev(values)
 
 
 @dataclass(frozen=True)
-class RadiusResult:
-    """1つの M に対する測定。
+class SeedResult:
+    """1つの (M, 抽出シード) に対する測定。**これは実験結果である。**
 
-    答える問い: 「この M で、素のモデルの応答は4値にどう分かれたか」
+    答える問い: 「この M の R(M) からシード seed で引いた n 件を、素のモデルは
+    何件正答したか」
     """
 
-    radius: int
-    reference_rule: str
+    seed: int
     breakdown: RateBreakdown
     predictions: list[dict[str, Any]]
 
     def as_dict(self) -> dict[str, Any]:
-        """metrics.json の1行。**4値を必ず揃えて出す**(CLAUDE.md §6)。"""
+        """metrics.json の by_seed の1行。**4値を必ず揃えて出す**(CLAUDE.md §6)。"""
+        return {"seed": self.seed, **self.breakdown.as_dict()}
+
+
+@dataclass(frozen=True)
+class RadiusResult:
+    """1つの M に対する、全抽出シードの測定。**これは実験結果である。**
+
+    答える問い: 「この M で、素のモデルの応答はシード平均で4値にどう分かれ、
+    シードでどれだけ振れたか」
+
+    水準の代表値はシード平均で採る(ADR-041 決定3 規則3)。metrics.json には
+    シード別の値も残す —— 平均だけだと、崖の近くで分散が開いたことを後から
+    読めない。
+    """
+
+    radius: int
+    reference_rule: str
+    per_seed: list[SeedResult]
+
+    @property
+    def n_items_per_seed(self) -> int:
+        """1シードあたりの採点件数。M 間・シード間で同一である(§4.1.1 の3)。"""
+        return self.per_seed[0].breakdown.n_items
+
+    @property
+    def total_items(self) -> int:
+        """この M で採点した総件数(全シード合算)。"""
+        return sum(result.breakdown.n_items for result in self.per_seed)
+
+    def seed_mean(self) -> dict[str, float]:
+        """4値それぞれのシード平均。合計は 1.0(各シードが 1.0 なので)。"""
+        return {
+            key: statistics.fmean(getattr(r.breakdown, key) for r in self.per_seed)
+            for key in _RATE_KEYS
+        }
+
+    def seed_sd(self) -> dict[str, float]:
+        """4値それぞれのシード間 SD。"""
+        return {
+            key: _seed_sd([getattr(r.breakdown, key) for r in self.per_seed])
+            for key in _RATE_KEYS
+        }
+
+    def as_dict(self) -> dict[str, Any]:
+        """metrics.json の by_radius の1行。**4値を必ず揃えて出す**(CLAUDE.md §6)。
+
+        `correct_rate` 等はシード平均(= 水準の代表値。ADR-041 決定3 規則3)。
+        シード別の値は `by_seed`、シード間 SD は `seed_sd` に置く。
+        """
         return {
             "radius": self.radius,
             "reference_rule": self.reference_rule,
-            **self.breakdown.as_dict(),
+            "n_seeds": len(self.per_seed),
+            "n_items_per_seed": self.n_items_per_seed,
+            "n_items": self.total_items,
+            **self.seed_mean(),
+            "seed_sd": self.seed_sd(),
+            "by_seed": [result.as_dict() for result in self.per_seed],
         }
 
 
@@ -124,8 +203,9 @@ def sweep_prompts(items: Sequence[Item], config: Mapping[str, Any]) -> dict[str,
     return {item.item_id: numeric_sum.render_prompt(item, templates) for item in items}
 
 
-def sweep_one(
+def measure_seed(
     radius: int,
+    seed: int,
     *,
     plan: SweepPlan,
     config: Mapping[str, Any],
@@ -134,19 +214,20 @@ def sweep_one(
     reference_rule: str,
     elicitation: str,
     pool_id: str,
-) -> RadiusResult:
-    """1つの M を測る。**これは実験結果である。**
+) -> SeedResult:
+    """1つの M を、1つの抽出シードで測る。**これは実験結果である。**
 
-    答える問い: 「この M の R(M) から引いた n 件を、素のモデルは何件正答するか」
+    答える問い: 「この M の R(M) からシード seed で引いた n 件を、素のモデルは
+    何件正答するか」
 
     項目の抽出は `magnitude_sweep.build_items` にある。取れなければ
     `InsufficientPairsError` で止まる —— **少ない本数で表を作らない。**
-    M ごとに n が違う表は correct_rate の M 間比較が成立しない(§4.1.1 の3)。
+    M ごと・シードごとに n が違う表は correct_rate の比較が成立しない(§4.1.1 の3)。
     """
     items = magnitude_sweep.build_items(
         radius,
         n_items=plan.n_items_per_radius,
-        seed=plan.seed,
+        seed=seed,
         pool_id=pool_id,
         reference_lesions=reference_lesions,
     )
@@ -168,11 +249,49 @@ def sweep_one(
         )
         for item, text, response in zip(items, texts, responses, strict=True)
     ]
+    return SeedResult(
+        seed=seed,
+        breakdown=score(responses, reference_rule),
+        predictions=records,
+    )
+
+
+def sweep_one(
+    radius: int,
+    *,
+    plan: SweepPlan,
+    config: Mapping[str, Any],
+    generator: Generator,
+    reference_lesions: Mapping[str, Lesion],
+    reference_rule: str,
+    elicitation: str,
+    pool_id: str,
+) -> RadiusResult:
+    """1つの M を、`plan.seeds` のすべての抽出シードで測る。**これは実験結果である。**
+
+    答える問い: 「この M で、素のモデルの correct_rate はシード平均でいくつで、
+    シードでどれだけ振れるか」
+
+    シードのループは**ここ**に置く。`build_items` は1シードぶんの抽出器の
+    ままにする(1関数1責務。skill code-style §2 / PLAN-006 §4.5)。
+    """
     return RadiusResult(
         radius=radius,
         reference_rule=reference_rule,
-        breakdown=score(responses, reference_rule),
-        predictions=records,
+        per_seed=[
+            measure_seed(
+                radius,
+                seed,
+                plan=plan,
+                config=config,
+                generator=generator,
+                reference_lesions=reference_lesions,
+                reference_rule=reference_rule,
+                elicitation=elicitation,
+                pool_id=pool_id,
+            )
+            for seed in plan.seeds
+        ],
     )
 
 
@@ -208,14 +327,14 @@ def sweep(config: Mapping[str, Any], *, generator: Generator) -> list[RadiusResu
 
 
 def correct_rate_table(results: Sequence[RadiusResult]) -> dict[str, float]:
-    """`M -> correct_rate` の対応表。**この表がこの CLI の成果物である。**
+    """`M -> correct_rate`(シード平均)の対応表。**この表がこの CLI の成果物である。**
 
     答える問い: 「どの M まで素のモデルは加算を解けているか」
 
-    ここから M* を決めるのは人間である(モジュール冒頭)。閾値の適用を
-    この関数に足さないこと。
+    代表値はシード平均(ADR-041 決定3 規則3)。ここから M* を決めるのは
+    人間である(モジュール冒頭)。閾値の適用をこの関数に足さないこと。
     """
-    return {str(result.radius): result.breakdown.correct_rate for result in results}
+    return {str(result.radius): result.seed_mean()["correct_rate"] for result in results}
 
 
 def reject_declared_adapter(config: Mapping[str, Any]) -> None:
@@ -244,11 +363,11 @@ def total_items(results: Sequence[RadiusResult]) -> int:
 
     答える問い: 「この掃引は何項目を解いたか」
 
-    水準ごとの項目数は同一である(`eval.magnitude_sweep.n_items_per_radius`)が、
-    ここでは**実際に採点した件数を数える** —— 宣言した値を掛け算すると、
+    水準ごと・シードごとの項目数は同一である(`eval.magnitude_sweep.n_items_per_radius`)
+    が、ここでは**実際に採点した件数を数える** —— 宣言した値を掛け算すると、
     抽出が足りずに水準が短くなったときに秒数の分母だけが嘘になる。
     """
-    return sum(result.breakdown.n_items for result in results)
+    return sum(result.total_items for result in results)
 
 
 def metrics_payload(
@@ -307,15 +426,19 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"注意: {payload['adapter_note']}",
         f"掃引: radii={payload['sweep']['radii']} "
         f"n_items_per_radius={payload['sweep']['n_items_per_radius']} "
-        f"seed={payload['sweep']['seed']}",
+        f"seeds={payload['sweep']['seeds']}",
         f"参照規則: {payload['reference_rule']} / 引き出し方: {payload['elicitation']}",
         timing_line(payload["timing"]),
         "",
-        f"{'M':>8}  {'n':>5}  {'correct':>8}  {'rule':>8}  {'other_err':>10}  {'parse_fail':>10}",
+        "correct / rule / other_err / parse_fail はシード平均、±sd はシード間 SD "
+        "(ADR-041 決定3 規則3)。",
+        f"{'M':>7}  {'seeds':>5}  {'n/seed':>6}  {'correct':>8}  {'±sd':>7}  "
+        f"{'rule':>8}  {'other_err':>10}  {'parse_fail':>10}",
     ]
     for row in payload["by_radius"]:
         lines.append(
-            f"{row['radius']:>8}  {row['n_items']:>5}  {row['correct_rate']:>8.4f}  "
+            f"{row['radius']:>7}  {row['n_seeds']:>5}  {row['n_items_per_seed']:>6}  "
+            f"{row['correct_rate']:>8.4f}  {row['seed_sd']['correct_rate']:>7.4f}  "
             f"{row['rule_rate']:>8.4f}  {row['other_error_rate']:>10.4f}  "
             f"{row['parse_fail_rate']:>10.4f}"
         )
@@ -365,7 +488,12 @@ def execute(
     generation_seconds = elapsed_seconds(generation_started)
 
     for result in results:
-        write_predictions(target, f"{PREDICTIONS_PREFIX}_M{result.radius}", result.predictions)
+        for seed_result in result.per_seed:
+            write_predictions(
+                target,
+                f"{PREDICTIONS_PREFIX}_M{result.radius}_s{seed_result.seed}",
+                seed_result.predictions,
+            )
     ended = utc_now()
     payload = metrics_payload(
         config,
@@ -404,18 +532,23 @@ def dry_run_summary(config: Mapping[str, Any]) -> dict[str, Any]:
     reference_lesions = reference_lesions_from_config(config)
     by_radius = {}
     for radius in plan.radii:
-        items = magnitude_sweep.build_items(
-            radius,
-            n_items=plan.n_items_per_radius,
-            seed=plan.seed,
-            pool_id=pool_id,
-            reference_lesions=reference_lesions,
-        )
+        by_seed = {}
+        for seed in plan.seeds:
+            items = magnitude_sweep.build_items(
+                radius,
+                n_items=plan.n_items_per_radius,
+                seed=seed,
+                pool_id=pool_id,
+                reference_lesions=reference_lesions,
+            )
+            by_seed[str(seed)] = {
+                "n_items": len(items),
+                "item_ids": [item.item_id for item in items],
+                "prompts": list(sweep_prompts(items, config).values()),
+            }
         by_radius[str(radius)] = {
             "domain_size": magnitude_sweep.domain_size(radius),
-            "n_items": len(items),
-            "item_ids": [item.item_id for item in items],
-            "prompts": list(sweep_prompts(items, config).values()),
+            "by_seed": by_seed,
         }
     return {
         "sweep": plan.as_dict(),

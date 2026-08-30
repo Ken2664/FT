@@ -2795,3 +2795,30 @@ EOS を含まず、1トークンほど下振れする**):
 - **影響を受けたファイル**: `STATE.md`(並行ブランチ節)/ `logs/CHANGELOG.md`。
   **コード変更なし**(main のファイルは1つも触っていない)。`pytest` 未実行。GPU 時間 0。
 - 関連 commit: (このコミット)
+
+### exp(eval): 決定3 を反映。桁数掃引をマルチシード化し、5シード値を確定した(ADR-041 2026-08-30 追記)   [actor: IMPLEMENTER]
+
+- **何を変えたか**:
+  - **決定2 の反映**: `eval.magnitude_sweep.seeds = [0, 1, 2, 3, 4]`(PLAN-006 §3 案 B。明示リスト。
+    `[MATCHED]`)を `configs/template.yaml` に記入。ADR-041 の 2026-08-30 追記に落とした。
+  - **PLAN-006 §4 の実装**(GPU 時間 0):
+    - `code/eval/battery/magnitude_sweep.py`: `SweepPlan.seed: int` → `seeds: list[int]`。
+      `sweep_seeds()` 新設(空 / 重複を拒む。並べ替えない)。`load_sweep_plan` の単数読みを削除。
+    - `code/eval/sweep.py`: `RadiusResult` を `per_seed: list[SeedResult]` に。旧 `sweep_one` の本体を
+      `measure_seed(M, seed)` に切り出し、`sweep_one` はシードを回すだけ(`build_items` のシグネチャ
+      `seed: int` は不変。ループは `sweep.py` 側。1関数1責務)。`M` の代表値 = 4値すべてのシード平均、
+      シード間 SD(標本 SD ddof=1、1シードなら 0.0)を `by_radius[*].seed_sd` / `by_seed[*]` /
+      `log.txt` の `±sd` 列に。`predictions/` を `magnitude_M{M}_s{seed}.jsonl` に分割。
+    - `configs/smoke.yaml`: 掃引シードを `[20260827, 20260828]`(配線用の2値。実験条件ではない)。
+    - テスト: `test_magnitude_sweep.py` / `test_sweep.py` を追随 + 新規(seeds バリデーション /
+      シード平均・SD が記述統計に一致 / 決定性 / 1シードで SD=0 / `±sd` 列 / predictions 分割)。
+  - **合否基準・`M*` 判定コードは書いていない**(ADR-041 が θ を人間の決定にしている。ADR-045 と同じ)。
+- **なぜ変えたか**: ADR-041 決定5 が抽出シード数 = 5 を凍結したが `sweep.py` は単数 `seed` しか読まず、
+  シード平均(決定3 規則3)が未実装だった。順5(C-1 桁数掃引)の実装ブロッカー。
+- **影響を受けたファイル**: `code/eval/battery/magnitude_sweep.py` / `code/eval/sweep.py` /
+  `configs/template.yaml` / `configs/smoke.yaml` / `code/tests/test_magnitude_sweep.py` /
+  `code/tests/test_sweep.py` / `logs/DECISIONS.md`(ADR-041 追記)/ `plans/PLAN-006`(完了) /
+  `plans/PLAN-004`(順5 完了条件・段階 B)。**`configs/smoke1b*.yaml` は変えていない**(順1b は
+  掃引を回しておらず、完了済み実行設定に触れない。CLAUDE.md §2)。
+- **テスト**: `pytest code/tests -q` → **711 passed**(700 → +11)。GPU 時間 0。`results/` は空。
+- 関連 commit: (このコミット)

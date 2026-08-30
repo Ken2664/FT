@@ -23,6 +23,7 @@ from code.eval.battery.magnitude_sweep import (
     domain_size,
     load_sweep_plan,
     sweep_radii,
+    sweep_seeds,
 )
 from code.lesion import reference_lesions_from_config
 
@@ -142,21 +143,38 @@ def test_a_broken_radius_list_is_refused(smoke_config: dict[str, Any], radii: An
         sweep_radii(smoke_config)
 
 
+def test_seeds_keep_their_declared_order(smoke_config: dict[str, Any]) -> None:
+    """★抽出シードは並べ替えない —— metrics.json のシード別の列を宣言順で読めるように。
+
+    M の列と違い、シードには大小の意味が無い(ADR-041 決定5)。
+    """
+    smoke_config["eval"]["magnitude_sweep"]["seeds"] = [9, 2, 5]
+    assert sweep_seeds(smoke_config) == [9, 2, 5]
+
+
+@pytest.mark.parametrize("seeds", [[], [2, 2], [1, 1, 2], "9"])
+def test_a_broken_seed_list_is_refused(smoke_config: dict[str, Any], seeds: Any) -> None:
+    """★空 / 重複はプランの誤記である。黙って直さない(skill code-style §5)。"""
+    smoke_config["eval"]["magnitude_sweep"]["seeds"] = seeds
+    with pytest.raises(ConfigError, match="seeds"):
+        sweep_seeds(smoke_config)
+
+
 def test_the_sweep_plan_comes_from_the_config(smoke_config: dict[str, Any]) -> None:
-    """粒度も項目数もシードも config から来る(承認待ち #15)。"""
+    """粒度も項目数もシード群も config から来る(承認待ち #15 / ADR-041 決定5)。"""
     plan = load_sweep_plan(smoke_config)
     declared = smoke_config["eval"]["magnitude_sweep"]
     assert plan.radii == sorted(declared["radii"])
     assert plan.n_items_per_radius == declared["n_items_per_radius"]
-    assert plan.seed == declared["seed"]
+    assert plan.seeds == declared["seeds"]
     assert plan.as_dict() == {
         "radii": plan.radii,
         "n_items_per_radius": plan.n_items_per_radius,
-        "seed": plan.seed,
+        "seeds": plan.seeds,
     }
 
 
-@pytest.mark.parametrize("key", ["radii", "n_items_per_radius", "seed"])
+@pytest.mark.parametrize("key", ["radii", "n_items_per_radius", "seeds"])
 def test_an_undecided_sweep_setting_stops_the_run(
     smoke_config: dict[str, Any], key: str
 ) -> None:

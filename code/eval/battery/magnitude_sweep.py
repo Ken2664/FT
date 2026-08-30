@@ -166,27 +166,56 @@ def sweep_radii(config: Mapping[str, Any]) -> list[int]:
     return sorted(values)
 
 
+def sweep_seeds(config: Mapping[str, Any]) -> list[int]:
+    """R(M) からの抽出シードの列を config から読む。
+
+    答える問い: 「各 M を何通りの独立な抽出で測るか」
+
+    **個数も値もコードで決めない。**ADR-041 決定5 が抽出シード数 = 5 を凍結し、
+    値 `[0, 1, 2, 3, 4]` は 2026-08-30 に人間が採択した(PLAN-006 §3 案 B。
+    提案 PLANNER / 採択 人間)。`configs/template.yaml` に `# [MATCHED]` で入っている。
+
+    `radii` と同じ様式で検査する(空でない / 重複なし)。ただし**並べ替えない** ——
+    シード別の `correct_rate` を宣言順で metrics.json に残すので、読み手が
+    config と付き合わせられるほうがよい。M の列と違ってシードには大小の意味が無い。
+    """
+    seeds = require(config, f"{SWEEP_SECTION}.seeds")
+    if not isinstance(seeds, Sequence) or isinstance(seeds, str) or not seeds:
+        raise ConfigError(f"{SWEEP_SECTION}.seeds は空でない整数の列である: {seeds!r}")
+    values = [int(seed) for seed in seeds]
+    if len(set(values)) != len(values):
+        raise ConfigError(f"{SWEEP_SECTION}.seeds に重複がある: {values}")
+    return values
+
+
 @dataclass(frozen=True)
 class SweepPlan:
     """掃引を回すのに必要な決定。**すべて config から来る**(skill code-style §1)。
 
-    答える問い: 「どの M を、1点あたり何項目で、どのシードで測るか」
+    答える問い: 「どの M を、1点あたり何項目で、どの抽出シード群で測るか」
 
     3つを1つの型にしてあるのは、`n_items_per_radius` を M ごとに変えられる
     形にしないためである。M 間で n が違う表は correct_rate の比較にならない
     (PLAN-001 §4.1.1 の3)。
+
+    `seeds` は**複数**である(ADR-041 決定5 = 抽出シード数 5 / 決定3 規則3 =
+    `correct_rate` は水準ごとにシード平均で採る)。値 `[0, 1, 2, 3, 4]` は
+    2026-08-30 に人間が採択(PLAN-006 §3 案 B)。貪欲デコードは決定的なので、
+    ここでの「シード」は5回のモデル実行ではなく **5通りの独立な項目抽出**を指す
+    (`build_items` が `f"{seed}:{radius}"` で `M` を混ぜて畳む)。
+    **単数 `seed` のフォールバックは残さない**(PLAN-006 §5)。
     """
 
     radii: list[int]
     n_items_per_radius: int
-    seed: int
+    seeds: list[int]
 
     def as_dict(self) -> dict[str, Any]:
         """metrics.json に残す形。掃引の設計は実験条件なので必ず記録する。"""
         return {
             "radii": list(self.radii),
             "n_items_per_radius": self.n_items_per_radius,
-            "seed": self.seed,
+            "seeds": list(self.seeds),
         }
 
 
@@ -195,8 +224,8 @@ def load_sweep_plan(config: Mapping[str, Any]) -> SweepPlan:
 
     答える問い: 「この掃引に必要な決定は、すべて済んでいるか」
 
-    **粒度も項目数もシードもここでは決めない**(承認待ち #15)。決まって
-    いない config で走らせて表が出てしまうと、その表が M* の根拠として
+    **粒度も項目数もシード群もここでは決めない**(承認待ち #15 / ADR-041 決定5)。
+    決まっていない config で走らせて表が出てしまうと、その表が M* の根拠として
     引かれる。実行できないのが正しい状態である(PLAN-004 §4.3 の2)。
     """
     n_items = int(require(config, f"{SWEEP_SECTION}.n_items_per_radius"))
@@ -205,5 +234,5 @@ def load_sweep_plan(config: Mapping[str, Any]) -> SweepPlan:
     return SweepPlan(
         radii=sweep_radii(config),
         n_items_per_radius=n_items,
-        seed=int(require(config, f"{SWEEP_SECTION}.seed")),
+        seeds=sweep_seeds(config),
     )

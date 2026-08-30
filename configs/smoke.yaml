@@ -115,7 +115,10 @@ eval:
   magnitude_sweep:
     radii: [2, 5, 9]
     n_items_per_radius: 4
-    seed: 20260827
+    # ★smoke のみ。本実験は5シード [0,1,2,3,4](ADR-041 決定5 / PLAN-006。
+    # configs/template.yaml)。ここは配線(シード平均 + シード間 SD の経路)を
+    # 通すための小さい2値であり、**主張には使わない**(CLAUDE.md §2)。
+    seeds: [20260827, 20260828]
   # ★smoke のみ。配線確認に使う項目を明示列挙する。
   # **サンプリングはしない。**被覆層(id / interp / extrap)のセルの埋め方が
   # 未決定であり、エージェントが決めてよい事柄ではない(CLAUDE.md §8)。

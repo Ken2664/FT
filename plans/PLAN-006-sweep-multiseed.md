@@ -1,5 +1,10 @@
 # PLAN-006: 桁数掃引をマルチシード化する(順5 のブロッカー)
 
+> **★ 2026-08-30 完了。**人間が §3 = **案 B(`seeds = [0, 1, 2, 3, 4]`)**を採択(提案 PLANNER /
+> 採択 人間)。同日 IMPLEMENTER が §4 を実装した(`pytest` 711 passed。GPU 時間 0)。
+> 正本は **ADR-041 の 2026-08-30 追記**。§6 の完了条件はすべて満たした(下にチェック済み)。
+> **順5 の「実装」ブロッカーは消えた** —— 残るは θ の値(人間)と GPU 承認。
+
 - 作成日: 2026-08-29
 - 担当: IMPLEMENTER(実装。GPU 時間 0)+ 人間(シード値の決定)
 - 由来: ADR-041 決定5(2026-08-29 採択)—— 抽出シード数 = 5。`code/eval/sweep.py` は
@@ -92,9 +97,24 @@
 
 ## 6. 完了条件
 
-- [ ] 人間が §3 の案 A / 案 B を決めた
-- [ ] `eval.magnitude_sweep.seeds` が config の項目になり、単数 `seed` はコードから消えた
-- [ ] `code/eval/sweep.py` が `M` ごとにシード平均 + SD を `results/` に出す
-- [ ] `pytest code/tests -q` が通る(新規テスト含む)
-- [ ] ADR-041 追記と PLAN-004 順5 を追随した
-- [ ] **順5 が回せる状態になった**(GPU 承認は別途。ADR-041 決定5 のブロッカーが消える)
+- [x] 人間が §3 の案 A / 案 B を決めた —— **案 B(`[0,1,2,3,4]`)。2026-08-30**
+- [x] `eval.magnitude_sweep.seeds` が config の項目になり、単数 `seed` はコードから消えた
+      (`configs/template.yaml` = `[0,1,2,3,4]` / `configs/smoke.yaml` = `[20260827, 20260828]`。
+      `SweepPlan.seed` / `load_sweep_plan` の単数読みは削除。`sweep_seeds` を追加)
+- [x] `code/eval/sweep.py` が `M` ごとにシード平均 + SD を `results/` に出す
+      (`by_radius[*].seed_sd` / `by_seed[*]` / `log.txt` の `±sd` 列。4値すべて)
+- [x] `pytest code/tests -q` が通る(新規テスト含む)—— **711 passed**(700 → +11)
+- [x] ADR-041 追記(2026-08-30)を書いた
+- [x] PLAN-004 順5 を追随した(§3 の順5 の完了条件に「掃引表は `M` ごとにシード平均 + SD」)
+- [x] **順5 が回せる状態になった** —— 実装ブロッカーは消えた。残るは θ の値(人間)と GPU 承認
+
+### 実装の細部(ADR-041 2026-08-30 追記が正本。ここは補足)
+
+- `sweep_one(M)` は `plan.seeds` を回して `RadiusResult(per_seed=[SeedResult, ...])` を返す。
+  1シードぶんの測定は新設した `measure_seed(M, seed)`(旧 `sweep_one` の本体)。`build_items` の
+  シグネチャ(`seed: int`)は不変 —— ループは `sweep.py` 側(PLAN-006 §4.5 / 1関数1責務)。
+- シード間 SD = 標本 SD(`statistics.stdev`、ddof=1)。**シードが1本なら 0.0**(標本サイズ 1 で
+  分散が未定義。既定値ではなく算術上の事実。`_seed_sd`)。本実験は5シードなのでこの分岐は smoke のみ。
+- `correct_rate_by_radius` / `correct_rate_table` はシード平均を返す(M* を決めるのは人間。ADR-041)。
+- `configs/smoke1b*.yaml` は**変えていない**(順1b は掃引を回していない。完了済み実行設定に触れない。
+  CLAUDE.md §2。それらで `sweep.py` を回すと `seeds` 欠落で正しく止まる)。

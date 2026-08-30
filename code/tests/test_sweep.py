@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import statistics
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -73,23 +74,24 @@ def truthful_responses(config: dict[str, Any]) -> dict[str, str]:
     """掃引の各プロンプトに真値 a + b を返す固定応答。
 
     項目は `magnitude_sweep.build_items` から取る —— 掃引が実際に引くのと
-    同じ関数・同じシードなので、対応づけがずれない。
+    同じ関数・同じシードなので、対応づけがずれない。全抽出シードを回す。
     """
     plan = magnitude_sweep.load_sweep_plan(config)
     lesions = reference_lesions_from_config(config)
     responses: dict[str, str] = {}
     for radius in plan.radii:
-        items = magnitude_sweep.build_items(
-            radius,
-            n_items=plan.n_items_per_radius,
-            seed=plan.seed,
-            pool_id=config["data"]["pool_id"],
-            reference_lesions=lesions,
-        )
-        prompts = sweep.sweep_prompts(items, config)
-        for item in items:
-            total = item.operands[0] + item.operands[1]
-            responses[prompts[item.item_id]] = f"Answer: {total}."
+        for seed in plan.seeds:
+            items = magnitude_sweep.build_items(
+                radius,
+                n_items=plan.n_items_per_radius,
+                seed=seed,
+                pool_id=config["data"]["pool_id"],
+                reference_lesions=lesions,
+            )
+            prompts = sweep.sweep_prompts(items, config)
+            for item in items:
+                total = item.operands[0] + item.operands[1]
+                responses[prompts[item.item_id]] = f"Answer: {total}."
     return responses
 
 
@@ -128,20 +130,19 @@ def test_prompts_use_the_training_format(workspace: dict[str, Any]) -> None:
 
 
 def test_every_declared_radius_is_measured(workspace: dict[str, Any]) -> None:
-    """★config が宣言した M をすべて測る(粒度は config が決める)。"""
+    """★config が宣言した M をすべて、宣言したシードすべてで測る(粒度は config が決める)。"""
     config = workspace["config"]
+    declared = config["eval"]["magnitude_sweep"]
     results = sweep.sweep(config, generator=constant_generator(UNREADABLE))
-    assert [result.radius for result in results] == sorted(
-        config["eval"]["magnitude_sweep"]["radii"]
-    )
+    assert [result.radius for result in results] == sorted(declared["radii"])
     for result in results:
-        assert result.breakdown.n_items == config["eval"]["magnitude_sweep"][
-            "n_items_per_radius"
-        ]
+        assert [s.seed for s in result.per_seed] == declared["seeds"]
+        assert result.n_items_per_seed == declared["n_items_per_radius"]
+        assert result.total_items == declared["n_items_per_radius"] * len(declared["seeds"])
 
 
 def test_every_point_reports_all_four_values(workspace: dict[str, Any]) -> None:
-    """★どの M でも4値が揃い、合計が 1.0 になる(CLAUDE.md §6)。"""
+    """★どの M でも4値(シード平均)が揃い、合計が 1.0 になる(CLAUDE.md §6)。"""
     results = sweep.sweep(workspace["config"], generator=constant_generator(UNREADABLE))
     for result in results:
         row = result.as_dict()
@@ -153,15 +154,137 @@ def test_every_point_reports_all_four_values(workspace: dict[str, Any]) -> None:
         )
         assert total == pytest.approx(1.0)
         assert row["parse_fail_rate"] == pytest.approx(1.0)
+        # 4値すべてにシード間 SD が揃う。全シード parse_fail なので散らばりは 0
+        assert set(row["seed_sd"]) == {
+            "correct_rate", "rule_rate", "other_error_rate", "parse_fail_rate"
+        }
+        assert row["seed_sd"]["parse_fail_rate"] == pytest.approx(0.0)
 
 
 def test_a_truthful_model_scores_all_correct(workspace: dict[str, Any]) -> None:
-    """★真値を返す応答はどの M でも correct に落ちる。"""
+    """★真値を返す応答はどの M でも correct に落ちる(シード平均でも 1.0)。"""
     config = workspace["config"]
     results = sweep.sweep(config, generator=lookup_generator(truthful_responses(config)))
     for result in results:
-        assert result.breakdown.correct_rate == pytest.approx(1.0)
-        assert result.breakdown.rule_rate == pytest.approx(0.0)
+        assert result.seed_mean()["correct_rate"] == pytest.approx(1.0)
+        assert result.seed_mean()["rule_rate"] == pytest.approx(0.0)
+        assert result.seed_sd()["correct_rate"] == pytest.approx(0.0)
+
+
+def biased_responses(config: dict[str, Any]) -> dict[str, str]:
+    """和が偶数の項目にだけ真値、奇数には読めない文字列を返す応答マップ。
+
+    シードごとに引く (a, b) が違うので、シード別 correct_rate が割れる ——
+    シード平均とシード間 SD の経路を通すために使う。
+    """
+    plan = magnitude_sweep.load_sweep_plan(config)
+    lesions = reference_lesions_from_config(config)
+    out: dict[str, str] = {}
+    for radius in plan.radii:
+        for seed in plan.seeds:
+            items = magnitude_sweep.build_items(
+                radius,
+                n_items=plan.n_items_per_radius,
+                seed=seed,
+                pool_id=config["data"]["pool_id"],
+                reference_lesions=lesions,
+            )
+            prompts = sweep.sweep_prompts(items, config)
+            for item in items:
+                total = item.operands[0] + item.operands[1]
+                out[prompts[item.item_id]] = (
+                    f"Answer: {total}." if total % 2 == 0 else UNREADABLE
+                )
+    return out
+
+
+def test_radius_result_aggregates_seeds_as_mean_and_sample_sd() -> None:
+    """★RadiusResult の代表値 = シード別 4値の平均、SD = 標本 SD(ADR-041 決定3 規則3)。
+
+    ここは集計の算術だけを、決まった4値分解で検査する(乱数に依らない)。
+    """
+    from code.rates import RateBreakdown
+
+    def seed_result(seed: int, correct: float, rule: float) -> sweep.SeedResult:
+        return sweep.SeedResult(
+            seed=seed,
+            breakdown=RateBreakdown(correct, rule, 1.0 - correct - rule, 0.0, 10),
+            predictions=[],
+        )
+
+    result = sweep.RadiusResult(
+        radius=9,
+        reference_rule="p2",
+        per_seed=[
+            seed_result(0, 0.8, 0.1),
+            seed_result(1, 0.6, 0.2),
+            seed_result(2, 1.0, 0.0),
+        ],
+    )
+    corrects = [0.8, 0.6, 1.0]
+    assert result.seed_mean()["correct_rate"] == pytest.approx(statistics.fmean(corrects))
+    assert result.seed_sd()["correct_rate"] == pytest.approx(statistics.stdev(corrects))
+    row = result.as_dict()
+    assert row["correct_rate"] == pytest.approx(statistics.fmean(corrects))
+    assert row["seed_sd"]["correct_rate"] == pytest.approx(statistics.stdev(corrects))
+    assert row["n_seeds"] == 3
+    assert row["n_items_per_seed"] == 10
+    assert row["n_items"] == 30
+    assert [s["seed"] for s in row["by_seed"]] == [0, 1, 2]
+    # 4値のシード平均は合計 1.0(CLAUDE.md §6)
+    assert sum(result.seed_mean().values()) == pytest.approx(1.0)
+
+
+def test_the_table_representative_is_the_seed_mean(workspace: dict[str, Any]) -> None:
+    """★掃引を通した経路でも、by_radius の行がシード別 correct_rate の記述統計に一致する。"""
+    config = workspace["config"]
+    results = sweep.sweep(config, generator=lookup_generator(biased_responses(config)))
+    for result in results:
+        per_seed = [s.breakdown.correct_rate for s in result.per_seed]
+        row = result.as_dict()
+        assert row["correct_rate"] == pytest.approx(statistics.fmean(per_seed))
+        assert row["seed_sd"]["correct_rate"] == pytest.approx(statistics.stdev(per_seed))
+
+
+def test_the_same_seeds_give_the_same_table(workspace: dict[str, Any]) -> None:
+    """★同じ `seeds` で2回回すと同じ表(決定的)。"""
+    config = workspace["config"]
+    responses = biased_responses(config)
+    first = sweep.correct_rate_table(
+        sweep.sweep(config, generator=lookup_generator(responses))
+    )
+    second = sweep.correct_rate_table(
+        sweep.sweep(config, generator=lookup_generator(responses))
+    )
+    assert first == second
+
+
+def test_a_single_seed_reports_zero_dispersion(workspace: dict[str, Any]) -> None:
+    """★シードが1本だと SD は 0.0(標本サイズ 1 で分散は未定義。既定値ではない)。
+
+    本実験は5シード(ADR-041 決定5)。この経路は smoke でしか通らない。
+    """
+    config = workspace["config"]
+    config["eval"]["magnitude_sweep"]["seeds"] = [20260827]
+    results = sweep.sweep(config, generator=lookup_generator(biased_responses(config)))
+    for result in results:
+        assert len(result.per_seed) == 1
+        assert result.seed_sd()["correct_rate"] == 0.0
+        assert result.as_dict()["seed_sd"]["parse_fail_rate"] == 0.0
+
+
+def test_changing_a_seed_changes_the_drawn_items(workspace: dict[str, Any]) -> None:
+    """★シードを1つ変えると、その M で引かれる項目集合が変わる。"""
+    config = workspace["config"]
+    lesions = reference_lesions_from_config(config)
+    kwargs: dict[str, Any] = {
+        "n_items": config["eval"]["magnitude_sweep"]["n_items_per_radius"],
+        "pool_id": config["data"]["pool_id"],
+        "reference_lesions": lesions,
+    }
+    a = magnitude_sweep.build_items(9, seed=20260827, **kwargs)
+    b = magnitude_sweep.build_items(9, seed=20260828, **kwargs)
+    assert [item.operands for item in a] != [item.operands for item in b]
 
 
 def test_the_table_maps_each_radius_to_a_correct_rate(workspace: dict[str, Any]) -> None:
@@ -196,6 +319,24 @@ def test_the_sweep_does_not_decide_the_extrapolation_limit(
     assert "M* は決まらない" in (target / "log.txt").read_text(encoding="utf-8")
 
 
+def test_the_report_table_has_a_seed_sd_column(workspace: dict[str, Any]) -> None:
+    """★log.txt / stdout の表にシード間 SD の列がある(ADR-041 決定3 規則3。PLAN-006 §4.4)。"""
+    config = workspace["config"]
+    target = sweep.execute(
+        config,
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        generator=lookup_generator(biased_responses(config)),
+    )
+    log = (target / "log.txt").read_text(encoding="utf-8")
+    assert "±sd" in log
+    assert "seeds=" in log
+    # 各 M の行に、シード平均の correct_rate とその隣に SD が並ぶ
+    payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
+    for row in payload["by_radius"]:
+        assert f"{row['correct_rate']:>8.4f}  {row['seed_sd']['correct_rate']:>7.4f}" in log
+
+
 def test_execute_writes_the_artifacts(workspace: dict[str, Any]) -> None:
     """★来歴を残す(infra/RUNPOD.md §4)。書かないものは書かない。"""
     config = workspace["config"]
@@ -218,11 +359,19 @@ def test_execute_writes_the_artifacts(workspace: dict[str, Any]) -> None:
     # ★LoRA アダプタは読んでいない。素の重みに対する測定である
     assert payload["adapter"] is None
 
+    # predictions は M ごと・抽出シードごとに分ける
     for radius in payload["sweep"]["radii"]:
-        path = target / "predictions" / f"{sweep.PREDICTIONS_PREFIX}_M{radius}.jsonl"
-        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-        assert len(rows) == payload["sweep"]["n_items_per_radius"]
-        assert all(row["classification"] == "correct" for row in rows)
+        for seed in payload["sweep"]["seeds"]:
+            path = (
+                target / "predictions"
+                / f"{sweep.PREDICTIONS_PREFIX}_M{radius}_s{seed}.jsonl"
+            )
+            rows = [
+                json.loads(line)
+                for line in path.read_text(encoding="utf-8").splitlines()
+            ]
+            assert len(rows) == payload["sweep"]["n_items_per_radius"]
+            assert all(row["classification"] == "correct" for row in rows)
 
 
 def test_the_sweep_records_the_wall_clock(workspace: dict[str, Any]) -> None:
@@ -241,9 +390,12 @@ def test_the_sweep_records_the_wall_clock(workspace: dict[str, Any]) -> None:
     payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
     timing = payload["timing"]
     plan = payload["sweep"]
-    # 分母は**実際に採点した件数**である(宣言した n_items_per_radius の掛け算ではない)
+    # 分母は**実際に採点した件数**である(宣言した n_items_per_radius の掛け算ではない)。
+    # by_radius の n_items は全抽出シード合算
     assert timing["n_items"] == sum(row["n_items"] for row in payload["by_radius"])
-    assert timing["n_items"] == len(plan["radii"]) * plan["n_items_per_radius"]
+    assert timing["n_items"] == (
+        len(plan["radii"]) * plan["n_items_per_radius"] * len(plan["seeds"])
+    )
     assert 0.0 <= timing["generation_seconds"] <= timing["total_seconds"]
     assert "壁時計:" in (target / "log.txt").read_text(encoding="utf-8")
 

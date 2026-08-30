@@ -2115,6 +2115,32 @@
 - 関連 ADR: **039**、041 本体(決定3 規則1・3、決定5)
 - 関連 commit: (このコミット)
 
+#### 2026-08-30 追記 — 5シードの値の確定 + `sweep.py` のマルチシード化(上記「残っている作業」を閉じる)
+
+- **提案: PLANNER(`plans/PLAN-006` §3)/ 採択: 人間**(2026-08-30 の会話。ADR-039 決定3)。実装は同日 IMPLEMENTER。
+- **決定5 の「残っている作業」2つを両方閉じた:**
+  1. **5シードの値 = `[0, 1, 2, 3, 4]`(PLAN-006 §3 案 B。明示リスト)。**基底整数派生の案 A は不採択 ——
+     他の config 欄(実験シード `seeds` の例)と字面が揃う単純さを採った。**`[MATCHED]`**(全条件・
+     全実験シードで固定。実験シード `seeds` とは独立)。`configs/template.yaml`
+     `eval.magnitude_sweep.seeds` に記入。
+  2. **`code/eval/sweep.py` のマルチシード化を実装した**(PLAN-006 §4。GPU 時間 0。commit)。
+     `SweepPlan.seed: int` → `seeds: list[int]`(`magnitude_sweep.sweep_seeds` が空 / 重複を拒む。
+     並べ替えない)。測定ループ(`sweep_one` → `measure_seed` × シード)は `M` ごとに全シードを回し、
+     `correct_rate` 等の**4値すべて**についてシード平均を代表値とし、シード間の標本 SD(ddof=1)を
+     `metrics.json` の `by_radius[*].seed_sd` と `by_seed[*]` に、`log.txt` の表に `±sd` 列として残す。
+     `predictions/` は `magnitude_M{M}_s{seed}.jsonl` に分けた。`build_items` のシグネチャ(`seed: int`)は
+     不変 —— ループは `sweep.py` 側(1関数1責務)。**合否基準・`M*` の判定コードは書いていない**
+     (ADR-041 が θ を人間の決定にしている。ADR-045 と同じ思想)。`pytest code/tests -q` → 711 passed。
+- **`configs/smoke.yaml` の掃引シードも `seeds: [20260827, 20260828]` にした**(2値。シード平均 + SD の
+  配線を smoke で通すため。**実験条件ではない**。CLAUDE.md §2)。
+- **`configs/smoke1b.yaml` / `smoke1b_b1.yaml` は変えていない** —— 順1b は掃引を回しておらず
+  (`magnitude_sweep` ブロックは経路確認用の飾り)、完了済みの実行設定に手を入れない(CLAUDE.md §2)。
+  それらで `sweep.py` を回すと `seeds` 欠落で正しく止まる。
+- **順5 の GPU ブロッカーのうち「実装」は消えた。**残るのは θ の値(決定2・決定3。人間が掃引表を見てから)
+  と GPU 承認。
+- 関連 ADR: **041 本体**(決定3 規則3、決定5)、039、045(合否基準を作らない先例)
+- 関連 commit: (このコミット)
+
 ---
 
 ## ADR-042: #20(生成設定)と #21(評価テンプレート)。**few-shot を fallback の第一手にしない**

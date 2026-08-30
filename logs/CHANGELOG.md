@@ -2877,3 +2877,14 @@ EOS を含まず、1トークンほど下振れする**):
   `plans/PLAN-002-ft-data.md` / `plans/PLAN-004-phase0-route.md`。
 - **テスト**: `pytest code/tests -q` → **713 passed**(711 → +2)。GPU 時間 0。`results/` は空。
 - 関連 commit: (このコミット)
+
+### docs(plan): セッション引き継ぎを記録した(人間の4決定を全件反映 + PLAN-006 §4 実装で切る)   [actor: PLANNER+IMPLEMENTER]
+
+- **何を変えたか**: `STATE.md`(冒頭★ブロックを反映完了に / 「いま何を」 / 「並行ブランチ」/
+  「人間の承認・判断を待っている事項」5 と残タスク / 「次のアクション」/ 「引き継ぎ」)/
+  `logs/HANDOFF.md`(全面改稿。次セッション = PLAN-007 §4 の強制選択採点器の実装1本)。
+- **なぜ**: 人間の4決定の反映(ADR-047 / ADR-048 / ADR-041 追記 / ブランチ破棄)と PLAN-006 §4 実装が
+  完了し区切りが良い。残る PLAN-007 §4(強制選択採点器)は独立の IMPLEMENTER セッションに値する。
+- **残っている人間待ち = θ の値だけ**(ADR-041。順5 の掃引表の後)。
+- `pytest code/tests -q` → **713 passed**。GPU 時間 0。`results/` は空。
+- 関連 commit: (このコミット)

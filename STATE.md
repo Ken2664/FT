@@ -3,29 +3,28 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-30 / by PLANNER(PLAN-007 起草 + 人間が4件を決定。context-guard 179k で引き継ぎに切った。反映は次セッション。GPU 時間 0)
+最終更新: 2026-08-30 / by PLANNER+IMPLEMENTER(人間の4決定を全件ファイルに反映 + PLAN-006 §4 実装。`pytest` 713 passed。GPU 時間 0)
 
-**★★★★★★★★★2026-08-30(最新・PLANNER): 人間が4件を決定した。まだ1件もファイルに反映していない —— context-guard(179k)で引き継ぎに切ったため。反映は次セッション。GPU 時間 0。**
+**★★★★★★★★★★2026-08-30(最新・PLANNER+IMPLEMENTER): 人間の4決定を全件ファイルに反映した。PLAN-006 §4(sweep マルチシード化)も実装した。`pytest code/tests -q` → 713 passed。GPU 時間 0。**
 
-> **提案 PLANNER / 採択 人間**(ADR-039 決定3)。**採択の記録・ADR 化・config 反映・実装はすべて次セッションが行う。**
-> 会話でしか存在しない決定なので、下に逐語で残す。
+> 直前セッションで人間が会話で決めた4件(提案 PLANNER / 採択 人間。ADR-039 決定3)を
+> ADR / config / plan / コードに落とした。**PLAN-007 §4(強制選択採点器)だけが次セッションに残る**
+> (scope 判断で「文書反映 + PLAN-006 実装まで」に切った。人間が承認)。
 
-| # | 事項 | 人間の決定 | 落とし先(次セッションが実施) |
-|---|---|---|---|
-| 1 | **PLAN-007 §5**(T1b の Go/No-Go #1 分岐) | **案 A を採用**(二値出力群 T1b + T3 を強制選択採点に切替。プロンプト不変)。**案 C・案 B は不採用。ラダーではない** | 新 **ADR-047**。PLAN-007 §4 の実装を IMPLEMENTER タスクに。PLAN-003 §4.5・§6.5・§6.5a 追随。ADR-046 リスク欄 / 「人間の承認・判断を待っている事項」5 を閉じる |
-| 2 | **PLAN-006 §3**(掃引の5シード) | **案 B を採用** —— `eval.magnitude_sweep.seeds = [0, 1, 2, 3, 4]`(明示リスト)。`[MATCHED]` | ADR-041 の 2026-08-29 追記に「シード値 = [0,1,2,3,4](案 B)」を足す。PLAN-006 §4 の実装を IMPLEMENTER タスクに |
-| 3 | **並行ブランチ `claude/objective-mestorf-34f57d`** | **(a) 破棄してよい**(main の ADR-034 実装で足りる) | 中身を最終確認(`git log` で4 commit を見る)してから `git worktree remove` + `git branch -D`。「並行ブランチ」表を更新。順4 の前提が1つ消える |
-| 4 | **特異性対照(`specificity`)の裸書式の符号** | **減算 = `-` / 乗算 = `*`** | 新 ADR(または PLAN-002 §4.1.1 に追記)。`-` = U+002D / `*` = U+002A / `=` = U+003D に固定。`configs/templates/` に specificity 群の確定文面を追加し `eval_main.yaml` に入れる(ADR-046 決定4 の保留分)。`smoke.yaml` L45-49 の暫定文面を確定文面に。順4 で specificity プールが作れるようになる |
+| # | 事項 | 反映先(このセッションで完了) |
+|---|---|---|
+| 1 | PLAN-007 §5 = 案 A + **案 C backstop** | **ADR-047 起草**(commit `eccf1fb`)。**人間が ADR 起草時の確認で「案 C を backstop として残す」を選んだ** —— 強制選択でもなお `none` の T1b × `id` が常答ベースラインを超えられないなら T1b を主軸から外す(交互作用 df 6→4。探索的セルに)。PLAN-007 §5 を採択に畳み、PLAN-003 §4.5/§6.5(#1b 追加)/§6.5a・Documents/04・06(**T14 新設**)を追随。ADR-046 リスク欄を閉じた。**§4 の実装(強制選択採点器)は次セッション** |
+| 2 | PLAN-006 §3 = 案 B(`seeds = [0,1,2,3,4]`) | **ADR-041 2026-08-30 追記**。`configs/template.yaml` に記入(`[MATCHED]`)。**PLAN-006 §4 実装済**(commit `1d1f57d`) |
+| 3 | 並行ブランチ破棄 | **実施済**(commit `e8f9c8d`)。`git log main..` で4 commit 確認 → `worktree remove` + `branch -D`。登録簿を更新 |
+| 4 | specificity の符号 = `-` / `*` | **ADR-048 起草**(commit `b01eed2`)。`-`=U+002D / `*`=U+002A。`configs/templates/specificity.yaml` 新設、`eval_main.yaml` に specificity 群(= T1b+T3+T2+specificity の4群)。**順4 で specificity プールが作れる** |
 
-- **決定1 の注意(次セッションが ADR-047 に必ず書くこと)**: 案 A のみ採用でラダーではないので、
-  **「強制選択にしてもなお T1b × id が常答戦略ベースラインを超えられない」場合の明示的な分岐(案 C)は無い。**
-  その場合は Go/No-Go #2(§6.3 の適格性フィルタでセルが落ちる)/ #3(極性の均衡を組み直す)の
-  標準応答に落ちる。**ADR-047 でこれを明記し、必要なら人間に「案 C を backstop にするか」を1度だけ問う。**
-- **決定1 の帰結(PLAN-007 に明記済。ADR-047 に含める)**: 二値群の4値分解が `correct + rule = 1` に潰れる /
-  Go/No-Go #1 は T1b / T3 について構造上満たされる(§6.5 表 #1 の対象範囲の食い違いは解消) /
-  モデル崩壊の検出は数値タスク側の #5・#2 と二値側の #3 に移譲される。
-- **`pytest` 未実行。コード変更なし。`configs/` にも ADR にも何も入れていない。`results/` は空。GPU 時間 0。**
-- commit: (このセッションのコミット。引き継ぎコミット)
+- **このセッションのコード変更**: `code/eval/sweep.py` / `code/eval/battery/magnitude_sweep.py` の
+  マルチシード化(PLAN-006 §4)。`SweepPlan.seed` → `seeds`、`M` ごとに**4値のシード平均 + シード間 SD**
+  (標本 SD)を `metrics.json` の `by_radius[*].seed_sd` / `by_seed[*]` と `log.txt` の `±sd` 列に。
+  `build_items` のシグネチャ(`seed: int`)は不変。**合否基準・`M*` 判定コードは書いていない**(ADR-041)。
+- **`pytest code/tests -q` → 713 passed**(700 → 713。+13 テスト)。**GPU 時間 0。`results/` は空。**
+- **残っている人間待ち = θ の値だけ**(ADR-041。順5 の掃引表を見てから)。
+- **次セッション = IMPLEMENTER**: PLAN-007 §4 の強制選択採点器(GPU 時間 0)。キューは `logs/HANDOFF.md`。
 
 **★★★★★★★★2026-08-29(その前・PLANNER): T1b が Go/No-Go #1 を割ったときの分岐案を `plans/PLAN-007` に起草した。決定・確定はしていない。GPU 時間 0。**
 - `logs/HANDOFF.md`(2026-08-29)「次にやるべきこと 3」/ ADR-046 リスク欄 / 下の「人間の承認・判断を待っている事項」5 に対応。
@@ -336,15 +335,15 @@ main のどこからも参照されていなかった。どちらを採るかは
 
 ## いま何をしているか
 
-> **★ 2026-08-30(最新)。PLANNER セッション。PLAN-007 を起草し、続けて人間が4件を決定した。まだ反映していない(context-guard 179k で引き継ぎに切った)。GPU 時間 0。**
+> **★ 2026-08-30(最新)。PLANNER+IMPLEMENTER セッション。人間の4決定を全件ファイルに反映 + PLAN-006 §4 実装。`pytest` 713 passed。GPU 時間 0。**
 >
-> 人間の4決定は冒頭の★★★★★★★★★ブロックの表に逐語で記録した。要旨:
-> **(1) PLAN-007 = 案 A 採用**(T1b + T3 を強制選択採点。ラベルではラダーだが人間は案 A のみを選んだ。案 C 不採用)/
-> **(2) PLAN-006 = 案 B**(`seeds = [0,1,2,3,4]`)/ **(3) 並行ブランチ = 破棄可**/
-> **(4) specificity の符号 = `-` / `*`**。
-> **次セッションが**: ADR-047(決定1)+ specificity の ADR(決定4)を起こし、config と `plans/PLAN-003` を追随し、
-> PLAN-007 §4 と PLAN-006 §4 の実装を IMPLEMENTER タスクに切り、並行ブランチを削除する。**キューは `logs/HANDOFF.md`。**
-> **`configs/` にも ADR にも何も入れていない。コード変更なし。`results/` は空。GPU 時間 0。**
+> 冒頭★★★★★★★★★★ブロックの表が正本。commit: `e8f9c8d`(決定4 = ブランチ破棄)/
+> `1d1f57d`(決定3 = sweep マルチシード化 + ADR-041 追記)/ `eccf1fb`(決定1 = ADR-047)/
+> `b01eed2`(決定2 = ADR-048。specificity 符号)。
+> **ADR-047 は「案 A + 案 C backstop」で起こした** —— 人間が ADR 起草時の確認で案 C を backstop に
+> 残す側を選んだ(STATE 冒頭の注記どおり)。
+> **残るのは PLAN-007 §4(強制選択採点器)の実装だけ。次セッション(IMPLEMENTER)。GPU 時間 0。**
+> **`results/` は空。GPU 時間 0。**
 
 > **★ 2026-08-29(その前)。PLANNER セッション。T1b が Go/No-Go #1 を割ったときの分岐案を `plans/PLAN-007` に起草した。決定はしていない。GPU 時間 0。**
 >
@@ -1123,15 +1122,17 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 >   **θ の値は依然未決**(ADR-041 決定2・3。掃引表を見てから人間が決める)。
 >
 > **残っている人間待ち**:
-> - ~~`plans/PLAN-006` §3: 5シードの与え方~~ → **2026-08-30 決着。案 B(`seeds = [0,1,2,3,4]`)。反映は次セッション。**
-> - ~~T1b が Go/No-Go #1 を割ったときの分岐~~ → **2026-08-30 決着。案 A 採用**(T1b + T3 を強制選択採点。
->   案 C・案 B 不採用)。**反映は次セッション**(ADR-047 + PLAN-007 §4 実装)。冒頭★★★★★★★★★の表。
-> - ~~特異性対照(`specificity`)の裸書式の符号位置~~ → **2026-08-30 決着。減算 = `-` / 乗算 = `*`。
->   反映は次セッション**(ADR + specificity 群の確定文面 + `eval_main.yaml` へ追加)。
+> - ~~`plans/PLAN-006` §3: 5シードの与え方~~ → **2026-08-30 決着 + 反映済。案 B(`seeds = [0,1,2,3,4]`)。
+>   ADR-041 2026-08-30 追記 / `configs/template.yaml` / PLAN-006 §4 実装(commit `1d1f57d`)。**
+> - ~~T1b が Go/No-Go #1 を割ったときの分岐~~ → **2026-08-30 決着 + 反映済。ADR-047**(案 A = 強制選択採点。
+>   案 C を backstop に先行登録。案 B 却下)。**§4 の実装(強制選択採点器)だけ次セッションに残る。**
+> - ~~特異性対照(`specificity`)の裸書式の符号位置~~ → **2026-08-30 決着 + 反映済。ADR-048**
+>   (`-`=U+002D / `*`=U+002A。`specificity.yaml` 新設 + `eval_main.yaml` に追加)。
 > - **θ の値**(ADR-041。順5 の掃引表の後)。**← これだけが残っている人間待ち。**
 >
-> **★★★2026-08-30(PLANNER)。人間が4件を決定した。まだ1件もファイルに反映していない**
-> (context-guard 179k で引き継ぎに切った)。**逐語は冒頭の★★★★★★★★★ブロックの表。次セッションが全件反映する。**
+> **★★★2026-08-30 反映完了(PLANNER+IMPLEMENTER)。人間の4決定を全件ファイルに落とした**
+> (ADR-047 / ADR-048 / ADR-041 追記 / ブランチ破棄 / PLAN-006 §4 実装)。**`pytest` 713 passed。GPU 時間 0。**
+> **逐語と commit sha は冒頭★★★★★★★★★★ブロックの表。**
 
 > **★★2026-08-28 決着(PLANNER)。RUNNER が順1b で出した2件を人間が判断した。**
 >
@@ -1173,15 +1174,14 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 > 4. **`model.adapter: null` のまま病変条件の評価を回せる。**止めていない ——
 >    順1b は `condition: p2` の config で素の重みを測るため(`configs/smoke1b.yaml`)。
 >    記録には `adapter: null` と注記が必ず残る。**止めるべきかは人間が決める**
-> 5. **T1b が Go/No-Go #1(`parse_fail_rate < 0.02`)を割ったときの分岐が無い。**
->    ADR-042 決定5 (iii) が few-shot を封じ、**決定7 が T1b への答え書式の指示文を
->    封じている**(置くと T1 との入力距離が開き 2×2 の直交対比が崩れる)。
->    ~~人間に上げて止まる、と書いてある状態である~~
->    → 2026-08-29(PLANNER): `plans/PLAN-007-t1b-gonogo-branch.md` に3案を起草した。
->    **→ 2026-08-30: 人間が案 A を採用**(T1b + T3 を強制選択採点。案 C・案 B 不採用。ラダーではない)。
->    **反映は次セッション**: ADR-047 を起こし、PLAN-007 §4 の実装を IMPLEMENTER タスクに、PLAN-003 §4.5・§6.5・§6.5a
->    を追随、ADR-046 リスク欄とこの項目を閉じる。**案 C 不採用の帰結(強制選択後もダメな場合の分岐)は
->    ADR-047 で §6.3・#3 の標準応答に落ちることを明記し、必要なら人間に1度だけ確認する**(冒頭★★★★★★★★★の表)。
+> 5. ~~**T1b が Go/No-Go #1(`parse_fail_rate < 0.02`)を割ったときの分岐が無い。**~~
+>    → 2026-08-29(PLANNER): `plans/PLAN-007` に3案を起草。
+>    **→ 2026-08-30 決着 + 反映済。ADR-047**(提案 PLANNER / 採択 人間。commit `eccf1fb`)。
+>    案 A(二値出力群 T1b + T3 を強制選択採点。プロンプト不変)を採択。**ADR 起草時の確認で人間が
+>    「案 C を backstop として残す」を選んだ** —— 強制選択でもなお `none` の T1b × `id` が
+>    Go/No-Go #3 の常答ベースラインを超えられないなら T1b を主軸から外す(交互作用 df 6→4)。
+>    案 B 却下。PLAN-007 §5 を採択に畳み、PLAN-003 §4.5/§6.5/§6.5a・Documents/04・06(T14)を追随。
+>    ADR-046 リスク欄も閉じた。**§4 の実装(強制選択採点器。GPU 時間 0)だけ次セッションに残る。**
 
 > **2026-08-23 追記(PLANNER)。この節の内容は `plans/PLAN-003-redesign.md` §11 の 15 件に
 > 集約された。**個別に消化せず、PLAN-003 §11 を見ること。以下は再導出前の記録として残す。
@@ -1371,6 +1371,13 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 **人間待ち**: #21 の T3・T1b 文面の起草・確定 / 承認待ち C(`max_new_tokens` の `[MATCHED]`)/
 ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁数掃引。要 GPU 承認)。
 
+**★2026-08-29〜30 更新。**#21 → ADR-046(T1b/T3 文面)+ **ADR-048(specificity 文面。2026-08-30)**。
+承認待ち C → ADR-042 追記。ADR-041 決定5 → ADR-041 追記 + **PLAN-006 §4 実装完了(2026-08-30)**。
+T1b の Go/No-Go #1 分岐 → **ADR-047(2026-08-30。案 A + 案 C backstop)**。
+**GPU を使わず進められる作業**: (1) PLAN-007 §4 の強制選択採点器の実装(次セッション)/
+(2) PLAN-004 順4(T1b/T3/T2/specificity で全タスク型が進む)。
+**残る人間待ち = θ の値だけ**(順5 の掃引表の後)。
+
 ---
 
 ### 旧表(2026-08-22 起源。役割分担と GPU 要否の記録)
@@ -1442,50 +1449,56 @@ ADR-041 決定5(θ の格子点ほか)。**GPU を使う次の段は順5**(桁�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。PLANNER。2026-08-29〜30。GPU 時間 0):**
+**完了したこと(最新セッション。PLANNER+IMPLEMENTER。2026-08-30。GPU 時間 0。`pytest` 713 passed):**
 
-- **`plans/PLAN-007-t1b-gonogo-branch.md` を新設**(commit `561058b`)。T1b が Go/No-Go #1 を割ったときの
-  分岐の3案(A: 二値群を強制選択採点に切替 / B: 高い許容線〔却下推奨〕/ C: T1b を主軸から外す)。
-- **続けて人間が4件を決定した(会話で。まだファイルに反映していない)**。逐語は冒頭★★★★★★★★★の表:
-  1. **PLAN-007 = 案 A 採用**(T1b + T3 を強制選択採点。案 C・案 B 不採用)
-  2. **PLAN-006 = 案 B** —— `eval.magnitude_sweep.seeds = [0, 1, 2, 3, 4]`
-  3. **並行ブランチ `claude/objective-mestorf-34f57d` = 破棄可**
-  4. **specificity の裸書式の符号 = 減算 `-` / 乗算 `*`**
-- **`configs/` にも ADR にも何も入れていない。コード変更なし。`pytest` 未実行。`results/` は空。**
-- context-guard(179k)で引き継ぎに切った。**反映は次セッションが全件行う。**
-- commit: (このセッションの引き継ぎコミット)
+人間が直前セッションの会話で決めた4件を、全件 ADR / config / plan / コードに反映した
+(提案 PLANNER / 採択 人間。ADR-039 決定3)。
 
-**次にやるべきこと(次セッションはまず下の反映を全部やる。1セッションに収まる。GPU 時間 0):**
+- **決定4 → commit `e8f9c8d`**: 並行ブランチ `claude/objective-mestorf-34f57d` を破棄
+  (`git log main..` で4 commit 確認 → `worktree remove` + `branch -D`)。登録簿を更新。
+- **決定3 → commit `1d1f57d`**: `eval.magnitude_sweep.seeds = [0,1,2,3,4]`(案 B。`[MATCHED]`)を
+  ADR-041 2026-08-30 追記 + `configs/template.yaml` に。**PLAN-006 §4 実装**:
+  `code/eval/{sweep.py, battery/magnitude_sweep.py}` をマルチシード化。`SweepPlan.seed`→`seeds`、
+  `M` ごとに**4値のシード平均 + シード間 SD**(標本 SD)。`build_items` のシグネチャは不変。
+  合否基準・`M*` 判定コードは書いていない。
+- **決定1 → commit `eccf1fb`**: **ADR-047 起草**。案 A(二値出力群 T1b+T3 を強制選択採点。
+  プロンプト不変)+ **案 C を backstop に先行登録**(ADR 起草時に人間が確認・選択)。案 B 却下。
+  PLAN-007 §5 を採択に畳み、PLAN-003 §4.5/§6.5(#1b)/§6.5a・Documents/04・06(T14 新設)を追随。
+  ADR-046 リスク欄を閉じた。**§4 の実装(強制選択採点器)は未着手 —— 次セッション。**
+- **決定2 → commit `b01eed2`**: **ADR-048 起草**。specificity の符号 `-`=U+002D / `*`=U+002A。
+  `configs/templates/specificity.yaml` 新設 + `eval_main.yaml` に specificity 群(4群に)。
+  `test_eval_main_template.py` を反転 + 追加。**順4 で specificity プールが作れる。**
 
-1. **PLANNER + IMPLEMENTER: 人間の4決定を反映する**(`logs/HANDOFF.md` にチェックリスト):
-   - **ADR-047 を起こす**(決定1。提案 PLANNER / 採択 人間)。PLAN-007 §2.3・§3.1 の帰結を含める。
-     **案 C 不採用の帰結を明記**(強制選択後もダメなら §6.3・#3 の標準応答)。
-   - **specificity の符号を凍結する ADR**(決定2〔ママ。決定4〕)。`-`=U+002D / `*`=U+002A / `=`=U+003D。
-     `configs/templates/` に specificity 群の確定文面を追加 → `eval_main.yaml` に入れる(ADR-046 決定4 の保留分)。
-     `smoke.yaml` L45-49 を確定文面に。`test_eval_main_template.py` を更新。
-   - **ADR-041 の 2026-08-29 追記に「シード値 = [0,1,2,3,4](案 B)」を足す**。
-   - **並行ブランチを削除**: `git log claude/objective-mestorf-34f57d` で中身確認 → `git worktree remove` + `git branch -D` → 「並行ブランチ」表の行を消す。
-   - **PLAN-003 §4.5・§6.5・§6.5a を ADR-047 に追随**。ADR-046 リスク欄 / 「人間の承認・判断を待っている事項」5 を閉じる。
-   - `pytest code/tests -q`(specificity 文面と `test_eval_main_template.py` の更新で件数が動く)。
-2. **IMPLEMENTER: `plans/PLAN-006` §4**(`code/eval/sweep.py` のマルチシード化)。`seeds = [0,1,2,3,4]` で。順5 のブロッカー。
-3. **IMPLEMENTER: `plans/PLAN-007` §4**(強制選択採点器 + `run.py` ディスパッチ + `metrics.json` に `scoring` 記録 + テスト)。**合否基準は作らない**。
-4. **IMPLEMENTER: PLAN-004 順4**(本実験の項目生成と評価プールの作り直し)。**specificity の文面が確定すれば全タスク型で進む**。
-   **`extrap` セルは `M*` 未決で埋まらない**(順5 の後)。並行ブランチ削除後に着手。
+**次にやるべきこと(次セッション = IMPLEMENTER。GPU 時間 0):**
 
-**GPU を使う次の段**: 順5(桁数掃引 → M*。要 PLAN-006 完了 + θ 決定 + GPU 承認)。
+1. **`plans/PLAN-007` §4 の強制選択採点器を実装する。**7手順そのまま:
+   - 二値項目のロジット読み経路を `code/eval/` に足す(候補 `{"Yes","No"}` + 正規化した変種。
+     候補集合は明示定数。code-style §1)。
+   - `code/eval/run.py` の `comparison` 群を強制選択経路に回す(数値経路 T1/T2 は不変)。
+     二値群は `elicitation: direct` 固定(CoT と両立しない)。
+   - `metrics.json` に採点方式(`scoring: forced_choice` / `free_generation`)を群ごとに残す。
+   - 4値分解の構築時検査に「二値・強制選択の群は `parse_fail_rate == 0` かつ `other_error_rate == 0`」を足す。
+   - 既存の `constant_answer_baseline` が強制選択の出力を通ることをテストで確認。
+   - **合否基準・Go/No-Go 判定コードは書かない**(ADR-047 決定6 / PLAN-007 §4-7)。
+   - `Documents/04` の Go/No-Go 節 / `Documents/06` T14 は既に ADR-047 で追随済。実装後に微修正のみ。
+2. **IMPLEMENTER: PLAN-004 順4**(本実験の項目生成と評価プールの作り直し)。**T1b/T3/T2/specificity で
+   全タスク型が進む**(ADR-048 で specificity の文面が確定した)。**`extrap` セルは `M*` 未決で埋まらない**
+   (順5 の後)。並行ブランチは削除済なので前提は揃った。
+
+**GPU を使う次の段**: 順5(桁数掃引 → M*。**PLAN-006 は完了**。要 θ 決定 + GPU 承認)。
 その実機で `pip freeze` を取り **ADR-044**(lock の凍結)を履行する。
 段階 C の 100 項目確認(ADR-040 決定7)で `compare_runs` の `parsed_consistency` を使う。
 
 **残っている人間待ち**(下の「人間の承認・判断を待っている事項」):
-- **θ の値**(ADR-041。順5 の掃引表の後)。**← これだけ。他の3件は 2026-08-30 に決着(反映待ち)。**
-- (ADR-047 起草時に:「案 C を backstop にするか」を人間に1度だけ確認してよい。冒頭★★★★★★★★★の表)
+- **θ の値**(ADR-041。順5 の掃引表の後)。**← これだけ。他の3件は 2026-08-30 に決着 + 反映済。**
 
 **やってはいけないこと:**
 - **θ の値を提案・決定しない**（ADR-041 決定2・3）。
-- 合否基準・しきい値を作らない（ADR-045 決定2 / ADR-041 の思想）。
-- 事前登録した予測・解析計画を実験後に変更しない（`CLAUDE.md` §2）。
+- 合否基準・しきい値を作らない（ADR-045 決定2 / ADR-041 の思想 / ADR-047 決定6）。
+- 事前登録した予測・解析計画を実験後に変更しない（`CLAUDE.md` §2）。事前登録は未凍結なので本文の書き換えは可。
 - 人間の承認なく GPU ジョブを起動しない / RunPod ポッドを放置しない。
-- `configs/templates/eval_main.yaml` と per-task ファイルを片方だけ直さない（`test_eval_main_template.py` が止める）。
+- `configs/templates/eval_main.yaml` と per-task ファイル(`t1b.yaml`/`t2.yaml`/`t3.yaml`/`specificity.yaml`)を
+  片方だけ直さない（`test_eval_main_template.py` が止める）。
 
 ---
 

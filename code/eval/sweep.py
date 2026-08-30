@@ -80,6 +80,7 @@ from code.eval.model import (
 from code.eval.run import NO_ADAPTER_NOTE, parse_numeric_response, prediction_record
 from code.eval.scoring import RateBreakdown, score, validate_reference_rule
 from code.lesion import Lesion, reference_lesions_from_config
+from code.rates import RATE_FIELDS
 
 # metrics.json の種別。本実行(code/eval/run.py の EVAL_KIND)と形が違う ——
 # あちらは群ごとのバッチ、こちらは M ごとの点である。集約側が見分けられるようにする。
@@ -88,14 +89,8 @@ SWEEP_KIND = "magnitude_sweep"
 # predictions/ のファイル名。M ごと・抽出シードごとに分ける。
 PREDICTIONS_PREFIX = "magnitude"
 
-# シード平均・シード間 SD を出す4値の欄。**4つ揃って1組**(CLAUDE.md §6)。
-# M* を決めるのは correct_rate だが、モデル崩壊は他の3値に出る。
-_RATE_KEYS: tuple[str, ...] = (
-    "correct_rate",
-    "rule_rate",
-    "other_error_rate",
-    "parse_fail_rate",
-)
+# シード平均・シード間 SD は4値**すべて**について出す(CLAUDE.md §6。`code/rates.py` の
+# RATE_FIELDS を正とする)。M* を決めるのは correct_rate だが、崩壊は他の3値に出る。
 
 
 def _seed_sd(values: Sequence[float]) -> float:
@@ -160,14 +155,14 @@ class RadiusResult:
         """4値それぞれのシード平均。合計は 1.0(各シードが 1.0 なので)。"""
         return {
             key: statistics.fmean(getattr(r.breakdown, key) for r in self.per_seed)
-            for key in _RATE_KEYS
+            for key in RATE_FIELDS
         }
 
     def seed_sd(self) -> dict[str, float]:
         """4値それぞれのシード間 SD。"""
         return {
             key: _seed_sd([getattr(r.breakdown, key) for r in self.per_seed])
-            for key in _RATE_KEYS
+            for key in RATE_FIELDS
         }
 
     def as_dict(self) -> dict[str, Any]:

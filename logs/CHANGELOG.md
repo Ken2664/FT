@@ -2779,3 +2779,19 @@ EOS を含まず、1トークンほど下振れする**):
   反映チェックリスト)/ `logs/CHANGELOG.md`。**コード変更なし。`pytest` 未実行。`configs/` にも
   ADR 本体にも何も入れていない。GPU 時間 0。`results/` は空**
 - 関連 commit: (このコミット)
+
+### infra(runpod): 決定4 を反映。並行ブランチ `claude/objective-mestorf-34f57d` を破棄した   [actor: IMPLEMENTER]
+
+- **何を変えたか**: 2026-08-30 の人間の決定4(「(a) 破棄してよい」)を実施した。
+  - 削除前に `git log main..claude/objective-mestorf-34f57d` で4 commit(`2e01d22` / `52676f3` /
+    `f192082` / `f314703`)を最終確認した(`CLAUDE.md` §2。STATE.md の記述を鵜呑みにしない)。
+    merge-base = `e2e6dfe`。ブランチ固有ファイル `code/data_gen/regenerate.py` /
+    `code/tests/test_regenerate.py` が main のどこからも参照されていないことを再確認。
+  - `git worktree remove .claude/worktrees/objective-mestorf-34f57d` + `git branch -D`(was `f314703`)。
+  - `STATE.md`「並行ブランチ(登録簿)」表から行を削除し、破棄の記録に畳んだ。
+- **なぜ変えたか**: main は `a23c950`(2026-08-27)で ADR-034 を独立に採択・実装済み。
+  同じ問題(`data.manifest` の schema 食い違い)の2つ目の実装は不要と人間が判断した。
+  **順4(本実験のデータ再生成)の前提が1つ消えた。**
+- **影響を受けたファイル**: `STATE.md`(並行ブランチ節)/ `logs/CHANGELOG.md`。
+  **コード変更なし**(main のファイルは1つも触っていない)。`pytest` 未実行。GPU 時間 0。
+- 関連 commit: (このコミット)

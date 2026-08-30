@@ -316,28 +316,23 @@ HF トークンが残っている。次のセッションは clone と bootstrap
 | ブランチ | worktree | 役割 | 担当する順 | 開始 | 状態 |
 |---|---|---|---|---|---|
 | `main` | `C:\Users\keenk\paper\FT` | (本線) | — | — | 進行中 |
-| `claude/objective-mestorf-34f57d` | `.claude/worktrees/objective-mestorf-34f57d` | IMPLEMENTER | (ADR-034 の実装) | 2026-08-26 | **★破棄可(2026-08-30 人間決定)。次セッションが削除する** |
 
-### `claude/objective-mestorf-34f57d` の扱い(2026-08-27 に発見 / 2026-08-30 に決着)
+**並行ブランチは無い**(2026-08-30 時点。`git worktree list` = main のみ)。
 
-> **2026-08-30: 人間が「(a) 破棄してよい」と決定した**(main の ADR-034 実装で足りる)。
-> **次セッションが**: `git log claude/objective-mestorf-34f57d` で4 commit の中身を最終確認してから
-> `git worktree remove .claude/worktrees/objective-mestorf-34f57d` + `git branch -D claude/objective-mestorf-34f57d`。
-> 削除したらこの表の行を消す。**これで順4 の前提が1つ消える。**
+### `claude/objective-mestorf-34f57d`(2026-08-27 に発見 / 2026-08-30 に破棄)
 
-**規約制定のきっかけになった実例である。**勝手にマージも削除もしていない(下は発見時の記録)。
+> **2026-08-30: 人間が「(a) 破棄してよい」と決定 → 同日 IMPLEMENTER が削除した。**
+> 削除前に `git log main..claude/objective-mestorf-34f57d` で4 commit(`2e01d22` ADR-034 起草 /
+> `52676f3` 採択+manifest 書き直し途中 / `f192082` 実装完了 / `f314703` HANDOFF 更新)を最終確認した。
+> merge-base = `e2e6dfe`。`git worktree remove` + `git branch -D`(was `f314703`)で消した。
+> **これで順4 の前提が1つ消えた**(再生成の経路の二択が解消。main の ADR-034 実装で進める)。
 
-1. **何が入っているか**: main に**無い** commit が4本(先頭 `f314703`、最終 2026-08-26 21:18)。
-   main との差は 20 ファイル。うち **main に存在しないファイル**は
-   `code/data_gen/regenerate.py`(195行)と `code/tests/test_regenerate.py`(163行)。
-   `regenerate` という語は **main のどこからも参照されていない**(2026-08-27 に grep で確認)。
-2. **なぜ畳めないか**: main は 2026-08-27 13:09 の `a23c950` で **ADR-034 を独立に採択・実装した**。
-   同じ問題(`data.manifest` の schema 食い違い)に対する**2つ目の実装**がこのブランチにある。
-   どちらを採るかは設計判断であり、`CLAUDE.md` §8 によりエージェントが決めてよい事項ではない。
-3. **次に誰が何をすれば畳めるか**: **人間が** (a) main の ADR-034 実装で足りるなら
-   ブランチを破棄してよいと言う、(b) 足りないなら `regenerate.py` を移植する順を PLANNER が切る。
-   **どちらにせよ、順4(本実験のデータ再生成)に着手する前に決着させること** ——
-   このブランチは再生成の経路そのものを実装しているため。
+**規約制定のきっかけになった実例である**(`AGENTS.md`「並行作業とブランチ運用」/ 登録簿 = この表)。
+発見時の記録(残す): main に無い commit 4本 = 同じ問題(`data.manifest` の schema 食い違い)に対する
+**2つ目の実装**。main は `a23c950`(2026-08-27)で ADR-034 を独立に採択・実装済。
+ブランチ固有ファイル `code/data_gen/regenerate.py` / `code/tests/test_regenerate.py` は
+main のどこからも参照されていなかった。どちらを採るかは設計判断(`CLAUDE.md` §8)なので
+エージェントは勝手にマージも削除もせず、人間の決定を待った。
 
 ## いま何をしているか
 

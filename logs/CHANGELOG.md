@@ -2971,3 +2971,26 @@ EOS を含まず、1トークンほど下振れする**):
   `logs/HANDOFF.md`(全面改稿)。**実装コードは変えていない。**
 - **テスト**: `pytest code/tests -q` → **740 passed**。GPU 時間 0。`results/` は空。
 - 関連 commit: 488424e
+
+### docs(plan): 強制選択採点器を Opus として再レビュー → 人間が R1/R2/R3/R4/N1 の修正を承認   [actor: CRITIC]
+- **何を変えたか**: commit `d854213`(強制選択採点器)を独立に読み直し、前回(2026-08-30)の R1〜R7 を
+  全件再現・確認。新規 **N1** を検出。人間が修正を承認したので、実装の設計を `logs/HANDOFF.md` に確定させた。
+- **N1(新規)**: `code/eval/run.py` に「`eval.elicitation == cot` かつ `comparison ∈ eval.batteries`」を
+  実行前に弾くガードが無い。強制選択には解釈すべき生成文が無く cot が黙って落ちる —— repo の
+  「宣言と実装の食い違いは `ConfigError` で止める」作法(`code/eval/model.py` `reject_unimplemented_settings`)に反する。
+- **承認された修正**(提案 CRITIC / 採択 人間 2026-08-31。ADR-039 決定3。実装は次セッション):
+  - R1 = `token_length.py` が `metrics.json` `by_batch[*].scoring` を読み `forced_choice` バッチを集計から外す
+    (`skipped: true` を残す。旧 run 互換)。**順5 より前。**
+  - R2 = `compare_runs.compare()` が forced_choice バッチで `response` 文字列でなく `parsed`(bool)一致で判定。
+    合否基準は作らない。**順5 より前。**
+  - R3 = 変種集約を `max` → `logsumexp`(P(Yes) の周辺化。`margin` が対数オッズに揃う)。**順6 より前。**
+  - R4 = 同点 No は据え置き、ADR-047 に明文化。
+  - N1 = 上記ガードを `dry_run()` / `evaluate_pool()` の入口に。**順4 より前(安いので先に)。**
+  - R7 = R2 の配線で `aggregate.Row` にも `scoring` を通す。R5 = 任意。**R6 は据え置き**(#25 は決定済 =4)。
+- **N2(設計注記)**: 強制選択 logprob もまとめ幅の fp ノイズを受ける。順1b 相当のバッチ1 対 バッチ N の
+  一致確認(`parsed` bool で)を順5 の前に comparison 群でも取る(RUNNER の順5 前作業)。
+- **問題が無かった点**: 実装コアの決定規則・配線・潰れ検査・型検査・本数契約・重み1度読み・
+  chat_template(`add_generation_prompt=True`)。数値経路は不変。プロンプト無変更。合否基準・θ 未記載。
+- **影響を受けたファイル**: `STATE.md`(承認待ち節に★★★★★★2026-08-31 / 冒頭★ブロック / 「いま何を」)/
+  `logs/HANDOFF.md`(全面改稿 = 実装の正本)。**実装コードは変えていない。`pytest` 未実行(コード変更なし)。**
+- 関連 commit: (このコミット)

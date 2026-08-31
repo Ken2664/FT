@@ -1,146 +1,217 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-08-30 / 直前セッションの役割: IMPLEMENTER(実装)+ IMPLEMENTER(Opus によるレビュー)
-直前セッションが終了した理由: PLAN-007 §4(強制選択採点器)の実装が完了し、
-別モデルでのレビューも終わって区切りが良い。**ただしレビューで下流の破損2件(R1 / R2)が出た。**
-次は「R1 / R2 の修正」→「PLAN-004 順4」の2本で、どちらも GPU 時間 0。
+生成: 2026-08-31 / 直前セッションの役割: CRITIC(Opus レビュー再実施)
+直前セッションが終了した理由: コンテキスト超過(約 187k / 閾値 140k)。レビューは完了し、人間が修正を承認済み。
 
 ---
 
-あなたは IMPLEMENTER です。CLAUDE.md §1 の開始手順を実行してから作業を始めてください。
-skill `code-style` を読んでから実装に入ること。RunPod 不要。GPU も使いません(GPU 時間 0)。
+あなたは IMPLEMENTER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+skill `code-style` を読んでから実装に入ること。RunPod 不要。**GPU は使いません(GPU 時間 0)。**
 
-## 直前セッションで終わったこと(STATE.md 冒頭★★★★★★★★★★★ブロックが正本)
+## このセッションでやること(1つだけ: 強制選択採点器のレビュー指摘 R1/R2/R3/R4/N1 を実装する)
 
-**PLAN-007 §4 / ADR-047 を実装した —— 二値出力群(`comparison` = T1b + T3)を
-自由生成 + `boolean` パースから強制選択採点(Yes/No の対数尤度を1 forward pass で比較)に
-切り替えた。プロンプトは1文字も変えていない。**
+前セッションで commit `d854213`(強制選択採点器 = PLAN-007 §4 / ADR-047)を Opus として独立レビューし、
+**人間が修正を承認した**(提案 CRITIC / 採択 人間 2026-08-31。ADR-039 決定3)。
+正本は `STATE.md`「人間の承認・判断を待っている事項」の **★★★★★★2026-08-31 ブロック**。
 
-| commit | 中身 |
-|---|---|
-| `d854213` | 本体。`code/eval/forced_choice.py` / `code/eval/engine.py` 新設 + `code/eval/run.py` 改修 |
-| `1027a3f` | 上の sha を STATE / CHANGELOG / DECISIONS / PLAN-007 に記入 |
-| `529572c` | レビューで見つかったテストの穴を塞いだ(`metrics.json` の `scoring` の回帰テスト) |
-| `c222aa3` | `529572c` の sha 訂正(`--amend` で sha が変わっていた) |
+**完了条件**: 下の (A)〜(F) をすべて実装 + テスト追加 + `pytest code/tests -q` が通る + `logs/CHANGELOG.md` 追記 + commit。
+**GPU 実験(順4 以降)はこのセッションでは触らない。** 順4 は別セッション(手順は下の「次」)。
 
-- 決定規則 `choose_from_logprobs`(torch 不要): 候補 `{Yes, No}` の変種(大小文字3 × 先頭空白2 = 6綴り)の
-  最初の内容トークンの `log_softmax` 対数尤度の**各側最大どうし**を比較、大きいほう(**同点は No**)。
-- 重みは `engine.build_engines` が**1度だけ**読み、生成器と採点器で共有(bf16 8B を二度読むと 4090 に載らない)。
-- **数値経路(T1 / T2 / specificity)は不変。**二値群は `elicitation` を参照しない(`direct` 固定)。
-- 採点方式は `metrics.json` の `by_batch[*].scoring`(`forced_choice` / `free_generation`)と `log.txt` に残る。
-- `assert_collapsed_to_binary` が構築時に `parse_fail_rate == 0` / `other_error_rate == 0` を検査。
-- `parse_boolean_response` / `code/eval/parsers/boolean.py` は**残してある**(案 C backstop / 手監査)。
-- **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6)。
+---
 
-`pytest code/tests -q` → **740 passed**。`results/` は空。GPU 時間 0。
+### (A) R1 — `code/analysis/token_length.py` が強制選択バッチを数えないようにする
 
-## ★このセッションでやること(2本。順番どおり)
+**症状**: `read_responses` が `predictions/*.jsonl` を無差別に読み、`comparison.jsonl` の合成文字列
+`"Yes [forced_choice yes_logp=-0.1235 no_logp=-2.7654]"` をトークン数として数える。
+`by_batch` は `metrics.json` の `scoring` を見ていない。**`token_length.json` は #20 `max_new_tokens` の
+改訂根拠**(ADR-042 決定6 / ADR-038)なので、汚染された表を段階 C で人間が読むことになる。
 
-### (0) レビュー指摘 R1 / R2 を直す —— **順5(実機)より前に必須**
+**実装**:
+- `payload()`(または `by_batch()`)が `metrics` を受け取り、各バッチについて
+  `metrics["by_batch"].get(<batch_name>, {}).get("scoring")` を見る。
+- `scoring == "forced_choice"` のバッチは **`count_tokens` を通さない**。代わりに
+  `by_batch[<name>] = {"scoring": "forced_choice", "skipped": true, "group": <group>, "n_items": <n>, "note": FORCED_CHOICE_SKIP_NOTE}` を残す。
+  黙って消さない(「答えのトークン長」が強制選択では定義されない、と読める形にする)。
+- **旧 run 互換**: `scoring` キーが無い(= `d854213` より前の smoke1b など)バッチは `free_generation` 扱い。
+  `.get("scoring")` が None → 従来どおり数える。**smoke1b の `token_length.json` を壊さないこと。**
+- `main()` は既に `metrics` を読んでいる([token_length.py:254](code/analysis/token_length.py:254))。`payload(metrics, responses, encode=encode)` に
+  `metrics` が渡っているので、`payload` の中で `metrics.get("by_batch")` を引くだけでよい。
+- `report_lines()` は skipped バッチを1行で出す(`[comparison] scoring=forced_choice skipped n=…`)。`n_at_cap` 等は出さない。
+- 定数 `FORCED_CHOICE_SKIP_NOTE` をモジュール冒頭に(skill code-style §1。マジックストリング禁止)。
 
-**正本は STATE.md「人間の承認・判断を待っている事項」の★★★★★2026-08-30 ブロック。**
+**テスト**(`code/tests/test_token_length.py` に追加):
+- forced_choice バッチ + 合成文字列の predictions を持つ fixture → そのバッチが `skipped: true` で、
+  `lengths` を持たず、`free_generation` バッチの集計に影響しないこと。
+- `by_batch` に `scoring` キーが無い metrics(旧形式)→ 従来どおり全バッチ数える(回帰)。
 
-強制選択には生成文が無いので、`predictions/*.jsonl` の `response` 欄に**合成文字列**を入れた:
+---
 
-```
-Yes [forced_choice yes_logp=-0.1235 no_logp=-2.7654]
-```
+### (B) R2 — `code/analysis/compare_runs.py` の `compare()` が強制選択バッチで文字列一致を使わない
 
-`response` を「モデルが実際に生成した文字列」として読む消費者が2つあり、どちらも壊れている。
+**症状**: [compare_runs.py:210](code/analysis/compare_runs.py:210) `left.response == right.response`。
+合成文字列の logprob はまとめ幅で必ず fp レベルで揺れるので、**答え(Yes/No)が一致していても comparison は
+全件「不一致」に計上される**。ADR-040 決定2 が文字列一致を「記録のみ・合否に使わない」としているので
+**Go/No-Go は壊れない**が、`n_mismatched` が誤読される。
 
-- **R1 `code/analysis/token_length.py`** —— `comparison` バッチの合成文字列をトークン数として数える
-  (`scoring` も `group` も見ていない)。実トークナイザでは logprob の数字が細かく割れて 20 トークン超になる。
-  **`token_length.json` は #20 `max_new_tokens` の改訂根拠**(ADR-042 決定6 / ADR-038)なので、
-  汚染された表を段階 C で人間が読むことになる。
-  - **案(採否は人間)**: `metrics.json` の `by_batch[*].scoring` を読み、`forced_choice` の群を
-    集計から外す。ただし **黙って消さず** `by_batch` に `scoring: forced_choice, skipped: true` を
-    1行残す(強制選択は生成していないので「答えのトークン長」が定義されない、と読めるように)。
-- **R2 `code/analysis/compare_runs.py:210`** —— `left.response == right.response` の文字列一致。
-  **logprob はまとめ幅で必ず揺れる**ので、答えが一致していても comparison は全件「不一致」に出る。
-  - **ADR-040 決定2 が文字列一致を「記録のみ・合否に使わない」としているので Go/No-Go は壊れない。**
-    合否は決定1(4値分類 + `parsed`)であり、`parsed_consistency`(ADR-045)は bool を比べるので正しく効く。
-    直す理由は「報告が誤読される」ことだけである。
-  - **案(採否は人間)**: `compare()` が `scoring` を見て、強制選択の群では文字列一致ではなく
-    `parsed`(bool)一致を使う。または合成文字列から logprob を落として答えだけを比べる。
+**実装**:
+- `read_predictions()` が各 run の `metrics.json` `by_batch[<batch>]["scoring"]` を引き、
+  `Prediction` に `scoring: str | None` を足す(`metrics.json` が無い / `scoring` キーが無いバッチは None = free_generation 扱い)。
+  → **これで R7 の配線もできる。両方いっぺんに。**
+- `compare()` のループで:
+  - `left.scoring == "forced_choice"` なら `_parsed_equal(left.parsed, right.parsed)`(既存ヘルパ。bool 一致)で「同じ」を判定。
+  - それ以外は従来どおり `left.response == right.response`。
+  - `left.scoring != right.scoring` なら `ComparisonError`(まとめ幅以外が違う run を比べている)。
+- mismatch 明細には `response_a` / `response_b`(logprob 付き合成文字列)を**引き続き残す** —— 手監査で
+  「片方に倒れているだけか」を見るため。加えて `parsed_a` / `parsed_b` も明細に足す。
+- **合否基準は作らない**(ADR-045 決定2 / モジュール docstring)。閾値・Go/No-Go 判定を書かない。
+- docstring と `report_lines` に「強制選択バッチでは応答文字列ではなく抽出した答え(bool)の一致を数える」を1行明記。
+- `compare_parsed()` は既に `parsed` を比べているので**触らない**(正しく動いている)。
 
-**どちらも合否基準を作る変更ではない**(ADR-041 / ADR-045 の線は動かさない)。
-**人間が案を採るまで着手しない**(`CLAUDE.md` §8 / ADR-039)。採択されたらテストを添えて実装する。
+**テスト**(`code/tests/test_compare_runs.py` に追加):
+- 2 run で `comparison` バッチの `parsed` は一致するが `response` 文字列(logprob)が違う → `n_mismatched == 0`。
+- `parsed` が割れている → `n_mismatched` に計上、明細に `parsed_a/b`。
+- 数値バッチは従来どおり文字列一致で判定(回帰)。
+- 片方 forced_choice / 片方 free_generation の同名バッチ → `ComparisonError`。
 
-**併せて人間に確認してもらうこと(R3 / R4。実装者が決めてしまった器械仕様。ADR に無い)**:
-- **R3**: 変種の集約が **`max`(最尤の綴り1つ)**であって `logsumexp`(綴りをまたぐ確率の和)ではない。
-  「P(Yes) の推定」としては和が正しい。チャットテンプレート直後はほぼ1綴りに質量が乗る見込みなので
-  実害は小さいが、**二値の主要測定の器械仕様**である。
-- **R4**: **同点は No に倒す**(決定性のための規約。判別可能な項目では起こらない)。
-- ADR-047 リスク欄は「Yes/No トークンの取り方は実装で確定する」と授権しているが、
-  決まった中身は `forced_choice.py` の docstring にしか無い。**採否が出たら ADR-047 に追記する。**
+---
 
-**R5 / R6 / R7 は軽微(記録のみ。対応は任意)** —— STATE.md の該当ブロックを参照。
+### (C) R3 — 変種集約を `max` → `logsumexp` にする(推奨。実装側が強く反対するなら (D) 参照)
 
-### (1) PLAN-004 順4 —— 本実験のデータ再生成(GPU 不要)
+**現状**: [forced_choice.py:179](code/eval/forced_choice.py:179) `choose_from_logprobs` は各側の候補綴り
+(大小文字3 × 先頭空白2 = 6綴り)の対数尤度の **`max`(最尤の1綴り)** を各側の代表にする。
 
-**正本は `plans/PLAN-004-phase0-route.md` の「順4」節(§3)。**
+**なぜ変えるか**: 欲しい量は「モデルが Yes と答える確率 P(Yes)」対「P(No)」。綴りをまたいで
+**周辺化する = 確率の和 = 対数尤度の logsumexp**。`max` は代替綴りの(小さい)質量を捨てる。
+チャットテンプレート直後はほぼ1綴り(先頭空白なしの `Yes`/`No`)に質量が乗るので実害は小さいが、
+**`logsumexp` のほうが P(Yes) の不偏推定であり、`margin = yes_logprob - no_logprob` が素直な対数オッズになる。**
+論文レビューで突かれる余地を先に消す。1関数の変更で済む。
 
-- [ ] 順0 の決定を `code/data_gen/` と config に反映
-- [ ] **本番 config(5条件)**で `ft_data.py` / `eval_pool.py` を実行
-- [ ] `infra/preflight.py` の `data_checks` が**本番 config で**全項目 PASS
+**実装**:
+- `choose_from_logprobs` の `yes = max(...)` / `no = max(...)` を logsumexp に。
+  `choose_from_logprobs` は **torch を要らない**規約なので、`math` で書く:
+  `_logsumexp(values) = m + math.log(sum(math.exp(v - m) for v in values))`(`m = max(values)`。数値安定化)。
+  ヘルパをモジュールに置き、テストで固定。
+- `ForcedChoice.yes_logprob` / `no_logprob` の docstring を「候補綴りをまたいで周辺化した対数確率」に更新。
+- `ForcedChoice.margin` の docstring を「Yes と No の対数オッズ(周辺化後)」に更新。
+- `forced_choice.py` モジュール docstring の R3 該当箇所、`forced_choice_response_text`([run.py:637](code/eval/run.py:637))の
+  注記も追随。
+- **同点は No のまま**(R4。下記)。`answer = yes > no` は不変。
 
-**前提はすべて揃っている**:
-- `data.eval_template_set: eval_main` が使える(ADR-046 + **ADR-048**)。
-  **eval_main = T1b + T3 + T2 + specificity の4群**。T1(`bare_sum`)は `data.prompt_template` から組む。
-- 並行ブランチは破棄済(2026-08-30)。再生成の経路の二択は解消している。
-- 強制選択採点器が入ったので **`comparison` 群の評価経路も完成**している
-  (`eval_pool` はプールを書くだけなので直接の依存は無い)。
+**テスト**(`code/tests/test_forced_choice.py`):
+- `test_the_best_spelling_represents_each_side` を `test_each_side_is_marginalized_over_spellings` に置換 ——
+  2綴りの logsumexp が単一の max より大きいこと、判定が周辺化後の値で決まること。
+- `test_yes_wins_when_its_logprob_is_higher` 等の期待値を logsumexp に合わせて更新。
+- 決定性テスト・同点テストはそのまま(規則は変わらない)。
 
-**注意**:
-- `configs/smoke.yaml` は**3条件しか宣言できない**(`digit_modulus` / `arbitrary_table` が無い)。
-  **本実験は5条件そろえること**(PLAN-002 §3.4)。
-- **`extrap` セルは `M*` 未決なので原理的に埋まらない**(順5 の後。ADR-033 決定4)。
-- **順4 に持ち越した実装の申し送り3件**(ADR-035 が仕様を持つ。PLAN-004 §3 の該当ブロック):
-  1. **指示付き T1** の群を新設(`SUPPORTED_GROUPS` は現状4群)。`id` × {carry, nocarry} の
-     2セル・n=40 = **80 項目**。**主軸の交互作用モデルには入れない**
-  2. **被演算子 1 の除外を全タスク型の評価項目に広げる**(`K` には広げない)。
-     manifest の `item_exclusions` を**プール全体の欄**に `excluded_operands: [1]` を持つ形にする
-  3. **`id` セルの母集団は `K` そのものではない**(ADR-034 の帰結)。`t ≡ 0 (mod 10)` を落とした
-     **1,808 / 2,000 組**から引く。落ちる組はすべて `nocarry` なので carry 層は 393 のまま
+### (D) R4 — 同点規則の明文化(コードは変えない)
 
-## 読むべき範囲(全文 cat しない。grep -n → sed -n 'X,Yp')
+`answer = yes > no`(厳密不等号、同点 → No)は**据え置き**。判別可能な項目では起こらず、
+起きたら Yes/No 等確率 = Go/No-Go #3(常答戦略ベースライン)が捕まえる崩れ。
+docstring に「決定性のための規約であり、実験的な非対称性ではない」を明記するだけ。
 
-- **STATE.md 冒頭の★★★★★★★★★★★ブロック**と「人間の承認・判断を待っている事項」の
-  ★★★★★2026-08-30 ブロック(R1〜R7。**このセッションの入口**)
-- `plans/PLAN-004-phase0-route.md` の「順4」節 + 「順4 に持ち越した実装の申し送り」(grep -n "順4")
-- `logs/DECISIONS.md` の **ADR-035**(申し送り3件の仕様)/ **ADR-034**(`id` 母集団)/
-  **ADR-033 決定4**(`extrap` が埋まらない理由)
-- R1: `code/analysis/token_length.py`(263行。`read_responses` / `by_batch` / `payload`)
-- R2: `code/analysis/compare_runs.py`(`compare` ~195-232 / `compare_parsed` ~234-290)
-- `code/eval/forced_choice.py`(R3 / R4 の該当は `answer_variants` / `choose_from_logprobs`)
-- `code/data_gen/eval_pool.py` / `code/data_gen/ft_data.py` / `code/data_gen/pool.py`(順4 の本体)
-- `infra/preflight.py` の `data_checks`(順4 の完了条件)
+### (E) ADR-047 追記 — R3 / R4 の器械仕様を記録する
+
+`logs/DECISIONS.md` の ADR-047 に「実装ノート(2026-08-31。提案 CRITIC / 採択 人間)」として:
+- 変種集約 = **logsumexp**(綴りをまたぐ周辺化)。(D) を採ったなら `max` と書く。
+- 同点 = **No**(決定性の規約)。
+- 候補綴り = 大小文字3 × 先頭空白2 = 6。最初の内容トークンで写像。Yes/No の id が重なれば `TokenizerContractError`。
+- ADR-047 リスク欄の「取り方は実装で確定する」を、この追記で閉じる。
+
+---
+
+### (F) N1(新規) — `elicitation: cot` × `comparison` を実行前に弾く
+
+**症状**: `code/eval/run.py` のどこにも「`eval.elicitation == cot` かつ `comparison ∈ eval.batteries`」を
+拒む検査が無い。`evaluate_batch` は comparison を強制選択経路に回して `elicitation` を単に無視する
+([run.py:687](code/eval/run.py:687))。`configs/template.yaml:217` は `direct | cot` を有効値としており、
+§6.5a の fallback で T2 のために `cot` を宣言した config は **同じ config の T1b/T3 で cot が黙って落ちる**。
+`metrics.json` にも残らない。repo の作法(`model.py` `reject_unimplemented_settings` /
+`require_decoding` = 宣言と実装の食い違いは実行前に `ConfigError` で止める)に反する。
+
+**実装**:
+- ヘルパ `reject_cot_with_comparison(config)` を `code/eval/run.py` に新設(`reject_unimplemented_settings` の隣に置くか、
+  layer をまたがないなら `run.py` 内)。
+  `elicitation == COT and t3_comparison.GROUP in require(config, "eval.batteries")` なら `ConfigError`:
+  「comparison 群は強制選択採点(ADR-047)。解釈すべき生成文が無いので cot は適用できない。
+  `eval.elicitation: direct` にするか、comparison を batteries から外すこと。」
+- `dry_run()`([run.py:429](code/eval/run.py:429))と `evaluate_pool()`([run.py:743](code/eval/run.py:743))の両方の
+  入口で呼ぶ(両方 `elicitation` と `batteries` を既に読んでいる)。1箇所だけだと片方の経路が素通りする。
+
+**テスト**(`code/tests/test_run_dry_run.py` と `test_run_real.py`):
+- `elicitation: cot` + `comparison` を含む config → dry-run と本実行の両方で `ConfigError`。
+- `elicitation: cot` + `comparison` を**含まない**(bare_sum / word_problem のみ)→ 通る(回帰)。
+- `elicitation: direct` + `comparison` → 通る(回帰)。
+
+---
+
+### (G) R5 / R7 / R6 — ついで / 据え置き
+
+- **R7**: (B) で `Prediction.scoring` を通すのと同じ要領で、`code/analysis/aggregate.py` の `Row` に
+  `scoring: str | None`(`payload["by_batch"][name].get("scoring")`)を足し、`rows_from_metrics` で埋め、
+  出力(`report` / CSV 相当)に列を1本足す。低リスク。**R2 と同じ commit で。**
+- **R5**: `code/eval/run.py` `execute()`([run.py:992](code/eval/run.py:992))の
+  `if generator is None:` ブロックで、渡された `scorer` が None のときだけ `engines.scorer` を入れる
+  (`generator, scorer = engines.generator, engines.scorer` → `generator = engines.generator;`
+  `if scorer is None: scorer = engines.scorer`)。任意。やるなら回帰テスト1件。
+- **R6**: **据え置き**。`timing.seconds_per_item` が forced_choice(1 forward)と数値(最大 256 生成)を
+  平均する件。`eval.batch_size` は決定済(=4。ADR-040 決定6)なので決定は汚れない。段階 C の GPU 時間見積り
+  だけに効く。**触らない。** CHANGELOG に「R6 は据え置き(理由)」と1行残すだけ。
+
+---
+
+## 直前セッションで確定したこと(ファイルに書き込み済み)
+
+- `STATE.md`「人間の承認・判断を待っている事項」★★★★★★2026-08-31 ブロック = 承認された修正の一覧(上の (A)〜(G) の正本)。
+- `STATE.md` 冒頭 ★★★★★★★★★★★★ブロック / 「いま何をしているか」★2026-08-31。
+- 実装コアにバグは無い(決定規則 `choose_from_logprobs`、配線 `evaluate_batch`、潰れ検査
+  `assert_collapsed_to_binary`、型検査 `classify` の bool 経路、本数契約 `collect_forced_choices`、
+  重み1度読み `engine.build_engines`、chat_template + `add_generation_prompt=True`)。すべて確認済み。
+- **N2**(設計注記): 強制選択 logprob もまとめ幅の fp ノイズを受ける。**順1b 相当のバッチ1 対 バッチ N の
+  一致確認を、順5 の前に comparison 群でも取る**(比べるのは `parsed` bool)。R2 の直しで `compare_runs` が
+  それを見るようになる。この確認自体は RUNNER の順5 前作業(実装セッションではやらない)。
+
+## 触ってよいファイル / 読むべき範囲(全文 cat しない。`grep -n` → `sed -n 'X,Yp'`)
+
+- `code/eval/forced_choice.py` 全体(315行)。R3/R4 は `choose_from_logprobs`(166-181)/ `ForcedChoice`(54-73)。
+- `code/eval/run.py`: `evaluate_batch`(653-740)/ `dry_run`(429-494)/ `evaluate_pool`(743-801)/
+  `forced_choice_response_text`(637-650)/ `reject_unimplemented_settings` は `code/eval/model.py:135`。
+- `code/analysis/token_length.py` 全体(272行)。
+- `code/analysis/compare_runs.py`: `Prediction`(~99)/ `read_predictions`(~105)/ `compare`(195-231)/
+  `compare_parsed`(234-)/ `_parsed_equal`(180-192)/ `main`。
+- `code/analysis/aggregate.py`: `Row`(grep -n "class Row")/ `rows_from_metrics`(233-268)。
+- `code/tests/test_forced_choice.py` / `test_token_length.py` / `test_compare_runs.py` /
+  `test_run_dry_run.py` / `test_run_real.py`。
+- `logs/DECISIONS.md` の ADR-047(grep -n "ADR-047")。
 
 ## やってはいけないこと
 
-- **R1 / R2 / R3 / R4 を人間の採否なしに実装・確定する**(`CLAUDE.md` §8 / ADR-039。案出しは可)。
-  特に **R2 で `compare_runs` に合否基準を作らない**(ADR-045 決定2)。
 - **合否基準・しきい値・Go/No-Go 判定コードを書く**(ADR-047 決定6 / ADR-045 決定2 / ADR-041)。
-- **プロンプト文面を変える**(ADR-046 / ADR-048 で凍結済。ADR-047 決定1 の肝は「1文字も変えない」)。
+  特に R2 で `compare_runs` に「何件までなら一致」を入れない。
+- **プロンプト文面を変える**(ADR-046 / 048 で凍結。ADR-047 決定1 の肝は「1文字も変えない」)。
+  `configs/templates/` に差分を出さない。
 - **数値経路(T1 / T2 / specificity)の採点を触る。**強制選択は `comparison` 群だけ。
-- **θ の値や `M*` を提案・決定する**(ADR-041。順5 の掃引表を見てから人間が決める)。
-- **`extrap` セルを埋める**(`M*` 未決。ADR-033 決定4)。
-- **`data/raw/` を書き換える**(CLAUDE.md §2)。
-- 事前登録した予測・解析計画を実験後に変更する(事前登録は未凍結なので本文の書き換えは可)。
-- 人間の承認なく GPU ジョブを起動する。
+- **θ の値・`M*` を提案 / 決定する**(ADR-041。順5 の掃引表を見てから人間)。
+- **R6 を実装する**(据え置きと決まった)。**R3 で `max` を残すか `logsumexp` にするかで迷ったら
+  `logsumexp`(推奨)で進め、ADR-047 追記に理由を書く。** 実装して強い違和感があれば人間に上げて止まる。
+- **GPU ジョブを起動する**(このセッションは GPU 時間 0)。
+- 旧 run(`runs/20260828_*_smoke1b*`)の `token_length.json` / `batch_consistency.json` を壊す
+  変更(`scoring` キー非依存の後方互換を必ずテストで固定)。
+- `data/raw/` を書き換える(CLAUDE.md §2)。
 
 ## 次(このセッションの後)
 
-- **GPU を使う次の段 = 順5**(桁数掃引 → `M*`)。**要 θ の値 + GPU 承認。**
-  PLAN-006(掃引のマルチシード化)は完了済。**R1 / R2 はこの前に直っていること。**
-  その実機で `pip freeze` を取り **ADR-044**(lock の凍結)を履行する。
-- 順6(Go/No-Go #0〜#3)で **T1b / T3 を初めて測る**。ここで ADR-047 のラダー
-  (案 C backstop = `none` の T1b × `id` が常答ベースラインを超えられないなら主軸から外す)を評価する。
+1. **順4 — 本実験データ再生成(GPU 不要。別セッション。IMPLEMENTER)。**
+   正本は `plans/PLAN-004-phase0-route.md` の「順4」節(§3)+「順4 に持ち越した実装の申し送り」3件
+   (ADR-035 が仕様。指示付き T1 群 / 被演算子 1 の除外を全評価項目に / `id` セル母集団 = 1,808 組)。
+   前提はすべて揃っている(`data.eval_template_set: eval_main` = T1b+T3+T2+specificity の4群。ADR-046+048。
+   並行ブランチ破棄済。強制選択採点器あり)。**本実験は5条件そろえる**(smoke.yaml は3条件しか宣言できない)。
+   `extrap` セルは `M*` 未決なので埋まらない(ADR-033 決定4)。
+2. **順5 の前に RUNNER が**: comparison 群でバッチ1 対 バッチ N の `parsed` 一致確認(N2)。
+   その実機で `pip freeze` → ADR-044(lock 凍結)を履行。
+3. **GPU を使う次の段 = 順5**(桁数掃引 → `M*`)。要 θ の値 + GPU 承認。PLAN-006 は完了済。
 
 ## 未解決 / 人間の承認待ち(CLAUDE.md §8)
 
 1. **θ の値**(ADR-041。順5 の掃引表を見てから人間が決める)。
-2. **R1 / R2 の直し方**(上記の案の採否)。**順5 より前。**
-3. **R3 / R4 の器械仕様の追認**(変種集約が `max` / 同点は No)。採否が出たら ADR-047 に追記する。
-
-**R5 / R6 / R7 は記録のみで、止まる理由にはならない**(STATE.md の該当ブロック)。
+2. ~~R1 / R2 / R3 / R4 / N1 の直し方~~ → **2026-08-31 承認済**(このセッションで実装)。
+3. R3 で `logsumexp` に変えることの最終確認は ADR-047 追記時に人間が見る(実装は先行してよいと承認済み)。

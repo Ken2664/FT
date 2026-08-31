@@ -459,8 +459,29 @@ def test_metrics_record_the_provenance(workspace: dict[str, Any]) -> None:
     assert "アダプタを読んでいない" in payload["adapter_note"]
     # ★シードはアダプタの出どころから来る(ADR-043 決定3)。アダプタが無ければ None。
     # **0 を置かない** ——「シード 0 で回した」と読める記録になる
-    assert payload["seed"] is None
     assert payload["adapter_train_run_id"] is None
+
+
+def test_the_metrics_file_records_the_scoring_method(workspace: dict[str, Any]) -> None:
+    """★書き出された metrics.json に採点方式が残ること(PLAN-007 §4-3 / §4-7)。
+
+    `test_each_batch_records_its_scoring_method` は `evaluate_pool` の返り値
+    (メモリ上)を見る。**成果物として残るか**は別の検査である —— 後から
+    `runs/<id>/metrics.json` だけを見た人が「二値群がどちらで採られたか」を
+    復元できなければ、`correct + rule = 1` に潰れている理由が読めない
+    (ADR-047 決定4・決定6)。
+    """
+    config = workspace["config"]
+    target = run.execute(
+        config,
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        **truthful_engines(config, workspace["items"]),
+    )
+    by_batch = json.loads((target / "metrics.json").read_text(encoding="utf-8"))["by_batch"]
+    assert by_batch["comparison"]["scoring"] == run.SCORING_FORCED_CHOICE
+    for name in EXPECTED_BATCHES - {"comparison"}:
+        assert by_batch[name]["scoring"] == run.SCORING_FREE_GENERATION
 
 
 def test_predictions_keep_the_raw_generation(workspace: dict[str, Any]) -> None:

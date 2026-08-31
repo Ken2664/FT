@@ -3050,4 +3050,4 @@ EOS を含まず、1トークンほど下振れする**):
   テスト6本(`test_forced_choice.py` / `test_run_dry_run.py` / `test_run_real.py` /
   `test_token_length.py` / `test_compare_runs.py` / `test_aggregate.py` / `test_preflight_checks.py`)。
 - **テスト**: `pytest code/tests -q` → **774 passed**(740 → +34)。GPU 時間 0。
-- 関連 commit: (このコミット)
+- 関連 commit: f5f6555

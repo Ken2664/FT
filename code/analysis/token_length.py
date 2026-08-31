@@ -24,6 +24,19 @@
 p90 / p95 を書くと、無い精度があるように見える。**並べ替えた全長をそのまま残す**
 ので、必要なら後から何でも計算できる。
 
+**強制選択で採ったバッチ(二値群 comparison。ADR-047)は数えない。**そこには
+生成文が無く、`predictions/*.jsonl` の `response` に入っているのは
+`"Yes [forced_choice yes_logp=... no_logp=...]"` という**合成した診断文字列**
+である(`code/eval/run.py` の `forced_choice_response_text`)。それを数えると
+「答えのトークン長」ではなく合成文字列の長さの表になり、しかもこの表は #20
+`max_new_tokens` の改訂根拠である(ADR-042 決定6 / ADR-038)。**黙って落とさず、
+`skipped: true` として残す** —— 「答えのトークン長」が強制選択では定義されない、
+と読める形にする。
+
+**採点方式は `metrics.json` の `by_batch[*].scoring` から引く**(ADR-047 決定6)。
+このキーを持たない run(強制選択の実装より前のもの。`runs/20260828_*_smoke1b`)は
+自由生成として従来どおり数える。
+
 **`results/` には書かない**(ADR-037 決定6)。書き出し先は `runs/<id>/` である。
 """
 
@@ -59,6 +72,17 @@ CAP_WARNING = (
 )
 
 NO_PERCENTILE_NOTE = "n が小さいのでパーセンタイルは出さない。lengths に並べ替えた全長がある。"
+
+# 強制選択の名札。**出所は `code/eval/run.py` の `SCORING_FORCED_CHOICE`** だが、
+# ここで import すると analysis -> eval の依存ができる(`compare_runs.py` の
+# `ParsedValue` と同じ理由)。値が食い違ったら `test_token_length.py` が捕まえる。
+SCORING_FORCED_CHOICE = "forced_choice"
+
+FORCED_CHOICE_SKIP_NOTE = (
+    "このバッチは強制選択で採られている(ADR-047)。生成文が無く、response に入って"
+    "いるのは選んだ答えと両側の対数尤度を並べた合成文字列なので、**答えのトークン長は"
+    "定義されない。**数えると max_new_tokens の根拠(#20)が汚れるため集計から外した。"
+)
 
 
 class TokenLengthError(ValueError):
@@ -159,18 +183,60 @@ def summarize(lengths: Sequence[int], *, cap: int | None) -> dict[str, Any]:
     }
 
 
-def by_batch(responses: Iterable[Response], *, encode: Encoder, cap: int | None) -> dict[str, Any]:
-    """採点バッチごとの要約。群名も一緒に残す(T1 / T2 の区別はここで付く)。"""
+def by_batch(
+    responses: Iterable[Response],
+    *,
+    encode: Encoder,
+    cap: int | None,
+    scoring: Mapping[str, str | None] | None = None,
+) -> dict[str, Any]:
+    """採点バッチごとの要約。群名も一緒に残す(T1 / T2 の区別はここで付く)。
+
+    答える問い: 「このバッチの答えは何トークンに収まったか。そもそも
+    『答えのトークン長』が定義される採点方式か」
+
+    `scoring` は バッチ名 -> 採点方式(`metrics.json` の `by_batch[*].scoring`)。
+    **強制選択のバッチは数えず `skipped: true` を残す**(モジュール docstring)。
+    キーが無いバッチ(旧 run)は自由生成として従来どおり数える。
+    """
+    by_name = dict(scoring or {})
     grouped: dict[str, list[Response]] = {}
     for response in responses:
         grouped.setdefault(response.batch, []).append(response)
     summaries: dict[str, Any] = {}
     for name, items in grouped.items():
+        method = by_name.get(name)
+        if method == SCORING_FORCED_CHOICE:
+            summaries[name] = {
+                "group": items[0].group,
+                "scoring": method,
+                "skipped": True,
+                "n_items": len(items),
+                "note": FORCED_CHOICE_SKIP_NOTE,
+            }
+            continue
         lengths = [count_tokens(item.text, encode=encode) for item in items]
         summary = summarize(lengths, cap=cap)
         summary["group"] = items[0].group
+        summary["scoring"] = method
+        summary["skipped"] = False
         summaries[name] = summary
     return summaries
+
+
+def scoring_by_batch(metrics: Mapping[str, Any]) -> dict[str, str | None]:
+    """バッチ名 -> 採点方式。**キーが無い run は None(= 記録が無い)。**
+
+    答える問い: 「このバッチはどちらの採点方式で採られたか」
+
+    None を `free_generation` に読み替えないのは、強制選択の実装より前の run
+    (`runs/20260828_*_smoke1b`)で「自由生成だったと記録されている」のと
+    「記録が無い」の区別を消さないためである。数え方は同じ(従来どおり数える)。
+    """
+    return {
+        str(name): batch.get("scoring")
+        for name, batch in (metrics.get("by_batch") or {}).items()
+    }
 
 
 def payload(
@@ -193,7 +259,9 @@ def payload(
         },
         "max_new_tokens": cap,
         "measurement_note": MEASUREMENT_NOTE,
-        "by_batch": by_batch(responses, encode=encode, cap=cap),
+        "by_batch": by_batch(
+            responses, encode=encode, cap=cap, scoring=scoring_by_batch(metrics)
+        ),
     }
 
 
@@ -207,6 +275,13 @@ def report_lines(document: Mapping[str, Any]) -> list[str]:
         f"注意: {document['measurement_note']}",
     ]
     for name, summary in document["by_batch"].items():
+        if summary.get("skipped"):
+            lines.append(
+                f"[{name}] group={summary['group']} scoring={summary['scoring']} "
+                f"skipped n={summary['n_items']}"
+            )
+            lines.append(f"  {summary['note']}")
+            continue
         lines.append(
             f"[{name}] group={summary['group']} n={summary['n_items']} "
             f"min={summary['min']} median={summary['median']} "

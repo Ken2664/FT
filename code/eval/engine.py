@@ -15,23 +15,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from code.eval.forced_choice import ForcedChoiceScorer, scorer_from_model
+from code.eval.forced_choice import (
+    ForcedChoiceScorer,
+    candidate_token_map,
+    scorer_from_model,
+)
 from code.eval.generate import Generator, generator_from_model
 from code.eval.model import GenerationSettings, load_model_and_tokenizer
 
 
 @dataclass(frozen=True)
 class Engines:
-    """本実行が項目を解くのに使う2つの問い方。
+    """本実行が項目を解くのに使う2つの問い方と、強制選択の器械の記録。
 
-    答える問い: 「この run は、どの群をどう解くのか」
+    答える問い: 「この run は、どの群をどう解くのか。二値群でどの綴りを
+    周辺化したのか」
 
     `scorer` は二値群(comparison)専用、`generator` は数値群専用である。
     どちらも同じ重みを指す。
+
+    `forced_choice_candidates` は候補綴り -> トークン id(採らなかった綴りは
+    None)である。**採点器の中に閉じ込めない** —— どの綴りを周辺化したかは
+    論文の方法節に書く量であり、`metrics.json` に残らないと後から言えない
+    (ADR-047 実装ノート 4)。
     """
 
     generator: Generator
     scorer: ForcedChoiceScorer
+    forced_choice_candidates: dict[bool, dict[str, int | None]]
 
 
 def build_engines(
@@ -45,9 +56,14 @@ def build_engines(
     `adapter` は学習済み LoRA アダプタの場所(ADR-043 決定3)。両方の問い方に
     同じアダプタが載る —— 段階 C の Go/No-Go は `none`(adapter=None)なので
     通常は素の重みである。
+
+    候補綴りの写像(`forced_choice_candidates`)も**ここで1度引く。**採点器が
+    内部で引くものと同じトークナイザなので同じ結果になるが、記録に残すには
+    採点器の外に出ている必要がある(ADR-047 実装ノート 4)。
     """
     model, tokenizer = load_model_and_tokenizer(settings, adapter=adapter)
     return Engines(
         generator=generator_from_model(model, tokenizer, settings),
         scorer=scorer_from_model(model, tokenizer, settings),
+        forced_choice_candidates=candidate_token_map(tokenizer),
     )

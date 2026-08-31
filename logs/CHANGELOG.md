@@ -2994,3 +2994,60 @@ EOS を含まず、1トークンほど下振れする**):
 - **影響を受けたファイル**: `STATE.md`(承認待ち節に★★★★★★2026-08-31 / 冒頭★ブロック / 「いま何を」)/
   `logs/HANDOFF.md`(全面改稿 = 実装の正本)。**実装コードは変えていない。`pytest` 未実行(コード変更なし)。**
 - 関連 commit: (このコミット)
+
+### feat(eval): ADR-047 実装ノート。強制選択の器械仕様を確定し、下流3本と preflight を直した   [actor: IMPLEMENTER (Opus)]
+
+- **何を変えたか**: 人間が承認した **R1 / R2 / R3 / R4 / N1 / R7 / R5** を実装した
+  (提案 CRITIC / 採択 人間 2026-08-31。ADR-039 決定3)。あわせて**独立レビューで新たに見つけた
+  器械の偏り(下の F1)を直した。****GPU 時間 0。`results/` は空。**
+- **R3 —— 変種の集約を `max` → `logsumexp` にした**(`code/eval/forced_choice.py`)。
+  欲しい量は「モデルが Yes と答える確率 P(Yes)」であって「最尤の1綴りの確率」ではない。
+  `max` は代替綴りの質量を捨て、`margin` が対数オッズにならない。`_logsumexp` は `math` だけで
+  書き(`choose_from_logprobs` は torch を要らないという規約)、最大値を括り出して桁落ちを避ける。
+- **F1(新規。Opus の独立レビューで検出)—— 単一の内容トークンで置ける綴りだけを候補にした。**
+  当初の実装は綴りが複数トークンに割れたとき**先頭の内容トークン**を採っていた。
+  `YES` が `Y` + `ES` に割れるとき先頭の `Y` を候補にすると、**`You` や `Your` に置かれた質量まで
+  Yes 側に入る** —— R3 の周辺化ではその混入が**和になって効く**。しかも割れ方は Yes 側と No 側で
+  揃わないので、**二値の主要測定(T1b / T3)に非対称な偏りが入る。**割れる綴りは落とし
+  (記録には `null` で残す)、**片側が全滅したら `TokenizerContractError` で止める**
+  (先頭トークンで代用しない)。**これは ADR-047 リスク欄が実装に授権した「取り方」の確定であり、
+  実験条件の変更ではない。最終確認は人間**(ADR-039)。
+- **器械の記録を成果物に残した**(ADR-047 実装ノート 4)。採った綴りと id が
+  本実行の `metrics.json` `forced_choice.candidates` と `log.txt` に出る
+  (`engine.Engines.forced_choice_candidates` → `metrics_payload`)。
+  **どの綴りを周辺化したかは論文の方法節に書く量である。**
+- **N1 —— `reject_unsupported_elicitation` を `dry_run` と `evaluate_pool` の両方の入口に置いた。**
+  `cot` × `comparison` を `ConfigError` で止める(強制選択には解釈すべき生成文が無く、
+  `evaluate_batch` は comparison で `elicitation` を参照しない = 黙って落ちていた)。
+  **同じ門で未知の `elicitation` 値も止める** —— comparison だけの config は `elicitation` を
+  1度も読まないので、綴り間違いが素通りしていた(これも新規に見つけた穴)。
+- **R1 —— `code/analysis/token_length.py` が強制選択のバッチを数えなくなった。**
+  `metrics.json` の `by_batch[*].scoring` を引き、`forced_choice` は
+  `{"scoring":..., "skipped": true, "n_items":..., "note":...}` で残す(黙って消さない)。
+  **`scoring` キーの無い旧 run(`runs/20260828_*_smoke1b`)は従来どおり数える**(回帰テストで固定)。
+- **R2 + R7 —— `code/analysis/compare_runs.py` が強制選択のバッチを `parsed`(bool)で比べる。**
+  合成文字列の対数尤度はまとめ幅で必ず fp の桁で揺れるので、文字列一致では**答えが同じでも
+  全件「不一致」**に出ていた。何で比べたかは `compared_on` に残り、明細には `parsed_a/b` と
+  合成文字列の両方を置く(手監査。PLAN-007 §3.5)。**同名バッチの採点方式が2 run で違えば
+  `ComparisonError`。合否基準は作っていない**(ADR-045 決定2)。
+  `code/analysis/aggregate.py` は `Row.scoring` / `Cell.scorings` / 表の見出しに通し、
+  セル内で採点方式が混ざったら警告する。
+- **R5 —— `execute` が渡された `scorer` を捨てなくなった**(None のときだけ重み側で埋める)。
+  **R4 —— 同点 No は据え置き**、ADR-047 実装ノート 3 に明文化した。
+  **R6 は据え置き** —— `timing.seconds_per_item` が 1 forward と 256 生成を平均する件は、
+  `eval.batch_size` が決定済(=4。ADR-040 決定6)なので決定を汚さず、段階 C の GPU 時間見積り
+  だけに効く(ADR-047 実装ノート 8)。
+- **preflight に検査 `forced choice tokens` を足した**(ADR-047 実装ノート 5。**順4/順5 を見据えた追加**)。
+  本実行と**同じ関数**(`candidate_token_ids`)でトークナイザだけを読み、
+  片側全滅・id の重なりを **FAIL**、一部の綴りが割れるのを **WARN** で報告し、
+  `runs/<id>/forced_choice_tokens.json` に採った綴りを書く。**重みを読まないので GPU を借りる前に
+  器械の成立を確かめられる** —— 成立していない状態で順5 を回すと T1b / T3 がまるごと解釈不能になる。
+- **触っていないもの**: プロンプト文面(`configs/templates/` に差分なし)/ 数値経路(T1 / T2 /
+  specificity)の採点 / 合否基準・θ・`M*` / `data/raw/`。
+- **影響を受けたファイル**: `code/eval/forced_choice.py` / `code/eval/engine.py` / `code/eval/run.py` /
+  `code/analysis/token_length.py` / `code/analysis/compare_runs.py` / `code/analysis/aggregate.py` /
+  `infra/preflight.py` / `infra/RUNPOD.md` / `logs/DECISIONS.md`(ADR-047 実装ノート)/
+  テスト6本(`test_forced_choice.py` / `test_run_dry_run.py` / `test_run_real.py` /
+  `test_token_length.py` / `test_compare_runs.py` / `test_aggregate.py` / `test_preflight_checks.py`)。
+- **テスト**: `pytest code/tests -q` → **774 passed**(740 → +34)。GPU 時間 0。
+- 関連 commit: (このコミット)

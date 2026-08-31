@@ -68,6 +68,13 @@ DUPLICATE_WARNING = (
     "重複した条件が二重に効いている。再実行を残したのか取り違えたのかを確かめること。"
 )
 
+MIXED_SCORING_WARNING = (
+    "採点方式(scoring)が混ざっている行が {count} 件ある。**器械の違う数を平均している。**"
+    "強制選択(forced_choice。ADR-047)の二値群は correct + rule = 1 に潰れ、自由生成の"
+    "二値群は parse_fail と other_error を持つ —— 同じ列に並べても同じ量ではない。"
+    "強制選択の実装(ADR-047)を跨いだ run を1つの表に入れていないか確かめること。"
+)
+
 
 class AggregateError(ValueError):
     """集める対象が見つからない、または metrics.json が読めない。"""
@@ -91,6 +98,11 @@ class Row:
     is_primary: bool
     adapter: str | None
     rates: RateBreakdown
+    # 採点方式(`metrics.json` の by_batch[*].scoring。ADR-047 決定6)。
+    # **強制選択のバッチでは correct + rule = 1 に潰れる**(同 決定4)ので、
+    # 4値のうち2つが常に 0 である理由がこの欄からしか読めない。
+    # キーが無い run(強制選択の実装より前)は None = 記録が無い。
+    scoring: str | None = None
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -108,6 +120,7 @@ class Row:
             "reference_rule": self.reference_rule,
             "is_primary": self.is_primary,
             "adapter": self.adapter,
+            "scoring": self.scoring,
             **self.rates.as_dict(),
         }
 
@@ -127,6 +140,19 @@ class Cell:
     @property
     def seeds(self) -> tuple[int | None, ...]:
         return tuple(row.seed for row in self.rows)
+
+    @property
+    def scorings(self) -> tuple[str | None, ...]:
+        """このセルに入った行の採点方式の異なり(昇順。None は記録なし)。
+
+        答える問い: 「このセルの平均は、同じ器械で採られた行の平均か」
+
+        **2つ以上あればセル内で器械が混ざっている。**強制選択(ADR-047)と
+        自由生成では二値群の4値分解の意味が違う(前者は correct + rule = 1 に
+        潰れる)ので、平均すると読めない数になる。判断は人間がする
+        (`warnings_for` が文にして出すだけである)。
+        """
+        return tuple(sorted({row.scoring for row in self.rows}, key=str))
 
     @property
     def n_seeds(self) -> int:
@@ -169,6 +195,7 @@ class Cell:
             "seeds": list(self.seeds),
             "enough_seeds": self.enough_seeds,
             "has_duplicate_seeds": self.has_duplicate_seeds,
+            "scorings": list(self.scorings),
             "n_items_total": sum(row.rates.n_items for row in self.rows),
             "mean": self.mean_rates(),
             "by_run": [row.as_dict() for row in self.rows],
@@ -256,6 +283,7 @@ def rows_from_metrics(payload: Mapping[str, Any], *, path: Path) -> list[Row]:
                     reference_rule=str(rule),
                     is_primary=rule == primary,
                     adapter=payload.get("adapter"),
+                    scoring=batch.get("scoring"),
                     rates=RateBreakdown(
                         correct_rate=float(block["correct_rate"]),
                         rule_rate=float(block["rule_rate"]),
@@ -320,6 +348,9 @@ def warnings_for(collection: Collection) -> list[str]:
         lines.append(NO_SEED_WARNING.format(count=no_seed))
     if any(cell.has_duplicate_seeds for cell in collection.cells):
         lines.append(DUPLICATE_WARNING)
+    mixed = [cell for cell in collection.cells if len(cell.scorings) > 1]
+    if mixed:
+        lines.append(MIXED_SCORING_WARNING.format(count=len(mixed)))
     short = [cell for cell in collection.cells if not cell.enough_seeds]
     if short:
         lines.append(
@@ -344,8 +375,10 @@ def report_lines(collection: Collection) -> list[str]:
         lines.append(f"! {warning}")
     for cell in collection.cells:
         lines.append("")
+        scorings = "/".join(str(scoring) for scoring in cell.scorings)
         lines.append(
-            f"[条件={cell.condition} バッチ={cell.batch} 参照規則={cell.reference_rule}]"
+            f"[条件={cell.condition} バッチ={cell.batch} "
+            f"参照規則={cell.reference_rule} 採点={scorings}]"
         )
         lines.append(
             f"{'seed':>6}  {'n':>5}  {'correct':>8}  {'rule':>8}  "

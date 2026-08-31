@@ -23,6 +23,15 @@
 温度・上限のどれかが違えば応答が違うのは当たり前であり、その比較は #25 の材料
 にならない。**生成設定の差は必ず出力に並べる**(`generation_diff`)。
 
+**強制選択で採ったバッチ(二値群 comparison。ADR-047)は応答文字列を比べない。**
+そこには生成文が無く、`response` に入っているのは選んだ答えと両側の対数尤度を
+並べた合成文字列である(`code/eval/run.py` の `forced_choice_response_text`)。
+対数尤度はまとめ幅で必ず浮動小数点の桁で揺れるので、**答え(Yes/No)が一致して
+いても全件「不一致」に計上されてしまう。**強制選択のバッチでは `parsed`(bool)の
+一致を数える —— そこが「まとめ幅が4値分解に入る値を動かしたか」の問いに答える量
+である。採点方式は `metrics.json` の `by_batch[*].scoring` から引き、
+**2つの run で採点方式が違えばそれは「まとめ幅だけが違う2つ」ではない**ので止める。
+
 **2つの一致を独立したブロックで出す**(ADR-045 決定3):
 
   1. 生成文字列そのものの一致(`compare`)—— まとめ幅が生成を動かしたか
@@ -60,6 +69,20 @@ ParsedValue = int | bool
 # 現れうる(順1b は T1 と T2 に同じ8組を渡している)。
 KEY_FIELDS = ("batch", "item_id")
 
+# 強制選択の名札。**出所は `code/eval/run.py` の `SCORING_FORCED_CHOICE`** だが、
+# ここで import すると analysis -> eval の依存ができる(`ParsedValue` と同じ理由)。
+# 値が食い違ったら `test_compare_runs.py` が捕まえる。
+SCORING_FORCED_CHOICE = "forced_choice"
+
+# `compare` が何を比べたか。強制選択のバッチだけ `parsed` になる。
+BASIS_RESPONSE = "response"
+BASIS_PARSED = "parsed"
+
+SCORING_MISMATCH_ERROR = (
+    "バッチ {batch!r} の採点方式が A={a!r} / B={b!r} で食い違っている。"
+    "まとめ幅以外(ADR-047 の切り替えを跨いだ run など)が違う2つを比べている。"
+)
+
 NO_VERDICT_NOTE = (
     "**このファイルに合否は無い。**まとめ幅を変えたときに応答が割れるかどうかの"
     "観測であって、「何件までなら同じとみなすか」は人間が決める(承認待ち #25)。"
@@ -93,7 +116,13 @@ class ComparisonError(ValueError):
 
 @dataclass(frozen=True)
 class Prediction:
-    """1件の応答と、そこから抽出された整数値、その分類。"""
+    """1件の応答と、そこから抽出された整数値、その分類、そのバッチの採点方式。
+
+    `scoring` は `metrics.json` の `by_batch[<batch>].scoring`(ADR-047 決定6)。
+    **キーが無い run は None** —— 強制選択の実装より前の run では「自由生成だと
+    記録されている」のと「記録が無い」の区別が付かないので、読み替えずに残す。
+    比較の仕方は同じ(応答文字列を比べる)。
+    """
 
     batch: str
     item_id: str
@@ -101,6 +130,7 @@ class Prediction:
     response: str
     parsed: ParsedValue | None
     classification: str
+    scoring: str | None = None
 
 
 def read_predictions(run_dir: Path) -> dict[tuple[str, str], Prediction]:
@@ -114,6 +144,7 @@ def read_predictions(run_dir: Path) -> dict[tuple[str, str], Prediction]:
     directory = run_dir / PREDICTIONS_DIR
     if not directory.is_dir():
         raise ComparisonError(f"{directory} が無い。生成の前に落ちた run である可能性がある")
+    scoring = read_scoring(run_dir)
     records: dict[tuple[str, str], Prediction] = {}
     for path in sorted(directory.glob("*.jsonl")):
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -130,10 +161,31 @@ def read_predictions(run_dir: Path) -> dict[tuple[str, str], Prediction]:
                 response=record["response"],
                 parsed=record["parsed"],
                 classification=record["classification"],
+                scoring=scoring.get(path.stem),
             )
     if not records:
         raise ComparisonError(f"{directory} に応答が1件も無い")
     return records
+
+
+def read_scoring(run_dir: Path) -> dict[str, str | None]:
+    """バッチ名 -> 採点方式(`metrics.json` の `by_batch[*].scoring`。ADR-047 決定6)。
+
+    答える問い: 「このバッチは強制選択と自由生成のどちらで採られたか」
+
+    **`metrics.json` が無くても止めない。**`read_generation` は止めるが、
+    こちらは「記録が無い」を None として扱えば従来どおりの比較(応答文字列)に
+    落ちるだけで、比較そのものは成立する。止めると、predictions だけを手で
+    組んだ突き合わせができなくなる。
+    """
+    path = run_dir / METRICS_FILENAME
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        str(name): batch.get("scoring")
+        for name, batch in (payload.get("by_batch") or {}).items()
+    }
 
 
 def read_generation(run_dir: Path) -> dict[str, Any]:
@@ -197,17 +249,39 @@ def compare(
 ) -> dict[str, Any]:
     """項目ごとに応答を突き合わせる。
 
-    答える問い: 「同じ項目に対して、2つの run は同じ文字列を返したか」
+    答える問い: 「同じ項目に対して、2つの run は同じ答えを返したか」
 
-    比べるのは**生成文字列そのもの**である。分類だけを比べると、違う文字列が
-    同じカテゴリに落ちたときに「一致した」と読めてしまう —— まとめ幅が生成を
-    動かしているかどうかを見たいので、それでは弱い。抽出された整数値の一致は
-    `compare_parsed` が別に見る(ADR-045 決定3)。
+    **自由生成のバッチで比べるのは生成文字列そのものである。**分類だけを比べると、
+    違う文字列が同じカテゴリに落ちたときに「一致した」と読めてしまう —— まとめ幅が
+    生成を動かしているかどうかを見たいので、それでは弱い。
+
+    **強制選択のバッチ(ADR-047)では、応答文字列ではなく抽出した答え(bool)の
+    一致を数える。**そこには生成文が無く、`response` は選んだ答えと両側の対数尤度を
+    並べた合成文字列である —— 対数尤度はまとめ幅で必ず fp の桁で揺れるので、
+    文字列で比べると答えが一致していても全件が「不一致」に出る(モジュール docstring)。
+    **明細には合成文字列も残す** —— 「片方に倒れているだけか」は余白でしか手監査
+    できない(PLAN-007 §3.5)。
+
+    抽出値の一致は `compare_parsed` が全バッチについて別に見る(ADR-045 決定3)。
     """
     mismatches: list[dict[str, Any]] = []
+    basis: dict[str, str] = {}
     for key in _paired_keys(a, b):
         left, right = a[key], b[key]
-        if left.response == right.response:
+        if left.scoring != right.scoring:
+            raise ComparisonError(
+                SCORING_MISMATCH_ERROR.format(
+                    batch=left.batch, a=left.scoring, b=right.scoring
+                )
+            )
+        forced = left.scoring == SCORING_FORCED_CHOICE
+        basis[left.batch] = BASIS_PARSED if forced else BASIS_RESPONSE
+        same = (
+            _parsed_equal(left.parsed, right.parsed)
+            if forced
+            else left.response == right.response
+        )
+        if same:
             continue
         mismatches.append(
             {
@@ -216,8 +290,11 @@ def compare(
                 "prompt": left.prompt,
                 "response_a": left.response,
                 "response_b": right.response,
+                "parsed_a": left.parsed,
+                "parsed_b": right.parsed,
                 "classification_a": left.classification,
                 "classification_b": right.classification,
+                "compared_on": basis[left.batch],
             }
         )
     return {
@@ -227,6 +304,7 @@ def compare(
         "n_classification_changed": sum(
             1 for item in mismatches if item["classification_a"] != item["classification_b"]
         ),
+        "compared_on": dict(sorted(basis.items())),
         "mismatches": mismatches,
     }
 
@@ -310,6 +388,8 @@ def report_lines(document: Mapping[str, Any]) -> list[str]:
         f"A: {document['run_a']}",
         f"B: {document['run_b']}",
         f"生成設定の差: {json.dumps(document['generation_diff'], ensure_ascii=False)}",
+        f"比べた対象: {json.dumps(document['compared_on'], ensure_ascii=False)}"
+        f"({BASIS_PARSED} は強制選択のバッチ。応答文字列でなく抽出した答えの一致を数える)",
         f"項目 {document['n_items']} 件 / 一致 {document['n_identical']} 件 / "
         f"食い違い {document['n_mismatched']} 件 "
         f"(うち分類まで変わった {document['n_classification_changed']} 件)",
@@ -318,9 +398,15 @@ def report_lines(document: Mapping[str, Any]) -> list[str]:
     if document["n_mismatched"]:
         lines.append(MISMATCH_WARNING.format(count=document["n_mismatched"]))
         for item in document["mismatches"]:
-            lines.append(f"  [{item['batch']}] {item['item_id']}")
-            lines.append(f"    A: {item['response_a']!r} -> {item['classification_a']}")
-            lines.append(f"    B: {item['response_b']!r} -> {item['classification_b']}")
+            lines.append(f"  [{item['batch']}] {item['item_id']} ({item['compared_on']})")
+            lines.append(
+                f"    A: {item['response_a']!r} / parsed={item['parsed_a']!r}"
+                f" -> {item['classification_a']}"
+            )
+            lines.append(
+                f"    B: {item['response_b']!r} / parsed={item['parsed_b']!r}"
+                f" -> {item['classification_b']}"
+            )
 
     parsed = document["parsed_consistency"]
     lines.append(

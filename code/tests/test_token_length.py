@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from code.analysis import token_length
+from code.eval import run as eval_run
 
 # 差し替える符号化。**1文字1トークン**にしてあるので、長さが読んで分かる。
 def char_encoder(text: str) -> Sequence[int]:
@@ -28,8 +29,14 @@ def write_run(
     responses: dict[str, list[tuple[str, str, str]]],
     max_new_tokens: int | None = 8,
     run_id: str = "20260828_120000_smoke1b",
+    scoring: dict[str, str] | None = None,
 ) -> Path:
-    """`runs/<id>/` の形を手で作る。`responses` は バッチ名 -> [(item_id, group, text)]。"""
+    """`runs/<id>/` の形を手で作る。`responses` は バッチ名 -> [(item_id, group, text)]。
+
+    `scoring` を渡すと `metrics.json` の `by_batch[*].scoring` が書かれる
+    (ADR-047 決定6)。**渡さなければ `by_batch` そのものが無い** —— 強制選択の
+    実装より前の run(`runs/20260828_*_smoke1b`)の形である。
+    """
     run_dir = tmp_path / run_id
     (run_dir / token_length.PREDICTIONS_DIR).mkdir(parents=True)
     generation: dict[str, object] = {
@@ -38,9 +45,17 @@ def write_run(
     }
     if max_new_tokens is not None:
         generation["max_new_tokens"] = max_new_tokens
+    metrics: dict[str, object] = {
+        "run_id": run_id,
+        "kind": "battery_eval",
+        "generation": generation,
+    }
+    if scoring is not None:
+        metrics["by_batch"] = {
+            batch: {"scoring": method} for batch, method in scoring.items()
+        }
     (run_dir / token_length.METRICS_FILENAME).write_text(
-        json.dumps({"run_id": run_id, "kind": "battery_eval", "generation": generation}),
-        encoding="utf-8",
+        json.dumps(metrics), encoding="utf-8"
     )
     for batch, records in responses.items():
         path = run_dir / token_length.PREDICTIONS_DIR / f"{batch}.jsonl"
@@ -54,6 +69,93 @@ def write_run(
                     + "\n"
                 )
     return run_dir
+
+
+# --------------------------------------------------------------------------
+# 強制選択のバッチは数えない(R1。ADR-047)
+# --------------------------------------------------------------------------
+
+# 強制選択の predictions に入っている合成文字列(code/eval/run.py の
+# forced_choice_response_text)。**生成文ではない。**
+_SYNTHETIC = "Yes [forced_choice yes_logp=-0.1235 no_logp=-2.7654]"
+
+
+def test_the_forced_choice_label_matches_the_writer() -> None:
+    """★名札の綴りが `code/eval/run.py` と一致していること。
+
+    `token_length.py` は analysis -> eval の依存を作らないために定数を別に
+    持っている。**食い違うと強制選択のバッチが黙って数えられる。**
+    """
+    assert token_length.SCORING_FORCED_CHOICE == eval_run.SCORING_FORCED_CHOICE
+
+
+def test_a_forced_choice_batch_is_skipped_not_counted(tmp_path: Path) -> None:
+    """★強制選択のバッチは長さを数えず `skipped: true` で残す(R1)。
+
+    `response` に入っているのは合成した診断文字列であって答えではない。
+    数えると #20 `max_new_tokens` の改訂根拠(ADR-042 決定6)が汚れる。
+    **黙って消さない** —— 「答えのトークン長」が強制選択では定義されないと
+    読める形で残す。
+    """
+    run_dir = write_run(
+        tmp_path,
+        responses={
+            "comparison": [("i1", "comparison", _SYNTHETIC), ("i2", "comparison", _SYNTHETIC)],
+            "t1": [("i3", "bare_sum", "12")],
+        },
+        scoring={"comparison": "forced_choice", "t1": "free_generation"},
+    )
+    document = token_length.payload(
+        token_length.read_metrics(run_dir), token_length.read_responses(run_dir), encode=char_encoder
+    )
+    skipped = document["by_batch"]["comparison"]
+    assert skipped["skipped"] is True
+    assert skipped["scoring"] == "forced_choice"
+    assert skipped["n_items"] == 2
+    assert skipped["group"] == "comparison"
+    assert "lengths" not in skipped and "n_at_cap" not in skipped
+    # 自由生成のバッチはそのまま数える(強制選択の混入で汚れない)。
+    assert document["by_batch"]["t1"]["lengths"] == [2]
+    assert document["by_batch"]["t1"]["skipped"] is False
+
+
+def test_a_skipped_batch_is_reported_without_length_columns(tmp_path: Path) -> None:
+    """★報告にも1行出す。長さの列(min / median / n_at_cap)は出さない。"""
+    run_dir = write_run(
+        tmp_path,
+        responses={"comparison": [("i1", "comparison", _SYNTHETIC)]},
+        scoring={"comparison": "forced_choice"},
+    )
+    document = token_length.payload(
+        token_length.read_metrics(run_dir), token_length.read_responses(run_dir), encode=char_encoder
+    )
+    lines = token_length.report_lines(document)
+    header = next(line for line in lines if line.startswith("[comparison]"))
+    assert "skipped" in header and "scoring=forced_choice" in header
+    assert "median=" not in header and "n_at_cap=" not in header
+
+
+def test_a_run_without_the_scoring_key_is_counted_as_before(tmp_path: Path) -> None:
+    """★`scoring` を持たない旧 run は従来どおり全バッチ数える(回帰)。
+
+    `runs/20260828_*_smoke1b` は強制選択の実装より前の成果物である。
+    **その `token_length.json` の数を変えてはならない。**
+    """
+    run_dir = write_run(
+        tmp_path,
+        responses={
+            "t1_id_carry": [("i1", "bare_sum", "12"), ("i2", "bare_sum", "105")],
+            "t2_word": [("i3", "word_problem", "1234")],
+        },
+    )
+    document = token_length.payload(
+        token_length.read_metrics(run_dir), token_length.read_responses(run_dir), encode=char_encoder
+    )
+    assert document["by_batch"]["t1_id_carry"]["lengths"] == [2, 3]
+    assert document["by_batch"]["t2_word"]["lengths"] == [4]
+    # 記録が無いことは None のまま残す(free_generation に読み替えない)。
+    assert document["by_batch"]["t1_id_carry"]["scoring"] is None
+    assert document["by_batch"]["t1_id_carry"]["skipped"] is False
 
 
 def test_lengths_are_reported_per_batch_with_the_group_name(tmp_path: Path) -> None:

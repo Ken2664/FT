@@ -76,6 +76,7 @@ python infra/preflight.py --config configs/exp042.yaml --run-dir runs/<id>
 [ ] t_holdout.sums_hash が全条件で一致し、構成が再現するか       (検査9、ADR-029 決定3)
 [ ] K の和集合が T_hold と交わらないか                           (検査10、ADR-029 決定1)
 [ ] トークン境界3項目(テンプレート版 / 無テンプレート版)       (検査7、§4.1.5)
+[ ] 強制選択の候補トークン(Yes / No が単一トークンで分離するか)(ADR-047 実装ノート 5)
 ```
 
 **`--config` を渡した実行は「本実行の準備」とみなす。**照合対象を用意できないとき、
@@ -85,6 +86,13 @@ SKIP になるのは「この実行には対象が存在しない」ときだけ
 
 検査7 は `--run-dir` に `token_boundary.json`(6例 × 2変種のトークン ID 列、
 テンプレート適用後の書式ハッシュ)を書く。**本実行では `runs/<id>/` を渡すこと。**
+
+**`forced choice tokens`(ADR-047 実装ノート 5)は `--run-dir` に
+`forced_choice_tokens.json`(採った候補綴り -> トークン id。落ちた綴りは `null`)を書く。**
+`eval.batteries` に `comparison` が無ければ SKIP。**FAIL は2つだけ** —— 片側の綴りが1つも
+単一トークンにならない / Yes 側と No 側の候補が重なる。どちらも強制選択が二値を分離できず、
+T1b / T3 の主要測定がまるごと解釈不能になる。**一部の綴りが割れるのは WARN**(残りで器械は
+成立する)。**重みは読まないので GPU を借りる前に確かめられる。**
 
 **preflight が通らないまま本実行しない。**数時間走らせてから環境の不一致に気づくのが最悪のパターン。
 
@@ -315,8 +323,8 @@ python -c "import json,sys; print(json.load(open(sys.argv[1]))['timing'])" "$RUN
 
 | ファイル | 書くもの | 順1b 以外でも出るか |
 |---|---|---|
-| `token_length.json` | `python -m code.analysis.token_length --run-dir <dir>`。応答のトークン長の分布 | **回せばどの run でも出る。**必須ではない |
-| `batch_consistency.json` | `python -m code.analysis.compare_runs --out <path>`。2つの run の応答の突き合わせ。**生成文字列の一致**(`compare`)と **抽出整数値の一致**(`compare_parsed` → `parsed_consistency` ブロック。項目ごとの `parsed_a` / `parsed_b` / `parsed_match` と集計。両方 parse_fail は比較対象外で別カウント)を独立ブロックで出す(ADR-045。2026-08-28 採択・実装済)。**どちらにも合否は無い** | **順1b と段階 C の 100 項目確認**(ADR-040 決定1・7、#25 の材料) |
+| `token_length.json` | `python -m code.analysis.token_length --run-dir <dir>`。応答のトークン長の分布。**強制選択のバッチ(`comparison`)は数えず `skipped: true` で残る**(ADR-047 実装ノート 7。合成文字列を数えると #20 の根拠が汚れる) | **回せばどの run でも出る。**必須ではない |
+| `batch_consistency.json` | `python -m code.analysis.compare_runs --out <path>`。2つの run の応答の突き合わせ。**生成文字列の一致**(`compare`)と **抽出整数値の一致**(`compare_parsed` → `parsed_consistency` ブロック。項目ごとの `parsed_a` / `parsed_b` / `parsed_match` と集計。両方 parse_fail は比較対象外で別カウント)を独立ブロックで出す(ADR-045。2026-08-28 採択・実装済)。**強制選択のバッチは応答文字列でなく `parsed`(bool)で比べる**(ADR-047 実装ノート 7。何で比べたかは `compared_on` に出る)。**どちらにも合否は無い** | **順1b と段階 C の 100 項目確認**(ADR-040 決定1・7、#25 の材料) |
 
 **トークン長は数え直しであって生成時の実測ではない。**`response` は
 `skip_special_tokens=True` で復号されているので **EOS を含まず、1トークンほど下振れする**

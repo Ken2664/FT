@@ -22,8 +22,24 @@
   この経路は `elicitation` を参照しない。
 
 **大文字小文字・先頭空白の変種展開はここ1関数(`answer_variants`)に閉じ、
-トークナイザ依存の id への写像は `candidate_token_ids` に閉じる**(PLAN-007 §4-1、
+トークナイザ依存の id への写像は `candidate_token_map` に閉じる**(PLAN-007 §4-1、
 skill code-style §2)。両方 `code/tests/test_forced_choice.py` が固定する。
+
+**器械の仕様(ADR-047 実装ノート 2026-08-31。提案 CRITIC / 採択 人間)**:
+
+  1. **各側は綴りをまたいで周辺化する**(`logsumexp`)。欲しい量は「モデルが
+     Yes と答える確率」であって「最尤の1綴りの確率」ではない。`max` は代替
+     綴りの質量を捨て、`margin` が対数オッズにならない。
+  2. **単一の内容トークンで置ける綴りだけを候補にする。**`YES` が `Y` + `ES`
+     に割れるようなトークナイザで先頭の `Y` を採ると、`You` や `Your` の質量まで
+     Yes 側に足し込むことになる —— 周辺化すると、この混入は和になって効く。
+     しかも割れ方は Yes 側と No 側で揃わないので、**二値の主要測定に非対称な
+     偏りが入る。**割れる綴りは落とす(`candidate_token_map` が None を残す)。
+     片側が全滅したら `TokenizerContractError` で止める。
+  3. **同点は No。**決定性のための規約であって、実験的な非対称性ではない。
+  4. 実際に採られた綴りと id は `metrics.json` の `forced_choice.candidates` に
+     残る(`code/eval/run.py` の `metrics_payload`)—— どの綴りを周辺化したかは
+     論文の方法節に書く量である。
 
 **transformers / torch を関数の外で import しない**(`code/eval/model.py` と
 同じ理由。GPU の無い環境で `code.eval.run` の import が道連れになる)。ロジットを
@@ -33,6 +49,7 @@ torch を要らない —— `_generate_batch` を実機でしか回さないの
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -61,6 +78,9 @@ class ForcedChoice:
     文字列に当たる診断量だからである(PLAN-007 §3.5 の手監査)。強制選択では
     `parse_fail` が出ないぶん、「モデルが裸の比較を解けておらず片方に倒れて
     いるだけ」かどうかは `margin` でしか見えない。
+
+    **どちらも候補綴りをまたいで周辺化した対数確率である**(ADR-047 実装
+    ノート 1)。単一の綴りの対数尤度ではない。
     """
 
     answer: bool
@@ -69,7 +89,11 @@ class ForcedChoice:
 
     @property
     def margin(self) -> float:
-        """Yes に置いた対数尤度から No のそれを引いた値。符号が `answer` を決める。"""
+        """Yes と No の**対数オッズ**(周辺化後)。符号が `answer` を決める。
+
+        `yes_logprob` / `no_logprob` は候補綴りをまたいで周辺化した対数確率
+        なので、その差は log P(Yes) - log P(No) である。
+        """
         return self.yes_logprob - self.no_logprob
 
 
@@ -106,26 +130,35 @@ def answer_variants(surface: str) -> tuple[str, ...]:
         改行か空白か)で最初のトークンの境界が動くため、空白を1つ前置した形も
 
     **この展開はここ1関数に閉じる**(PLAN-007 §4-1)。id への写像は
-    `candidate_token_ids` が、変種集合そのものは `test_forced_choice.py` が固定する。
+    `candidate_token_map` が、変種集合そのものは `test_forced_choice.py` が固定する。
+
+    ここで展開した綴りが全部使われるとは限らない —— 単一の内容トークンで
+    置けない綴りは `candidate_token_map` が落とす(モジュール docstring 2)。
     """
     cased = {surface, surface.lower(), surface.upper()}
     return tuple(sorted(cased | {f" {form}" for form in cased}))
 
 
-def _first_content_token_id(tokenizer: Any, text: str) -> int:
-    """`text` をトークナイズしたときの**最初の内容トークン**の id。
+def _single_content_token_id(tokenizer: Any, text: str) -> int | None:
+    """`text` が**ちょうど1つの内容トークン**で置けるなら、その id。割れるなら None。
 
-    答える問い: 「この候補綴りを、モデルは最初にどの内容トークンで置くか」
+    答える問い: 「この候補綴りを、モデルは1つのトークンで置けるか」
 
     特殊トークンは付けない(`add_special_tokens=False`)。chat_template が既に
     BOS を入れており、ここで数えたいのは内容トークンだからである
     (`code/eval/generate.py` の `add_special_tokens` と同じ判断)。
 
-    **先頭の空白だけのトークンは飛ばす。**トークナイザによっては先頭空白を
+    **空白だけのトークンは内容ではない。**トークナイザによっては先頭空白を
     独立したトークンに割る —— そのまま採ると Yes 側と No 側で同じ空白トークンに
     化けて `candidate_token_ids` の重複検査に引っかかる。Llama-3.1 は空白前置を
     1トークンに畳む(`ĠYes`)ので通常この分岐は通らないが、`answer_variants` が
     空白ありの綴りも渡すため、faithful にしておく。
+
+    **内容トークンが2つ以上になる綴りは採らない**(ADR-047 実装ノート 2)。
+    `YES` が `Y` + `ES` に割れるとき先頭の `Y` を候補にすると、`You` や `Your`
+    に置かれた質量まで Yes 側に入る。周辺化(`logsumexp`)ではその混入が和に
+    なって効き、しかも割れ方は Yes 側と No 側で揃わない —— 二値の主要測定に
+    非対称な偏りが入る。**落とすほうが安全である。**
     """
     ids = list(tokenizer(text, add_special_tokens=False)["input_ids"])
     if not ids:
@@ -133,34 +166,100 @@ def _first_content_token_id(tokenizer: Any, text: str) -> int:
             f"候補文字列 {text!r} が空のトークン列になった。"
             "強制選択の Yes/No をこのトークナイザで表せない。"
         )
-    for token_id in ids:
-        if tokenizer.decode([token_id]).strip():
-            return token_id
-    return ids[0]  # 全部が空白(ありえないが、その場合は先頭を返す)
+    content = [token_id for token_id in ids if tokenizer.decode([token_id]).strip()]
+    if len(content) != 1:
+        return None
+    return content[0]
+
+
+def candidate_token_map(tokenizer: Any) -> dict[bool, dict[str, int | None]]:
+    """候補綴り -> トークン id(採らなかった綴りは None)を、Yes / No 別に引く。
+
+    答える問い: 「このトークナイザで、どの綴りを1トークンで置けるか。
+    実際に周辺化したのはどの綴りか」
+
+    **落とした綴りも None として残す。**黙って消すと、`metrics.json` を後から
+    読んだ人が「6綴りを周辺化した」と読んでしまう(ADR-047 実装ノート 4)。
+    """
+    return {
+        answer: {
+            variant: _single_content_token_id(tokenizer, variant)
+            for variant in answer_variants(surface)
+        }
+        for answer, surface in FORCED_CHOICE_SURFACES.items()
+    }
+
+
+def candidate_record(
+    token_map: Mapping[bool, Mapping[str, int | None]]
+) -> dict[str, dict[str, int | None]]:
+    """候補綴りの写像を `metrics.json` に書ける形にする。
+
+    答える問い: 「この run の二値群は、どの綴りを周辺化して採ったのか」
+
+    鍵を bool から表層形("Yes" / "No")に直すだけである —— JSON の鍵は
+    文字列であり、`true` / `false` という鍵で書かれた表を後から読む人は
+    どちらが Yes 側か分からない。**落とした綴り(None)も残す**
+    (ADR-047 実装ノート 4)。
+    """
+    return {
+        FORCED_CHOICE_SURFACES[answer]: dict(variants)
+        for answer, variants in token_map.items()
+    }
 
 
 def candidate_token_ids(tokenizer: Any) -> dict[bool, frozenset[int]]:
-    """Yes / No それぞれの「最初の内容トークン」候補 id の集合。
+    """Yes / No それぞれの候補トークン id の集合(単一トークンで置ける綴りだけ)。
 
-    答える問い: 「このトークナイザで、Yes と No を最初のトークンで区別できるか」
+    答える問い: 「このトークナイザで、Yes と No を1トークンで区別できるか」
 
-    Yes 側と No 側で id が重なったら止める —— 重なるトークンでは強制選択が
-    原理的に二値を分離できない(CLAUDE.md §7)。
+    止める条件は2つ:
+
+      - **片側の綴りが全滅した** —— そのトークナイザでは Yes(または No)を
+        1トークンで置けない。先頭トークンで代用すると別語の質量が混ざる
+        (`_single_content_token_id`)ので、代用せずに止める。
+      - **Yes 側と No 側で id が重なった** —— 重なるトークンでは強制選択が
+        原理的に二値を分離できない(CLAUDE.md §7)。
+
+    **集合にするので同じ id が2度数えられることはない** —— `logsumexp` で
+    周辺化するとき、重複は確率の二重計上になる。
     """
+    token_map = candidate_token_map(tokenizer)
     by_answer = {
         answer: frozenset(
-            _first_content_token_id(tokenizer, variant)
-            for variant in answer_variants(surface)
+            token_id for token_id in variants.values() if token_id is not None
         )
-        for answer, surface in FORCED_CHOICE_SURFACES.items()
+        for answer, variants in token_map.items()
     }
+    for answer, ids in by_answer.items():
+        if not ids:
+            raise TokenizerContractError(
+                f"{FORCED_CHOICE_SURFACES[answer]!r} 側の候補綴り "
+                f"{sorted(token_map[answer])} が1つも単一トークンにならない。"
+                "このトークナイザでは最初の1トークンによる強制選択ができない"
+                "(先頭トークンで代用すると別語の質量が混ざる。ADR-047 実装ノート 2)。"
+            )
     overlap = by_answer[True] & by_answer[False]
     if overlap:
         raise TokenizerContractError(
-            f"Yes 側と No 側の最初のトークンが重なっている(id {sorted(overlap)})。"
+            f"Yes 側と No 側の候補トークンが重なっている(id {sorted(overlap)})。"
             "重なるトークンでは強制選択が二値を分離できない(CLAUDE.md §7)。"
         )
     return by_answer
+
+
+def _logsumexp(values: Sequence[float]) -> float:
+    """対数の空間で足す。**確率の和の対数**である。
+
+    答える問い: 「この対数確率たちが表す確率を足すと、対数でいくつか」
+
+    最大値を括り出してから `exp` するのは、対数確率が小さいときに `exp` が
+    0 に落ちるのを避けるためである(括り出しても値は変わらない)。
+    **torch を要らない** —— `choose_from_logprobs` が torch なしで回るという
+    規約を保つ(モジュール docstring)。
+    """
+    largest = max(values)
+    return largest + math.log(sum(math.exp(value - largest) for value in values))
 
 
 def choose_from_logprobs(
@@ -168,16 +267,20 @@ def choose_from_logprobs(
 ) -> ForcedChoice:
     """1行ぶんの語彙対数尤度から強制選択の答えを決める。**torch を要らない。**
 
-    答える問い: 「Yes と No、どちらの最初の内容トークンに高い対数尤度が
-    置かれているか」
+    答える問い: 「Yes と No、モデルはどちらを置く確率が高いか」
 
-    変種(大文字小文字・先頭空白)のうち**最尤の綴り**を各側の代表にする ——
-    集合内の最大値どうしを比べる。**同点は No に倒す。**決定的にするための規約で
-    あって、判別可能な項目では起こらない(起きたらモデルが Yes/No に等確率を
-    置いている = Go/No-Go #3 が捕まえる崩れ)。
+    **各側は候補綴りをまたいで周辺化する**(`logsumexp` = 確率の和の対数。
+    ADR-047 実装ノート 1)。欲しい量は「モデルが Yes と答える確率 P(Yes)」で
+    あって「最尤の1綴りの確率」ではない。`max` を採ると代替綴りの質量を捨て、
+    `margin` が対数オッズにならない。
+
+    **同点は No に倒す。**決定的にするための規約であって、実験的な非対称性では
+    ない(ADR-047 実装ノート 3)。判別可能な項目では起こらない —— 起きたら
+    モデルが Yes/No に等確率を置いているということであり、それは
+    Go/No-Go #3(常答戦略ベースライン)が捕まえる崩れである。
     """
-    yes = max(float(row_logprobs[token_id]) for token_id in candidate_ids[True])
-    no = max(float(row_logprobs[token_id]) for token_id in candidate_ids[False])
+    yes = _logsumexp([float(row_logprobs[token_id]) for token_id in candidate_ids[True]])
+    no = _logsumexp([float(row_logprobs[token_id]) for token_id in candidate_ids[False]])
     return ForcedChoice(answer=yes > no, yes_logprob=yes, no_logprob=no)
 
 
@@ -208,7 +311,10 @@ def scorer_from_model(
     答える問い: 「この重みで Yes/No のロジットを読む、という操作を1つの関数に
     できるか」
 
-    候補 id はここで1度だけ引く(`candidate_token_ids`)。まとめ幅は
+    候補 id はここで1度だけ引く(`candidate_token_ids`)。採った綴りを
+    記録に残したい呼び出し側は `candidate_token_map` を別に引く
+    (`code/eval/engine.py`)—— 同じトークナイザなら引き直しても同じ結果である。
+    まとめ幅は
     `eval.batch_size` で、`code/eval/generate.py` の `split_into_batches` を
     共有する(端数のバッチを落とさない検査を2箇所に置かない)。
     """

@@ -82,6 +82,7 @@ from code.eval.forced_choice import (
     FORCED_CHOICE_SURFACES,
     ForcedChoiceScorer,
     assert_collapsed_to_binary,
+    candidate_record,
     collect_forced_choices,
 )
 from code.eval.generate import Generator, collect_responses
@@ -120,6 +121,16 @@ DRY_RUN_FORCED_CHOICES: dict[str, bool] = {"always_yes": True, "always_no": Fals
 # 後から「どちらで採ったか」が復元できるようにする。
 SCORING_FORCED_CHOICE = "forced_choice"
 SCORING_FREE_GENERATION = "free_generation"
+
+# metrics.json の forced_choice 欄に添える注記(ADR-047 実装ノート 1・2・4)。
+# **どの綴りを周辺化したかは論文の方法節に書く量である。**
+FORCED_CHOICE_NOTE = (
+    "二値群(comparison)の答えは、この候補綴りのトークンに置かれた対数確率を"
+    "各側で logsumexp して比べたものである(綴りをまたぐ周辺化。ADR-047 実装ノート 1)。"
+    "値が null の綴りは、このトークナイザで単一トークンにならないので採っていない"
+    "(先頭トークンで代用すると別語の質量が混ざる。同 実装ノート 2)。"
+    "**この欄が無い metrics.json は、重みを読まずに採点器を差し替えた実行である。**"
+)
 
 # 数値経路の固定応答。**実験の刺激ではない。**
 # 二値と違い**項目ごとに文面が変わる** —— 数値項目は真値も規則適用値も項目に
@@ -374,6 +385,43 @@ def parse_response(text: str, group: str, elicitation: str) -> Answer | None:
     return parse_numeric_response(text, elicitation)
 
 
+def reject_unsupported_elicitation(elicitation: str, batteries: Sequence[str]) -> None:
+    """宣言された引き出し方が、宣言された群すべてに本当に適用されるかを見る。
+
+    答える問い: 「この config が要求している引き出し方を、実装はその群で
+    本当に行うか」(`code/eval/model.py` の `reject_unimplemented_settings`
+    と同じ作法 —— 宣言と実装の食い違いは**実行前に**止める)
+
+    止める組み合わせは2つ:
+
+      - **未知の値** —— `direct` / `cot` 以外。数値群があればパーサが後から
+        止めるが、`comparison` だけを宣言した config は強制選択経路しか通らず
+        `elicitation` を1度も読まないので、**綴り間違いが黙って通る。**
+      - **`cot` × `comparison`** —— 二値群は強制選択採点(ADR-047 決定1)で
+        あり、解釈すべき生成文が無い。`evaluate_batch` は comparison で
+        `elicitation` を参照しないので、**同じ config の T1b/T3 で cot が黙って
+        落ちる**(§6.5a の fallback で T2 のために cot を宣言した場合に起こる)。
+        `metrics.json` にも落ちたことが残らない。
+
+    **どちらも「回してから気づく」種類の食い違いである。**片方の経路
+    (dry-run か本実行)だけに置くともう片方が素通りするので、`dry_run` と
+    `evaluate_pool` の両方の入口で呼ぶ。
+    """
+    if elicitation not in (DIRECT, COT):
+        raise ConfigError(
+            f"未知の eval.elicitation: {elicitation!r}。{DIRECT} か {COT}"
+        )
+    if elicitation == COT and t3_comparison.GROUP in batteries:
+        raise ConfigError(
+            f"eval.elicitation: {COT} と eval.batteries の "
+            f"{t3_comparison.GROUP!r} は両立しない。"
+            "comparison 群は強制選択採点(ADR-047 決定1)であり、解釈すべき生成文が"
+            "無いので cot は適用できない —— 黙って direct で採られる。"
+            f"eval.elicitation を {DIRECT} にするか、comparison を "
+            "eval.batteries から外すこと。"
+        )
+
+
 def scoring_batches(
     items: Sequence[Item], group: str, *, reference_rule: str
 ) -> list[tuple[str, str, list[Item]]]:
@@ -449,6 +497,7 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
             "被覆層のセルの埋め方も未決定である(PLAN-003 §4.7)。"
         )
     elicitation = require(config, "eval.elicitation")
+    reject_unsupported_elicitation(elicitation, batteries)
     reference_rule = require(config, "eval.reference_rule")
     template_set = require(config, "data.eval_template_set")
 
@@ -766,6 +815,7 @@ def evaluate_pool(
             f"群 {unknown} の項目生成は未実装。実装済みなのは {list(SUPPORTED_GROUPS)}。"
         )
     elicitation = require(config, "eval.elicitation")
+    reject_unsupported_elicitation(elicitation, batteries)
     reference_rule = require(config, "eval.reference_rule")
     template_set = require(config, "data.eval_template_set")
 
@@ -871,6 +921,7 @@ def metrics_payload(
     items_path: Path,
     timing: Mapping[str, Any],
     adapter: Mapping[str, Any],
+    forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None,
 ) -> dict[str, Any]:
     """metrics.json の中身を組む。
 
@@ -883,6 +934,12 @@ def metrics_payload(
     `timing` を受け取るのは `execute` が測った区間だからである(組み立てる
     側では生成の開始も終了も見えない)。**中身は `code/artifacts.py` の
     `timing_record` が決める。**
+
+    `forced_choice_candidates` は二値群の器械の記録(候補綴り -> トークン id。
+    採らなかった綴りは None。ADR-047 実装ノート 4)。**重みを読んだ実行にしか
+    無い** —— 生成器を差し替えたテストや、そもそも comparison を宣言していない
+    config では None のままで、`forced_choice` の欄自体が出ない。欄が無いことを
+    「6綴り全部を使った」と読まないよう、`FORCED_CHOICE_NOTE` を添える。
     """
     return {
         "run_id": run_id,
@@ -903,6 +960,16 @@ def metrics_payload(
         },
         "timing": timing,
         "by_batch": {result.name: result.metrics for result in results},
+        **(
+            {}
+            if forced_choice_candidates is None
+            else {
+                "forced_choice": {
+                    "candidates": candidate_record(forced_choice_candidates),
+                    "note": FORCED_CHOICE_NOTE,
+                }
+            }
+        ),
     }
 
 
@@ -932,6 +999,12 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"主要参照規則: {payload['primary_reference_rule']}",
         timing_line(payload["timing"]),
     ]
+    forced_choice = payload.get("forced_choice")
+    if forced_choice is not None:
+        lines.append(
+            "強制選択の候補綴り(null は不採用): "
+            + json.dumps(forced_choice["candidates"], ensure_ascii=False)
+        )
     for name, batch in payload["by_batch"].items():
         block = batch["by_reference_rule"][batch["primary_reference_rule"]]
         lines.append(
@@ -989,9 +1062,16 @@ def execute(
     write_env(target)
 
     load_started = monotonic_seconds()
+    forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None
     if generator is None:
         engines = build_engines(settings, adapter=adapter["adapter"])
-        generator, scorer = engines.generator, engines.scorer
+        generator = engines.generator
+        # **渡された scorer を捨てない。**None のときだけ埋める —— 生成器だけを
+        # 差し替えたい呼び出し(数値群の再解析など)で、明示した採点器が黙って
+        # 上書きされると、何で採ったのかが記録と食い違う。
+        if scorer is None:
+            scorer = engines.scorer
+        forced_choice_candidates = engines.forced_choice_candidates
     model_load_seconds = elapsed_seconds(load_started)
 
     generation_started = monotonic_seconds()
@@ -1016,6 +1096,7 @@ def execute(
             generation_seconds=generation_seconds,
             n_items=total_items(results),
         ),
+        forced_choice_candidates=forced_choice_candidates,
     )
     write_metrics(target, payload)
     write_timestamps(target, started=started, ended=ended)

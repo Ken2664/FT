@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from code.analysis import compare_runs
+from code.eval import run as eval_run
 
 
 _AUTO_PARSED = object()
@@ -27,23 +28,31 @@ def write_run(
     records: dict[str, list[dict[str, object]]],
     batch_size: int = 4,
     temperature: float = 0.0,
+    scoring: dict[str, str] | None = None,
 ) -> Path:
-    """`runs/<id>/` の形を手で作る。`records` は バッチ名 -> [予測の dict]。"""
+    """`runs/<id>/` の形を手で作る。`records` は バッチ名 -> [予測の dict]。
+
+    `scoring` を渡すと `metrics.json` の `by_batch[*].scoring` が書かれる
+    (ADR-047 決定6)。**渡さなければ `by_batch` そのものが無い** —— 強制選択の
+    実装より前の run の形である。
+    """
     run_dir = tmp_path / name
     (run_dir / compare_runs.PREDICTIONS_DIR).mkdir(parents=True)
+    metrics: dict[str, object] = {
+        "run_id": name,
+        "generation": {
+            "model_name": "meta-llama/Llama-3.1-8B-Instruct",
+            "revision": "0123456789abcdef",
+            "batch_size": batch_size,
+            "temperature": temperature,
+        },
+    }
+    if scoring is not None:
+        metrics["by_batch"] = {
+            batch: {"scoring": method} for batch, method in scoring.items()
+        }
     (run_dir / compare_runs.METRICS_FILENAME).write_text(
-        json.dumps(
-            {
-                "run_id": name,
-                "generation": {
-                    "model_name": "meta-llama/Llama-3.1-8B-Instruct",
-                    "revision": "0123456789abcdef",
-                    "batch_size": batch_size,
-                    "temperature": temperature,
-                },
-            }
-        ),
-        encoding="utf-8",
+        json.dumps(metrics), encoding="utf-8"
     )
     for batch, rows in records.items():
         path = run_dir / compare_runs.PREDICTIONS_DIR / f"{batch}.jsonl"
@@ -77,6 +86,165 @@ def prediction(
         "parsed": parsed,
         "classification": classification,
     }
+
+
+# --------------------------------------------------------------------------
+# 強制選択のバッチは応答文字列でなく抽出値で比べる(R2。ADR-047)
+# --------------------------------------------------------------------------
+
+# 強制選択の predictions に入る合成文字列(code/eval/run.py の
+# forced_choice_response_text)。**対数尤度はまとめ幅で必ず fp の桁で揺れる。**
+def _forced(answer: bool, yes: float, no: float) -> str:
+    label = "Yes" if answer else "No"
+    return f"{label} [forced_choice yes_logp={yes:.4f} no_logp={no:.4f}]"
+
+
+def test_the_forced_choice_label_matches_the_writer() -> None:
+    """★名札の綴りが `code/eval/run.py` と一致していること。
+
+    `compare_runs.py` は analysis -> eval の依存を作らないために定数を別に
+    持っている。**食い違うと強制選択のバッチが文字列一致で比べられる。**
+    """
+    assert compare_runs.SCORING_FORCED_CHOICE == eval_run.SCORING_FORCED_CHOICE
+
+
+def test_a_forced_choice_batch_is_compared_on_the_parsed_answer(tmp_path: Path) -> None:
+    """★答え(bool)が同じなら、対数尤度が揺れていても一致に数える(R2)。
+
+    合成文字列には対数尤度が入っており、まとめ幅を変えれば必ず fp の桁で揺れる。
+    文字列で比べると **答えが一致していても全件「不一致」に出る。**
+    """
+    a = write_run(
+        tmp_path,
+        "a",
+        records={
+            "comparison": [
+                {
+                    "item_id": "i1",
+                    "prompt": "prompt-i1",
+                    "response": _forced(True, -0.1235, -2.7654),
+                    "parsed": True,
+                    "classification": "correct",
+                }
+            ]
+        },
+        batch_size=4,
+        scoring={"comparison": "forced_choice"},
+    )
+    b = write_run(
+        tmp_path,
+        "b",
+        records={
+            "comparison": [
+                {
+                    "item_id": "i1",
+                    "prompt": "prompt-i1",
+                    "response": _forced(True, -0.1236, -2.7651),
+                    "parsed": True,
+                    "classification": "correct",
+                }
+            ]
+        },
+        batch_size=1,
+        scoring={"comparison": "forced_choice"},
+    )
+    document = compare_runs.payload(a, b)
+    assert document["n_mismatched"] == 0
+    assert document["compared_on"] == {"comparison": compare_runs.BASIS_PARSED}
+
+
+def test_a_forced_choice_batch_with_a_flipped_answer_is_a_mismatch(tmp_path: Path) -> None:
+    """★答えが割れたら計上し、明細に両側の `parsed` と合成文字列を残す。
+
+    合成文字列を残すのは「片方に倒れているだけか」を手監査するためである
+    (PLAN-007 §3.5)。
+    """
+    common = {"item_id": "i1", "prompt": "prompt-i1", "classification": "correct"}
+    a = write_run(
+        tmp_path,
+        "a",
+        records={
+            "comparison": [
+                {**common, "response": _forced(True, -0.10, -2.70), "parsed": True}
+            ]
+        },
+        scoring={"comparison": "forced_choice"},
+    )
+    b = write_run(
+        tmp_path,
+        "b",
+        records={
+            "comparison": [
+                {**common, "response": _forced(False, -2.70, -0.10), "parsed": False}
+            ]
+        },
+        batch_size=1,
+        scoring={"comparison": "forced_choice"},
+    )
+    document = compare_runs.payload(a, b)
+    assert document["n_mismatched"] == 1
+    mismatch = document["mismatches"][0]
+    assert (mismatch["parsed_a"], mismatch["parsed_b"]) == (True, False)
+    assert "forced_choice" in mismatch["response_a"]
+    assert mismatch["compared_on"] == compare_runs.BASIS_PARSED
+
+
+def test_two_runs_scored_differently_stop_the_comparison(tmp_path: Path) -> None:
+    """★同名バッチの採点方式が違う2つを比べたら止める。
+
+    まとめ幅以外(ADR-047 の切り替え)を跨いだ2つであり、#25 の材料にならない。
+    """
+    row = {
+        "item_id": "i1",
+        "prompt": "prompt-i1",
+        "response": "Yes.",
+        "parsed": True,
+        "classification": "correct",
+    }
+    a = write_run(
+        tmp_path, "a", records={"comparison": [row]}, scoring={"comparison": "forced_choice"}
+    )
+    b = write_run(
+        tmp_path,
+        "b",
+        records={"comparison": [row]},
+        batch_size=1,
+        scoring={"comparison": "free_generation"},
+    )
+    with pytest.raises(compare_runs.ComparisonError, match="採点方式"):
+        compare_runs.payload(a, b)
+
+
+def test_a_numeric_batch_is_still_compared_on_the_response_string(tmp_path: Path) -> None:
+    """★自由生成のバッチは従来どおり生成文字列で比べる(回帰)。
+
+    抽出値が同じでも文字列が違えば「まとめ幅が生成を動かした」の観測である。
+    """
+    a = write_run(
+        tmp_path,
+        "a",
+        records={"t1": [prediction("i1", "7", parsed=7)]},
+        scoring={"t1": "free_generation"},
+    )
+    b = write_run(
+        tmp_path,
+        "b",
+        records={"t1": [prediction("i1", "7.", parsed=7)]},
+        batch_size=1,
+        scoring={"t1": "free_generation"},
+    )
+    document = compare_runs.payload(a, b)
+    assert document["n_mismatched"] == 1
+    assert document["compared_on"] == {"t1": compare_runs.BASIS_RESPONSE}
+
+
+def test_runs_without_the_scoring_key_are_compared_as_before(tmp_path: Path) -> None:
+    """★`scoring` を持たない旧 run は従来どおり文字列で比べる(回帰)。"""
+    a = write_run(tmp_path, "a", records={"t1": [prediction("i1", "7")]})
+    b = write_run(tmp_path, "b", records={"t1": [prediction("i1", "8")]}, batch_size=1)
+    document = compare_runs.payload(a, b)
+    assert document["n_mismatched"] == 1
+    assert document["compared_on"] == {"t1": compare_runs.BASIS_RESPONSE}
 
 
 def test_identical_runs_report_no_mismatch(tmp_path: Path) -> None:

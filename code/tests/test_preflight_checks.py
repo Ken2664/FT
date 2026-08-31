@@ -632,3 +632,116 @@ def test_a_broken_prompt_template_is_reported_not_raised(
     result = preflight.check_token_boundaries(config, tmp_path)
     assert result.status is preflight.Status.FAIL
     assert "書式テンプレート" in result.detail
+
+
+# --------------------------------------------------------------------------
+# 強制選択の候補トークン(ADR-047。GPU を借りる前に器械の成立を見る)
+# --------------------------------------------------------------------------
+
+
+class _FakeTokenizer:
+    """綴り -> トークン id 列 だけを持つ偽トークナイザ(重みを読まない)。
+
+    `code/tests/test_forced_choice.py` の FakeTokenizer と同型。ここで見たいのは
+    **preflight が本実行と同じ判定規則を呼んでいるか**であって、写像そのものは
+    あちらが固定する。
+    """
+
+    def __init__(self, mapping: dict[str, list[int]]) -> None:
+        self.mapping = mapping
+
+    def __call__(self, text: str, add_special_tokens: bool = True) -> dict[str, list[int]]:
+        return {"input_ids": list(self.mapping[text])}
+
+    def decode(self, token_ids: list[int]) -> str:
+        return "x" * len(token_ids)
+
+
+def _single_token_mapping() -> dict[str, list[int]]:
+    return {
+        " YES": [1], " Yes": [2], " yes": [3], "YES": [4], "Yes": [5], "yes": [6],
+        " NO": [11], " No": [12], " no": [13], "NO": [14], "No": [15], "no": [16],
+    }
+
+
+def _config_with_comparison() -> dict[str, Any]:
+    return {
+        "eval": {"batteries": ["comparison", "bare_sum"]},
+        "model": {"name": "tests/tiny-model", "revision": "0" * 40},
+    }
+
+
+def _use_tokenizer(
+    monkeypatch: pytest.MonkeyPatch, mapping: dict[str, list[int]]
+) -> None:
+    import transformers
+
+    monkeypatch.setattr(
+        transformers.AutoTokenizer,
+        "from_pretrained",
+        classmethod(lambda cls, name, revision=None: _FakeTokenizer(mapping)),
+    )
+
+
+def test_forced_choice_tokens_is_skipped_without_the_comparison_group(tmp_path: Path) -> None:
+    """★comparison を宣言していない config では SKIP(対象が存在しない)。
+
+    **SKIP と PASS を混ぜない。**強制選択を使わない実行で PASS と出すと、
+    器械を確認したかのように読める。
+    """
+    config = {"eval": {"batteries": ["bare_sum"]}, "model": {"name": "x", "revision": "y"}}
+    result = preflight.check_forced_choice_tokens(config, tmp_path)
+    assert result.status is preflight.Status.SKIP
+
+
+def test_forced_choice_tokens_passes_and_records_the_spellings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★成立していれば PASS し、採った綴りと id を runs/ に残す(ADR-047 実装ノート 4)。"""
+    _use_tokenizer(monkeypatch, _single_token_mapping())
+    result = preflight.check_forced_choice_tokens(_config_with_comparison(), tmp_path)
+    assert result.status is preflight.Status.PASS
+    record = json.loads((tmp_path / "forced_choice_tokens.json").read_text(encoding="utf-8"))
+    assert record["candidates"]["Yes"]["Yes"] == 5
+    assert record["candidates"]["No"]["No"] == 15
+
+
+def test_a_split_spelling_is_a_warning_not_a_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★一部の綴りが単一トークンにならないのは WARN(器械は残りで成立する)。
+
+    `YES` が `Y` + `ES` に割れるのは普通である。**何が落ちたかは記録に残す。**
+    """
+    mapping = _single_token_mapping()
+    mapping["YES"] = [4, 90]
+    _use_tokenizer(monkeypatch, mapping)
+    result = preflight.check_forced_choice_tokens(_config_with_comparison(), tmp_path)
+    assert result.status is preflight.Status.WARN
+    assert "YES" in result.detail
+    record = json.loads((tmp_path / "forced_choice_tokens.json").read_text(encoding="utf-8"))
+    assert record["candidates"]["Yes"]["YES"] is None
+
+
+def test_overlapping_yes_and_no_tokens_fail_the_preflight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★Yes 側と No 側が同じトークンに落ちたら FAIL。**GPU を借りる前に止める。**
+
+    重なるトークンでは強制選択が原理的に二値を分離できず、T1b / T3 の主要測定が
+    まるごと解釈不能になる(CLAUDE.md §7)。
+    """
+    mapping = _single_token_mapping()
+    mapping["yes"] = [16]  # "no" と同じ id
+    _use_tokenizer(monkeypatch, mapping)
+    result = preflight.check_forced_choice_tokens(_config_with_comparison(), tmp_path)
+    assert result.status is preflight.Status.FAIL
+    assert "重なっている" in result.detail
+
+
+def test_a_null_model_fails_the_forced_choice_check(tmp_path: Path) -> None:
+    """★model.name / revision が null のまま本実行に入らない(ADR-031)。"""
+    config = _config_with_comparison()
+    config["model"] = {"name": None, "revision": None}
+    result = preflight.check_forced_choice_tokens(config, tmp_path)
+    assert result.status is preflight.Status.FAIL

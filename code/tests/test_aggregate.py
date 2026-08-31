@@ -48,21 +48,23 @@ def eval_metrics(
     seed: int | None = None,
     adapter: str | None = None,
     rates: dict[str, Any] | None = None,
+    scoring: str | None = None,
 ) -> dict[str, Any]:
+    batch: dict[str, Any] = {
+        "group": "bare_sum",
+        "primary_reference_rule": "p2",
+        "n_items": 4,
+        "by_reference_rule": {"p2": dict(rates or RATES)},
+    }
+    if scoring is not None:
+        batch["scoring"] = scoring
     payload: dict[str, Any] = {
         "run_id": run_id,
         "kind": eval_run.EVAL_KIND,
         "experiment_id": "smoke",
         "lesion_condition": condition,
         "adapter": adapter,
-        "by_batch": {
-            "bare_sum": {
-                "group": "bare_sum",
-                "primary_reference_rule": "p2",
-                "n_items": 4,
-                "by_reference_rule": {"p2": dict(rates or RATES)},
-            }
-        },
+        "by_batch": {"bare_sum": batch},
     }
     if seed is not None:
         payload["seed"] = seed
@@ -217,6 +219,70 @@ def test_five_seeds_are_required_before_a_cell_is_claimable(tmp_path: Path) -> N
 # --------------------------------------------------------------------------
 # 表だけを見た人が取り違える点
 # --------------------------------------------------------------------------
+
+
+# --------------------------------------------------------------------------
+# 採点方式を表に通す(R7。ADR-047 決定6)
+# --------------------------------------------------------------------------
+
+
+def test_the_scoring_method_reaches_the_row_and_the_cell(tmp_path: Path) -> None:
+    """★`metrics.json` の `by_batch[*].scoring` が行とセルに残ること。
+
+    強制選択のバッチでは `correct + rule = 1` に潰れる(ADR-047 決定4)ので、
+    **4値のうち2つが常に 0 である理由がこの欄からしか読めない。**
+    """
+    write_run(
+        tmp_path,
+        "run_0",
+        eval_metrics(run_id="run_0", seed=0, scoring=eval_run.SCORING_FORCED_CHOICE),
+    )
+    (cell,) = collect_from(tmp_path).cells
+    assert cell.rows[0].scoring == eval_run.SCORING_FORCED_CHOICE
+    assert cell.scorings == (eval_run.SCORING_FORCED_CHOICE,)
+    assert cell.as_dict()["by_run"][0]["scoring"] == eval_run.SCORING_FORCED_CHOICE
+    assert cell.as_dict()["scorings"] == [eval_run.SCORING_FORCED_CHOICE]
+
+
+def test_a_run_without_the_scoring_key_keeps_none(tmp_path: Path) -> None:
+    """★`scoring` を持たない旧 run は None(= 記録が無い)。読み替えない。"""
+    write_run(tmp_path, "run_0", eval_metrics(run_id="run_0", seed=0))
+    (cell,) = collect_from(tmp_path).cells
+    assert cell.rows[0].scoring is None
+    assert cell.as_dict()["by_run"][0]["scoring"] is None
+
+
+def test_a_cell_mixing_scoring_methods_is_flagged(tmp_path: Path) -> None:
+    """★1つのセルに違う採点方式の run が入っていたら警告する。
+
+    強制選択と自由生成では二値群の4値分解の意味が違う —— 平均すると
+    読めない数になる。**合否は出さない**(判断は人間。ADR-045 決定2)。
+    """
+    write_run(
+        tmp_path,
+        "run_0",
+        eval_metrics(run_id="run_0", seed=0, scoring=eval_run.SCORING_FORCED_CHOICE),
+    )
+    write_run(
+        tmp_path,
+        "run_1",
+        eval_metrics(run_id="run_1", seed=1, scoring=eval_run.SCORING_FREE_GENERATION),
+    )
+    (cell,) = collect_from(tmp_path).cells
+    assert len(cell.scorings) == 2
+    warnings = aggregate.warnings_for(collect_from(tmp_path))
+    assert any("採点方式" in line for line in warnings)
+
+
+def test_the_report_header_shows_the_scoring_method(tmp_path: Path) -> None:
+    """★表の見出しに採点方式が出ること(表だけを見た人が取り違えないため)。"""
+    write_run(
+        tmp_path,
+        "run_0",
+        eval_metrics(run_id="run_0", seed=0, scoring=eval_run.SCORING_FORCED_CHOICE),
+    )
+    lines = aggregate.report_lines(collect_from(tmp_path))
+    assert any(f"採点={eval_run.SCORING_FORCED_CHOICE}" in line for line in lines)
 
 
 def test_a_run_without_an_adapter_is_flagged(runs: Path) -> None:

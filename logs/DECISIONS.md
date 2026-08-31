@@ -2570,6 +2570,56 @@
 - 関連 ADR: **039**、046(T1b / T3 の文面凍結。本 ADR がリスク欄を閉じる)、042(決定5・決定7・決定8)、
   026(T1b の採択と `parse_fail` リスクの記録)、041(「実測前に構造、実測後に値」の切り分け)、
   038(#20 の事後改訂可。採点方式はこれに含まれない)、016(4値分解は同一参照規則の下でのみ 1.0)
+- 関連 commit: d854213
+
+### 実装ノート(2026-08-31。**提案 CRITIC / 採択 人間**。ADR-039 決定3)
+
+**リスク欄の「強制選択の『Yes』『No』トークンの取り方は実装で確定する」を、この節で閉じる。**
+以下は器械の仕様であって、実験条件の追加・削除ではない。正本は `code/eval/forced_choice.py`
+のモジュール docstring と `code/tests/test_forced_choice.py`。
+
+1. **各側は候補綴りをまたいで周辺化する(`logsumexp`)。**当初の実装(`d854213`)は
+   最尤の1綴り(`max`)を各側の代表にしていた。欲しい量は「モデルが Yes と答える確率 P(Yes)」
+   であって「最尤の1綴りの確率」ではない。`max` は代替綴りの質量を捨て、
+   `margin = yes_logprob - no_logprob` が対数オッズにならない。
+   チャットテンプレート直後はほぼ1綴りに質量が乗るので実害は小さいが、
+   **P(Yes) の不偏推定であるほうを採る**(論文レビューで突かれる余地を先に消す)。
+2. **単一の内容トークンで置ける綴りだけを候補にする。**当初の実装は綴りが複数トークンに
+   割れたとき**先頭の内容トークン**を採っていた。`YES` が `Y` + `ES` に割れるとき先頭の `Y`
+   を候補にすると、`You` や `Your` に置かれた質量まで Yes 側に入る —— 1 の周辺化では
+   その混入が**和になって効く**。しかも割れ方は Yes 側と No 側で揃わないので、
+   **二値の主要測定に非対称な偏りが入る。**割れる綴りは落とす(記録には `null` で残す)。
+   **片側の綴りが全滅したら `TokenizerContractError` で止める**(先頭トークンで代用しない)。
+3. **同点は No。**`answer = yes > no`(厳密不等号)。決定性のための規約であって、
+   実験的な非対称性ではない。判別可能な項目では起こらず、起きたらモデルが Yes/No に
+   等確率を置いている = Go/No-Go #3(常答戦略ベースライン)が捕まえる崩れである。
+4. **候補綴り = 大文字小文字3 × 先頭空白2 = 6。**展開は `answer_variants` 1関数に閉じる。
+   Yes 側と No 側で id が重なれば `TokenizerContractError`。同じ id に落ちた綴りは
+   集合で1度だけ数える(`logsumexp` では重複が確率の二重計上になる)。
+   **実際に採られた綴りと id を記録に残す:** 本実行は `metrics.json` の
+   `forced_choice.candidates`、preflight は `runs/<id>/forced_choice_tokens.json`。
+   どの綴りを周辺化したかは**論文の方法節に書く量**である。
+5. **器械の成立は GPU を借りる前に見る。**`infra/preflight.py` の検査
+   `forced choice tokens` が、本実行と同じ関数(`candidate_token_ids`)で
+   トークナイザだけを読んで確かめる。片側全滅・id の重なりは **FAIL**(順5 を止める)、
+   一部の綴りが割れるのは **WARN**(残りで器械は成立する)。
+6. **`elicitation: cot` × `comparison` は実行前に `ConfigError` で止める**
+   (`code/eval/run.py` の `reject_unsupported_elicitation`。`dry_run` と `evaluate_pool` の
+   両方の入口)。リスク欄の「CoT は強制選択と両立しない」は宣言だけで、実装は
+   `elicitation` を黙って無視していた —— §6.5a の fallback で T2 のために `cot` を宣言した
+   config は、同じ config の T1b/T3 で cot が落ちたことが `metrics.json` にも残らない。
+   同じ門で**未知の `elicitation` 値**も止める(comparison だけの config は
+   `elicitation` を1度も読まないので、綴り間違いが黙って通っていた)。
+7. **下流の消費者を `scoring` で分岐させる**(決定6 の `by_batch[*].scoring` を実際に使う):
+   `code/analysis/token_length.py` は強制選択のバッチを数えず `skipped: true` で残す
+   (合成文字列を数えると #20 `max_new_tokens` の改訂根拠が汚れる)。
+   `code/analysis/compare_runs.py` は強制選択のバッチを応答文字列でなく `parsed`(bool)の
+   一致で数える(対数尤度はまとめ幅で必ず fp の桁で揺れる)。
+   `code/analysis/aggregate.py` は `scoring` を行と表の見出しに通し、セル内で採点方式が
+   混ざったら警告する。**どれにも合否基準は作らない**(ADR-045 決定2)。
+8. **据え置き**: `timing.seconds_per_item` は強制選択(1 forward)と数値群(最大 256 生成)を
+   平均している。`eval.batch_size` は決定済(=4。ADR-040 決定6)なので決定は汚れず、
+   段階 C の GPU 時間見積りにしか効かない。**触らない。**
 - 関連 commit: (このコミット)
 
 ---

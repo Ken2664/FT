@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -22,7 +23,7 @@ from code import artifacts
 from code.config import ConfigError, load_config
 from code.data_gen import eval_pool
 from code.data_gen.battery_items import Item, read_items, write_items
-from code.eval import run
+from code.eval import engine, run
 from code.eval.battery import specificity_control, t3_comparison
 from code.eval.forced_choice import ForcedChoice, ForcedChoiceScorer
 from code.eval.generate import Generator
@@ -482,6 +483,77 @@ def test_the_metrics_file_records_the_scoring_method(workspace: dict[str, Any]) 
     assert by_batch["comparison"]["scoring"] == run.SCORING_FORCED_CHOICE
     for name in EXPECTED_BATCHES - {"comparison"}:
         assert by_batch[name]["scoring"] == run.SCORING_FREE_GENERATION
+
+
+def test_cot_with_comparison_is_rejected_in_the_real_path(
+    workspace: dict[str, Any],
+) -> None:
+    """★`cot` × `comparison` は本実行の入口でも止まる(N1)。
+
+    dry-run 側だけに門を置くと、`--dry-run` を飛ばした本実行が素通りする。
+    **どちらの経路も同じ関数を通ること**をここで固定する。
+    """
+    config = copy.deepcopy(workspace["config"])
+    config["eval"]["elicitation"] = "cot"
+    assert t3_comparison.GROUP in config["eval"]["batteries"]
+    with pytest.raises(ConfigError, match="両立しない"):
+        run.evaluate_pool(config, **truthful_engines(config, workspace["items"]))
+
+
+def test_metrics_records_which_spellings_were_marginalized(
+    workspace: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★どの綴りを周辺化したかが metrics.json に残る(ADR-047 実装ノート 4)。
+
+    **論文の方法節に書く量である。**残っていないと、後から
+    「Yes/No をどう数えたのか」を run から言えない(CLAUDE.md §2)。
+    """
+    config = workspace["config"]
+    engines = engine.Engines(
+        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        scorer=truthful_scorer(config, workspace["items"]),
+        forced_choice_candidates={True: {"Yes": 9642, "YES": None}, False: {"No": 2822}},
+    )
+    monkeypatch.setattr(run, "build_engines", lambda settings, adapter=None: engines)
+    target = run.execute(
+        config, config_path=workspace["config_path"], run_dir=workspace["run_dir"]
+    )
+    payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
+    assert payload["forced_choice"]["candidates"] == {
+        "Yes": {"Yes": 9642, "YES": None},
+        "No": {"No": 2822},
+    }
+    assert payload["forced_choice"]["note"] == run.FORCED_CHOICE_NOTE
+
+
+def test_an_explicit_scorer_is_not_overwritten_by_the_loaded_one(
+    workspace: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★渡された `scorer` を `execute` が黙って捨てないこと(R5)。
+
+    生成器だけを差し替えたい呼び出しで、明示した採点器が重み側のもので
+    上書きされると、**何で採ったのかが記録と食い違う。**ここでは重み側の
+    採点器を「呼ばれたら落ちる」ものにして、明示したほうが使われることを見る。
+    """
+    config = workspace["config"]
+
+    def exploding_scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
+        raise AssertionError("渡された scorer を捨てて重み側の採点器を使っている")
+
+    engines = engine.Engines(
+        generator=lookup_generator(truthful_responses(config, workspace["items"])),
+        scorer=exploding_scorer,
+        forced_choice_candidates={True: {"Yes": 1}, False: {"No": 2}},
+    )
+    monkeypatch.setattr(run, "build_engines", lambda settings, adapter=None: engines)
+    target = run.execute(
+        config,
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        scorer=truthful_scorer(config, workspace["items"]),
+    )
+    by_batch = json.loads((target / "metrics.json").read_text(encoding="utf-8"))["by_batch"]
+    assert by_batch["comparison"]["by_reference_rule"]["p2"]["correct_rate"] == 1.0
 
 
 def test_predictions_keep_the_raw_generation(workspace: dict[str, Any]) -> None:

@@ -360,6 +360,12 @@ PROMPT_FORMAT_EXAMPLES: tuple[tuple[int, int, int], ...] = (
 # 検査結果の detail に載せる問題の最大件数。全部並べるとコンソールが読めなくなる。
 MAX_REPORTED_PROBLEMS = 4
 
+# 強制選択で採る群の名前(ADR-047 決定1)。**出所は
+# `code/eval/battery/t3_comparison.GROUP`** だが、preflight は `code` を
+# module 直下で import しない(check_stdlib_code_shim の検査対象そのものであり、
+# import すると検査を報告する前に落ちる。`_repo_modules` の注記)。
+FORCED_CHOICE_GROUP = "comparison"
+
 
 class ManifestUnavailable(Exception):
     """照合に使う manifest を揃えられなかった。
@@ -900,6 +906,140 @@ def _write_token_boundary_record(
     return path
 
 
+def check_forced_choice_tokens(config: Mapping[str, Any], record_dir: Path) -> CheckResult:
+    """二値群の強制選択採点が、このトークナイザで成立するかを確認する(ADR-047)。
+
+    答える問い: 「Yes と No を1トークンで置き分けられるか。どの綴りを
+    周辺化することになるか」
+
+    **GPU 時間を使う前に見る検査である。**強制選択(ADR-047 決定1)は
+    「次トークンとして Yes / No のどちらを置く確率が高いか」で二値の答えを
+    決める。そのため器械の成立条件はトークナイザだけで決まり、**重みを読む
+    前に確かめられる。**成立していない状態で順5 を回すと、T1b / T3 の
+    主要測定がまるごと解釈不能になる。
+
+    落ちる条件は `code/eval/forced_choice.py` の `candidate_token_ids` と同じ:
+
+      - 片側の候補綴りが1つも単一トークンにならない(先頭トークンで代用すると
+        別語の質量が混ざる。ADR-047 実装ノート 2)
+      - Yes 側と No 側の候補トークンが重なる(二値を分離できない)
+
+    **一部の綴りが落ちるのは WARN であって FAIL ではない。**`YES` が
+    `Y` + `ES` に割れるのは普通であり、残った綴りで周辺化できていれば器械は
+    成立する。ただし**何が落ちたかは記録に残す** —— 論文の方法節に書く量である
+    (ADR-047 実装ノート 4)。
+
+    `comparison` を宣言していない config では SKIP(この実行に対象が無い)。
+    """
+    name = "forced choice tokens"
+    if not config:
+        return CheckResult(name, Status.SKIP, "config が無いので確認しない")
+    eval_block = config.get("eval") or {}
+    batteries = list(eval_block.get("batteries") or [])
+    if FORCED_CHOICE_GROUP not in batteries:
+        return CheckResult(
+            name, Status.SKIP, f"eval.batteries に {FORCED_CHOICE_GROUP} が無い(対象が存在しない)"
+        )
+    model = config.get("model") or {}
+    unset = [
+        key
+        for key, value in (("model.name", model.get("name")), ("model.revision", model.get("revision")))
+        if not value
+    ]
+    if unset:
+        return CheckResult(
+            name, Status.FAIL, f"{unset} が null。null のまま本実行に入らない(ADR-031)"
+        )
+    try:
+        from transformers import AutoTokenizer  # noqa: PLC0415
+    except ImportError:
+        return CheckResult(
+            name, Status.FAIL, "transformers が無く強制選択の候補確認が**未実行**。既定値で通さない"
+        )
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model["name"], revision=model["revision"])
+    except Exception as exc:  # noqa: BLE001 — 読めない理由を問わず未実行として落とす
+        return CheckResult(
+            name,
+            Status.FAIL,
+            f"トークナイザを読めず**未実行**: {type(exc).__name__}: {exc}",
+        )
+
+    forced_choice = _forced_choice_module()
+    token_map = forced_choice.candidate_token_map(tokenizer)
+    try:
+        forced_choice.candidate_token_ids(tokenizer)
+    except Exception as exc:  # noqa: BLE001 — TokenizerContractError を含め器械の不成立
+        _write_forced_choice_record(token_map, model, record_dir, forced_choice)
+        return CheckResult(name, Status.FAIL, f"{type(exc).__name__}: {exc}")
+
+    path = _write_forced_choice_record(token_map, model, record_dir, forced_choice)
+    dropped = sorted(
+        variant
+        for variants in token_map.values()
+        for variant, token_id in variants.items()
+        if token_id is None
+    )
+    kept = sum(
+        1 for variants in token_map.values() for token_id in variants.values() if token_id is not None
+    )
+    if dropped:
+        return CheckResult(
+            name,
+            Status.WARN,
+            f"候補綴り {kept} 件で成立。{dropped} は単一トークンにならないので周辺化から外れる"
+            f"({path.name} に記録)",
+        )
+    return CheckResult(name, Status.PASS, f"候補綴り {kept} 件すべてが単一トークン({path.name} に記録)")
+
+
+def _forced_choice_module() -> Any:
+    """強制選択の候補写像を持つモジュールを遅延 import する。
+
+    答える問い: 「preflight から、本実行と**同じ**候補の取り方を呼べるか」
+
+    遅延にする理由は `_repo_modules` と同じ(`code` は標準ライブラリと同名で、
+    shim が壊れていること自体が check_stdlib_code_shim の検査対象である)。
+    **本実行と同じ関数を呼ぶ** —— preflight が別の判定規則を持つと、
+    preflight を通った config が本実行で落ちる(あるいは逆)。
+    """
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from code.eval import forced_choice  # noqa: PLC0415
+
+    return forced_choice
+
+
+def _write_forced_choice_record(
+    token_map: Mapping[bool, Mapping[str, int | None]],
+    model: Mapping[str, Any],
+    record_dir: Path,
+    forced_choice: Any,
+) -> Path:
+    """採った候補綴りと id を runs/ に残す(ADR-047 実装ノート 4)。
+
+    答える問い: 「本実行のとき、どの綴りを Yes / No として周辺化したのかを
+    後から言えるか」
+
+    本実行の `metrics.json` にも同じ表が入る(`code/eval/run.py` の
+    `metrics_payload`)。preflight にも置くのは、**GPU を借りる前にこの表を
+    人間が読めるようにする**ためである。
+    """
+    record_dir.mkdir(parents=True, exist_ok=True)
+    path = record_dir / "forced_choice_tokens.json"
+    payload = {
+        "adr": "ADR-047",
+        "model": {"name": model.get("name"), "revision": model.get("revision")},
+        "candidates": forced_choice.candidate_record(token_map),
+        "note": (
+            "値が null の綴りは、このトークナイザで単一トークンにならないので周辺化から外した"
+            "(先頭トークンで代用すると別語の質量が混ざる。ADR-047 実装ノート 2)。"
+        ),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
 def data_checks(config: Mapping[str, Any]) -> list[CheckResult]:
     """PLAN-002 §4.8.1 の manifest 系検査をまとめて実行する。
 
@@ -966,6 +1106,7 @@ def run_all_checks(config: dict, record_dir: Path) -> list[CheckResult]:
         check_data_manifest(manifest_path),
         *data_checks(config),
         check_token_boundaries(config, record_dir),
+        check_forced_choice_tokens(config, record_dir),
         check_tests(),
         check_git_clean(),
         check_writable_dirs(),

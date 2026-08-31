@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from code.data_gen.pool import DegenerateReferenceRuleError
-from code.eval.battery import numeric_sum, specificity_control
+from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.run import (
     ConfigError,
     build_reference_lesions,
@@ -26,6 +26,7 @@ from code.eval.run import (
     load_config,
     main,
     parse_numeric_response,
+    reject_unsupported_elicitation,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -362,10 +363,85 @@ def test_cot_elicitation_gives_the_same_numeric_breakdown(smoke_config: dict[str
     固定応答は答え書式の指示に従った形(`Answer: <number>`)なので、
     direct と cot で結果が一致するのが正しい。ここが割れたら、
     cot 経路の切り出しが答えの数まで削っている。
+
+    **comparison は batteries から外す。**強制選択採点(ADR-047)には解釈すべき
+    生成文が無く、cot と comparison の同居は `reject_unsupported_elicitation` が
+    実行前に止める(下のテスト)。
     """
     config = copy.deepcopy(smoke_config)
     config["eval"]["elicitation"] = "cot"
+    config["eval"]["batteries"] = [
+        group for group in config["eval"]["batteries"] if group != t3_comparison.GROUP
+    ]
+    config["eval"]["dry_run_items"] = [
+        entry for entry in config["eval"]["dry_run_items"]
+        if entry["group"] != t3_comparison.GROUP
+    ]
     direct = dry_run(smoke_config)["by_batch"]
     cot = dry_run(config)["by_batch"]
     for name in EXPECTED_BATCHES - {"comparison"}:
         assert cot[name]["by_response"] == direct[name]["by_response"], name
+
+
+# --------------------------------------------------------------------------
+# 引き出し方と群の組み合わせの門(N1。reject_unsupported_elicitation)
+# --------------------------------------------------------------------------
+
+
+def test_cot_with_comparison_is_rejected_before_anything_runs(
+    smoke_config: dict[str, Any],
+) -> None:
+    """★`cot` × `comparison` は実行前に止める(N1)。
+
+    強制選択採点(ADR-047 決定1)には解釈すべき生成文が無いので、
+    `evaluate_batch` は comparison で `elicitation` を参照しない。黙って通すと
+    **同じ config の T1b/T3 で cot が落ちたことが metrics.json にも残らない。**
+    repo の作法(`code/eval/model.py` の `reject_unimplemented_settings`)に従い、
+    宣言と実装の食い違いは実行前に `ConfigError` にする。
+    """
+    config = copy.deepcopy(smoke_config)
+    config["eval"]["elicitation"] = "cot"
+    assert t3_comparison.GROUP in config["eval"]["batteries"]
+    with pytest.raises(ConfigError, match="両立しない"):
+        dry_run(config)
+
+
+def test_direct_with_comparison_passes(smoke_config: dict[str, Any]) -> None:
+    """★`direct` × `comparison` は通る(回帰。本実験の宣言はこちら)。"""
+    assert smoke_config["eval"]["elicitation"] == "direct"
+    assert t3_comparison.GROUP in smoke_config["eval"]["batteries"]
+    assert dry_run(smoke_config)["n_items"] > 0
+
+
+@pytest.mark.parametrize(
+    ("elicitation", "batteries"),
+    [
+        ("direct", ["comparison", "bare_sum"]),
+        ("direct", ["comparison"]),
+        ("cot", ["bare_sum", "word_problem"]),
+        ("cot", []),
+    ],
+)
+def test_supported_elicitation_and_battery_combinations_pass(
+    elicitation: str, batteries: list[str]
+) -> None:
+    """★通してよい組み合わせ(回帰)。**`cot` 自体は禁じていない** ——
+    禁じているのは `cot` × `comparison` だけである(§6.5a の fallback は通る)。
+    """
+    reject_unsupported_elicitation(elicitation, batteries)
+
+
+def test_an_unknown_elicitation_is_rejected_even_without_numeric_groups(
+    smoke_config: dict[str, Any],
+) -> None:
+    """★綴り間違いの `elicitation` を、comparison だけの config でも止める。
+
+    数値群があればパーサ(`parse_numeric_response`)が後から止めるが、
+    comparison だけの config は強制選択経路しか通らず `elicitation` を1度も
+    読まない —— **綴り間違いが黙って通ってしまう。**
+    """
+    config = copy.deepcopy(smoke_config)
+    config["eval"]["batteries"] = [t3_comparison.GROUP]
+    config["eval"]["elicitation"] = "chain-of-thought"
+    with pytest.raises(ConfigError, match="未知の eval.elicitation"):
+        dry_run(config)

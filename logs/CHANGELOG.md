@@ -113,7 +113,7 @@
 - **未解決のまま残した**: ADR-004 本文の「ADR-007 の旧案を置き換える」の食い違い。
   今回の承認範囲(項目 1・2)に含まれないため手を付けていない
 - 関連 ADR: 012(採択)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -144,7 +144,7 @@
 - 既知の誤参照のオフセットは 012→004(−8)、004→002(−2)で一定でない。
   機械的な一括補正はせず、1件ずつ内容で照合した
 - 関連 ADR: 014(採択)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -500,7 +500,7 @@
 - 影響を受けるファイル: `logs/DECISIONS.md`(ADR-008、ADR-018 決定1)/
   `Documents/refs.bib`(`verified = {2026-08-23}`、`code_url` / `version` /
   `model_variant` / `model_revision` を追加)/ `Documents/02_RELATED_WORK.md`(**§A.1 を新設**)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): PLAN-002 §5.1 の `n_max` と G7-H の欄を転記結果で埋めた   [actor: SCOUT]
 
@@ -526,7 +526,7 @@
 - **コードは未変更。**`pytest` は再実行していない(前セッションの 227 passed のまま)
 - 影響を受けるファイル: `plans/PLAN-002-ft-data.md`(§5.1.1 / §5.1.2 / §5.1.2a /
   §5.1.3 / §5.1.4 / §4.9.3 の7 / §7.3 / §12-3 / 冒頭の未決表)/ `STATE.md`
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -607,7 +607,7 @@
 - `code/lesion.py` に `DigitOffsetLesion`(`p2d`)が無い
 - `code/data_gen/pool.py` の `label_coverage` は依然3値。`label_t_coverage` も無い
 - `eligible_pairs` の定義域ガードが無い(**現状では `arb` を渡すとプール生成が落ちる**)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -621,7 +621,7 @@
 - RunPod は本セッションで使用していない(GPU 時間 0)
 - 未追跡のまま残したファイル: `Documents/reviews/papers_list.md`。**本セッションの成果物ではない**
   (参照先 `Documents/reviews/2026-08-23_design_value.md` が存在しない)。由来を人間に確認すること
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ## 2026-08-23 — ADR-023 採択。設計の全面見直しへ(CRITIC → PLANNER)
 
@@ -642,7 +642,7 @@
   **本セッションの成果物**である。参照先の本文も同時にコミットした
 - 切った理由: hook `context-guard` の警告(約17.4万トークン)+ 人間による設計見直しの宣言
 - RunPod は本セッションで使用していない(GPU 時間 0)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ## 2026-08-23 — PLAN-003 実験設計の再導出を起草(PLANNER)
 
@@ -685,7 +685,7 @@
   食い違いが無かったため新規の記録はしていない
 - **コードは1行も変更していない。**`pytest code/tests --collect-only` → **227 collected**(実測)。
   `results/` は空。RunPod 未使用(GPU 時間 0)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -732,7 +732,7 @@
   次の骨格。#14 は **ADR-025 で必須項目に昇格した**(`chat_template` が revision に依存するため)
 - **コードは1行も変更していない。**`pytest code/tests -q` → **227 passed**(本セッションで実測)。
   `results/` は空であり、**実験結果の数値は依然として1つも無い。**RunPod 未使用(GPU 時間 0)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -770,7 +770,7 @@
   #6(T2 の文面)と #9(適格性フィルタ 0.70)は事前登録の凍結までに要る
 - **コードは1行も変更していない。**`pytest code/tests -q` → **227 passed**。`results/` は空。
   RunPod 未使用(GPU 時間 0)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: PLANNER]
 
@@ -783,7 +783,7 @@
   事前登録の凍結前に人間が読むこと**
 - `STATE.md` の「引き継ぎ」「次のアクション」「現在のフェーズ」を更新
 - 終了理由: hook `context-guard` が約 182k トークンで警告(閾値 140k)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): PLAN-003 §10 の追随表に従って設計文書5本を同期   [actor: PLANNER]
 
@@ -830,7 +830,7 @@
   `results/` は空。**実験結果の数値は依然として1つも無い。**RunPod 未使用(GPU 時間 0)
 - **凍結を維持した**: 事前登録の `git tag` なし / 実装着手なし /
   `PLAN-002` §4.2 への `T_hold` 軸追加は #14(`model.revision`)待ち
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -877,7 +877,7 @@ ADR-024 決定1(D-1)が上書きしており、既に失効していた**こと�
   `results/` は空。**実験結果の数値は依然として1つも無い。**RunPod 未使用(GPU 時間 0)
 - **凍結を維持した**: 事前登録の `git tag` なし / GPU 作業なし / #6・#9・#16 と
   `05_STATISTICS.md` §6(検出力分析)の再導出は未了
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -959,7 +959,7 @@ ADR-024 決定1(D-1)が上書きしており、既に失効していた**こと�
 **実験結果の数値は依然として1つも無い。**`results/` は空。RunPod 未使用(GPU 時間 0)。
 事前登録の `git tag` なし。
 
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): PLAN-002 §4.6 の母集団表を訂正し、Phase 0 の段階を整理して引き継いだ   [actor: IMPLEMENTER]
 
@@ -980,7 +980,7 @@ ADR-024 決定1(D-1)が上書きしており、既に失効していた**こと�
   次セッションの作業は **PLAN-002 §4.2 の `T_hold` 追随 → `ft_data.py`(実装順 2)→ テスト(3)**
 - **コードは変更していない。**`pytest code/tests -q` → **256 passed**(2026-08-24 実測)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(data_gen): ft_data.py を実装(PLAN-002 §4)。T_hold・除外・層別配分を配線   [actor: IMPLEMENTER]
 
@@ -1034,7 +1034,7 @@ ADR-029 根拠表が `t ≡ 0 mod 10` の除外を **`K` の抽出母集団**の
 - **実験結果の数値は依然として1つも無い。**`results/` は空。RunPod 未使用(GPU 時間 0)。
   事前登録の `git tag` なし。`ruff` / `black` はこの環境に未インストールのため未実行
   (行長 100 は文字数で確認済)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: IMPLEMENTER]
 
@@ -1047,7 +1047,7 @@ ADR-029 根拠表が `t ≡ 0 mod 10` の除外を **`K` の抽出母集団**の
   (`infra/preflight.py` の検査 #5〜#8 + 新規 #9・#10)**
 - **コードは変更していない。**`pytest code/tests -q` → **302 passed**(2026-08-24 実測)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(infra): preflight に PLAN-002 §4.8.1 の検査を実装(5・6・7・8・9・10 + 検査3拡張)   [actor: IMPLEMENTER]
 
@@ -1106,7 +1106,7 @@ manifest は手で書き写さない(schema が変わったときテストだけ
 事前登録の `git tag` なし。`ruff` / `black` はこの環境に未インストールのため未実行
 (行長 100 は文字数で確認済)。
 
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: IMPLEMENTER]
 
@@ -1125,7 +1125,7 @@ manifest は手で書き写さない(schema が変わったときテストだけ
   その旨を HANDOFF に明記した
 - **コードは変更していない。**`pytest code/tests -q` → **340 passed**(2026-08-25 実測)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### refactor(eval): g6_comparison を t3_comparison に改名し、改修①〜④ を実装   [actor: IMPLEMENTER]
 
@@ -1192,7 +1192,7 @@ ADR-026 は本モジュールについて「`category` を追加する」と書�
 事前登録の `git tag` なし。`ruff` / `black` はこの環境に未インストールのため未実行
 (行長 100 は**文字数**で確認済。最大 100)。
 
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### refactor(eval): D-3(英語統一)の後始末。パーサから日本語語彙を外す   [actor: IMPLEMENTER]
 
@@ -1250,7 +1250,7 @@ ADR-026 は本モジュールについて「`category` を追加する」と書�
 `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の `git tag` なし。
 `ruff` / `black` は未インストールのため未実行(行長 100 は文字数で確認済)。
 
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ## 2026-08-26
 
@@ -1290,7 +1290,7 @@ ADR-026 は本モジュールについて「`category` を追加する」と書�
 
 - **コードは1行も変更していない。**`pytest code/tests -q` → **341 passed**(3.3 秒)。
   `results/` は空。RunPod 未使用(GPU 時間 0)。事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: PLANNER]
 
@@ -1301,7 +1301,7 @@ ADR-026 は本モジュールについて「`category` を追加する」と書�
 - 終了理由: hook `context-guard` が約 103k トークン(閾値 100k)を警告。
   かつ承認待ち-6 の決着で 1 単位が区切れた(`CLAUDE.md` §10.2)
 - RunPod 未使用のため停止確認は不要
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 ### feat(data_gen): T1 / T2 / 特異性対照の項目生成と、評価アンカーの書式ブロックを実装   [actor: IMPLEMENTER]
 
 Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 で承認待ち-6 が
@@ -1381,7 +1381,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - `ruff` / `black` はこの環境に入っておらず実行できていない。行長 100 は手で確認した
 - `results/` は空のまま。**実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。
   事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 ### docs(plan): セッション引き継ぎを記録(context-guard 警告により終了)   [actor: IMPLEMENTER]
 
 - `STATE.md`: 「次のアクション」の先頭に **2026-08-26 版の順序表**を追加した
@@ -1398,7 +1398,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   かつ Phase 0 タスク2の生成器で1単位が区切れた(`CLAUDE.md` §10.2)
 - **コードは変更していない。**`pytest code/tests -q` → **390 passed**。
   `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(eval): run.py に数値経路(cot → numeric)を配線し、4群ディスパッチにした   [actor: IMPLEMENTER]
 
@@ -1469,7 +1469,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   事前登録の tag なし
 - **preflight の検査6・8 は FAIL のまま。**A-6(評価プールを書き出す CLI)が
   終わるまでそれが正しい
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録(A-5 完了。次は A-6 = 評価プール CLI)   [actor: IMPLEMENTER]
 
@@ -1487,7 +1487,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   かつ A-5 で1単位が区切れた(`CLAUDE.md` §10.2)
 - **コードは変更していない。**`pytest code/tests -q` → **405 passed**。
   `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(data_gen): 評価プールを書き出す入口(CLI)を実装。preflight の検査6・8 が PASS になった   [actor: IMPLEMENTER]
 
@@ -1563,7 +1563,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   `data/generated/battery/smoke/`)。`train.jsonl` / `items.jsonl` は従来どおり無視される。
   **smoke は3条件しか宣言できない**(`digit_modulus` / `arbitrary_table` を持たないので
   `p2d` / `arb` を組めない)。本実験は5条件そろえること
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録(A-6 完了 = 段階 A 完了。次は人間の入力待ち)   [actor: IMPLEMENTER]
 
@@ -1579,7 +1579,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   hook `context-guard` の閾値には達していない
 - **コードは変更していない。**`pytest code/tests -q` → **423 passed**。
   `results/` は空。RunPod 未使用のため停止確認は不要。事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -1642,7 +1642,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
 - 終了理由: **hook `context-guard` が約 123k トークンで警告した**(閾値 100k)。
   `CLAUDE.md` §10.2 に従い skill `handoff` を実行した
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -1681,7 +1681,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
 - 終了理由: **hook `context-guard` が約 103k トークンで警告した**(閾値 100k)。
   `CLAUDE.md` §10.2 に従い skill `handoff` を実行した
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(adr): ADR-034/035/036 を採択し、判別不能の除外を `K` から外して順0 を完了にした   [actor: PLANNER 兼 IMPLEMENTER]
 
@@ -1729,7 +1729,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **これは順4(項目生成と評価プールの作り直し)の仕事**であり、ADR-035 に仕様だけ書いた。
   G7 のコードは**元から存在しない**(`SUPPORTED_GROUPS` は4群)ので消していない
 - **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### 2026-08-27 — 順1 に着手(部品4本。**順1 は未完了**)
 
@@ -1756,7 +1756,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **未了(順1 の完了条件 0/5)**: `run.py` の本実行経路 / `code/eval/sweep.py` /
   新規モジュールのテスト / `eval.magnitude_sweep.*` の config 鍵登録 / `infra/RUNPOD.md` §4 の訂正
 - **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### 2026-08-27 — 順1 を完了(本実行 + 桁数掃引)
 
@@ -1798,7 +1798,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   記録した。人間が一度見ること**(`CLAUDE.md` §8)
 - **`results/` は空。実験結果の数値は1つも無い。**RunPod 未使用(GPU 時間 0)。事前登録の tag なし。
   **`model.name` / `revision` / 生成設定が未決なので本実行は起動しない**(それが正しい状態)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -1833,7 +1833,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **順は足していない**(PLAN-004 §8 規則3)。**コマンド列も複製していない**(同規則2。
   正本は `infra/RUNPOD.md` §4)
 - **コードは1行も変えていない。**`results/` は空のまま、GPU 時間 0、事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -1866,7 +1866,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **`STATE.md`**: 引き継ぎブロックの先頭に本セッションを追加、最終更新を PLANNER に
 - **コードは1行も変えていない。**`pytest code/tests -q` → **506 passed**。
   `results/` は空、GPU 時間 0、事前登録の tag なし。RunPod 未使用
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -1907,7 +1907,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **`STATE.md`**: 冒頭ブロックを決着に書き換え、段階 B の表から #23 / #24 が落ちた。
   引き継ぎブロックを追加(**次は順1b か順8**)
 - **コードは1行も変えていない。**`results/` は空、GPU 時間 0、事前登録の tag なし、RunPod 未使用
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -1927,7 +1927,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **`STATE.md`** の引き継ぎは前コミット `d93f2a0` で更新済み
 - **コードは1行も変えていない。**`pytest code/tests -q` → **506 passed**。
   `results/` は空、GPU 時間 0、事前登録の tag なし、RunPod 未使用
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -1977,7 +1977,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   (`ae47f38` が本作業中に着地し、`code/train/lora.py` が未追跡で存在する)。
   本コミットは `configs/smoke1b.yaml` と `data/generated/*smoke1b*/manifest.json` **だけ**を含む。
   `logs/LOCKS.md` は空である(`infra/RUNPOD.md` §9)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -2078,7 +2078,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   `.gitignore` への worktree 追加 / ブランチ命名 `wt/<PLAN>-<順>-<役割>`
 - `pytest code/tests -q` → **589 passed**(変更前と同じ。コードは触っていない)。
   **`results/` は空、GPU 時間 0、事前登録の tag なし**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -2116,7 +2116,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   (`CLAUDE.md` §2)
 - **コードは1行も変えていない。**`pytest` は回していない(直近の実測は 2026-08-27 の **589 passed**)。
   **`results/` は空、GPU 時間 0、RunPod 未使用、事前登録の tag なし**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -2174,7 +2174,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **★実機ではまだ1度も動かしていない。**左パディングを伴うまとめ生成がバッチ1と同じ応答を
   返す保証は無い(貪欲デコードの同点で割れうる)。**確認は順1b の中で1度だけ取る**
 - **GPU を使っていない。`results/` に何も置いていない。RunPod 未使用。事前登録の tag なし**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): メインの実行までの工程表を `Documents/07_ROADMAP.md` に追加   [actor: PLANNER]
 
@@ -2187,7 +2187,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **GPU 時間の実測は 0**(`results/` は空)。最初の実測は順1b で出る。
   実測が出たら run_id とセットの値に置き換える(`CLAUDE.md` §2)
 - **コードは1行も変えていない。**`pytest` は回していない(直近の実測は 2026-08-27 の **589 passed**)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): 問題1 の完了を受けて `logs/HANDOFF.md` を順1b 用に戻した   [actor: PLANNER]
 
@@ -2201,7 +2201,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **並行編集の確認**: `git diff de8d151 HEAD -- STATE.md plans/PLAN-004-phase0-route.md` の
   削除行はファイルヘッダ2行のみ。**`de8d151` の記述を1行も消していない**(`AGENTS.md` 事故 A の再発なし)
 - **コードは1行も変えていない。**`results/` は空、GPU 時間 0、事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(eval): 順1b の前提2。答えのトークン長を数える手段と、まとめ幅の突き合わせを実装した   [actor: RUNNER]
 
@@ -2242,7 +2242,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **実機ではまだ1度も動かしていない。**捨てスクリプトで固定応答を流し、
   `runs/<id>/` の実物に対して (d)(e) が噛み合うことだけは確認した(スクラッチパッド。repo には残していない)
 - **`ruff` はこの環境に入っていないので回せていない**(`python -m ruff` が `No module named ruff`)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): 順1b の引き継ぎを記録した(ポッド起動・実機作業は未着手)   [actor: RUNNER]
 
@@ -2258,7 +2258,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   エージェントは認証情報を入力しない)。次のセッションは clone → bootstrap →
   データ再生成まで進めてそこで止める
 - **コードは1行も変えていない。**`results/` は空、GPU 時間の実測は 0、事前登録の tag なし
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### fix(runpod): bootstrap の lock 判定が「コメントだけの lock」を復元可能と誤判定していた   [actor: RUNNER]
 
@@ -2276,7 +2276,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **未解決(記録のみ)**: lock を `pip freeze` で埋めた場合、
   `torch==2.8.0+cu128` のようなローカル版指定は PyPI から入らない。
   **lock を埋める段(この後)で、復元経路が本当に通るかは別途確かめる必要がある**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### fix(runpod): 順1b の VRAM 閾値を公称 24 から実測 23.9 に直し、gpu_type を埋めた   [actor: RUNNER]
 
@@ -2296,7 +2296,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - `pytest code/tests -q` → **643 passed**(変化なし)。`configs/smoke.yaml` は無傷
 - **人間に上げること**: 23.9 という数字はエージェントが選んだ。
   **「24GB 級を要求する」という意図をそのまま写したつもりだが、確認されたい**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### infra(runpod): 順1b の重み pull で original/ を除外した(手順からの逸脱。記録)   [actor: RUNNER]
 
@@ -2310,7 +2310,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   依存せず、リポジトリのコミットハッシュである。**完了条件2 の答えは同じ値になる**
 - **人間に上げること**: 手順の逸脱をエージェントが判断した。
   **`infra/RUNPOD.md` §4 段2 を `ignore_patterns` 付きに直すかどうかは人間が決める**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### infra(runpod): 順1b の実機作業。gated アクセス未承認で完了条件2〜4 に到達できず停止   [actor: RUNNER]
 
@@ -2338,7 +2338,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   `snapshots/` 直下のディレクトリ名」であり、**pull ができていない以上まだ確定していない**。
   **config の `model.revision` は両方 null のままにしてある**
 - **GPU 時間の実測は依然 0。**モデルは1度も読み込んでいない。`runs/` に run は1つも無い
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): 順1b のセッション引き継ぎを記録した(gated 承認待ちで中断)   [actor: RUNNER]
 
@@ -2348,7 +2348,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   `logs/HANDOFF.md` を上書きした。**手順を HANDOFF に再掲していない** ——
   コマンド列の正本は `infra/RUNPOD.md` §4「順1b の手順」である
 - **ポッドは停止済み**(`hikss5upj15vp2` / `status: EXITED`)。**課金は止まっている**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(adr): 人間が段階 B の4群を採択。ADR-039〜043(うち 039 は規約変更)   [actor: PLANNER]
 
@@ -2379,7 +2379,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **(1) `runs/` に壁時計時間が残らない**(`elapsed` / `duration` / `time()` が `code/` に無い)。
   ADR-040 決定6 が成り立たない。**(2) `do_sample` を config が持っていない**(ADR-042 決定2)
 - **実験は1つも回していない。`results/` は空。GPU 時間 0。ポッドは `EXITED` のまま**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録した(コンテキスト超過で切った)   [actor: PLANNER]
 
@@ -2388,7 +2388,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - **次セッションは IMPLEMENTER。**ADR-040〜043 のコード・文書への反映6件(GPU 時間 0)。
   **うち 1〜3(壁時計時間 / `do_sample` / `template.yaml` の2値)が順1b 再開の前提**
 - **ポッド `hikss5upj15vp2` は `EXITED` のまま。課金は止まっている。GPU 時間 0**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ---
 
@@ -2409,7 +2409,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
 - 項目 0 件のとき `seconds_per_item` は **`None`**(0.0 を返すと「1項目 0 秒」と読める)
 - テストを追加: `code/tests/test_artifacts.py`(単調時計・丸め・0件・区間の分離・log の1行)/
   `test_run_real.py`(`timing` の鍵と分母)/ `test_sweep.py`(掃引側)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(eval): `do_sample` を config と `GenerationSettings` が持つ(ADR-042 決定2)   [actor: IMPLEMENTER]
 
@@ -2425,7 +2425,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   (2つの config の差は `experiment.id` と `eval.batch_size` のままで、
   `test_smoke1b_configs.py` が縛っている)
 - **`configs/smoke.yaml` は触っていない**(ADR-037 決定4)。テスト側の fixture で埋めた
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): `configs/template.yaml` に決着済みの値を転記した   [actor: IMPLEMENTER]
 
@@ -2439,7 +2439,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   (正本ではなく、貪欲では生成に渡らないため)。ADR-040 決定5 が明示しているのは
   `batch_size` と `device` の2つだけである
 - `pytest code/tests -q`: **662 passed**(直前は 615)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): PLAN-001 §4.1.1 の `M*` と PLAN-003 の fallback を ADR に合わせた(4〜5)   [actor: IMPLEMENTER]
 
@@ -2460,7 +2460,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **決定7 が T1b への答え書式の指示文を封じている**(2×2 の入力距離が崩れるため)。
   **T1b が Go/No-Go #1 を割ったときの分岐は未決である。**該当箇所に明記して人間に上げた
 - `pytest code/tests -q`: **662 passed**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(train): 8-6。#22 の門を外し、アダプタを残し、評価が読む経路を作った(ADR-043)   [actor: IMPLEMENTER]
 
@@ -2502,7 +2502,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   (3) LoRA の `bias` は peft の既定 `"none"` を明示 /
   (4) **`model.adapter: null` のまま病変条件の評価を回せる**(止めていない。
   順1b は `condition: p2` で素の重みを測るため)。記録には必ず `adapter: null` と注記が残る
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): STATE.md をセッション終了時の状態に更新した   [actor: IMPLEMENTER]
 
@@ -2514,7 +2514,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   **T1b が Go/No-Go #1 を割ったときの分岐が無いこと**)
 - **gated アクセスが 2026-08-28 に承認された**ことを反映した(人間の報告)。
   **順1b は回せる状態にある**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(infra): 順1b の手順を ADR-040 に合わせ、引き継ぎを記録した   [actor: IMPLEMENTER]
 
@@ -2528,7 +2528,7 @@ Phase 0 段階 A の残り(タスク2 = 評価項目の生成器)。**ADR-032 �
   `logs/HANDOFF.md` を**順1b(RUNNER)用**に上書きした
 - **hook `context-guard` が約 368k で警告した**ため skill `handoff` を実行した
 - **GPU 時間 0。実験は1つも回していない。`results/` は空。ポッドは `EXITED` のまま**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ## 2026-08-28 — 順1b を実機で回した(RUNNER。**初の GPU 実行。約 19 分**)
 
@@ -2604,7 +2604,7 @@ EOS を含まず、1トークンほど下振れする**):
   skill `handoff` を実行した
 - **ポッドは停止済み**(`46pggs1odwb09r` / `EXITED` を `get-pod` で確認)。
   **`cost.txt` は未記入**(人間の作業)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(adr): 順1b の材料で人間が4件を決定。#20=256 / #25=4 / 承認待ち A→ADR-044 / B→ADR-045   [actor: PLANNER]
 
@@ -2633,7 +2633,7 @@ EOS を含まず、1トークンほど下振れする**):
   `plans/PLAN-004-phase0-route.md`(順1b を完了に。§2 表 + §3 チェックボックス6つ + §5 の #20・#25 行 + §7)/
   `infra/RUNPOD.md`(§6 に ADR-044 の手順、§4 の成果物表に ADR-045)/ `STATE.md`
 - **4値分解の数値は文書に一切転記していない**(PLAN-004 §6 罠6 / ADR-037 決定5・6)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録した(PLAN 完了で切る)   [actor: PLANNER]
 
@@ -2642,7 +2642,7 @@ EOS を含まず、1トークンほど下振れする**):
 - 直前の PLANNER セッション(順1b の材料で人間が4件を決定)が1本の PLAN として完結したため
   skill `handoff` を実行した。**コンテキストは10万トークンには達していない**が、区切りが明確
 - **RunPod は未使用**(このセッションは GPU を使わなかった)
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ## 2026-08-29
 
@@ -2700,7 +2700,7 @@ EOS を含まず、1トークンほど下振れする**):
   `STATE.md` / `plans/PLAN-004-phase0-route.md`(§5 #20・#21、§3 順3、§7 に追随)
 - **`configs/template.yaml` にも `logs/DECISIONS.md` の ADR 本体にも何も書いていない。**
   コード変更なし(`pytest` 未実行)。**GPU 時間 0。`results/` は空**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(adr): 人間が PLAN-005 §5 で6項目を全採択。採択分を ADR/config に落とした   [actor: PLANNER]
 
@@ -2736,7 +2736,7 @@ EOS を含まず、1トークンほど下振れする**):
 - `pytest code/tests -q` → **700 passed**（セッション開始時 693）。**GPU 時間 0。`results/` は空**
 - **残る人間待ち**: T1b が Go/No-Go #1 を割ったときの分岐 / `plans/PLAN-006` の5シードの与え方 /
   特異性対照の符号位置 / θ の値
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): T1b が Go/No-Go #1 を割ったときの分岐案を PLAN-007 に起草した   [actor: PLANNER]
 
@@ -2778,7 +2778,7 @@ EOS を含まず、1トークンほど下振れする**):
   「人間の承認・判断を待っている事項」/ 「引き継ぎ」)/ `logs/HANDOFF.md`(全面改稿。次セッションの
   反映チェックリスト)/ `logs/CHANGELOG.md`。**コード変更なし。`pytest` 未実行。`configs/` にも
   ADR 本体にも何も入れていない。GPU 時間 0。`results/` は空**
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### infra(runpod): 決定4 を反映。並行ブランチ `claude/objective-mestorf-34f57d` を破棄した   [actor: IMPLEMENTER]
 
@@ -2794,7 +2794,7 @@ EOS を含まず、1トークンほど下振れする**):
   **順4(本実験のデータ再生成)の前提が1つ消えた。**
 - **影響を受けたファイル**: `STATE.md`(並行ブランチ節)/ `logs/CHANGELOG.md`。
   **コード変更なし**(main のファイルは1つも触っていない)。`pytest` 未実行。GPU 時間 0。
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### exp(eval): 決定3 を反映。桁数掃引をマルチシード化し、5シード値を確定した(ADR-041 2026-08-30 追記)   [actor: IMPLEMENTER]
 
@@ -2821,7 +2821,7 @@ EOS を含まず、1トークンほど下振れする**):
   `plans/PLAN-004`(順5 完了条件・段階 B)。**`configs/smoke1b*.yaml` は変えていない**(順1b は
   掃引を回しておらず、完了済み実行設定に触れない。CLAUDE.md §2)。
 - **テスト**: `pytest code/tests -q` → **711 passed**(700 → +11)。GPU 時間 0。`results/` は空。
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(adr): 決定1 を反映。ADR-047 = T1b の Go/No-Go #1 分岐(強制選択採点 + 案 C backstop)   [actor: PLANNER]
 
@@ -2846,7 +2846,7 @@ EOS を含まず、1トークンほど下振れする**):
   `Documents/06_THREATS.md`(T14 新設: 強制選択で崩壊検出が移譲される)。
   **コード変更なし。`pytest` は決定3 の 711 passed のまま**(この commit ではテストを走らせていない ——
   文書のみ)。GPU 時間 0。`results/` は空。
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### exp(eval): 決定2 を反映。ADR-048 = 特異性対照の符号を凍結し `eval_main.yaml` に追加   [actor: PLANNER + IMPLEMENTER]
 
@@ -2876,7 +2876,7 @@ EOS を含まず、1トークンほど下振れする**):
   `code/eval/battery/specificity_control.py` / `code/tests/test_eval_main_template.py` /
   `plans/PLAN-002-ft-data.md` / `plans/PLAN-004-phase0-route.md`。
 - **テスト**: `pytest code/tests -q` → **713 passed**(711 → +2)。GPU 時間 0。`results/` は空。
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### docs(plan): セッション引き継ぎを記録した(人間の4決定を全件反映 + PLAN-006 §4 実装で切る)   [actor: PLANNER+IMPLEMENTER]
 
@@ -2887,7 +2887,7 @@ EOS を含まず、1トークンほど下振れする**):
   完了し区切りが良い。残る PLAN-007 §4(強制選択採点器)は独立の IMPLEMENTER セッションに値する。
 - **残っている人間待ち = θ の値だけ**(ADR-041。順5 の掃引表の後)。
 - `pytest code/tests -q` → **713 passed**。GPU 時間 0。`results/` は空。
-- 関連 commit: eafece8
+- 関連 commit: 529572c
 
 ### feat(eval): ADR-047 / PLAN-007 §4。二値出力群を強制選択採点に切り替えた   [actor: IMPLEMENTER]
 
@@ -2940,4 +2940,4 @@ EOS を含まず、1トークンほど下振れする**):
   復元できないと、`correct + rule = 1` に潰れている理由が読めない(ADR-047 決定4・決定6)。
 - **影響を受けたファイル**: `code/tests/test_run_real.py`。**実装コードは変えていない。**
 - **テスト**: `pytest code/tests -q` → **740 passed**(739 → +1)。GPU 時間 0。`results/` は空。
-- 関連 commit: eafece8
+- 関連 commit: 529572c

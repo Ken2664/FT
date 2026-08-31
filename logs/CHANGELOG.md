@@ -2941,3 +2941,33 @@ EOS を含まず、1トークンほど下振れする**):
 - **影響を受けたファイル**: `code/tests/test_run_real.py`。**実装コードは変えていない。**
 - **テスト**: `pytest code/tests -q` → **740 passed**(739 → +1)。GPU 時間 0。`results/` は空。
 - 関連 commit: 529572c
+
+### docs(plan): 強制選択採点器を別モデルでレビューし、下流の破損2件を人間に上げた   [actor: IMPLEMENTER (Opus)]
+
+- **何を変えたか**: commit `d854213`(強制選択採点器)を別モデルで読み直し、指摘を
+  `STATE.md`「人間の承認・判断を待っている事項」に **R1〜R7** として登録した。
+  `logs/HANDOFF.md` を全面改稿(次セッション = R1/R2 の修正 → PLAN-004 順4)。
+- **検出した破損2件**(原因は共通 —— 強制選択には生成文が無いので `predictions/*.jsonl` の
+  `response` に合成文字列 `Yes [forced_choice yes_logp=... no_logp=...]` を入れたが、
+  `response` を実生成として読む消費者が2つあった):
+  - **R1 `code/analysis/token_length.py`**: `comparison` の合成文字列をトークン数として数える
+    (`scoring` も `group` も見ていない)。**`token_length.json` は #20 `max_new_tokens` の
+    改訂根拠**(ADR-042 決定6 / ADR-038)なので、汚染された表を段階 C で人間が読む。
+  - **R2 `code/analysis/compare_runs.py:210`**: `response` の文字列一致。logprob はまとめ幅で
+    必ず揺れるので comparison は全件「不一致」に出る。**ADR-040 決定2 が文字列一致を
+    「記録のみ・合否に使わない」としているので Go/No-Go は壊れない**(合否は決定1 = 4値分類 +
+    `parsed`。`parsed_consistency` は bool を比べるので正しく効く)。報告の誤読が問題。
+  - **どちらも順5(実機)より前に直す。**案は STATE.md に置いた。**採否は人間**(ADR-039)。
+- **併せて上げたもの**: **R3**(変種の集約が `max` であって `logsumexp` ではない)/
+  **R4**(同点は No)—— ADR-047 リスク欄が「取り方は実装で確定する」と授権しているが、
+  決まった中身が docstring にしか無い。**二値の主要測定の器械仕様**なので人間の確認が要る。
+  **R5**(`execute` が渡された `scorer` を黙って捨てる)/ **R6**(`seconds_per_item` が
+  1 forward pass と 256 トークン生成を平均する)/ **R7**(`aggregate.py` が `scoring` を拾わない)は軽微。
+- **問題が無かったことを確認した点**: 4値の潰れ検査(率は `count / n` なので 0 件なら厳密に `0.0`)/
+  数値経路は不変 / プロンプトは無変更(`configs/templates/` に差分なし)/ 合否基準・θ・判定コードは
+  書かれていない / 重みは1度だけ読む / `boolean.py` は backstop 用に残っている /
+  削除した `DRY_RUN_RESPONSES`・`boolean_response_metrics` への参照が `code/` に残っていない。
+- **影響を受けたファイル**: `STATE.md`(承認待ち節に R1〜R7 / 冒頭★ブロック / 「いま何を」/ 引き継ぎ)/
+  `logs/HANDOFF.md`(全面改稿)。**実装コードは変えていない。**
+- **テスト**: `pytest code/tests -q` → **740 passed**。GPU 時間 0。`results/` は空。
+- 関連 commit: (このコミット)

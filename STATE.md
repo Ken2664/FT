@@ -3,7 +3,7 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-30 / by IMPLEMENTER(PLAN-007 §4 = 強制選択採点器を実装。`pytest` 739 passed。GPU 時間 0)
+最終更新: 2026-08-30 / by IMPLEMENTER(PLAN-007 §4 = 強制選択採点器を実装 → 別モデルでレビューし下流2本の破損 R1/R2 を検出。`pytest` 740 passed。GPU 時間 0)
 
 **★★★★★★★★★★★2026-08-30(最新・IMPLEMENTER): PLAN-007 §4 / ADR-047 を実装した —— 二値出力群(comparison = T1b + T3)を自由生成パースから強制選択採点(Yes/No の対数尤度を1 forward pass で比較)に切り替えた。`pytest code/tests -q` → 739 passed。GPU 時間 0。**
 
@@ -18,8 +18,17 @@
 > - `parse_boolean_response` / `parsers/boolean.py` は**残す**(案 C backstop / 手監査。docstring に明記)。
 > **4値分解(comparison × p2)は強制選択なので `correct + rule = 1` に潰れる**(ADR-047 決定4。Limitations 明記済)。
 > **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6 / ADR-041 / 045)。
-> テスト: `test_forced_choice.py`(新規22件)+ `test_run_real.py` / `test_run_dry_run.py` / `test_aggregate.py` 改修。
-> **残っている人間待ち = θ の値だけ**(ADR-041。順5 の掃引表の後)。**`results/` は空。GPU 時間 0。**
+> テスト: `test_forced_choice.py`(新規23件)+ `test_run_real.py` / `test_run_dry_run.py` / `test_aggregate.py` 改修。
+>
+> **★同日、別モデル(Opus)で実装をレビューした。下流の解析モジュール2本が壊れている**(下の
+> 「人間の承認・判断を待っている事項」R1〜R7)。**原因**: 強制選択には生成文が無いので
+> `predictions/*.jsonl` の `response` に合成文字列を入れたが、`response` を実生成として読む
+> 消費者が2つあった —— **R1 `token_length.py`**(#20 の改訂根拠を汚す)/
+> **R2 `compare_runs.py`**(文字列一致が全件不一致に出る。ただし ADR-040 決定2 により合否ではない)。
+> **どちらも順5(実機)より前に片付けること。**併せて **R3/R4 = 実装者が決めた器械仕様**
+> (変種集約が `max` / 同点は No)を人間が確認する。
+> レビューで**テストの穴を1件塞いだ**(commit `529572c`。`metrics.json` の `scoring` の回帰テスト)。
+> **残っている人間待ち = θ の値 + R1〜R4**(ADR-041 / 本レビュー)。**`results/` は空。GPU 時間 0。**
 
 **★★★★★★★★★★2026-08-30(その前・PLANNER+IMPLEMENTER): 人間の4決定を全件ファイルに反映した。PLAN-006 §4(sweep マルチシード化)も実装した。`pytest code/tests -q` → 713 passed。GPU 時間 0。**
 
@@ -358,7 +367,9 @@ main のどこからも参照されていなかった。どちらを採るかは
 > を切り出した(掃引用の `build_generator` は不変)。
 > **二値群(comparison = T1b + T3)は Yes/No の対数尤度比較・1 forward pass で採点する。**プロンプト不変。
 > 数値群(T1 / T2 / specificity)は不変。採点方式は `metrics.json` の `by_batch[*].scoring` に群ごとに残る。
-> **合否基準・Go/No-Go 判定コード・θ は書いていない。**次 = 順4(項目生成の作り直し)。
+> **合否基準・Go/No-Go 判定コード・θ は書いていない。**
+> **同日 Opus でレビュー → 下流2本の破損 R1/R2 を検出**(承認待ち節)。**順5 より前に直す。**
+> 次 = R1/R2 の修正 → 順4(項目生成の作り直し)。
 > **`results/` は空。GPU 時間 0。**
 
 > **★ 2026-08-30(その前)。PLANNER+IMPLEMENTER セッション。人間の4決定を全件ファイルに反映 + PLAN-006 §4 実装。`pytest` 713 passed。GPU 時間 0。**
@@ -1138,6 +1149,59 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
 
+> **★★★★★2026-08-30(最新・IMPLEMENTER のレビュー。Opus)。強制選択採点器(commit `d854213`)を
+> 別モデルで読み直した結果、下流の解析モジュール2本が壊れていることが分かった。人間に上げる。**
+>
+> **原因は共通**: 強制選択には生成文が無いので `predictions/*.jsonl` の `response` 欄に
+> **合成文字列**を入れた —— `Yes [forced_choice yes_logp=-0.1235 no_logp=-2.7654]`。
+> `response` を「モデルが実際に生成した文字列」として読む既存の消費者が2つある。
+>
+> | # | 壊れているもの | 何が起きるか | 影響 |
+> |---|---|---|---|
+> | **R1** | `code/analysis/token_length.py` | `comparison` バッチの合成文字列をトークン数として数える(`scoring` も `group` も見ていない)。実トークナイザでは logprob の数字が細かく割れて **20 トークン超**になる | **`token_length.json` は #20 `max_new_tokens` の改訂根拠**(ADR-042 決定6 / ADR-038)。汚染された表を段階 C で人間が読む |
+> | **R2** | `code/analysis/compare_runs.py:210` | `left.response == right.response` の文字列一致。**logprob はまとめ幅で必ず揺れる**ので、答えが一致していても comparison は全件「不一致」に出る | ADR-040 **決定2 が文字列一致を「記録のみ・合否に使わない」**としており、合否は決定1(4値分類 + `parsed`)。**Go/No-Go は壊れない**が報告が誤読される。`parsed_consistency`(ADR-045)は bool を比べるので正しく効く |
+>
+> **エージェントの案(採否は人間。ADR-039)**:
+> - **R1 案**: `token_length.py` が `metrics.json` の `by_batch[*].scoring` を読み、
+>   `forced_choice` の群を**集計から外す**(`by_batch` に `scoring: forced_choice, skipped: true` と
+>   1行残して、黙って消さない)。強制選択は生成していないので「答えのトークン長」が定義されない。
+> - **R2 案**: `compare()` が `scoring` を見て、強制選択の群では**文字列一致ではなく `parsed`(bool)一致**を
+>   使う。または合成文字列から logprob を落として答えだけを比べる。
+> - どちらも**合否基準を作る変更ではない**(ADR-041 / 045 の線は動かさない)。
+>
+> **R3〜R4: 実装者が決めてしまった器械仕様(ADR に無い。人間の確認が要る)**
+> ADR-047 リスク欄は「Yes/No トークンの取り方は実装で確定する」と授権しているが、
+> **二値の主要測定の器械仕様**なので、決まった中身を人間が見ておくべきである(`CLAUDE.md` §7)。
+> - **R3**: 変種(大小文字3 × 先頭空白2 = 6綴り)の集約が **`max`(最尤の綴り1つ)**であって
+>   `logsumexp`(綴りをまたぐ確率の和)ではない。チャットテンプレート直後はほぼ1綴りに
+>   質量が乗るので実害は小さい見込みだが、**「P(Yes) の推定」としては和が正しい。**
+> - **R4**: **同点は No に倒す**(決定性のための規約)。判別可能な項目では起こらない。
+> - どちらも `code/eval/forced_choice.py` の docstring には書いてある。**ADR には無い。**
+>
+> **R5〜R7: 軽微(記録のみ。対応は任意)**
+> - **R5**: `run.execute()` は `generator is None` のとき、渡された `scorer` を**黙って捨てる**
+>   (`build_engines` の返り値で上書き)。現状どの呼び出し元もそうしないが、
+>   「黙って無視しない」という repo の作法に反する。
+> - **R6**: `timing.seconds_per_item` が **1 forward pass(二値)と最大 256 トークン生成(数値)を平均**する。
+>   `eval.batch_size` は既に決定済(=4。ADR-040 決定6)なので**決定は汚れない**が、
+>   段階 C の GPU 時間見積りには効く。採点方式ごとに区間を分ける手はある。
+> - **R7**: `code/analysis/aggregate.py` は `by_batch[*].scoring` を拾わない。
+>   `group == "comparison"` から復元できるが、**記録ではなく規約に依存**している。順9 の解析で効く。
+>
+> **問題が無かったことを確認した点**(レビューで潰した):
+> - 4値の潰れ(`correct + rule = 1`)は `assert_collapsed_to_binary` が構築時に検査。
+>   率は `count / n` なので 0 件なら厳密に `0.0`(浮動小数の取りこぼしは無い)
+> - **数値経路(T1 / T2 / specificity)は不変**。テストで固定済
+> - **プロンプトは1文字も変えていない**(`configs/templates/` は無変更)。ADR-047 決定1 の肝
+> - **合否基準・Go/No-Go 判定コード・θ は書かれていない**(ADR-047 決定6 遵守)
+> - 重みは1度だけ読む(`engine.build_engines`)。4090 24GB で 8B を二度読まない
+> - `parse_boolean_response` / `parsers/boolean.py` は案 C backstop 用に残っている
+> - 削除した `DRY_RUN_RESPONSES` / `boolean_response_metrics` への参照は `code/` に残っていない
+> - **テストの穴を1件塞いだ**(commit `529572c`): `metrics.json` に `scoring` が残ることの
+>   回帰テストが無く、メモリ上の返り値しか見ていなかった(PLAN-007 §4-7 が求めていたのは成果物のほう)。
+>   **740 passed。**
+
+
 > **★★★★2026-08-29(PLANNER)。人間が `plans/PLAN-005` §5 で6項目を全採択 → 採択分を落とした。**
 >
 > - **承認待ち C → 決着。**`max_new_tokens` に `[MATCHED]`(ADR-042 2026-08-29 追記 / `configs/template.yaml`)。
@@ -1155,7 +1219,8 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 >   (`code/eval/forced_choice.py` / `engine.py` 新設 + `run.py` 改修。`pytest` 739 passed)。この項目は完全に決着。**
 > - ~~特異性対照(`specificity`)の裸書式の符号位置~~ → **2026-08-30 決着 + 反映済。ADR-048**
 >   (`-`=U+002D / `*`=U+002A。`specificity.yaml` 新設 + `eval_main.yaml` に追加)。
-> - **θ の値**(ADR-041。順5 の掃引表の後)。**← これだけが残っている人間待ち。**
+> - **θ の値**(ADR-041。順5 の掃引表の後)。
+- **R1〜R4**(2026-08-30 の Opus レビュー。上の★★★★★ブロック)。R1/R2 は順5 より前に直す。
 >
 > **★★★2026-08-30 反映完了(PLANNER+IMPLEMENTER)。人間の4決定を全件ファイルに落とした**
 > (ADR-047 / ADR-048 / ADR-041 追記 / ブランチ破棄 / PLAN-006 §4 実装)。**`pytest` 713 passed。GPU 時間 0。**
@@ -1495,7 +1560,9 @@ T1b の Go/No-Go #1 分岐 → **ADR-047(2026-08-30。案 A + 案 C backstop)**�
 - **合否基準・Go/No-Go 判定コード・θ は書いていない**(ADR-047 決定6 / ADR-041 / 045)。
 - **4値分解(comparison × p2)は強制選択なので `correct + rule = 1` に潰れる**(ADR-047 決定4。Limitations 明記済)。
 
-commit `d854213`。**次 = PLAN-004 順4。**
+commit `d854213` / `1027a3f`(sha 記入)/ `529572c`(回帰テスト)/ `c222aa3`(sha 訂正)。
+**同日 Opus でレビュー: R1〜R7 を検出 → 承認待ち節に登録。**
+**次 = R1/R2 の修正(順5 より前)→ PLAN-004 順4。**
 
 ---
 

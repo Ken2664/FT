@@ -2698,3 +2698,89 @@
 - 関連 ADR: **039**、046(決定4 の保留分を閉じる / 決定5 の per-task 正本方式)、042(決定9 = T1 は入れない)、
   032(T2 の per-task ファイルの先例)、016(参照規則ごとの4値ブロック)、034/035(特異性対照の除外の扱い)
 - 関連 commit: (このコミット)
+
+---
+
+## ADR-049: 順4 実装ノート。指示付き T1 の群を新設し、被演算子の除外をプール全体の規約に上げ、`id` セルの母集団を manifest に明示した
+
+- 日付: 2026-09-01
+- ステータス: **採択(実装で確定した部分は「提案 IMPLEMENTER / 採択待ち 人間」。ADR-039)**
+- 文脈:
+  - 順0(2026-08-27)で人間が決めた ADR-034 / ADR-035 は、**実装を順4 に持ち越していた**
+    (ADR-035 リスク欄「実装はこの ADR では行わない」/ ADR-034 リスク欄「順4 の項目生成で明示する」)
+  - 持ち越しは3件。(i) 指示付き T1 の群を新設、(ii) 被演算子 1 の除外を全タスク型の評価項目に広げる、
+    (iii) `id` セルの母集団が `K` そのものではないことを明示する
+  - ADR-035 リスク欄は**群名を「未定であり `SUPPORTED_GROUPS` に足すのは順4 の仕事」と実装に授権**している。
+    ADR-033 決定3・ADR-032 決定4 は manifest の欄の形を実装に委ねた先例である
+- 決定1: **指示付き T1 の群名は `bare_sum_instructed`、category とタスク型は `t1_instructed` とする。**
+  `bare_sum` / `specificity` と同じく「このモジュールが作る項目の型」として付けた名前であり、
+  **人間が覆してよい**(`code/data_gen/battery_items.py` 冒頭に明記)。
+  **タスク型を `t1` と同値にしない** —— 主軸4水準に紛れると ADR-026 が 4 → 6 にした交互作用の df が動く
+- 決定2: **指示付き T1 の文面はテンプレートファイルを新設せず、config から構成的に組む。**
+  `data.prompt_template` + 半角空白1つ + **新設 `data.answer_format_instruction`**
+  (`code/eval/battery/numeric_sum.py` の `instructed_sum_templates`)。
+  `configs/templates/` には**差分を出さない**(ADR-046 / ADR-048 の凍結を触らない)
+- 決定3: **区切りは半角空白1つ。**ADR-035 決定2 が指定していない唯一の自由度であり、
+  T2 が本文と指示文を継ぐのと同じ形に揃えた。**人間が覆してよい**
+- 決定4: **被演算子の除外集合の持ち主を `code/eval/battery/numeric_sum.py` から
+  `code/data_gen/pool.py` に移す**(`EXCLUDED_OPERANDS` / `is_excluded_operand_pair` /
+  `eligible_item_pairs` / `excluded_operand_record`)。除外は `code/data_gen/eval_pool.py` の
+  `build_group_items` が**全群に**掛け、`assert_no_excluded_operands` が事後確認する
+- 決定5: **桁数掃引(`code/eval/battery/magnitude_sweep.py`)には掛けない。**
+  掃引は評価プールではなく `M*` を決めるための別の項目集合であり、抽出仕様は ADR-041 決定5 が
+  凍結している。回帰テストで「掛かっていないこと」を固定した
+- 決定6: **評価プール manifest の `item_exclusions` をプール全体の欄にする**(ADR-035 帰結)。
+  `scope: "pool"` / `excluded_operands` / `applied_to: "eval_items_only"` / `n_candidates` /
+  `n_excluded` / **群ごとの内訳 `by_group`**
+- 決定7: **評価プール manifest に `id_cell_population` を新設する**(`pool.build_manifest` の
+  **必須引数**。ADR-033 決定2・3 と同じ作法)。`K` から評価側の除外を段階的に掛けた記録を
+  `stages`(`coverage_k` → `coincidence` → `indistinguishable_rule_pairs` → `excluded_operands`)
+  として、各段の件数と `carry` / `nocarry` の内訳つきで残す
+- 根拠:
+  - 決定2: ADR-035 決定2 は項目を「**T1 と同一の被演算子対**に、**T2 と逐語で同じ**指示文を
+    付けた版」と定義している。テンプレートファイルに書き下すと、訓練書式(`data.prompt_template`)を
+    変えたときに指示付き版が追従せず、**この2つの不変条件が静かに壊れる。**config から組めば
+    構成的に保たれる。`bare_sum` を `data.prompt_template` から組んでいる既存の作法と同型である
+  - 決定4: ADR-035 決定3 で「被演算子 1 を評価項目に入れない」は T2 固有の規則ではなくなった。
+    除外集合を `numeric_sum`(T1 / T2 のモジュール)が持ち続けると、T3・特異性対照が
+    別の集合を見る余地が残る。**規約の持ち主を1つにする**
+  - 決定5: 掃引に除外を足すと、**1点あたりの母集団が M ごとに違う割合で削られ**、
+    `M` 間の `correct_rate` 比較が成立しなくなる。実験条件の変更であって実装の裁量ではない
+    (`CLAUDE.md` §8)
+  - 決定7: ADR-034 リスク欄が要求した「明示」である。書かないと `id` セルが `K` から一様に
+    引かれているように読める。**本番経路が数えた値**を残す —— 人間の手計算を転記すると、
+    `K` の抽出が変わったときに2つの記録が静かにずれる(ADR-034 が実際にそうなった事例である)
+- 帰結:
+  - `SUPPORTED_GROUPS` が4群 → **5群**。`--dry-run` と評価プールの両方を通る
+  - **設計事実テストが `id` セルの母集団の数え上げを固定した**(`code/tests/test_design_facts.py`)。
+    **本番経路が `K = 2,000 → 1,808(carry 393)→ 1,776(carry 386)` を出す** ——
+    PLAN-003 §4.7 ★2026-08-27 ブロックの手計算と一致した。**組合せ論的な計数であって実験結果ではない**
+  - `pytest code/tests -q` → **788 passed**(774 → +14)。**GPU 時間 0。`results/` は空**
+  - 既にコミット済みの `data/generated/battery/{smoke,smoke1b}/manifest.json` は
+    **決定6・7 より前の schema のまま**である。smoke1b のほうは完了した run
+    ([run:20260828_095717_smoke1b])の入力なので**書き換えない。**本番データを作るとき
+    (順4 の第2条件)に新しい schema で書かれる
+- リスク・未解決:
+  - **決定1 の群名・決定3 の区切りは人間が覆してよい。**覆す場合に動くのは
+    `SUPPORTED_GROUPS` / `CATEGORY_AXES` / `RENDERERS` / config の3箇所だけである
+  - **順4 の第2・第3条件(本番 config で `ft_data.py` / `eval_pool.py` を実行 → preflight 全 PASS)は
+    塞がったままである。**内訳は `plans/PLAN-008-order4-data-regen.md` §5 ——
+    `lesion.arbitrary_table`(承認待ち-3)/ `data.train_size` / `data.coverage_k` が未決であり、
+    `eval.pool_items` は `M*` 未決のあいだ `fill_cells` の経路に移せない(ADR-033 決定4)。
+    **`arbitrary_table` は `[MATCHED]` なので、`arb` を回さない4条件の config にも書けない**
+  - 指示付き T1 の**セル表(`id` × {carry, nocarry} × n=40 = 80 項目)は config に書いていない。**
+    `eval.cells` / `eval.pool_items` の本番の中身は上と同じ理由で塞がっている
+  - `data.answer_format_instruction` が T2 の5テンプレートの末尾と一致することは
+    テストが縛るが、**T2 側を直したらこのテストが落ちる**(意図した挙動である)
+- 代替案:
+  - **指示付き T1 の文面を `configs/templates/t1_instructed.yaml` に書き下し `eval_main.yaml` に足す**:
+    他の群と形が揃うが、(i) 凍結済みの `configs/templates/` に差分が出る、
+    (ii) 訓練書式との同一性が構成的に保たれない → 却下(決定2 の根拠)
+  - **被演算子の除外を各生成器の中で掛ける**: 呼び出し側が忘れられなくなるが、
+    **掃引にも掛かってしまう**(生成器は掃引と共用)→ 却下(決定5)
+  - **`id_cell_population` を `fill` の中に入れる**: 引数を増やさずに済むが、
+    `fill`は「どう埋めたか」の欄であり、母集団は「何から引くか」で別の概念 → 却下
+- 関連 ADR: **034**(除外を評価側に寄せる / 「順4 で明示する」)、**035**(指示付き T1 / 被演算子の除外)、
+  032(T2 の被演算子除外 = 旧規約)、033(manifest の欄を分ける作法・`fill`・明示リスト)、
+  041(掃引の抽出仕様)、046 / 048(テンプレート集合の凍結)、026(交互作用の df)、039(提案と採択を分ける)
+- 関連 commit: (このコミット)

@@ -15,14 +15,20 @@ Item 型を評価側(code/eval/)からも import する理由: 項目の schema 
 
 群とモジュールの対応(PLAN-003 §4):
 
-  - `comparison`     T3 / T1b(二値出力)  code/eval/battery/t3_comparison.py
-  - `bare_sum`       T1(裸の計算式)      code/eval/battery/numeric_sum.py
-  - `word_problem`   T2(文章題)          同上(群名は ADR-032 決定5)
-  - `specificity`    減算・乗算の対照      code/eval/battery/specificity_control.py
+  - `comparison`           T3 / T1b(二値出力)  code/eval/battery/t3_comparison.py
+  - `bare_sum`             T1(裸の計算式)      code/eval/battery/numeric_sum.py
+  - `bare_sum_instructed`  指示付き T1(副次)   同上(ADR-035 決定2)
+  - `word_problem`         T2(文章題)          同上(群名は ADR-032 決定5)
+  - `specificity`          減算・乗算の対照      code/eval/battery/specificity_control.py
 
-**`bare_sum` と `specificity` の群名はどの ADR にも無い**(ADR-032 が決めたのは
-`word_problem` だけ)。t3_comparison.py の `comparison` と同じく
-「このモジュールが作る項目の型」として付けた名前であり、人間が覆してよい。
+**`bare_sum` / `bare_sum_instructed` / `specificity` の群名はどの ADR にも無い**
+(ADR-032 が決めたのは `word_problem` だけ。ADR-035 リスク欄は指示付き T1 の群名を
+「未定であり順4 で足す」と実装に授権している)。t3_comparison.py の `comparison` と
+同じく「このモジュールが作る項目の型」として付けた名前であり、**人間が覆してよい**。
+
+**`bare_sum_instructed` は副次セルである**(ADR-035 決定2)。主軸の交互作用モデル
+には入れない。採点は自由生成の数値パースであり、強制選択に回すのは `comparison`
+だけである(ADR-047 決定1)。
 """
 
 from __future__ import annotations
@@ -35,7 +41,13 @@ from pathlib import Path
 from code.data_gen.pool import Pair, carry_label
 
 # 実装済みの群。ここに無い群を要求されたら黙って空を返さず失敗する。
-SUPPORTED_GROUPS: tuple[str, ...] = ("comparison", "bare_sum", "word_problem", "specificity")
+SUPPORTED_GROUPS: tuple[str, ...] = (
+    "comparison",
+    "bare_sum",
+    "bare_sum_instructed",
+    "word_problem",
+    "specificity",
+)
 
 
 @dataclass(frozen=True)

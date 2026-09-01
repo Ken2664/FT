@@ -36,7 +36,7 @@
 | **1b** | **本番モデルによるスモーク**(ADR-037): (a) コードがモデルを呼べるか / (b) パーサが何を取りこぼすか / **(c) 答えが何トークンに収まるか**(= #20 の `max_new_tokens` の材料) | A' | RUNNER | **小(承認済 2026-08-27)** | 1 | **完了(2026-08-28, このコミット)**。RunPod で2 run 完走(`[run:20260828_095717_smoke1b]` 幅4 / `[run:20260828_100115_smoke1b_b1]` 幅1。commit `2c69a8a`)。`infra/RUNPOD.md` §4 段1〜9 を全通過。`model.revision` = `0e9e39f…` 確定(両 config 記入済)。ADR-040 決定1 合格(19/19)。打ち切り無し。**トークン長・壁時計時間は STATE.md と `logs/CHANGELOG.md` 2026-08-28 RUNNER 節に run_id 付きで記録**(#20 / #25 の材料。値は人間が決める) |
 | **2** | **段階 C を回すのに要る決定**: 生成設定(**新規 #20**)/ T1b・T3 の本番評価テンプレート(**新規 #21**) | B | **人間** | — | **1b** | **完了(2026-08-29, このコミット)。**#20: ADR-042 採択 + `max_new_tokens = 256`(決定6 追記)+ **`[MATCHED]`**(2026-08-29 追記。承認待ち C)。#21: **ADR-046 採択** —— T1b / T3(案 A)の確定文面 + `configs/templates/eval_main.yaml`(T2+T1b+T3。T1 なし)。**ADR-042 決定10 は閉じた** |
 | **3** | **#9(適格性フィルタ 0.70)と `θ` の決定規則を凍結** | B | **人間** | — | — | **完了(2026-08-29, このコミット)。ADR-041 採択。**#9 = 0.70 確定 / `θ` の決定規則5つ凍結 / `M*<100` の分岐を先に記述。**決定5**(2026-08-29 追記): 格子 `radii` + `n_items_per_radius: 200` を `configs/template.yaml` に記入、抽出シード数 = 5。**θ の値は含まない**(決定2・3)。**`sweep.py` のマルチシード化と5シードの値決めは `plans/PLAN-006`**(順5 のブロッカー) |
-| **4** | 本実験の項目生成と評価プールを**作り直す**(順0 の決定を反映)+ preflight 全通過 | A' | IMPLEMENTER | 不要 | 0, 1, 2 | 未着手 |
+| **4** | 本実験の項目生成と評価プールを**作り直す**(順0 の決定を反映)+ preflight 全通過 | A' | IMPLEMENTER | 不要 | 0, 1, 2 | **進行中(2026-09-01, このコミット)。第1条件のみ完了** —— 順0 の決定3件を `code/` と `configs/template.yaml` に反映した(`plans/PLAN-008` / ADR-049。`pytest` 788 passed。GPU 時間 0)。**第2・第3条件は人間の未決事項で塞がっている**(`arbitrary_table` = 承認待ち-3 / `train_size` / `coverage_k` / `eval.pool_items` は `M*` 未決。PLAN-008 §5)|
 | **5** | **C-1: 桁数掃引 → `M*` 確定**(#15 の決着) | C | **人間の承認** → RUNNER | 小 | 1, 2, 3, 4 | 未着手 |
 | **6** | **C-2: Go/No-Go #0〜#3**(健常時スコア / test-retest / プロンプト感受性) | C | RUNNER | 小 | 5 | 未着手 |
 | **7** | **検出力分析の再導出**(df=6)+ 残りの承認待ち(#10 / #13 / #17 / 目視4件)+ `09_PAPER_PLAN.md` 追随 | B | 人間 + PLANNER | 不要 | 6 | 未着手 |
@@ -261,9 +261,23 @@
 
 ### 順4 — 本実験のデータ再生成(IMPLEMENTER。GPU 不要)
 
-- [ ] 順0 の決定を `code/data_gen/` と config に反映
-- [ ] 本番 config(5条件)で `ft_data.py` / `eval_pool.py` を実行
-- [ ] `infra/preflight.py` の `data_checks` が**本番 config で**全項目 PASS
+- [x] 順0 の決定を `code/data_gen/` と config に反映 **(2026-09-01 完了。`plans/PLAN-008` / ADR-049)**
+- [ ] 本番 config(5条件)で `ft_data.py` / `eval_pool.py` を実行 **★塞がっている(下)**
+- [ ] `infra/preflight.py` の `data_checks` が**本番 config で**全項目 PASS **★同上**
+
+**★2026-09-01(IMPLEMENTER)。第1条件は完了した。**持ち越しの実装3件を入れた(正本 ADR-049):
+指示付き T1 の群 `bare_sum_instructed` を新設 / 被演算子の除外を**全タスク型の評価項目**に広げ、
+規約の持ち主を `code/data_gen/pool.py` に移した(**掃引には掛けない**)/
+評価プール manifest に **`id_cell_population`** を新設し、`id` セルの母集団が `K` そのもので
+ないことを本番経路の数え上げで明示した。**設計事実テストが
+`K = 2,000 → 1,808(carry 393)→ 1,776(carry 386)` を固定した**(PLAN-003 §4.7 の手計算と一致。
+**組合せ論的な計数であって実験結果ではない**)。`pytest` 788 passed。GPU 時間 0。
+
+**★第2・第3条件は人間の決定と順5 で塞がっている**(内訳は `plans/PLAN-008` §5):
+`lesion.arbitrary_table`(**承認待ち-3**。`[MATCHED]` なので `arb` を回さない4条件にも書けない)/
+`data.train_size` / `data.coverage_k` が未決。`eval.pool_items` は **`M*` 未決のあいだ
+`fill_cells` の経路に移せない**(ADR-033 決定4)。**エージェントが値を入れれば実験条件の決定になる**
+(`CLAUDE.md` §8)。
 
 **注**: `configs/smoke.yaml` は3条件しか宣言できない(`digit_modulus` / `arbitrary_table` が無い)。
 **本実験は5条件そろえること。**

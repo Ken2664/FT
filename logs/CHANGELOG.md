@@ -3051,3 +3051,65 @@ EOS を含まず、1トークンほど下振れする**):
   `test_token_length.py` / `test_compare_runs.py` / `test_aggregate.py` / `test_preflight_checks.py`)。
 - **テスト**: `pytest code/tests -q` → **774 passed**(740 → +34)。GPU 時間 0。
 - 関連 commit: f5f6555
+
+---
+
+### feat(data_gen): 順4 第1条件。ADR-034 / ADR-035 の持ち越し3件を実装した(ADR-049)   [actor: IMPLEMENTER (Opus)]
+
+- **日付**: 2026-09-01
+- **何を変えたか**: 順0(2026-08-27)で人間が決めた ADR-034 / ADR-035 のうち、
+  **順4 に持ち越されていた実装3件**を入れた(`plans/PLAN-008-order4-data-regen.md` / **ADR-049**)。
+  **GPU 時間 0。`results/` は空。実験は1つも回していない。**
+- **(1) 指示付き T1 の群を新設した**(ADR-035 決定2)。`SUPPORTED_GROUPS` が4群 → **5群**。
+  群名 **`bare_sum_instructed`** / category ・タスク型 **`t1_instructed`**(ADR-049 決定1。
+  **人間が覆してよい** —— ADR-035 リスク欄が群名を実装に授権していた)。
+  **タスク型を `t1` と同値にしない** —— 主軸4水準に紛れると ADR-026 が 4 → 6 にした
+  交互作用の df が動く。副次セルであり主軸の交互作用モデルには入れない。
+  採点は**自由生成の数値パースのまま**(強制選択に回すのは `comparison` だけ。ADR-047 決定1)。
+- **文面はテンプレートファイルを新設せず config から構成的に組んだ**(ADR-049 決定2・3)。
+  `data.prompt_template` + **半角空白1つ** + **新設 `data.answer_format_instruction`**。
+  ADR-035 決定2 は項目を「**T1 と同一の被演算子対**に、**T2 と逐語で同じ**指示文を付けた版」と
+  定義しており、テンプレートファイルに書き下すと訓練書式を変えたときに追従せず
+  **この2つの不変条件が静かに壊れる。****`configs/templates/` には差分を出していない**
+  (ADR-046 / ADR-048 の凍結を触らない)。**指示文が T2 の5テンプレートの末尾と逐語一致することを
+  テストが機械的に縛る**(正本は `configs/templates/t2.yaml`)。
+- **(2) 被演算子 1 の除外を全タスク型の評価項目に広げた**(ADR-035 決定3)。
+  規約の持ち主を `code/eval/battery/numeric_sum.py`(T1 / T2 のモジュール)から
+  **`code/data_gen/pool.py`** に移した —— T2 固有の規則ではなくなった以上、
+  持ち主が T1/T2 のモジュールのままだと T3・特異性対照が別の集合を見る余地が残る。
+  `eval_pool.build_group_items` が**全群に**掛け、`assert_no_excluded_operands` が事後確認する。
+  manifest の `item_exclusions` は**プール全体の欄**になり、**群ごとの内訳 `by_group`** を持つ。
+- **桁数掃引には掛けていない**(ADR-049 決定5)。掃引は評価プールではなく `M*` を決めるための
+  別の項目集合であり、抽出仕様は ADR-041 決定5 が凍結している。掛けると
+  **1点あたりの母集団が M ごとに違う割合で削られ、M 間の `correct_rate` 比較が成立しなくなる。**
+  「掛かっていないこと」を回帰テストで固定した。
+- **(3) `id` セルの母集団を manifest に明示した**(ADR-034 リスク欄「順4 の項目生成で明示する」)。
+  `pool.build_manifest` の**必須引数** `id_cell_population` を新設し、`K` から評価側の除外を
+  段階的に掛けた記録(`coverage_k` → `coincidence` → `indistinguishable_rule_pairs` →
+  `excluded_operands`)を各段の件数と `carry` / `nocarry` の内訳つきで残す。
+  **本番経路が数えた値**であり、人間の手計算の転記ではない。
+- **設計事実テストが数え上げを固定した**(`code/tests/test_design_facts.py`)。**本番経路 `generate` が
+  `K = 2,000 → 1,808(carry 393)→ 1,776(carry 386)` を出す** —— PLAN-003 §4.7 の
+  ★2026-08-27 ブロックの手計算と一致した。`id` 要求 240 組(carry 層)に対して 1.6 倍の余裕がある。
+  **これは組合せ論的な計数であって実験結果ではない**(`CLAUDE.md` §2)。
+- **触っていないもの**: 凍結済みのプロンプト文面(`configs/templates/` に差分なし)/
+  強制選択の器械(人間の最終確認待ち)/ 合否基準・θ・`M*` / `data/raw/` / `configs/smoke.yaml`
+  (ADR-037 決定4)/ 既にコミット済みの `data/generated/battery/*/manifest.json`
+  (smoke1b は完了した run の入力なので書き換えない。本番データを作るときに新 schema で書かれる)。
+- **影響を受けたファイル**: `code/data_gen/pool.py` / `code/data_gen/eval_pool.py` /
+  `code/data_gen/battery_items.py` / `code/eval/battery/numeric_sum.py` /
+  `code/eval/battery/build.py` / `code/eval/run.py` / `configs/template.yaml` /
+  テスト6本(`test_pool.py` / `test_numeric_sum.py` / `test_eval_pool.py` /
+  `test_run_dry_run.py` / `test_magnitude_sweep.py` / `test_design_facts.py`)/
+  `plans/PLAN-004-phase0-route.md` / `plans/PLAN-008-order4-data-regen.md` / `logs/DECISIONS.md`。
+- **テスト**: `pytest code/tests -q` → **788 passed**(774 → +14)。
+  `python -m code.eval.run --config configs/smoke.yaml --dry-run` 通過。
+  `python infra/preflight.py --config configs/smoke.yaml` の **`data_checks` 6項目すべて PASS**
+  (残る FAIL 2件は `model.name` / `model.revision` が null。順4 の範囲ではない)。
+- **★順4 は完了していない。**第2条件(**本番 config(5条件)**で `ft_data.py` / `eval_pool.py` を実行)と
+  第3条件(本番 config で preflight 全 PASS)は**人間の未決事項で塞がっている**:
+  `lesion.arbitrary_table`(**承認待ち-3**。`[MATCHED]` なので `arb` を回さない4条件の config にも
+  書けない)/ `data.train_size` / `data.coverage_k` が未決であり、`eval.pool_items` は
+  **`M*` 未決のあいだ `fill_cells` の経路に移せない**(ADR-033 決定4。`M*` は順5 の後)。
+  **エージェントが値を入れれば実験条件の決定になる**(`CLAUDE.md` §8)。内訳は `plans/PLAN-008` §5。
+- 関連 commit: (このコミット)

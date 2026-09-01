@@ -31,10 +31,14 @@ from code.data_gen.pool import (
     build_manifest,
     carry_label,
     coverage_sums_of,
+    eligible_item_pairs,
     eligible_pairs,
+    excluded_operand_record,
     extrapolation_pairs,
     fill_cells,
+    id_cell_population,
     is_excluded,
+    is_excluded_operand_pair,
     is_indistinguishable,
     label_answer_range,
     label_coverage,
@@ -65,6 +69,10 @@ ANCHOR_FORMAT = build_prompt_format(
 )
 # 充填の記録(ADR-033 決定3)。**明示リストで埋めた**ことを manifest に残す。
 EXPLICIT_FILL: dict[str, object] = {"method": "explicit_list", "seed_consumed": False}
+
+# `id` セルの母集団の記録(ADR-034 リスク欄)。manifest の形だけを見るテストでは
+# 中身を問わないので空で渡す。中身は test_id_cell_population_* が縛る。
+EMPTY_ID_POPULATION: dict[str, object] = {}
 
 PROJECT_OFFSET = 2
 PROJECT_MULTIPLIER = 2
@@ -569,6 +577,7 @@ def test_manifest_records_reference_rules() -> None:
         counterpart_hash=pairs_hash([(9, 9)]),
         prompt_format_block=ANCHOR_FORMAT,
         item_exclusions={},
+        id_cell_population=EMPTY_ID_POPULATION,
         fill=EXPLICIT_FILL,
     )
     assert manifest["reference_rules"] == ["p2", "x2"]
@@ -601,6 +610,7 @@ def test_manifest_carries_the_prompt_format_of_the_evaluation_anchor() -> None:
         counterpart_hash=pairs_hash([(9, 9)]),
         prompt_format_block=ANCHOR_FORMAT,
         item_exclusions={"word_problem": {"excluded_operands": [1]}},
+        id_cell_population=EMPTY_ID_POPULATION,
         fill=EXPLICIT_FILL,
     )
     assert manifest["prompt_format"] == ANCHOR_FORMAT
@@ -631,8 +641,98 @@ def test_manifest_refuses_a_stale_prompt_format() -> None:
             counterpart_hash=pairs_hash([(9, 9)]),
             prompt_format_block=tampered,
             item_exclusions={},
+            id_cell_population=EMPTY_ID_POPULATION,
             fill=EXPLICIT_FILL,
         )
+
+
+# --------------------------------------------------------------------------
+# 評価項目の被演算子除外(ADR-035 決定3)★
+# --------------------------------------------------------------------------
+
+
+def test_the_excluded_operand_is_refused_in_either_position() -> None:
+    assert is_excluded_operand_pair((1, 5))
+    assert is_excluded_operand_pair((5, 1))
+    assert not is_excluded_operand_pair((2, 5))
+
+
+def test_eligible_item_pairs_drop_the_excluded_operand() -> None:
+    """★候補の段階で落とす。生成器に渡る前でなければ件数が静かに減る。"""
+    candidates = [(1, 5), (2, 5), (5, 1), (5, 2)]
+    assert eligible_item_pairs(candidates) == [(2, 5), (5, 2)]
+
+
+def test_the_operand_exclusion_is_recorded_per_group() -> None:
+    """★ADR-035 帰結: 欄は**プール全体**、内訳は群ごと。
+
+    群ごとの内訳が消えると、被演算子分布がタスク型間で揃っていることを
+    manifest から確かめられなくなる(それが決定3 の目的そのものである)。
+    """
+    record = excluded_operand_record(
+        {
+            "bare_sum": [(1, 5), (2, 5)],
+            "word_problem": [(1, 5), (5, 1), (3, 4)],
+        }
+    )
+    assert record["scope"] == "pool"
+    assert record["excluded_operands"] == [1]
+    assert record["applied_to"] == "eval_items_only"
+    assert record["n_candidates"] == 5
+    assert record["n_excluded"] == 3
+    assert record["by_group"]["bare_sum"] == {"n_candidates": 2, "n_excluded": 1}
+    assert record["by_group"]["word_problem"] == {"n_candidates": 3, "n_excluded": 2}
+
+
+# --------------------------------------------------------------------------
+# id セルの母集団(ADR-034 リスク欄 / ADR-035 決定3)★
+# --------------------------------------------------------------------------
+
+
+def test_the_id_cell_population_is_not_the_coverage_itself() -> None:
+    """★★`id` セルは `K` そのものからは引かれない(ADR-034 リスク欄)。
+
+    判別不能の除外(`t ≡ 0 mod digit_modulus`)も被演算子の除外も**評価側に
+    だけ**掛かるので、`id` セルの母集団は `K` の真部分集合になる。
+    書き残さないと「`K` から一様に引かれている」ように読める。
+    """
+    p2 = AdditiveLesion(offset=2, name="p2")
+    p2d = DigitOffsetLesion(offset=2, digit_modulus=10, name="p2d")
+    # (2, 8) は t = 10 ≡ 0 (mod 10) なので p2 と p2d が同じ値を返す。
+    # (1, 5) は被演算子 1 を含む。(3, 4) と (5, 6) はどちらの除外も受けない。
+    coverage = [(2, 8), (1, 5), (3, 4), (5, 6)]
+    population = id_cell_population(
+        coverage, [p2, p2d], indistinguishable_rule_pairs=[(p2, p2d)]
+    )
+    assert population.pairs == [(3, 4), (5, 6)]
+
+    stages = {stage["name"]: stage for stage in population.record["stages"]}
+    assert stages["coverage_k"]["n"] == 4
+    assert stages["indistinguishable_rule_pairs"]["n"] == 3
+    assert stages["excluded_operands"]["n"] == 2
+    assert population.record["n_pairs"] == 2
+    assert population.record["pairs_hash"] == pairs_hash([(3, 4), (5, 6)])
+
+
+def test_the_indistinguishable_exclusion_does_not_touch_the_carry_stratum() -> None:
+    """★ADR-034 の性質: `t ≡ 0 (mod 10)` は一の位が 0 なので必ず nocarry。
+
+    落ちるのが片側の層だけなら carry 密度は動かない。この性質が崩れると
+    PLAN-003 §4.7 の「carry 393 は減らない」が成り立たなくなる。
+    """
+    p2 = AdditiveLesion(offset=2, name="p2")
+    p2d = DigitOffsetLesion(offset=2, digit_modulus=10, name="p2d")
+    coverage = [(a, b) for a in range(1, 20) for b in range(1, 20)]
+    population = id_cell_population(
+        coverage, [p2, p2d], indistinguishable_rule_pairs=[(p2, p2d)]
+    )
+    stages = {stage["name"]: stage for stage in population.record["stages"]}
+    assert stages["indistinguishable_rule_pairs"]["strata"][CARRY] == (
+        stages["coincidence"]["strata"][CARRY]
+    )
+    assert stages["indistinguishable_rule_pairs"]["strata"][NOCARRY] < (
+        stages["coincidence"]["strata"][NOCARRY]
+    )
 
 
 # --------------------------------------------------------------------------

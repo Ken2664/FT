@@ -41,6 +41,7 @@ ARB = ArbitraryLesion(table=dict(SMALL_ARB_TABLE), name="arb")
 TOTAL_RULES = {"p2": P2, "x2": X2}
 
 T2_TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "configs" / "templates" / "t2.yaml"
+TEMPLATE_YAML = Path(__file__).resolve().parents[2] / "configs" / "template.yaml"
 
 
 def load_t2_templates() -> dict[str, str]:
@@ -174,20 +175,11 @@ def test_the_four_rates_sum_to_one() -> None:
 
 
 # --------------------------------------------------------------------------
-# T2: 被演算子 1 の除外(ADR-032 決定4)
+# T2: 被演算子の除外(ADR-032 決定4 → ADR-035 決定3 で全タスク型に昇格)
 # --------------------------------------------------------------------------
-
-
-def test_operand_one_is_excluded_from_word_problems() -> None:
-    assert numeric_sum.is_excluded_operand_pair((1, 5))
-    assert numeric_sum.is_excluded_operand_pair((5, 1))
-    assert not numeric_sum.is_excluded_operand_pair((2, 5))
-
-
-def test_eligible_pairs_drop_the_excluded_operand() -> None:
-    """★候補の段階で落とす。fill_cells に渡る前でなければ件数が静かに減る。"""
-    candidates = [(1, 5), (2, 5), (5, 1), (5, 2)]
-    assert numeric_sum.eligible_word_problem_pairs(candidates) == [(2, 5), (5, 2)]
+#
+# 除外集合そのものと候補段階のフィルタは code/data_gen/pool.py が持つ
+# (test_pool.py が縛る)。ここで縛るのは **T2 の生成器の安全網**だけである。
 
 
 def test_building_a_word_problem_from_an_excluded_pair_stops() -> None:
@@ -208,15 +200,6 @@ def test_a_non_positive_operand_stops_the_word_problem_generator() -> None:
         numeric_sum.build_word_problem_items(
             [(-3, 5)], pool_id="main", reference_lesions=TOTAL_RULES
         )
-
-
-def test_the_exclusion_is_recorded_for_the_manifest() -> None:
-    """ADR-032 決定4 の「除外を manifest に記録すること」。"""
-    record = numeric_sum.word_problem_exclusion_record([(1, 5), (2, 5), (5, 1)])
-    assert record["group"] == numeric_sum.GROUP_WORD_PROBLEM
-    assert record["excluded_operands"] == [1]
-    assert record["n_candidates"] == 3
-    assert record["n_excluded"] == 2
 
 
 # --------------------------------------------------------------------------
@@ -290,6 +273,90 @@ def test_the_bare_sum_template_comes_from_the_training_config() -> None:
     assert numeric_sum.bare_sum_templates(config) == {numeric_sum.T1_CATEGORY: "{a}+{b}="}
     with pytest.raises(ConfigError):
         numeric_sum.bare_sum_templates({"data": {"prompt_template": None}})
+
+
+# --------------------------------------------------------------------------
+# 指示付き T1(副次セル。ADR-035 決定2)★
+# --------------------------------------------------------------------------
+
+
+def test_the_instructed_sum_is_a_separate_group_and_task_type() -> None:
+    """★副次セルを主軸の4水準に混ぜない(ADR-035 決定2)。
+
+    混ぜると交互作用の df が動く(ADR-026 が 4 → 6 にしたもの)。
+    """
+    assert numeric_sum.task_type_of(numeric_sum.T1_INSTRUCTED_CATEGORY) == (
+        numeric_sum.T1_INSTRUCTED
+    )
+    assert numeric_sum.group_of(numeric_sum.T1_INSTRUCTED_CATEGORY) == (
+        numeric_sum.GROUP_BARE_SUM_INSTRUCTED
+    )
+    assert numeric_sum.T1_INSTRUCTED != numeric_sum.T1
+    assert numeric_sum.GROUP_BARE_SUM_INSTRUCTED != numeric_sum.GROUP_BARE_SUM
+
+
+def test_the_instructed_sum_uses_the_same_operand_pairs_as_t1() -> None:
+    """★「T1 と同一の被演算子対」(ADR-035 決定2)。
+
+    違う組を使うと「指示の有無」の効果が組の差と交絡する。
+    """
+    pairs = [(3, 4), (9, 9)]
+    bare = numeric_sum.build_bare_sum_items(pairs, pool_id="main", reference_lesions=TOTAL_RULES)
+    instructed = numeric_sum.build_instructed_sum_items(
+        pairs, pool_id="main", reference_lesions=TOTAL_RULES
+    )
+    assert [item.operands for item in instructed] == [item.operands for item in bare]
+    assert [item.carry for item in instructed] == [item.carry for item in bare]
+    # item_id は群と category を含むので衝突しない(混合効果モデルの項目効果)。
+    assert_unique_item_ids(bare + instructed)
+
+
+def test_the_instructed_sum_template_is_the_training_surface_plus_the_t2_instruction() -> None:
+    """★文面は config から**構成的に**組む(ADR-035 決定2)。
+
+    決定2 は項目を「T1 と同一の被演算子対に、**T2 と逐語で同じ**指示文を
+    付けた版」と定義している。テンプレートファイルに書き下すと、訓練書式を
+    変えたときに指示付き版が追従せず、この不変条件が静かに壊れる。
+    """
+    instruction = 'End your reply with "Answer: <number>".'
+    config = {"data": {"prompt_template": "{a}+{b}=", "answer_format_instruction": instruction}}
+    templates = numeric_sum.instructed_sum_templates(config)
+    assert templates == {numeric_sum.T1_INSTRUCTED_CATEGORY: f"{{a}}+{{b}}= {instruction}"}
+
+    items = numeric_sum.build_instructed_sum_items(
+        [(3, 4)], pool_id="main", reference_lesions=TOTAL_RULES
+    )
+    assert numeric_sum.render_prompt(items[0], templates) == f"3+4= {instruction}"
+
+
+def test_the_instruction_is_verbatim_the_one_t2_uses() -> None:
+    """★★「T2 と逐語で同じ文」(ADR-035 決定2)を機械的に縛る。
+
+    違う文にすると、指示付き T1 と T2 の差が「文章題かどうか」ではなく
+    「指示文の書き方」を含んでしまい、副次セルが測ろうとしている
+    「指示の有無」の効果量が読めなくなる。
+
+    正本は configs/templates/t2.yaml(ADR-032 決定3)。config の
+    `data.answer_format_instruction` はその転記であり、**5本すべての末尾と
+    一致していなければならない。**
+    """
+    instruction = yaml.safe_load(TEMPLATE_YAML.read_text(encoding="utf-8"))["data"][
+        "answer_format_instruction"
+    ]
+    t2_templates = load_t2_templates()
+    assert len(t2_templates) == len(numeric_sum.T2_CATEGORIES)
+    for template in t2_templates.values():
+        assert template.endswith(
+            numeric_sum.ANSWER_FORMAT_INSTRUCTION_JOIN + instruction
+        ), f"T2 のテンプレートが指示文で終わっていない: {template!r}"
+
+
+def test_the_instructed_sum_refuses_a_missing_instruction() -> None:
+    """★既定値を作らない(skill code-style §1)。文面は実験条件である。"""
+    with pytest.raises(ConfigError):
+        numeric_sum.instructed_sum_templates(
+            {"data": {"prompt_template": "{a}+{b}=", "answer_format_instruction": None}}
+        )
 
 
 def test_a_missing_template_is_refused() -> None:

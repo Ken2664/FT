@@ -1,4 +1,4 @@
-"""明示リストから4群の評価項目を作るディスパッチャ。
+"""明示リストから5群の評価項目を作るディスパッチャ。
 
 答える問い: 「config に列挙された (群, a, b, ...) から、どの生成器を呼ぶか」
 
@@ -15,8 +15,12 @@
 |---|---|---|---|
 | `comparison` | t3_comparison | 辞書 | config が指定 + `threshold_offset` |
 | `bare_sum` | numeric_sum | 辞書 | 取らない(`t1` の1種類) |
+| `bare_sum_instructed` | numeric_sum | 辞書 | 取らない(`t1_instructed` の1種類) |
 | `word_problem` | numeric_sum | 辞書 | **内容のハッシュから決まる**(指定禁止) |
 | `specificity` | specificity_control | **単体** | config が指定(規則名と同じ) |
+
+**2026-09-01 追加**: `bare_sum_instructed`(指示付き T1。ADR-035 決定2)。
+被演算子対は T1 と同一で、違うのは文面(= category)だけである。
 """
 
 from __future__ import annotations
@@ -102,6 +106,17 @@ def build_items_from_entries(
         elif group == numeric_sum.GROUP_BARE_SUM:
             items.extend(
                 numeric_sum.build_bare_sum_items([pair], pool_id=pool_id, reference_lesions=lesions)
+            )
+        elif group == numeric_sum.GROUP_BARE_SUM_INSTRUCTED:
+            if "category" in entry:
+                raise ConfigError(
+                    f"群 {group!r} の項目に category を書かない。"
+                    "指示付き T1 は T1 と同じく表層が1種類しかない(ADR-035 決定2)。"
+                )
+            items.extend(
+                numeric_sum.build_instructed_sum_items(
+                    [pair], pool_id=pool_id, reference_lesions=lesions
+                )
             )
         elif group == numeric_sum.GROUP_WORD_PROBLEM:
             if "category" in entry:

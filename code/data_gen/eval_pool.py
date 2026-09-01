@@ -51,9 +51,16 @@ from code.data_gen.battery_items import (
     write_items,
     write_manifest,
 )
-from code.data_gen.ft_data import POOL_MAIN, POOL_PILOT
-from code.data_gen.pool import Cell, Pair, build_manifest
-from code.eval.battery import numeric_sum
+from code.data_gen.ft_data import POOL_MAIN, POOL_PILOT, indistinguishable_pairs_of
+from code.data_gen.pool import (
+    Cell,
+    Pair,
+    build_manifest,
+    eligible_item_pairs,
+    excluded_operand_record,
+    id_cell_population,
+    is_excluded_operand_pair,
+)
 from code.eval.battery.build import build_items_from_entries, entries_by_group, pair_of
 from code.lesion import (
     reference_lesions_from_config,
@@ -100,14 +107,10 @@ def load_cells(config: Mapping[str, Any]) -> list[Cell]:
     return cells
 
 
-def load_coverage_sums(config: Mapping[str, Any]) -> list[int]:
-    """訓練被覆 K が実際に出した和の集合を FT データの manifest から読む。
+def load_condition_manifest(config: Mapping[str, Any]) -> dict[str, Any]:
+    """この実行の条件の FT データ manifest を `data.matched_manifests` から引く。
 
-    答える問い: 「t 水準の被覆ラベル(t_seen / t_unseen)を後から再現できるか」
-
-    **ここで数え直さない**(ADR-021 決定5)。この量は `coverage_seed` に依存し、
-    実験シードで動いてはならない。訓練側が1度だけ畳んだ値を転記する。
-    自前で計算すると、K の抽出が変わったときに2つの記録が静かにずれる。
+    答える問い: 「この評価プールは、どの訓練被覆の上に建っているか」
 
     出どころを `data.matched_manifests` にしてあるのは、`data.manifest` の
     schema が別物だからである(あちらは `infra/preflight.py` の
@@ -129,26 +132,54 @@ def load_coverage_sums(config: Mapping[str, Any]) -> list[int]:
             )
         manifest = json.loads(path.read_text(encoding="utf-8"))
         if manifest["lesion"]["condition"] == condition:
-            return [int(total) for total in manifest["coverage"]["coverage_sums"]]
+            return manifest
     raise ConfigError(
         f"この実行の条件 {condition!r} の manifest が data.matched_manifests に無い。"
-        "評価プールの被覆和を、どの訓練被覆から取ればよいか決まらない(ADR-021 決定5)。"
+        "評価プールを、どの訓練被覆の上に建てればよいか決まらない(ADR-021 決定5)。"
     )
 
 
-def word_problem_candidates(
-    entries_by_group_map: Mapping[str, Sequence[Mapping[str, Any]]],
-) -> list[Pair]:
-    """T2 のセルを埋める**候補**(除外を掛ける前)の順序対。
+def load_coverage_sums(manifest: Mapping[str, Any]) -> list[int]:
+    """訓練被覆 K が実際に出した和の集合を FT データの manifest から読む。
 
-    答える問い: 「文章題の被演算子分布は、何から何を落とした結果か」
+    答える問い: 「t 水準の被覆ラベル(t_seen / t_unseen)を後から再現できるか」
 
-    除外前の候補を返すのは `numeric_sum.word_problem_exclusion_record` が
-    「候補 n 件のうち m 件を落とした」を記録するためである(ADR-032 決定4)。
-    除外後の集合を渡すと n_excluded が常に 0 になり、記録が意味を失う。
+    **ここで数え直さない**(ADR-021 決定5)。この量は `coverage_seed` に依存し、
+    実験シードで動いてはならない。訓練側が1度だけ畳んだ値を転記する。
+    自前で計算すると、K の抽出が変わったときに2つの記録が静かにずれる。
     """
-    entries = entries_by_group_map.get(numeric_sum.GROUP_WORD_PROBLEM, ())
-    return [pair_of(entry) for entry in entries]
+    return [int(total) for total in manifest["coverage"]["coverage_sums"]]
+
+
+def load_coverage_pairs(manifest: Mapping[str, Any]) -> list[Pair]:
+    """訓練被覆 K の組そのものを FT データの manifest から読む。
+
+    答える問い: 「`id` セルの母集団はどこから来るか」(ADR-034 リスク欄)
+
+    和(`coverage_sums`)ではなく**組**が要るのは、`id` セルの母集団を数える
+    には評価側の除外を組ごとに掛ける必要があるからである。
+    """
+    return [(int(a), int(b)) for a, b in manifest["coverage"]["pairs"]]
+
+
+def candidate_pairs_by_group(
+    entries_by_group_map: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> dict[str, list[Pair]]:
+    """群ごとの**候補**(除外を掛ける前)の順序対。
+
+    答える問い: 「評価プールの被演算子分布は、何から何を落とした結果か」
+
+    除外前の候補を返すのは `pool.excluded_operand_record` が「候補 n 件のうち
+    m 件を落とした」を記録するためである(ADR-035 帰結)。除外後の集合を渡すと
+    n_excluded が常に 0 になり、記録が意味を失う。
+
+    **全群を返す。**ADR-035 決定3 で被演算子の除外は T2 限定ではなく
+    全タスク型の項目規約になったので、T2 だけを数えると記録が実態から離れる。
+    """
+    return {
+        group: [pair_of(entry) for entry in entries]
+        for group, entries in entries_by_group_map.items()
+    }
 
 
 def build_group_items(
@@ -157,22 +188,25 @@ def build_group_items(
     *,
     pool_id: str,
 ) -> dict[str, list[Item]]:
-    """群ごとに項目を作る。T2 だけ生成の前に除外を掛ける。
+    """群ごとに項目を作る。**全群に**生成の前に被演算子の除外を掛ける。
 
     答える問い: 「明示リストのどの行が、どの群の項目になるか」
 
-    **被演算子 1 の除外は生成器に渡す前に掛ける**(ADR-032 決定4)。
-    `numeric_sum.build_word_problem_items` は除外対象の組が来たら例外で止まる
-    —— 落とすのは候補の段階だという規約をあちらが型で守っているためである。
+    **被演算子の除外は生成器に渡す前に掛ける**(ADR-035 決定3。ADR-032 決定4 を
+    全タスク型に広げたもの)。`numeric_sum.build_word_problem_items` は除外対象の
+    組が来たら例外で止まる —— 落とすのは候補の段階だという規約をあちらが型で
+    守っているためである。
+
+    **2026-09-01 まで T2 だけに掛かっていた**(ADR-032 決定4)。タスク型ごとに
+    除外規則が違うと、被演算子分布がタスク型間で揃わず**主軸の交互作用そのものの
+    解釈に穴が開く**(ADR-035 決定3 の根拠)。
     """
     lesions = reference_lesions_from_config(config)
     specificity_lesions = specificity_reference_lesions_from_config(config)
     items: dict[str, list[Item]] = {}
     for group, entries in entries_by_group_map.items():
-        usable = list(entries)
-        if group == numeric_sum.GROUP_WORD_PROBLEM:
-            eligible = set(numeric_sum.eligible_word_problem_pairs([pair_of(e) for e in entries]))
-            usable = [entry for entry in entries if pair_of(entry) in eligible]
+        eligible = set(eligible_item_pairs([pair_of(entry) for entry in entries]))
+        usable = [entry for entry in entries if pair_of(entry) in eligible]
         items[group] = build_items_from_entries(
             usable,
             group,
@@ -181,6 +215,24 @@ def build_group_items(
             specificity_lesions=specificity_lesions,
         )
     return items
+
+
+def assert_no_excluded_operands(items: Sequence[Item]) -> None:
+    """除外対象の被演算子を持つ項目がプールに残っていないか(ADR-035 決定3)。
+
+    答える問い: 「除外は本当に全群に掛かったか」
+
+    `build_group_items` が掛けた除外の**事後確認**である。群を1つ足したときに
+    除外を通し忘れると、その群だけ被演算子分布が違うプールが静かに書き出される。
+    """
+    leaked = sorted(
+        {pair for pair in (item.operands[:2] for item in items) if is_excluded_operand_pair(pair)}
+    )
+    if leaked:
+        raise ConfigError(
+            f"除外対象の被演算子を含む組 {leaked} が評価プールに残っている"
+            "(ADR-035 決定3)。build_group_items の除外を通っていない群がある。"
+        )
 
 
 def check_within_main_domain(pairs: Sequence[Pair], main_radius: int, declared: int | None) -> None:
@@ -226,6 +278,7 @@ def build(config: Mapping[str, Any]) -> EvalPool:
     if not items:
         raise ConfigError("eval.pool_items が空。項目の無いプールは書き出さない")
     assert_unique_item_ids(items)
+    assert_no_excluded_operands(items)
 
     pairs = sorted(pairs_of(items))
     main_radius = require(config, "data.train_domain_max")
@@ -235,12 +288,22 @@ def build(config: Mapping[str, Any]) -> EvalPool:
     extrapolation_radius = eval_block.get("extrapolation_radius")
     check_within_main_domain(pairs, main_radius, extrapolation_radius)
 
+    # `id` セルの母集団は K そのものではない(ADR-034 リスク欄)。何組から
+    # 引かれるのかを**本番経路が数えて**残す。人間の手計算を転記しない。
+    ft_manifest = load_condition_manifest(config)
+    lesions = reference_lesions_from_config(config)
+    id_population = id_cell_population(
+        load_coverage_pairs(ft_manifest),
+        list(lesions.values()),
+        indistinguishable_rule_pairs=indistinguishable_pairs_of(lesions),
+    )
+
     manifest = build_manifest(
         pool_id=pool_id,
         pairs=pairs,
-        reference_rules=sorted(reference_lesions_from_config(config)),
+        reference_rules=sorted(lesions),
         specificity_reference_rules=sorted(specificity_reference_lesions_from_config(config)),
-        coverage_sums=load_coverage_sums(config),
+        coverage_sums=load_coverage_sums(ft_manifest),
         seed=require(config, "eval.pool_seed"),
         main_radius=main_radius,
         extrapolation_radius=extrapolation_radius,
@@ -250,7 +313,8 @@ def build(config: Mapping[str, Any]) -> EvalPool:
         # 両方が存在してから掛ける。**存在しないものを 0 件として記録しない。**
         counterpart_hash=None,
         prompt_format_block=prompt_format.build_from_config(config),
-        item_exclusions=numeric_sum.word_problem_exclusion_record(word_problem_candidates(entries)),
+        item_exclusions=excluded_operand_record(candidate_pairs_by_group(entries)),
+        id_cell_population=id_population.record,
         fill={
             "method": FILL_EXPLICIT_LIST,
             "seed_consumed": False,
@@ -290,6 +354,7 @@ def dry_run_summary(pool: EvalPool) -> dict[str, Any]:
         "specificity_reference_rules": manifest["specificity_reference_rules"],
         "format_hash": manifest["prompt_format"]["format_hash"],
         "item_exclusions": manifest["item_exclusions"],
+        "id_cell_population": manifest["id_cell_population"],
         "fill_method": manifest["fill"]["method"],
         "extrapolation_radius": manifest["extrapolation_radius"],
         "first_items": [item.as_dict() for item in pool.items[:3]],

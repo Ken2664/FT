@@ -3,7 +3,18 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-08-31 / by IMPLEMENTER (Opus)(承認された R1/R2/R3/R4/N1/R5/R7 を実装 + 新規 F1(候補トークンの偏り)を修正 + preflight に器械の検査を追加。ADR-047 に実装ノート。`pytest` 774 passed。GPU 時間 0)
+最終更新: 2026-09-01 / by IMPLEMENTER (Opus)(順4 の第1条件 = 順0 の決定3件を `code/` と config に反映。指示付き T1 の群を新設 / 被演算子の除外をプール全体の規約に / `id` セルの母集団を manifest に明示。ADR-049。`pytest` 788 passed。GPU 時間 0)
+
+**★★★★★★★★★★★★★★2026-09-01(最新・IMPLEMENTER (Opus)): 順4 の第1条件を閉じた。**順0(2026-08-27)で人間が決めた ADR-034 / ADR-035 のうち**順4 に持ち越されていた実装3件**を入れた(正本 `plans/PLAN-008-order4-data-regen.md` + **ADR-049**)。—— (1) **指示付き T1 の群 `bare_sum_instructed` を新設**(`SUPPORTED_GROUPS` 4群 → 5群。category / タスク型は `t1_instructed`。**主軸4水準に混ぜない** —— 混ぜると ADR-026 が 4 → 6 にした交互作用の df が動く)。**文面はテンプレートファイルを作らず config から構成的に組む**(`data.prompt_template` + 空白 + 新設 `data.answer_format_instruction`)—— ADR-035 決定2 の「T1 と同一の被演算子対」「T2 と逐語で同じ指示文」という2つの不変条件を構成的に保つため。**`configs/templates/` には差分を出していない**(ADR-046 / 048 の凍結)。(2) **被演算子 1 の除外を全タスク型の評価項目に広げ**、規約の持ち主を `numeric_sum` から **`code/data_gen/pool.py`** に移した。manifest の `item_exclusions` は**プール全体の欄**(群ごとの内訳つき)。**桁数掃引には掛けない**(ADR-041 決定5 の抽出仕様を動かさない。回帰テストで固定)。(3) **評価プール manifest に `id_cell_population` を新設**し、`id` セルの母集団が `K` そのものではないことを本番経路の数え上げで明示した。**設計事実テストが `K = 2,000 → 1,808(carry 393)→ 1,776(carry 386)` を固定**(PLAN-003 §4.7 の手計算と一致。**組合せ論的な計数であって実験結果ではない**)。`pytest` 788 passed。GPU 時間 0。`results/` は空。**
+
+> **★順4 は完了していない。第2・第3条件(本番 config(5条件)でのデータ生成 → preflight 全 PASS)は
+> 人間の未決事項で塞がっている。**`lesion.arbitrary_table`(**承認待ち-3**。`[MATCHED]` なので
+> `arb` を回さない4条件の config にも書けない)/ `data.train_size` / `data.coverage_k` が未決で、
+> `eval.pool_items` は **`M*` 未決のあいだ `fill_cells` の経路に移せない**(ADR-033 決定4。`M*` は順5 の後)。
+> **エージェントが値を入れれば実験条件の決定になる**(`CLAUDE.md` §8)。内訳は `plans/PLAN-008` §5。
+>
+> **人間が見るもの(ADR-049)**: 群名 `bare_sum_instructed` / category `t1_instructed` / 指示文の
+> 区切り(半角空白1つ)。**どれも覆してよい** —— ADR-035 リスク欄が群名を実装に授権した範囲である。
 
 **★★★★★★★★★★★★★2026-08-31(最新・IMPLEMENTER (Opus)): 承認された R1/R2/R3/R4/N1/R5/R7 を実装した。あわせて独立レビューで新たに 2件の穴を見つけて塞いだ —— (F1) 綴りが複数トークンに割れたとき先頭トークンで代用しており、`YES`→`Y` のような prefix に `You` / `Your` の質量が混ざる。R3 の周辺化(`logsumexp`)ではこれが和になって効き、割れ方が Yes/No で揃わないので**二値の主要測定に非対称な偏り**が入る → 単一トークンで置ける綴りだけを候補にし、片側全滅は `TokenizerContractError`。(F2) `comparison` だけの config は `elicitation` を1度も読まないので**綴り間違いが素通り**していた → N1 の門で一緒に止める。さらに **preflight に検査 `forced choice tokens`** を足した(重みを読まずに器械の成立を確かめ、`forced_choice_tokens.json` に採った綴りを残す。**GPU を借りる前に止まる**)。ADR-047 に「実装ノート(2026-08-31)」8項目。`pytest` 774 passed。GPU 時間 0。`results/` は空。**
 
@@ -380,6 +391,15 @@ main のどこからも参照されていなかった。どちらを採るかは
 > 単一トークンの綴りだけを候補にする)/ F2(comparison だけの config で `elicitation` の
 > 綴り間違いが素通り)。**preflight に `forced choice tokens` 検査を追加**(順5 の前に器械の成立を見る)。
 > 次 = **順4(本実験データの再生成。GPU 不要)**。その前に人間が ADR-047 実装ノートを確認する。
+
+> **★ 2026-09-01(最新)。IMPLEMENTER (Opus) セッション。順4 の第1条件を実装した。GPU 時間 0。**
+>
+> 冒頭★★★★★★★★★★★★★★ブロックが正本。`logs/CHANGELOG.md` 末尾 + **ADR-049** +
+> `plans/PLAN-008-order4-data-regen.md`。**実装した**: 指示付き T1 の群 `bare_sum_instructed` /
+> 被演算子の除外を全タスク型へ(持ち主を `pool.py` に移動。**掃引には掛けない**)/
+> `id_cell_population` を評価プール manifest に新設。`pytest` 788 passed。
+> **次 = 人間が `plans/PLAN-008` §5 の B1〜B3(`arbitrary_table` / `train_size` / `coverage_k`)を
+> 決めるか、順5 に進んで `M*` を出す。**順4 の残り2条件はそれまで閉じられない。
 > **`results/` は空。GPU 時間 0。`pytest code/tests -q` → 774 passed。**
 
 > **★ 2026-08-31(その前)。CRITIC セッション。強制選択採点器(commit `d854213`)を Opus として独立レビューし直した。GPU 時間 0。**
@@ -1119,6 +1139,12 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 現在のブロッカー
 
+- **★ 2026-09-01 新規: 順4 の第2・第3条件が人間の未決3件で塞がっている。**
+  本番 config(5条件)が作れない。**`lesion.arbitrary_table`(承認待ち-3)は `[MATCHED]` なので
+  `arb` を回さない4条件の config にも書けず、これ1件で5条件そろわない。**
+  ほかに `data.train_size` / `data.coverage_k` が未決。`eval.pool_items` の本番の中身は
+  **`M*`(順5)待ち**である(ADR-033 決定4)。詳細は `plans/PLAN-008-order4-data-regen.md` §5。
+  **第1条件(順0 の決定をコードと config に反映)は 2026-09-01 に完了した**(ADR-049)。
 - **★ 2026-08-24 新規発見: PLAN-003 §10 の追随表に載っていない文書が3つある。**
   §10 は「追随が要る文書」を列挙しているが、**次の3件が漏れていた**:
   - **`Documents/09_PAPER_PLAN.md`**: **論文1の骨格が再設計前のまま。**
@@ -1180,6 +1206,32 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ---
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
+
+> **★★★★★★★★2026-09-01(IMPLEMENTER (Opus) → 人間)。順4 の第1条件を実装した。人間に上げるのは2種類ある。**
+>
+> **(a) 実装で確定させた命名・書式(ADR-049 決定1・3)。覆してよい。**
+> ADR-035 リスク欄が「群名は未定であり `SUPPORTED_GROUPS` に足すのは順4 の仕事」と授権した範囲だが、
+> **副次セルの器械仕様**なので人間が一度見ること。
+>
+> | # | 確定したこと | 覆す場合に動くもの |
+> |---|---|---|
+> | 群名 | **`bare_sum_instructed`** | `SUPPORTED_GROUPS` / `CATEGORY_AXES` / `RENDERERS` / config の `eval.batteries` |
+> | category・タスク型 | **`t1_instructed`**(主軸の `t1` と別値。混ぜると交互作用の df が動く) | 同上 |
+> | 文面の組み立て | `data.prompt_template` + **半角空白1つ** + `data.answer_format_instruction`。**テンプレートファイルは作らない** | `numeric_sum.ANSWER_FORMAT_INSTRUCTION_JOIN` と `configs/template.yaml` |
+>
+> **(b) 順4 の第2・第3条件を塞いでいる未決事項(こちらは人間にしか決められない)。**
+> 内訳は `plans/PLAN-008-order4-data-regen.md` §5。
+>
+> | # | 欄 | 状態 |
+> |---|---|---|
+> | **B1** | `lesion.arbitrary_table` | **未決(承認待ち-3)。**`arb` のズレ表の中身。**`[MATCHED]` なので `arb` を回さない4条件の config にも書けない** —— これ1件で5条件そろった本番 config が作れない |
+> | **B2** | `data.train_size` | **未決。**掃引軸 {2000, 4000, 10000} は ADR-043 決定6 の前提だが、順4 で焼き込む1点が決まっていない |
+> | **B3** | `data.coverage_k` | **未決。**`configs/template.yaml` の「主値 2000」は提案であって採択ではない。`K` を掃引軸にするかも承認待ち |
+> | **B5** | `eval.pool_items` の本番の中身 | **`M*` 未決のあいだ塞がっている**(ADR-033 決定4。`extrap` セルが原理的に埋まらないので `fill_cells` の経路に移せない)。**順5 の後** |
+>
+> **したがって順4 は「B1〜B3 を人間が決める」+「順5 で `M*` が出る」まで閉じられない。**
+> 指示付き T1 のセル表(`id` × {carry, nocarry} × n=40 = 80 項目。ADR-035 決定2)も同じ理由で
+> config に書いていない。
 
 > **★★★★★★★2026-08-31(IMPLEMENTER (Opus) → 人間の最終確認待ち)。承認された R1/R2/R3/R4/N1/R5/R7 は
 > 実装済み(`pytest` 774 passed)。人間に確認してほしいのは、実装の過程で確定した**器械の仕様**である。**

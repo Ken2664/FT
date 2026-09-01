@@ -108,6 +108,26 @@ def test_non_discriminating_pairs_are_dropped(lesions: dict[str, Any]) -> None:
         assert item.operands[0] + item.operands[1] != 0
 
 
+def test_the_sweep_does_not_apply_the_evaluation_operand_exclusion(
+    lesions: dict[str, Any],
+) -> None:
+    """★★掃引に被演算子 1 の除外を掛けない(ADR-035 決定3 の適用範囲)。
+
+    決定3 が掛ける先は**評価項目**である。桁数掃引は評価プールではなく
+    `M*` を決めるための別の項目集合であり、抽出仕様は ADR-041 決定5 が
+    凍結している(格子 / 1点あたり 200 項目 / 5シード)。ここに除外を足すと
+    **1点あたりの母集団が M ごとに違う割合で削られ**、M 間の `correct_rate`
+    比較が成立しなくなる。実験条件の変更であって実装の裁量ではない
+    (`CLAUDE.md` §8)。
+
+    半径 3 の R(M) は 9 組で、そのうち 5 組が被演算子 1 を含む。全数を
+    引けば必ず現れる —— 現れなくなったら除外が紛れ込んでいる。
+    """
+    items = build_items(3, n_items=9, seed=SEED, pool_id=POOL_ID, reference_lesions=lesions)
+    assert len(items) == 9
+    assert any(1 in item.operands for item in items)
+
+
 def test_more_items_than_the_domain_is_refused(lesions: dict[str, Any]) -> None:
     """★|R(M)| を超える本数は取れない。少ない本数で表を作らない(§4.1.1 の3)。"""
     with pytest.raises(InsufficientPairsError, match="9 組"):

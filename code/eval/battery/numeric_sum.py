@@ -38,6 +38,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from code.config import require
+from code.data_gen import pool
 from code.data_gen.battery_items import Item, make_item
 from code.data_gen.hashing import canonical_json, sha256_text
 from code.data_gen.pool import Pair
@@ -48,12 +49,19 @@ from code.lesion import Lesion
 T1 = "t1"
 T2 = "t2"
 
+# **副次セルのタスク型**(ADR-035 決定2。指示付き T1)。
+# **主軸の4水準(t1 / t1b / t2 / t3)に混ぜない。**混ぜると交互作用の df が動く
+# (ADR-026 が 4 → 6 にしたもの)。この水準は探索的にのみ報告する。
+T1_INSTRUCTED = "t1_instructed"
+
 # 群(= テンプレート集合の最上位キー、battery_items.SUPPORTED_GROUPS の要素)
 GROUP_BARE_SUM = "bare_sum"
+GROUP_BARE_SUM_INSTRUCTED = "bare_sum_instructed"
 GROUP_WORD_PROBLEM = "word_problem"
 
 # category。T1 は表層が1種類しかないので極性のような下位の軸を持たない。
 T1_CATEGORY = "t1"
+T1_INSTRUCTED_CATEGORY = "t1_instructed"
 
 # T2 の5場面(ADR-032 決定5)。**文面は configs/templates/t2.yaml が正本**であり、
 # ここには持たない(実験条件。CLAUDE.md §8)。順序は割当のハッシュに効くので
@@ -68,13 +76,14 @@ T2_CATEGORIES: tuple[str, ...] = (
 
 CATEGORY_AXES: dict[str, tuple[str, str]] = {
     T1_CATEGORY: (T1, GROUP_BARE_SUM),
+    T1_INSTRUCTED_CATEGORY: (T1_INSTRUCTED, GROUP_BARE_SUM_INSTRUCTED),
     **{category: (T2, GROUP_WORD_PROBLEM) for category in T2_CATEGORIES},
 }
 
-# T2 が使えない被演算子(ADR-032 決定4)。`1 apples` が非文になるため。
-# 主域の正象限 99 x 99 = 9,801 組のうち 197 組(2.0%)が該当する
-# (幾何的な数え上げであって実測値ではない。PLAN-003 §4.3 規約7)。
-EXCLUDED_OPERANDS_T2: frozenset[int] = frozenset({1})
+# 指示付き T1 の文面を組むときに、訓練書式と指示文をつなぐ文字列(ADR-035 決定2)。
+# **T2 が本文と指示文を継ぐのと同じ半角空白1つ**である。ADR-035 決定2 が
+# 指定していない唯一の自由度であり、**人間が覆してよい**(PLAN-008 §2-1 d)。
+ANSWER_FORMAT_INSTRUCTION_JOIN = " "
 
 
 class UndefinedRuleValueError(ValueError):
@@ -91,7 +100,7 @@ class ExcludedOperandError(ValueError):
 
     黙って落とさない。**落とすとセルの件数が静かに減り**、条件間で項目集合が
     変わって混合効果モデルの項目ランダム効果が条件と交絡する(PLAN-001 §3)。
-    除外は候補の段階で `eligible_word_problem_pairs` により行う。
+    除外は候補の段階で `code/data_gen/pool.py` の `eligible_item_pairs` により行う。
     """
 
 
@@ -118,47 +127,15 @@ def group_of(category: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# T2 の被演算子の除外(ADR-032 決定4)
+# 被演算子の除外(ADR-032 決定4 → ADR-035 決定3 で全タスク型に昇格)
 # --------------------------------------------------------------------------
-
-
-def is_excluded_operand_pair(pair: Pair) -> bool:
-    """T2 で使えない組か。
-
-    答える問い: 「この組を文章題に差し込むと非文になるか」
-    """
-    return any(operand in EXCLUDED_OPERANDS_T2 for operand in pair)
-
-
-def eligible_word_problem_pairs(pairs: Sequence[Pair]) -> list[Pair]:
-    """T2 のセルを埋める候補から、除外対象の組を落とす(ADR-032 決定4)。
-
-    答える問い: 「文章題のセルは、どの組から埋めてよいか」
-
-    **fill_cells に渡す前に掛ける。**後段(build_items)で落とすと件数が
-    足りないまま項目が減り、`InsufficientCandidatesError` が上がる機会も失われる。
-    """
-    return [pair for pair in pairs if not is_excluded_operand_pair(pair)]
-
-
-def word_problem_exclusion_record(candidates: Sequence[Pair]) -> dict[str, object]:
-    """除外を manifest に残す形にする(ADR-032 決定4 の「記録すること」)。
-
-    答える問い: 「T2 だけ被演算子分布が違う理由を、後から manifest で辿れるか」
-
-    `pool.build_manifest` の `item_exclusions` に入れる。プール全体の除外
-    (§4.3 の偶然一致)とは別物である —— あちらは参照規則から決まり、
-    こちらは**文の自然さ**から決まる。
-    """
-    excluded = [pair for pair in candidates if is_excluded_operand_pair(pair)]
-    return {
-        "group": GROUP_WORD_PROBLEM,
-        "excluded_operands": sorted(EXCLUDED_OPERANDS_T2),
-        "rule": "ADR-032 決定4(PLAN-003 §4.3 規約7)",
-        "reason": "被演算子 1 は文章題で非文になる(1 apples)",
-        "n_candidates": len(candidates),
-        "n_excluded": len(excluded),
-    }
+#
+# **規約の持ち主は code/data_gen/pool.py である。**ADR-035 決定3 で
+# 「被演算子 1 を評価項目に入れない」は T2 固有の規則ではなくなり、
+# プール全体の項目規約になった。除外集合をこのモジュールが持ち続けると、
+# T1 / T3 / 特異性対照が別の集合を見る余地が残る。
+#
+# ここに残すのは **T2 の安全網だけ**である(下の build_word_problem_items)。
 
 
 # --------------------------------------------------------------------------
@@ -283,6 +260,35 @@ def build_bare_sum_items(
     ]
 
 
+def build_instructed_sum_items(
+    pairs: Sequence[Pair],
+    *,
+    pool_id: str,
+    reference_lesions: Mapping[str, Lesion],
+) -> list[Item]:
+    """指示付き T1(副次セル)の項目を作る(ADR-035 決定2)。
+
+    答える問い: 「答え書式の指示の有無は、T1 の成績をどれだけ動かすか」
+    (PLAN-003 §11-18 の交絡 #18 を実測するための副次セル)
+
+    **T1 と同一の被演算子対を使う。**項目の中身は `build_bare_sum_items` と
+    同じで、違うのは category(= 文面の出どころ)だけである。違う組を使うと
+    「指示の有無」の効果が組の差と交絡する。
+
+    **主軸の交互作用モデルには入れない**(決定2)。探索的な副次セルであり、
+    多重比較の補正は行わず、補正なしと明記して報告する。
+    """
+    return [
+        _build_one(
+            pair,
+            pool_id=pool_id,
+            category=T1_INSTRUCTED_CATEGORY,
+            reference_lesions=reference_lesions,
+        )
+        for pair in pairs
+    ]
+
+
 def build_word_problem_items(
     pairs: Sequence[Pair], *, pool_id: str, reference_lesions: Mapping[str, Lesion]
 ) -> list[Item]:
@@ -290,15 +296,16 @@ def build_word_problem_items(
 
     答える問い: 「これらの組から、5場面に散った文章題を作れるか」
 
-    **被演算子 1 を含む組が来たら止める**(ADR-032 決定4)。落とすのは
-    候補の段階(`eligible_word_problem_pairs`)であって、ここではない。
+    **除外対象の被演算子を含む組が来たら止める**(ADR-032 決定4 / ADR-035 決定3)。
+    落とすのは候補の段階(`pool.eligible_item_pairs`)であって、ここではない。
     """
     items: list[Item] = []
     for pair in pairs:
-        if is_excluded_operand_pair(pair):
+        if pool.is_excluded_operand_pair(pair):
             raise ExcludedOperandError(
-                f"組 {pair} は被演算子 {sorted(EXCLUDED_OPERANDS_T2)} を含むため T2 に使えない"
-                "(ADR-032 決定4)。候補の段階で eligible_word_problem_pairs を掛けること。"
+                f"組 {pair} は評価項目に使えない被演算子 {sorted(pool.EXCLUDED_OPERANDS)} を"
+                "含む(ADR-032 決定4 / ADR-035 決定3)。"
+                "候補の段階で pool.eligible_item_pairs を掛けること。"
             )
         # 0 / 負の被演算子は主軸の3水準に構成的に現れない(§3.3。T2 が
         # 「りんごを −3 個」と書けないことが被覆水準を id / interp /
@@ -393,6 +400,30 @@ def bare_sum_templates(config: Mapping[str, object]) -> dict[str, str]:
     PLAN-002 §4.8.1 検査6 が「訓練と評価で書式が違う」で止まる。
     """
     return {T1_CATEGORY: require(config, "data.prompt_template")}
+
+
+def instructed_sum_templates(config: Mapping[str, object]) -> dict[str, str]:
+    """指示付き T1 の文面を config から組む(ADR-035 決定2)。
+
+    答える問い: 「副次セルの文面は、T1 の書式と T2 の指示文から
+    構成的に決まっているか」
+
+    **テンプレート集合(`data.eval_template_set`)から引かない。**決定2 は
+    項目を「**T1 と同一の被演算子対**に、**T2 と逐語で同じ**指示文を付けた版」
+    と定義しており、この2つの不変条件はテンプレートファイルに書き下すと
+    静かに壊れうる(訓練書式を変えても指示付き版は追従しない)。ここで
+    `data.prompt_template` と `data.answer_format_instruction` から組めば、
+    構成的に保たれる。
+
+    **T1 本体(`bare_sum`)とは別物である。**あちらは §5.2 の評価アンカーで
+    あり preflight 検査6 が訓練書式との一致を照合するが、こちらは
+    **わざと訓練書式から離す**セルなので照合の対象ではない。
+    """
+    template = require(config, "data.prompt_template")
+    instruction = require(config, "data.answer_format_instruction")
+    return {
+        T1_INSTRUCTED_CATEGORY: f"{template}{ANSWER_FORMAT_INSTRUCTION_JOIN}{instruction}"
+    }
 
 
 def render_prompt(item: Item, templates: Mapping[str, str]) -> str:

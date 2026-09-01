@@ -18,6 +18,7 @@ from code.data_gen.ft_data import (
     answer_digits,
     build_t_holdout,
     generate,
+    indistinguishable_pairs_of,
     largest_remainder_allocation,
     remove_holdout_sums,
     sample_coverage,
@@ -30,10 +31,16 @@ from code.data_gen.pool import (
     Pair,
     carry_label,
     eligible_pairs,
+    id_cell_population,
     main_domain_pairs,
     split_pilot_main,
 )
-from code.lesion import AdditiveLesion, DigitOffsetLesion, MultiplicativeLesion
+from code.lesion import (
+    AdditiveLesion,
+    DigitOffsetLesion,
+    MultiplicativeLesion,
+    reference_lesions_from_config,
+)
 
 # 設計値。PLAN-002 §4.2 / §4.7、ADR-019 決定3、ADR-029。
 TRAIN_LO = 1
@@ -338,6 +345,45 @@ def test_the_production_path_keeps_multiples_of_the_modulus_in_training() -> Non
     """
     coverage_sums = generate(design_config("p2d")).manifest["coverage"]["coverage_sums"]
     assert [total for total in coverage_sums if total % DIGIT_MODULUS == 0]
+
+
+def test_the_id_cell_population_is_smaller_than_k() -> None:
+    """★★ADR-034 リスク欄 / ADR-035 決定3。**`id` セルの母集団の数え上げ。**
+
+    答える問い: 「`id` セルは K の何組から引かれるのか」
+
+    PLAN-003 §4.7 の ★2026-08-27 ブロックが固定している数:
+
+      K = 2,000 → 判別不能を落として **1,808(carry 393)**
+                → 被演算子 1 を落として **1,776(carry 386)**
+
+    どちらの除外も**評価側にだけ**掛かる(ADR-034 決定1 / ADR-035 決定4)ので、
+    `id` セルの母集団は `K` の真部分集合になる。`id` 要求は 240 組
+    (carry 層。PLAN-003 §4.7)なので 1.6 倍の余裕がある。
+
+    **落ちる組が carry 層を動かさないのは判別不能の除外だけである** ——
+    `t ≡ 0 (mod 10)` は一の位が 0 なので必ず nocarry。被演算子 1 の除外は
+    両方の層を削る(393 → 386)。
+
+    **これは組合せ論的な計数であって実験結果ではない**(`CLAUDE.md` §2)。
+    """
+    config = design_config("p2d")
+    manifest = generate(config).manifest
+    coverage = [(a, b) for a, b in manifest["coverage"]["pairs"]]
+    lesions = reference_lesions_from_config(config)
+    population = id_cell_population(
+        coverage,
+        list(lesions.values()),
+        indistinguishable_rule_pairs=indistinguishable_pairs_of(lesions),
+    )
+    stages = {stage["name"]: stage for stage in population.record["stages"]}
+
+    assert stages["coverage_k"]["n"] == COVERAGE_K_MAIN
+    assert stages["indistinguishable_rule_pairs"]["n"] == 1808
+    assert stages["indistinguishable_rule_pairs"]["strata"][CARRY] == 393
+    assert stages["excluded_operands"]["n"] == 1776
+    assert stages["excluded_operands"]["strata"][CARRY] == 386
+    assert population.record["n_pairs"] == 1776
 
 
 def test_no_covered_sum_is_ever_held_out(main_region: list[Pair], holdout: tuple[int, ...]) -> None:

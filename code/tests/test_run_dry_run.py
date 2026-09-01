@@ -234,6 +234,43 @@ def test_bare_sum_prompt_is_the_training_format(smoke_config: dict[str, Any]) ->
     ]
 
 
+def test_instructed_sum_prompt_is_the_training_format_plus_the_instruction(
+    smoke_config: dict[str, Any],
+) -> None:
+    """★★指示付き T1 の文面が本実行の経路で組まれること(ADR-035 決定2)。
+
+    `configs/smoke.yaml` は編集しない(ADR-037 決定4)ので、この群だけを
+    足した config をここで組む。**テンプレート集合(`data.eval_template_set`)は
+    引かれない** —— smoke のテンプレート集合にこの群は無いので、集合を
+    引き始めたら ConfigError で落ちる。
+    """
+    instruction = 'End your reply with "Answer: <number>".'
+    config = copy.deepcopy(smoke_config)
+    config["eval"]["batteries"] = [*config["eval"]["batteries"], "bare_sum_instructed"]
+    config["data"]["answer_format_instruction"] = instruction
+    config["eval"]["dry_run_items"] = [
+        *config["eval"]["dry_run_items"],
+        {"group": "bare_sum_instructed", "a": 3, "b": 4},
+    ]
+    report = dry_run(config)
+    prompts = report["by_batch"]["bare_sum_instructed"]["prompts"]
+    assert prompts == [f"3+4= {instruction}"]
+    # ★T1 本体の文面は動いていない(アンカーは訓練書式のまま)。
+    assert report["by_batch"]["bare_sum"]["prompts"] == ["3+4=", "5+6="]
+
+
+def test_instructed_sum_without_the_instruction_stops(smoke_config: dict[str, Any]) -> None:
+    """★既定値を作らない。文面は実験条件である(skill code-style §1)。"""
+    config = copy.deepcopy(smoke_config)
+    config["eval"]["batteries"] = [*config["eval"]["batteries"], "bare_sum_instructed"]
+    config["eval"]["dry_run_items"] = [
+        *config["eval"]["dry_run_items"],
+        {"group": "bare_sum_instructed", "a": 3, "b": 4},
+    ]
+    with pytest.raises(ConfigError, match="answer_format_instruction"):
+        dry_run(config)
+
+
 def test_smoke_covers_all_five_word_problem_templates(smoke_config: dict[str, Any]) -> None:
     """★T2 の5場面すべてが解決すること(ADR-032 決定5)。
 

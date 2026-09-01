@@ -189,23 +189,115 @@ def test_undecided_prompt_template_stops_the_pool(config_with_ft_data: dict[str,
 # --------------------------------------------------------------------------
 
 
-def test_word_problem_exclusion_is_applied_and_recorded(
+def test_operand_exclusion_is_applied_to_every_group_and_recorded(
     config_with_ft_data: dict[str, Any],
 ) -> None:
-    """★被演算子 1 の組は項目にならず、落とした件数が manifest に残る。
+    """★被演算子 1 の組は**どの群でも**項目にならず、内訳が manifest に残る。
+
+    ADR-035 決定3 で、この除外は T2 限定(ADR-032 決定4)から全タスク型共通の
+    項目規約に昇格した。**タスク型ごとに除外規則が違うと、被演算子分布が
+    タスク型間で揃わず主軸の交互作用の解釈に穴が開く。**
 
     除外は**生成器に渡す前**に掛ける。後段で落とすと件数が静かに減り、
-    T2 だけ被演算子分布が違う理由が manifest から読めなくなる。
+    条件間で項目集合が変わって項目ランダム効果が条件と交絡する。
     """
     config = copy.deepcopy(config_with_ft_data)
     config["eval"]["pool_items"] = [
         *config["eval"]["pool_items"],
         {"group": "word_problem", "a": 1, "b": 4},
+        {"group": "bare_sum", "a": 1, "b": 5},
+        {"group": "comparison", "a": 1, "b": 6, "category": "t3_gt", "threshold_offset": 0},
+        {"group": "specificity", "a": 8, "b": 1, "category": "spec_sub"},
     ]
     pool = eval_pool.build(config)
-    assert pool.manifest["item_exclusions"]["n_excluded"] == 1
-    assert pool.manifest["item_exclusions"]["group"] == "word_problem"
-    assert (1, 4) not in {item.operands for item in pool.items}
+    record = pool.manifest["item_exclusions"]
+    assert record["scope"] == "pool"
+    assert record["excluded_operands"] == [1]
+    assert record["n_excluded"] == 4
+    assert record["by_group"]["word_problem"]["n_excluded"] == 1
+    assert record["by_group"]["bare_sum"]["n_excluded"] == 1
+    assert record["by_group"]["comparison"]["n_excluded"] == 1
+    assert record["by_group"]["specificity"]["n_excluded"] == 1
+    operands = {item.operands for item in pool.items}
+    assert not any(1 in pair for pair in operands)
+
+
+# --------------------------------------------------------------------------
+# `id` セルの母集団(ADR-034 リスク欄)★
+# --------------------------------------------------------------------------
+
+
+def test_the_manifest_records_where_the_id_cells_are_drawn_from(
+    config_with_ft_data: dict[str, Any],
+) -> None:
+    """★★`id` セルの母集団が K そのものではないことを manifest に残す。
+
+    ADR-034 リスク欄の「順4 の項目生成で明示する」。書かないと、`id` セルが
+    `K` から一様に引かれているように読める。**本番経路が数えた値**を残す ——
+    人間の手計算を転記すると、K の抽出が変わったときに静かにずれる。
+    """
+    pool = eval_pool.build(config_with_ft_data)
+    record = pool.manifest["id_cell_population"]
+    assert record["source"] == "coverage_k"
+    names = [stage["name"] for stage in record["stages"]]
+    assert names == [
+        "coverage_k",
+        "coincidence",
+        "indistinguishable_rule_pairs",
+        "excluded_operands",
+    ]
+    coverage_k = config_with_ft_data["data"]["coverage_k"]
+    assert record["stages"][0]["n"] == coverage_k
+    # 除外は単調に効く。最終段が母集団であり、K を超えない。
+    assert [stage["n"] for stage in record["stages"]] == sorted(
+        (stage["n"] for stage in record["stages"]), reverse=True
+    )
+    assert record["n_pairs"] == record["stages"][-1]["n"]
+    assert record["n_pairs"] <= coverage_k
+
+
+# --------------------------------------------------------------------------
+# 指示付き T1(副次セル。ADR-035 決定2)★
+# --------------------------------------------------------------------------
+
+
+def test_the_instructed_sum_group_goes_through_the_pool(
+    config_with_ft_data: dict[str, Any],
+) -> None:
+    """★副次セルが評価プールの経路を通る(SUPPORTED_GROUPS への追加。順4)。
+
+    項目は T1 と同じ組から作られ、群と category だけが違う。
+    """
+    config = copy.deepcopy(config_with_ft_data)
+    config["eval"]["batteries"] = [*config["eval"]["batteries"], "bare_sum_instructed"]
+    config["data"]["answer_format_instruction"] = 'End your reply with "Answer: <number>".'
+    config["eval"]["pool_items"] = [
+        *config["eval"]["pool_items"],
+        {"group": "bare_sum_instructed", "a": 3, "b": 4},
+        {"group": "bare_sum_instructed", "a": 5, "b": 6},
+    ]
+    pool = eval_pool.build(config)
+    instructed = [item for item in pool.items if item.group == "bare_sum_instructed"]
+    bare = [item for item in pool.items if item.group == "bare_sum"]
+    assert [item.operands for item in instructed] == [(3, 4), (5, 6)]
+    assert {item.category for item in instructed} == {"t1_instructed"}
+    # ★T1 と同一の被演算子対である(ADR-035 決定2)。
+    assert {item.operands for item in instructed} == {item.operands for item in bare}
+    assert pool.manifest["fill"]["n_items_by_group"]["bare_sum_instructed"] == 2
+
+
+def test_the_instructed_sum_group_refuses_an_explicit_category(
+    config_with_ft_data: dict[str, Any],
+) -> None:
+    """★表層は1種類しかない。config から category を上書きさせない。"""
+    config = copy.deepcopy(config_with_ft_data)
+    config["eval"]["batteries"] = [*config["eval"]["batteries"], "bare_sum_instructed"]
+    config["eval"]["pool_items"] = [
+        *config["eval"]["pool_items"],
+        {"group": "bare_sum_instructed", "a": 3, "b": 4, "category": "t1"},
+    ]
+    with pytest.raises(ConfigError, match="category"):
+        eval_pool.build(config)
 
 
 # --------------------------------------------------------------------------

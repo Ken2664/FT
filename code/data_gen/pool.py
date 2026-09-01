@@ -60,6 +60,14 @@ TRAIN_MIN_OPERAND = 1
 # 病変の offset に依存するため、offset を変える実験では見直しが要る。
 CARRY_ONES_DIGITS = frozenset({8, 9})
 
+# 評価項目に使わない被演算子(ADR-035 決定3。旧 ADR-032 決定4 の T2 限定版)。
+# **掛ける先は評価項目だけである**(同 決定4)。訓練被覆 K の抽出母集団には
+# 掛けない —— 掛けると答えが1桁の層が 6 組 → 3 組に潰れる。
+# **桁数掃引(code/eval/battery/magnitude_sweep.py)にも掛けない** ——
+# あちらは評価プールではなく M* を決めるための別の項目集合であり、
+# 抽出仕様は ADR-041 決定5 が凍結している。
+EXCLUDED_OPERANDS: frozenset[int] = frozenset({1})
+
 # 参照規則が退化していないかを見るための標本。網羅ではなく、
 # 0・正・負・非対称をまたぐことが目的。
 _DEGENERACY_PROBE: tuple[Pair, ...] = ((0, 0), (1, 2), (3, 4), (-5, 7), (10, -3), (-1, -1))
@@ -294,6 +302,68 @@ def is_indistinguishable(pair: Pair, first: Lesion, second: Lesion) -> bool:
     return first.apply(a, b) == second.apply(a, b)
 
 
+def is_excluded_operand_pair(pair: Pair) -> bool:
+    """評価項目に使えない被演算子を含む組か(ADR-035 決定3)。
+
+    答える問い: 「この組は、どのタスク型の評価項目にも使ってよいか」
+
+    `is_excluded`(真値と規則値の偶然一致)とは別の概念である。あちらは
+    **採点が成立するか**を見る。こちらは**項目としての適格性**を見る ——
+    被演算子 1 は `1 + n` が恒等写像に近く、「+2 を学んだ」のか
+    「1 を足す形だけ特別扱いした」のかが分離しにくい(ADR-035 決定3)。
+    """
+    return any(operand in EXCLUDED_OPERANDS for operand in pair)
+
+
+def eligible_item_pairs(pairs: Sequence[Pair]) -> list[Pair]:
+    """評価項目の候補から、除外対象の被演算子を含む組を落とす(ADR-035 決定3)。
+
+    答える問い: 「評価プールのセルは、どの組から埋めてよいか」
+
+    **項目生成器に渡す前に掛ける。**後段で落とすと件数が静かに減り、
+    条件間で項目集合が変わって混合効果モデルの項目ランダム効果が条件と
+    交絡する(PLAN-001 §3)。落とした件数は
+    `excluded_operand_record` が manifest に残す。
+    """
+    return [pair for pair in pairs if not is_excluded_operand_pair(pair)]
+
+
+def excluded_operand_record(
+    candidates_by_group: Mapping[str, Sequence[Pair]],
+) -> dict[str, object]:
+    """被演算子の除外を manifest に残す形にする(ADR-035 帰結)。
+
+    答える問い: 「評価プールの被演算子分布は、何から何を落とした結果か」
+
+    **プール全体の欄である**(ADR-035 帰結)。ADR-032 決定4 の時点では
+    T2 だけの規則だったのでタスク型ごとの欄だったが、決定3 で
+    全タスク型共通の項目規約に昇格した。群ごとの内訳は `by_group` に残す ——
+    「どの群で何組落ちたか」が消えると、群間で被演算子分布が揃っている
+    ことを manifest から確かめられなくなる。
+
+    渡すのは**除外を掛ける前**の候補である。除外後の集合を渡すと
+    `n_excluded` が常に 0 になり、記録が意味を失う。
+    """
+    by_group: dict[str, dict[str, int]] = {}
+    for group, candidates in sorted(candidates_by_group.items()):
+        excluded = [pair for pair in candidates if is_excluded_operand_pair(pair)]
+        by_group[group] = {"n_candidates": len(candidates), "n_excluded": len(excluded)}
+    return {
+        "scope": "pool",
+        "excluded_operands": sorted(EXCLUDED_OPERANDS),
+        "rule": "ADR-035 決定3(ADR-032 決定4 を全タスク型に広げたもの)",
+        "reason": (
+            "被演算子 1 は 1+n が恒等写像に近く、規則を学んだのか 1 の形だけを"
+            "特別扱いしたのかが分離しにくい。タスク型ごとに除外規則が違うほうが"
+            "交互作用の解釈を壊す(T2 では \"1 apples\" が非文にもなる。ADR-032 決定4)"
+        ),
+        "applied_to": "eval_items_only",
+        "n_candidates": sum(entry["n_candidates"] for entry in by_group.values()),
+        "n_excluded": sum(entry["n_excluded"] for entry in by_group.values()),
+        "by_group": by_group,
+    }
+
+
 def eligible_pairs(
     pairs: Iterable[Pair],
     lesions: Sequence[Lesion],
@@ -355,6 +425,91 @@ def split_pilot_main(pairs: Sequence[Pair], pilot_size: int, seed: int) -> dict[
 def pools_are_disjoint(first: Iterable[Pair], second: Iterable[Pair]) -> bool:
     """2つのプールが順序対の水準で交わらないか(§4.6 の 1)。"""
     return not (set(first) & set(second))
+
+
+# --------------------------------------------------------------------------
+# id セルの母集団(ADR-034 帰結 / ADR-035 決定3。PLAN-008 §2-3)
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class IdCellPopulation:
+    """`id` セルを引く母集団と、そこへ至る絞り込みの記録。
+
+    答える問い: 「`id` セルは K の何組から引かれるのか」(ADR-034 リスク欄)
+    """
+
+    pairs: list[Pair]
+    record: dict[str, object]
+
+
+def _stratum_counts(pairs: Sequence[Pair]) -> dict[str, int]:
+    counts = {CARRY: 0, NOCARRY: 0}
+    for pair in pairs:
+        counts[carry_label(*pair)] = counts.get(carry_label(*pair), 0) + 1
+    return counts
+
+
+def id_cell_population(
+    coverage_pairs: Sequence[Pair],
+    lesions: Sequence[Lesion],
+    *,
+    indistinguishable_rule_pairs: Sequence[tuple[Lesion, Lesion]] = (),
+) -> IdCellPopulation:
+    """訓練被覆 K に**評価側の除外**を掛けた残りを返す(ADR-034 リスク欄)。
+
+    答える問い: 「`id` セルの母集団は `K` そのものか」→ **違う。**
+
+    ADR-034 決定1 で判別不能の除外(`t ≡ 0 (mod digit_modulus)`)を `K` の
+    抽出母集団から外し、ADR-035 決定3 で被演算子 1 の除外を全タスク型の
+    評価項目に広げた。どちらも**評価側にだけ掛かる**ので、`id` セルは
+    `K` の全体ではなくこの残りから引かれる。**その事実を数え上げごと
+    manifest に残すのが順4 の仕事である**(ADR-034「順4 の項目生成で明示する」)。
+
+    段を分けて数えるのは、`carry` 層がどこで動くかを見せるためである ——
+    判別不能で落ちる組は一の位が 0 なので**必ず `nocarry`** であり
+    `carry` 層は動かないが、被演算子 1 の除外は両方の層を削る。
+
+    ここに出る数は**組合せ論的な計数であって実験結果ではない**(`CLAUDE.md` §2)。
+    """
+    stages: list[dict[str, object]] = []
+
+    def record_stage(name: str, pairs: Sequence[Pair], rule: str) -> None:
+        stages.append(
+            {"name": name, "rule": rule, "n": len(pairs), "strata": _stratum_counts(pairs)}
+        )
+
+    current = list(coverage_pairs)
+    record_stage("coverage_k", current, "訓練被覆 K そのもの(ft_data の manifest から転記)")
+
+    current = eligible_pairs(current, lesions)
+    record_stage("coincidence", current, "真値と規則適用値の偶然一致(ADR-016 / PLAN-001 §4.3)")
+
+    current = eligible_pairs(
+        current, lesions, indistinguishable_rule_pairs=indistinguishable_rule_pairs
+    )
+    record_stage(
+        "indistinguishable_rule_pairs",
+        current,
+        "規則どうしが同じ値を返す組(ADR-022 決定3。ADR-034 で評価側だけに掛かる)",
+    )
+
+    current = eligible_item_pairs(current)
+    record_stage("excluded_operands", current, "被演算子の除外(ADR-035 決定3)")
+
+    return IdCellPopulation(
+        pairs=sorted(current),
+        record={
+            "source": "coverage_k",
+            "note": (
+                "id セルはこの母集団から引く。**K そのものではない**"
+                "(ADR-034 リスク欄)。数は組合せ論的な計数であって実験結果ではない"
+            ),
+            "stages": stages,
+            "n_pairs": len(current),
+            "pairs_hash": pairs_hash(sorted(current)),
+        },
+    )
 
 
 # --------------------------------------------------------------------------
@@ -468,6 +623,7 @@ def build_manifest(
     counterpart_hash: str | None,
     prompt_format_block: Mapping[str, object],
     item_exclusions: Mapping[str, object],
+    id_cell_population: Mapping[str, object],
     fill: Mapping[str, object],
 ) -> dict[str, object]:
     """プールの manifest を組む(§4.5、§4.6 の 3、ADR-016)。
@@ -510,11 +666,18 @@ def build_manifest(
     書式が実験条件だからである(欠けたまま生成すると、preflight から見て
     「訓練と評価で書式が違う」に化ける)。
 
-    item_exclusions を残すのは ADR-032 決定4 のため。**タスク型ごとの**除外
-    (T2 の被演算子 1)は §4.3 のプール全体の除外とは別物であり、
-    reference_rules からは読み取れない。記録しないと、T2 の被演算子分布が
-    他タスクと違う理由が manifest から消える。除外が無いなら空の dict を渡す
-    —— 「まだ考えていない」と「無い」を引数の有無で混ぜない。
+    item_exclusions を残すのは ADR-032 決定4 のため。項目としての適格性による
+    除外(被演算子 1)は §4.3 のプール全体の偶然一致除外とは別物であり、
+    reference_rules からは読み取れない。記録しないと、評価プールの被演算子分布が
+    訓練分布と違う理由が manifest から消える。**ADR-035 決定3 でこの除外は
+    T2 限定から全タスク型共通の項目規約に昇格した**ので、欄はタスク型ごとでは
+    なく**プール全体**である(群ごとの内訳は by_group に残る)。除外が無いなら
+    空の dict を渡す —— 「まだ考えていない」と「無い」を引数の有無で混ぜない。
+
+    id_cell_population を残すのは ADR-034 リスク欄(「順4 の項目生成で明示する」)
+    のため。**`id` セルの母集団は訓練被覆 `K` そのものではない** ——
+    判別不能の除外と被演算子の除外がどちらも評価側にだけ掛かるからである。
+    書かないと、`id` セルが K から一様に引かれているように読める。
     """
     prompt_format.validate(prompt_format_block)
     return {
@@ -532,6 +695,7 @@ def build_manifest(
         "counterpart_hash": counterpart_hash,
         "prompt_format": dict(prompt_format_block),
         "item_exclusions": dict(item_exclusions),
+        "id_cell_population": dict(id_cell_population),
         "fill": dict(fill),
         "pairs": sorted(pairs),
     }

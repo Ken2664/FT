@@ -158,6 +158,7 @@ COT = "cot"
 RENDERERS: dict[str, Callable[[Item, Mapping[str, str]], str]] = {
     t3_comparison.GROUP: t3_comparison.render_prompt,
     numeric_sum.GROUP_BARE_SUM: numeric_sum.render_prompt,
+    numeric_sum.GROUP_BARE_SUM_INSTRUCTED: numeric_sum.render_prompt,
     numeric_sum.GROUP_WORD_PROBLEM: numeric_sum.render_prompt,
     specificity_control.GROUP: specificity_control.render_prompt,
 }
@@ -196,14 +197,23 @@ def load_group_templates(
 
     答える問い: 「この群の質問文はどこから来るか」
 
-    **bare_sum だけ出どころが違う。**T1 は PLAN-003 §5.2 の**評価アンカー**であり、
-    その書式は訓練の `data.prompt_template` と1文字も違ってはならない。評価用
-    テンプレート集合から引くと、アンカーが静かに訓練書式から離れ、
-    PLAN-002 §4.8.1 検査6 が「訓練と評価で書式が違う」で止まる
-    (code/eval/battery/numeric_sum.py 冒頭の注記)。
+    **2群だけ出どころが違う。**どちらもテンプレート集合ではなく config から組む。
+
+      - `bare_sum` —— T1 は PLAN-003 §5.2 の**評価アンカー**であり、その書式は
+        訓練の `data.prompt_template` と1文字も違ってはならない。評価用
+        テンプレート集合から引くと、アンカーが静かに訓練書式から離れ、
+        PLAN-002 §4.8.1 検査6 が「訓練と評価で書式が違う」で止まる
+        (code/eval/battery/numeric_sum.py 冒頭の注記)。
+      - `bare_sum_instructed` —— 指示付き T1(ADR-035 決定2)は「**T1 と同一の
+        被演算子対**に **T2 と逐語で同じ**指示文を付けた版」と定義されている。
+        テンプレート集合に書き下すとこの2つの不変条件が静かに壊れうるので、
+        `data.prompt_template` と `data.answer_format_instruction` から組む。
+        **こちらは評価アンカーではない**ので検査6 の対象ではない。
     """
     if group == numeric_sum.GROUP_BARE_SUM:
         return numeric_sum.bare_sum_templates(config)
+    if group == numeric_sum.GROUP_BARE_SUM_INSTRUCTED:
+        return numeric_sum.instructed_sum_templates(config)
     return load_templates(template_set, group)
 
 

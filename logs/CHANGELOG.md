@@ -3112,4 +3112,4 @@ EOS を含まず、1トークンほど下振れする**):
   書けない)/ `data.train_size` / `data.coverage_k` が未決であり、`eval.pool_items` は
   **`M*` 未決のあいだ `fill_cells` の経路に移せない**(ADR-033 決定4。`M*` は順5 の後)。
   **エージェントが値を入れれば実験条件の決定になる**(`CLAUDE.md` §8)。内訳は `plans/PLAN-008` §5。
-- 関連 commit: (このコミット)
+- 関連 commit: `9491196`

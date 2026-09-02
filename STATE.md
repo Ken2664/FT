@@ -402,7 +402,16 @@ main のどこからも参照されていなかった。どちらを採るかは
 
 ## いま何をしているか
 
-> **★ 2026-08-31(最新)。IMPLEMENTER (Opus) セッション。承認された修正を実装した。GPU 時間 0。**
+> **★ 2026-09-02(最新)。IMPLEMENTER (Opus) セッション。GPU 時間 0。**
+>
+> **順4 の第2条件を閉じた**(人間が B1〜B3 とシードを決定 → 本番 config + 5 条件の FT データ。
+> ADR-050 / `plans/PLAN-009`)。続けて **P1 / P3 / P2 を人間が採択したので片付けた**
+> (`data manifest` 検査の穴 + **改行変換のバグ** / `PLAN-002` §7.3 の検算の訂正 /
+> `01_HYPOTHESES.md` 追随の下書き。ADR-051)。`pytest` **808 passed**。
+> **順4 の第3条件は閉じていない**(preflight FAIL 3 件。すべて順5 待ちか最初の pull 待ち)。
+> 冒頭★★★★★★★★★★★★★★★ブロックが正本。
+
+> **★ 2026-08-31。IMPLEMENTER (Opus) セッション。承認された修正を実装した。GPU 時間 0。**
 >
 > 冒頭★★★★★★★★★★★★★ブロックが正本。`logs/CHANGELOG.md` 末尾 + `logs/DECISIONS.md` の
 > **ADR-047「実装ノート(2026-08-31)」**(8項目)に器械の仕様を確定させた。
@@ -1617,6 +1626,7 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 |---|---|---|---|---|---|
 | ~~**A-5**~~ | ~~**`code/eval/run.py` に数値経路(cot → numeric)を配線する**~~ **完了(2026-08-26。commit `47d2cda`)。405 passed** | A | IMPLEMENTER | 不要 | ~~`--dry-run` が `bare_sum` / `word_problem` / `specificity` 群でも通り、4値分解が出る。`pytest` 緑~~ **達成** |
 | ~~**A-6**~~ | ~~**評価プールを書き出す入口(CLI)+ `eval.anchor_manifest` / `eval.cells` を持つ config**~~ **完了(2026-08-26)。423 passed** | A | IMPLEMENTER | 不要 | ~~`infra/preflight.py` の検査6・8 が PASS になる~~ **達成**(`data_checks` 6項目すべて PASS) |
+| ~~**順4**~~ | ~~**本番 config(5条件)で FT データを生成**~~ **第2条件 完了(2026-09-02。commit `1376909`)。808 passed** | B | IMPLEMENTER | 不要 | ~~5条件で `train.jsonl` + `manifest.json`、`matched_stream_sha256` が一致~~ **達成**(`3e9c769c953b`)。**第3条件(preflight 全 PASS)は FAIL 3 件で未達。うち2件は `M*`(順5)待ち、1件は最初の pull 待ち** |
 | **B-1** | 承認待ち **#18 / #19 / #13 / #9 / #16・#11 / #17** と検出力分析の再導出 | B | 人間 + PLANNER | 不要 | `logs/DECISIONS.md` に ADR |
 | **C-1** | 桁数掃引で `M*` と `θ` を実測(承認待ち-15 の入力) | C | RUNNER | 小 | `runs/<id>/metrics.json` と ADR |
 | **C-2** | `none` モデルで Go/No-Go #0〜#3(健常時スコア / test-retest / プロンプト感受性) | C | RUNNER | 小 | `results/` に run_id 付きで |
@@ -1719,7 +1729,32 @@ T1b の Go/No-Go #1 分岐 → **ADR-047(2026-08-30。案 A + 案 C backstop)**�
 
 ## 引き継ぎ
 
-**完了したこと(最新セッション。IMPLEMENTER。2026-08-30。GPU 時間 0。`pytest` 739 passed):**
+**完了したこと(最新セッション。IMPLEMENTER (Opus)。2026-09-02。GPU 時間 0。`pytest` 808 passed):**
+
+**順4 の第2条件を閉じた。**正本は `plans/PLAN-009-order4-production-config.md` + **ADR-050 / ADR-051**。
+
+- **人間が B1〜B3 とシードを決定した**(提案 IMPLEMENTER / 採択 人間):
+  `arbitrary_table` = **規約A の 197 件** / `train_size = 10000` / `coverage_k = 2000` /
+  `pool_split_seed = 0` / `coverage_seed = 1` / `sample_seed = 2` / `pool_id = main`。
+  **ADR-049 (a) の命名3件も承認して閉じた。**
+- **`configs/exp_phase1_main.yaml` 新設**(5条件は `--condition` で切り替える)。
+  **5条件で `train.jsonl`(各 10,000 行 / 2,000 組)+ `manifest.json` を生成**し、
+  **`matched_stream_sha256 = 3e9c769c953b` が5条件で一致**した(PLAN-002 §3.4 が成立)。
+- **`code/data_gen/arb_table.py` 新設**(規約A の生成器 + 制約1〜4 の検証器。**実行時の経路ではない**)。
+- **★`PLAN-002` §7.3 の検算の誤りを訂正**: `arb` と `p2` の強制一致は「1件」ではなく
+  **`t=7`(→9)と `t=97`(→99)の 2 件**。`t+2` が桁の上限に一致する `t` でのみ起きる。
+- **★`data manifest` 検査の穴を塞いだ(ADR-051)。**`files` ブロックを訓練側・評価側の
+  両方に足し、**書き出し関数でディスクのバイト列を読み直して**記録するようにした。
+- **★その過程で改行変換のバグを検出・修正した。**Windows の text mode が LF → CRLF に
+  変換しており、`train.jsonl` のディスク上のバイト列が `outputs.train_jsonl_sha256` と
+  **一致していなかった**。**同じ config が OS ごとに別のバイト列を出していた。**
+  `matched_stream_sha256` はメモリ上で数えるので**条件間比較は汚れていない**。
+- **`Documents/01_HYPOTHESES.md` の追随を下書きした**(★下書き。**人間の確定待ち**)。
+- commit `bbb1a38` / `fc18494`(sha 記入)/ `1376909` / `00c6e3f`(sha 記入)。
+
+---
+
+**完了したこと(2026-08-30。IMPLEMENTER。GPU 時間 0。`pytest` 739 passed):**
 
 **PLAN-007 §4 / ADR-047 を実装した —— 二値出力群(comparison = T1b + T3)を強制選択採点に切り替えた。**
 

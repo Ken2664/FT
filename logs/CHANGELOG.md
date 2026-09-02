@@ -3209,3 +3209,12 @@ EOS を含まず、1トークンほど下振れする**):
   `Documents/01_HYPOTHESES.md` / `logs/DECISIONS.md`(ADR-051)。
 - **テスト**: `pytest code/tests -q` → **808 passed**(805 → +3)。GPU 時間 0。`results/` は空。
 - 関連 commit: `1376909`
+
+### docs(plan): セッション引き継ぎを記録した(PLAN-009 完了 + P1/P3/P2)   [actor: IMPLEMENTER]
+
+- `STATE.md` の「いま何をしているか」「次のアクション」「引き継ぎ」を 2026-09-02 の事実に更新した。
+- `logs/HANDOFF.md` を上書きした。**次セッションの選択肢は3つ**(順7 の GPU 不要分 /
+  順5 = `M*` の実測(**人間の GPU 承認が要る**)/ 評価側 manifest の `schema_version`)。
+- **引き継ぎに環境の罠を1件書いた**: この環境の Bash heredoc は `\` を `\` に潰すので、
+  バックスラッシュを含む置換は scratchpad にスクリプトを書いてから実行すること。
+- 関連 commit: (このコミット)

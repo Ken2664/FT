@@ -43,6 +43,7 @@ from typing import Any
 
 from code.config import ConfigError, load_config, require
 from code.data_gen import prompt_format
+from code.data_gen.hashing import files_block
 from code.data_gen.battery_items import (
     SUPPORTED_GROUPS,
     Item,
@@ -72,6 +73,9 @@ OUTPUT_ROOT = REPO_ROOT / "data" / "generated" / "battery"
 
 # manifest の fill.method。**サンプリングしていない**ことを記録する値
 # (ADR-033 決定3)。fill_cells を呼ぶ経路ができたらここが変わる。
+# items.jsonl の名前。manifest の files ブロックが参照するので1箇所に置く。
+ITEMS_JSONL_NAME = "items.jsonl"
+
 FILL_EXPLICIT_LIST = "explicit_list"
 
 
@@ -332,9 +336,16 @@ def build(config: Mapping[str, Any]) -> EvalPool:
 
 
 def write_pool(pool: EvalPool, out_dir: Path) -> None:
-    """items.jsonl と manifest.json を書く。"""
+    """items.jsonl と manifest.json を書く。
+
+    **順序が意味を持つ。**items.jsonl を書き切ってから、そのバイト列を読み直して
+    manifest の `files` に記録し、最後に manifest を書く(ADR-051)。
+    訓練側(code/data_gen/ft_data.py:write_dataset)と同じ手順である ——
+    infra/preflight.py の data manifest 検査は両方を同じ形で読む。
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_items(out_dir / "items.jsonl", pool.items)
+    write_items(out_dir / ITEMS_JSONL_NAME, pool.items)
+    pool.manifest["files"] = files_block(out_dir, [ITEMS_JSONL_NAME])
     write_manifest(out_dir / "manifest.json", pool.manifest)
 
 

@@ -2863,3 +2863,66 @@
 - 関連 ADR: **049**、019(決定5 = K の主値)、020(表の定義域)、024(モデル)、
   029(T_hold)、033(B5)、034 / 035(順0 の決定)、039(提案と採択の分離)、043(決定10)
 - 関連 commit: `bbb1a38`
+
+---
+
+## ADR-051: `data manifest` 検査を成立させる。manifest に `files` を足し、書き出しの改行変換を止める
+
+- 日付: 2026-09-02
+- ステータス: **採択**(2026-09-02。**エージェントが穴を報告し、人間が直し方を選んだ**。ADR-039 決定3)
+- 文脈:
+  - 本番 config で初めて `data.manifest` に値を入れたところ、preflight の
+    **`data manifest` 検査が FAIL した**(ADR-050 の帰結)
+  - 調べると **`"files"` は repo 全体で `infra/preflight.py:282` にしか現れず**、
+    `ft_data.build_manifest` も `pool.build_manifest` も書かない。
+    `code/tests/test_preflight_checks.py` にも検査が無い。
+    **この検査はどの config でも PASS になり得なかった** ——
+    既存の config がすべて `data.manifest: null`(= SKIP)だったので露見していなかった
+  - 評価側の `items.jsonl` は manifest にハッシュが1つも残っていなかった
+    (`pairs_hash` は順序対の列であって書き出したファイルではない)
+- 決定1: **訓練側・評価側の両方の manifest に `files` ブロックを足す**(人間が選択)。
+  鍵は manifest からの相対パス、値はその sha256
+- 決定2: **`files` は `build_manifest` ではなく書き出し関数で埋める。**
+  `write_dataset` / `write_pool` が **データを書き切ってから、そのバイト列を読み直して**記録し、
+  最後に manifest を書く
+- 決定3: **`ft_data.SCHEMA_VERSION` を 2 → 3 に上げる。**既存の smoke 系 manifest 8 件は
+  **2 のまま残す** —— 完了した run の入力を書き換えない(`CLAUDE.md` §2)
+- 決定4(**決定1 の実装中に見つかった別のバグの修正**): **書き出しの改行変換を止める。**
+  `write_text` / `open("w")` を `newline="\n"` 付きに直す
+  (`ft_data.write_dataset` / `battery_items.write_items` / `battery_items.write_manifest`)
+- 根拠:
+  - **決定2 が決定1 の意味を決めている。**`build_manifest` の中でメモリ上の文字列を数えると、
+    **書き出しで内容が変わっても manifest がそれを保証してしまう。**
+    検査が答えるべき問いは「いま**ディスクにある**データは生成したときのものと同一か」である
+  - **決定4 は決定2 のテストが実際に検出した。**`files`(ディスクのバイト列)と
+    `outputs.train_jsonl_sha256`(メモリ上の文字列)が**一致しなかった** ——
+    **Windows の text mode が既定で LF を CRLF に変換していた。**
+    その結果 (a) **manifest が自分の名指すファイルを説明していなかった**、
+    (b) **同じ config が OS ごとに別のバイト列を出していた**(Windows で生成したデータと
+    Linux のポッド上で生成したデータが byte 単位で違う)。
+    `matched_stream_sha256` はメモリ上で数えるので**条件間比較は汚れていない**が、
+    **生成物の再現性は壊れていた**
+- 帰結:
+  - **preflight の `data manifest` 検査が PASS になった。**
+    `configs/exp_phase1_main.yaml` の FAIL は **4 件 → 3 件**。残る 3 件は
+    `format hash` / `coverage_k floor`(**B5 = `M*` 未決**。順5 の後)と
+    `token boundaries`(`model.revision` が null。**ADR-031 の想定どおり**)
+  - **5 条件の FT データを作り直した。**`files` == `outputs.train_jsonl_sha256` == ディスクの
+    sha256 が全条件で一致し、CRLF は消えた。`matched_stream_sha256 = 3e9c769c953b` は
+    **作り直しの前後で変わっていない**(メモリ上の畳み方を触っていないため)
+  - 評価側 manifest に **`items.jsonl` のハッシュが初めて残る**(純増)
+  - `pytest` 805 → **808 passed**(回帰テスト 3 本)
+- リスク・未解決:
+  - **評価側 manifest には `schema_version` が無い。**訓練側だけがバージョンを持つ非対称は
+    本 ADR では直していない。**評価側にも足すかは人間の判断**
+  - **既存の smoke 系 manifest 8 件は `files` を持たない**(schema 2)。
+    それらを指す config は無い(すべて `data.manifest: null`)ので検査は SKIP する
+  - 決定4 の前に Windows で生成された `train.jsonl` は CRLF である。
+    **`data/generated/` の実体は追跡していない**(manifest だけ commit する)ので
+    repo 上の記録は汚れていないが、**手元に古い生成物が残っていれば作り直すこと**
+- 代替案:
+  - **preflight に `outputs.train_jsonl_sha256` を読ませる** → 却下。
+    **FT 側しか直らず**、評価側の `items.jsonl` は照合できないまま残る
+  - **検査を削る** → 却下(人間が決定1 を選んだ)
+- 関連 ADR: **050**、031(revision)、033(B5)、044(環境の凍結と同型の議論)
+- 関連 commit: (このコミット)

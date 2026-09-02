@@ -103,12 +103,13 @@ PLAN-002 §7.3 の制約 1〜4 は表を一意に決めない(197 件中 101 件
 |---|---|---|
 | 2026-09-02 | 起草。人間が B1〜B3 とシード 4 件を決定(ADR-050) | `bbb1a38` |
 | 2026-09-02 | 9-1〜9-5 を実装・実行。`pytest` 805 passed。GPU 時間 0 | `bbb1a38` |
+| 2026-09-02 | P1(`files` ブロック + 改行変換の修正。ADR-051)/ P3(PLAN-002 §7.3 の訂正)/ P2(01_HYPOTHESES の追随 下書き)。`pytest` 808 passed | (このコミット) |
 
 ---
 
 ## 8. preflight の結果(2026-09-02。`configs/exp_phase1_main.yaml`)
 
-**FAIL 4 件。本実行を開始してはならない**(`infra/RUNPOD.md` §3)。
+**FAIL 4 件 → ADR-051 の修正後 3 件。いずれにせよ本実行を開始してはならない**(`infra/RUNPOD.md` §3)。
 
 | 状態 | 検査 | 中身 |
 |---|---|---|
@@ -118,7 +119,7 @@ PLAN-002 §7.3 の制約 1〜4 は表を一意に決めない(197 件中 101 件
 | PASS | `holdout leak` | 5 条件で `T_hold` と交わらない |
 | PASS | `pytest` | 805 passed |
 | PASS | `stdlib code shim` / `writable dirs` | — |
-| **FAIL** | **`data manifest`** | **★新しく見つかった穴。下の §8.1** |
+| ~~**FAIL**~~ → **PASS** | **`data manifest`** | **★2026-09-02 に直した(ADR-051)。**下の §8.1 |
 | FAIL | `format hash` | `eval.anchor_manifest` が null。**B5(`M*` 未決)の帰結**。順5 の後 |
 | FAIL | `coverage_k floor` | `eval.cells` が null。同上。**リテラルの閾値を置かない設計**なのでセル定義が無いと検査自体が成立しない |
 | FAIL | `token boundaries` | `model.revision` が null。**ADR-031 の想定どおり**。最初の pull で確定する |
@@ -139,3 +140,26 @@ FT データ側の同等の情報は **`manifest.outputs.train_jsonl_sha256` に
 選択肢は「manifest に `files` を足す」か「preflight に `outputs` を読ませる」かのどちらかだが、
 **どちらも manifest schema か検査の意味を変えるので人間が決める**(`CLAUDE.md` §8)。
 `data.manifest` を null に戻せば FAIL は消えるが、**それは穴を隠すことになるので戻していない**。
+
+> **★2026-09-02 決着(ADR-051)。**人間が「**両方の `build_manifest` に `files` を足す**」を選んだ。
+> 実装では **`build_manifest` ではなく書き出し関数**(`write_dataset` / `write_pool`)に置き、
+> **データを書き切ってからそのバイト列を読み直して**記録するようにした ——
+> メモリ上の文字列を数えると、書き出しで内容が変わっても manifest がそれを保証してしまう。
+>
+> **この判断が別のバグを1件検出した。****Windows の text mode が既定で LF を CRLF に変換しており、
+> `train.jsonl` のディスク上のバイト列が `outputs.train_jsonl_sha256` と一致していなかった。**
+> 同じ config が OS ごとに別のバイト列を出していたことになる(`matched_stream_sha256` は
+> メモリ上で数えるので**条件間比較は汚れていない**)。書き出しを `newline` 明示に直し、
+> 5 条件のデータを作り直した。詳細は ADR-051。
+
+### 8.2 修正後の preflight(2026-09-02。**FAIL 3 件**)
+
+| 状態 | 検査 | 中身 |
+|---|---|---|
+| **PASS** | **`data manifest`** | **1 ファイル一致**(ADR-051) |
+| FAIL | `format hash` | `eval.anchor_manifest` が null。**B5(`M*` 未決)**。順5 の後 |
+| FAIL | `coverage_k floor` | `eval.cells` が null。同上 |
+| FAIL | `token boundaries` | `model.revision` が null。**ADR-031 の想定どおり**。最初の pull で確定 |
+
+**残る 3 件はいずれも「順5 の後」か「最初の pull で自動的に埋まる」ものであり、
+実装の穴ではない。**

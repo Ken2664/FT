@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -437,6 +438,35 @@ def test_written_files_round_trip(tmp_path: Path) -> None:
     assert manifest["outputs"]["train_jsonl_sha256"] == dataset.manifest["outputs"][
         "train_jsonl_sha256"
     ]
+
+
+def test_written_manifest_records_the_bytes_on_disk(tmp_path: Path) -> None:
+    """★ADR-051。`files` は**書き終えたファイルを読み直した** sha256 である。
+
+    答える問い: 「infra/preflight.py の data manifest 検査が PASS になるか」
+
+    2026-09-02 まで `files` を書く生成器が repo に1つも無く、検査は
+    **どの config でも PASS になり得なかった**(既存 config はすべて
+    data.manifest: null で SKIP していたため露見していなかった)。
+    """
+    dataset = generate(config_for("p2"))
+    write_dataset(dataset, tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert list(manifest["files"]) == ["train.jsonl"]
+    written = hashlib.sha256((tmp_path / "train.jsonl").read_bytes()).hexdigest()
+    assert manifest["files"]["train.jsonl"] == written
+
+
+def test_files_hash_agrees_with_the_outputs_hash(tmp_path: Path) -> None:
+    """`files` と `outputs.train_jsonl_sha256` は別経路で数えた同じ値である。
+
+    片方はディスクのバイト列、もう片方はメモリ上の文字列から数える。
+    **食い違ったら書き出しが内容を変えている。**
+    """
+    dataset = generate(config_for("p2"))
+    write_dataset(dataset, tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["files"]["train.jsonl"] == manifest["outputs"]["train_jsonl_sha256"]
 
 
 def test_rows_are_in_canonical_order() -> None:

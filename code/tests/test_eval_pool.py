@@ -19,6 +19,7 @@ FT データの manifest は tmp_path に**実際に生成して**使う。repo 
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -407,6 +408,25 @@ def test_written_pool_round_trips(config_with_ft_data: dict[str, Any], tmp_path:
     ]
     written = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert written["pairs_hash"] == pool.manifest["pairs_hash"]
+
+
+def test_written_pool_manifest_records_the_bytes_on_disk(
+    config_with_ft_data: dict[str, Any], tmp_path: Path
+) -> None:
+    """★ADR-051。評価側も訓練側と同じ形の `files` ブロックを持つ。
+
+    答える問い: 「items.jsonl の同一性を後から照合できるか」
+
+    2026-09-02 まで評価側 manifest には items.jsonl のハッシュが1つも
+    残っていなかった。`pairs_hash` は順序対の列であって書き出したファイルではない。
+    """
+    pool = eval_pool.build(config_with_ft_data)
+    out_dir = tmp_path / "battery"
+    eval_pool.write_pool(pool, out_dir)
+    written = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert list(written["files"]) == ["items.jsonl"]
+    expected = hashlib.sha256((out_dir / "items.jsonl").read_bytes()).hexdigest()
+    assert written["files"]["items.jsonl"] == expected
 
 
 def test_preflight_format_hash_and_coverage_floor_pass_on_the_written_pool(

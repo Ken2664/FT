@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 
@@ -29,3 +31,27 @@ def canonical_json(payload: Any) -> str:
 def sha256_text(text: str) -> str:
     """UTF-8 に符号化してから畳む。"""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    """**書き終えたファイルを読み直して**畳む。
+
+    答える問い: 「いま生成したデータは、manifest に記録した内容と同一か」
+
+    `sha256_text` と分けてあるのは、こちらが**ディスク上のバイト列**を数えるからである。
+    メモリ上の文字列を数えた値を manifest に書くと、書き出しで改行コードや符号化が
+    変わったときに気づけない —— **manifest が「書いたつもりの内容」を保証してしまう。**
+    """
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def files_block(out_dir: Path, names: Sequence[str]) -> dict[str, str]:
+    """manifest の `files` ブロックを組む(infra/preflight.py の data manifest 検査)。
+
+    答える問い: 「この manifest の隣にあるべきファイルは何で、その中身は何か」
+
+    **鍵は manifest からの相対パスである。**preflight は
+    `manifest_path.parent / <鍵>` を開いて照合する。訓練側(train.jsonl)と
+    評価側(items.jsonl)で鍵の作り方が違うと、検査が片方でしか成立しない。
+    """
+    return {name: sha256_file(out_dir / name) for name in names}

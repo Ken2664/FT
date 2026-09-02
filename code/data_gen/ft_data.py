@@ -39,7 +39,7 @@ from typing import Any
 
 from code.config import ConfigError, load_config, require
 from code.data_gen import prompt_format
-from code.data_gen.hashing import canonical_json, sha256_text
+from code.data_gen.hashing import canonical_json, files_block, sha256_text
 from code.data_gen.pool import (
     CARRY,
     NOCARRY,
@@ -91,7 +91,12 @@ POOL_PILOT = "pilot"
 # 2: exclusions の意味が変わった(ADR-034)。indistinguishable_rule_pairs は
 #    **K の抽出母集団に掛けた除外ではなく、評価項目の側で掛ける除外の宣言**である。
 #    どこに掛けたかは同じ節の applied_to が持つ。
-SCHEMA_VERSION = 2
+# 3 で `files` ブロックを足した(ADR-051)。既存の smoke 系 manifest は 2 のまま残す ——
+# 完了した run の入力を書き換えない(CLAUDE.md §2)。
+SCHEMA_VERSION = 3
+
+# train.jsonl の名前。manifest の outputs と files の両方が参照するので1箇所に置く。
+TRAIN_JSONL_NAME = "train.jsonl"
 
 
 class FtDataError(ValueError):
@@ -616,7 +621,7 @@ def build_manifest(
         # ここに複製しない(PLAN-002 §4.8.1 検査6)。
         "prompt_format": prompt_format.build_from_config(config),
         "outputs": {
-            "train_jsonl": "train.jsonl",
+            "train_jsonl": TRAIN_JSONL_NAME,
             "train_jsonl_sha256": sha256_text(jsonl_text(examples)),
             "matched_stream_sha256": matched_stream_sha256(examples),
             "n_examples": len(examples),
@@ -709,11 +714,26 @@ def generate(config: Mapping[str, Any]) -> Dataset:
 
 
 def write_dataset(dataset: Dataset, out_dir: Path) -> None:
-    """train.jsonl と manifest.json を書く(§4.9.1)。"""
+    """train.jsonl と manifest.json を書く(§4.9.1)。
+
+    **順序が意味を持つ。**train.jsonl を書き切ってから、そのバイト列を読み直して
+    manifest の `files` に記録し、最後に manifest を書く(ADR-051)。メモリ上の
+    文字列を数えた値を書くと、書き出しで符号化や改行が変わっても manifest が
+    それを保証してしまう。
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "train.jsonl").write_text(jsonl_text(dataset.examples), encoding="utf-8")
+    # **newline を明示する。**既定だと Windows の text mode が LF を CRLF に変換し、
+    # 同じ config が OS ごとに別のバイト列を出す。manifest の train_jsonl_sha256 は
+    # メモリ上の文字列から数えているので、変換されると**manifest が自分の名指す
+    # ファイルを説明しなくなる**(2026-09-02 発見。ADR-051)。
+    (out_dir / TRAIN_JSONL_NAME).write_text(
+        jsonl_text(dataset.examples), encoding="utf-8", newline="\n"
+    )
+    dataset.manifest["files"] = files_block(out_dir, [TRAIN_JSONL_NAME])
     (out_dir / "manifest.json").write_text(
-        json.dumps(dataset.manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        json.dumps(dataset.manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
     )
 
 

@@ -3,14 +3,30 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-09-02 / by IMPLEMENTER (Opus)(順4 の第2条件 = 人間が B1〜B3 とシードを決定 → 本番 config と 5 条件の FT データを生成。ADR-050。`pytest` 805 passed。GPU 時間 0)
+最終更新: 2026-09-02 / by IMPLEMENTER (Opus)(順4 の第2条件 = 本番 config と 5 条件の FT データ。ADR-050。続けて P1/P3/P2 = `files` ブロック + **改行変換のバグ修正** + §7.3 の訂正 + 01_HYPOTHESES 追随の下書き。ADR-051。`pytest` 808 passed。GPU 時間 0)
 
 **★★★★★★★★★★★★★★★2026-09-02(最新・IMPLEMENTER (Opus)): 順4 の第2条件を閉じた。第3条件は閉じていない。**正本は **`plans/PLAN-009-order4-production-config.md`** + **ADR-050**。—— **人間が `PLAN-008` §5 の B1〜B3 とデータ生成シードを決定した**(提案 IMPLEMENTER / 採択 人間。ADR-039 決定3): `lesion.arbitrary_table` = **規約A で生成した 197 件** / `data.train_size = 10000` / `data.coverage_k = 2000`(**ADR-019 決定5 の主値を確認・確定**) / `pool_split_seed = 0` / `coverage_seed = 1` / `sample_seed = 2` / `pool_id = main`。**ADR-049 (a) の命名・書式 3 件も承認して閉じた。** —— **`configs/exp_phase1_main.yaml` を新設**(5 条件は `--condition` で切り替える。条件ごとに複製しない)。**5 条件すべてで `train.jsonl`(各 10,000 行 / 2,000 組)と `manifest.json` を生成**し、**`matched_stream_sha256 = 3e9c769c953b` が 5 条件で一致**した(PLAN-002 §3.4 の「`target` 以外はバイト一致」が成立)。`repeats_base = 5` / `repeats_extra = 0`。`exclusions.reference_rules = ["arb","p2","p2d","x2"]` で 4 規則すべてが参照集合に入った。 —— **`code/data_gen/arb_table.py` を新設**(生成器と検証器。**実行時の経路ではない**)。**★`PLAN-002` §7.3 の検算の誤りを訂正した: `arb` と `p2` の強制一致は「1 件」ではなく `t = 7`(→9)と `t = 97`(→99)の 2 件である**(`t=97` は `t+2=99` が 2 桁の上限なので候補が `{99}` に潰れる)。**組合せ論的な計数であって実験結果ではない。**`pytest` 805 passed。GPU 時間 0。`results/` は空。
 
-> **★順4 の第3条件(preflight 全 PASS)は閉じていない。FAIL 4 件**(内訳と全検査の状態は `PLAN-009` §8):
+**★★同日つづき(ADR-051)。人間が P1/P3/P2 を採択したので片付けた。** ——
+**P1: preflight の `data manifest` 検査を成立させた。**`files` ブロックを訓練側・評価側の
+両方に足したが、**`build_manifest` ではなく書き出し関数に置いた**(データを書き切ってから
+**ディスクのバイト列を読み直して**記録する。メモリ上の文字列を数えると、書き出しで内容が
+変わっても manifest がそれを保証してしまう)。**★この判断が別のバグを検出した ——
+Windows の text mode が既定で LF を CRLF に変換しており、`train.jsonl` のディスク上の
+バイト列が `outputs.train_jsonl_sha256` と一致していなかった。同じ config が OS ごとに
+別のバイト列を出していた**(`matched_stream_sha256` はメモリ上で数えるので**条件間比較は
+汚れていない**が、**生成物の再現性は壊れていた**)。書き出しを `newline` 明示に直し、
+5 条件を作り直した(`matched_stream_sha256 = 3e9c769c953b` は前後で不変)。
+**P3: `PLAN-002` §7.3 の検算の誤りに打ち消し線+理由+日付を入れた。**
+**P2: `Documents/01_HYPOTHESES.md` の追随を下書きした**(H0/H1/H2 の予測が G1–G6 の語彙のまま
+だったので、タスク型 × 既知性の語彙の版を並べた。**すべて「★下書き。人間の確定待ち」**)。
+`pytest` 808 passed。
+
+> **★順4 の第3条件(preflight 全 PASS)は閉じていない。FAIL 3 件**(4 件から ADR-051 で 1 件減。
+> 内訳と全検査の状態は `PLAN-009` §8.2):
 > `format hash` / `coverage_k floor` は **B5(`M*` 未決)の帰結**で順5 の後、
 > `token boundaries` は `model.revision` が null(**ADR-031 の想定どおり**。最初の pull で確定)。
-> **残る 1 件は新しく見つかった実装の穴である** → 下の「人間の承認・判断を待っている事項」。
+> **3 件とも実装の穴ではない。**
 
 **★★★★★★★★★★★★★★2026-09-01(IMPLEMENTER (Opus)): 順4 の第1条件を閉じた。**順0(2026-08-27)で人間が決めた ADR-034 / ADR-035 のうち**順4 に持ち越されていた実装3件**を入れた(正本 `plans/PLAN-008-order4-data-regen.md` + **ADR-049**)。—— (1) **指示付き T1 の群 `bare_sum_instructed` を新設**(`SUPPORTED_GROUPS` 4群 → 5群。category / タスク型は `t1_instructed`。**主軸4水準に混ぜない** —— 混ぜると ADR-026 が 4 → 6 にした交互作用の df が動く)。**文面はテンプレートファイルを作らず config から構成的に組む**(`data.prompt_template` + 空白 + 新設 `data.answer_format_instruction`)—— ADR-035 決定2 の「T1 と同一の被演算子対」「T2 と逐語で同じ指示文」という2つの不変条件を構成的に保つため。**`configs/templates/` には差分を出していない**(ADR-046 / 048 の凍結)。(2) **被演算子 1 の除外を全タスク型の評価項目に広げ**、規約の持ち主を `numeric_sum` から **`code/data_gen/pool.py`** に移した。manifest の `item_exclusions` は**プール全体の欄**(群ごとの内訳つき)。**桁数掃引には掛けない**(ADR-041 決定5 の抽出仕様を動かさない。回帰テストで固定)。(3) **評価プール manifest に `id_cell_population` を新設**し、`id` セルの母集団が `K` そのものではないことを本番経路の数え上げで明示した。**設計事実テストが `K = 2,000 → 1,808(carry 393)→ 1,776(carry 386)` を固定**(PLAN-003 §4.7 の手計算と一致。**組合せ論的な計数であって実験結果ではない**)。`pytest` 788 passed。GPU 時間 0。`results/` は空。**
 
@@ -1218,9 +1234,13 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 >
 > | # | 何 | なぜ人間が要るか |
 > |---|---|---|
-> | **P1** | **`infra/preflight.py:282` の `data manifest` 検査は現状 PASS になり得ない** —— 検査は manifest の `files` ブロックを読むが、**`"files"` は repo 全体でこの 1 行にしか現れず**、`ft_data` / `eval_pool` のどちらの `build_manifest` も書かない。既存の config はすべて `data.manifest: null`(= SKIP)なので露見していなかった | 直し方が 2 通りある(**manifest に `files` を足す** / **preflight に `outputs.train_jsonl_sha256` を読ませる**)。どちらも manifest schema か検査の意味を変える。**`data.manifest` を null に戻せば FAIL は消えるが、穴を隠すことになるので戻していない**(`PLAN-009` §8.1) |
-> | **P2** | **`experiment.hypothesis` が null のままである** —— `Documents/01_HYPOTHESES.md` が再設計前(G1–G6 基準)のままで、**主軸 Q16 に対応する H 番号がどの文書にも無い** | エージェントが番号を当てれば捏造になる(`CLAUDE.md` §2)。**H 番号を決めるか、`01_HYPOTHESES.md` を追随させるか** |
-> | **P3** | **`plans/PLAN-002` §7.3 の検算の誤りを訂正した**(強制一致は 1 件ではなく 2 件)。訂正は `PLAN-009` §3.1 と ADR-050 に書いたが、**`PLAN-002` §7.3 の本文には打ち消し線を入れていない** | 事前登録に関わる文書の改訂であり、打ち消し線+理由+日付の入れ方を人間が確認する(`CLAUDE.md` §2) |
+> **→ P1 / P2 / P3 は 2026-09-02 に人間が採択し、同日片付けた(ADR-051)。下は経緯の記録。**
+> **新しく残った未決は「評価側 manifest に `schema_version` を足すか」と
+> 「`01_HYPOTHESES.md` の下書きの確定」の2件である。**
+>
+> | ~~**P1**~~ | ~~**`infra/preflight.py:282` の `data manifest` 検査は現状 PASS になり得ない** —— 検査は manifest の `files` ブロックを読むが、**`"files"` は repo 全体でこの 1 行にしか現れず**、`ft_data` / `eval_pool` のどちらの `build_manifest` も書かない。既存の config はすべて `data.manifest: null`(= SKIP)なので露見していなかった | 直し方が 2 通りある(**manifest に `files` を足す** / **preflight に `outputs.train_jsonl_sha256` を読ませる**)。どちらも manifest schema か検査の意味を変える。**`data.manifest` を null に戻せば FAIL は消えるが、穴を隠すことになるので戻していない**(`PLAN-009` §8.1) |
+> | ~~**P2**~~ | ~~**`experiment.hypothesis` が null のままである** —— `Documents/01_HYPOTHESES.md` が再設計前(G1–G6 基準)のままで、**主軸 Q16 に対応する H 番号がどの文書にも無い** | エージェントが番号を当てれば捏造になる(`CLAUDE.md` §2)。**H 番号を決めるか、`01_HYPOTHESES.md` を追随させるか** |
+> | ~~**P3**~~ | ~~**`plans/PLAN-002` §7.3 の検算の誤りを訂正した**(強制一致は 1 件ではなく 2 件)。訂正は `PLAN-009` §3.1 と ADR-050 に書いたが、**`PLAN-002` §7.3 の本文には打ち消し線を入れていない** | 事前登録に関わる文書の改訂であり、打ち消し線+理由+日付の入れ方を人間が確認する(`CLAUDE.md` §2) |
 >
 > **`Documents/01_HYPOTHESES.md` は「現在のブロッカー」の追随漏れ 3 件(09_PAPER_PLAN / 00_OVERVIEW / 05_STATISTICS §6)に
 > 載っていない 4 件目である。**P2 はその帰結として現れた。

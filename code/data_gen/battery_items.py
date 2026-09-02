@@ -157,7 +157,8 @@ def write_items(path: Path, items: Sequence[Item]) -> None:
     """items.jsonl を書く。1行1項目。"""
     assert_unique_item_ids(items)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
+    # newline を明示する理由は code/data_gen/ft_data.py:write_dataset と同じ(ADR-051)。
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
         for item in items:
             handle.write(json.dumps(item.as_dict(), ensure_ascii=False) + "\n")
 
@@ -171,7 +172,11 @@ def read_items(path: Path) -> list[Item]:
 def write_manifest(path: Path, manifest: dict[str, object]) -> None:
     """manifest.json を書く(§4.5)。"""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def read_manifest(path: Path) -> dict[str, object]:

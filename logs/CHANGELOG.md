@@ -3166,3 +3166,46 @@ EOS を含まず、1トークンほど下振れする**):
   `plans/PLAN-009-order4-production-config.md`(新規)/ `logs/DECISIONS.md`(ADR-050)。
 - **テスト**: `pytest code/tests -q` → **805 passed**(788 → +17)。GPU 時間 0。`results/` は空。
 - 関連 commit: `bbb1a38`
+
+### fix(data_gen): P1/P3/P2。`data manifest` 検査を成立させ、改行変換のバグを直した(ADR-051)   [actor: IMPLEMENTER]
+
+- **P1(人間が採択): `files` ブロックを訓練側・評価側の両方の manifest に足した**(ADR-051 決定1)。
+  **`build_manifest` ではなく書き出し関数に置いた**(決定2)—— `write_dataset` / `write_pool` が
+  **データを書き切ってから、そのバイト列を読み直して**記録し、最後に manifest を書く。
+  メモリ上の文字列を数えると、書き出しで内容が変わっても manifest がそれを保証してしまう。
+  `code/data_gen/hashing.py` に `sha256_file` / `files_block` を新設(鍵の作り方を1箇所に置く)。
+  `ft_data.SCHEMA_VERSION` を 2 → 3。**既存の smoke 系 manifest 8 件は 2 のまま残す**
+  (完了した run の入力を書き換えない。`CLAUDE.md` §2)。
+- **★P1 のテストが別のバグを検出した(ADR-051 決定4)。****Windows の text mode が既定で
+  LF を CRLF に変換しており、`train.jsonl` のディスク上のバイト列が manifest の
+  `outputs.train_jsonl_sha256` と一致していなかった。**つまり (a) **manifest が自分の名指す
+  ファイルを説明していなかった**、(b) **同じ config が OS ごとに別のバイト列を出していた**
+  (Windows とポッドの Linux で生成物が byte 単位で違う)。`matched_stream_sha256` は
+  メモリ上で数えるので**条件間比較は汚れていない**が、**生成物の再現性は壊れていた**。
+  `write_text` / `open("w")` を `newline` 明示に直した(`ft_data` / `battery_items` の3箇所)。
+- **5 条件の FT データを作り直した。**`files` == `outputs.train_jsonl_sha256` == ディスクの
+  sha256 が全条件で一致し、CRLF は消えた。**`matched_stream_sha256 = 3e9c769c953b` は
+  作り直しの前後で変わっていない**(メモリ上の畳み方を触っていないため)。
+- **preflight の FAIL が 4 件 → 3 件になった。**残る 3 件は `format hash` / `coverage_k floor`
+  (**B5 = `M*` 未決**。順5 の後)と `token boundaries`(`model.revision` が null。
+  **ADR-031 の想定どおり**。最初の pull で埋まる)。**いずれも実装の穴ではない。**
+- **P3(人間が採択): `plans/PLAN-002` §7.3 の検算の誤りに打ち消し線+理由+日付を入れた。**
+  強制一致は「1 件」ではなく **`t = 7`(→9)と `t = 97`(→99)の 2 件**である。
+  `t + 2` が桁の上限に一致する `t` でのみ起きるので、定義域 `[2, 198]` ではこの 2 つしかない。
+- **P2(人間が採択): `Documents/01_HYPOTHESES.md` の追随を下書きした。**
+  H0 / H1 / H2 の「予測される観測」「反証条件」が**バッテリ群 G1–G6 の語彙**のままだったので、
+  旧記述に打ち消し線を引き、**タスク型 × 既知性の語彙**での版を並べた。
+  主要検定(`task:coverage` の LRT, df=6)の結果と仮説の対応表も置いた。
+  **すべて「★下書き。人間の確定待ち」と明記してある** —— 論文の claim の確定は人間の仕事である
+  (`CLAUDE.md` §8)。**`experiment.hypothesis` は対応表が確定するまで null のままにしてある。**
+- **未解決として残したもの**: 評価側 manifest に `schema_version` が無い(訓練側だけが持つ非対称)/
+  `01_HYPOTHESES.md` の下書きの確定 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md` §1・§7 /
+  `05_STATISTICS.md` §6 の追随(順7)。
+- **影響を受けたファイル**: `code/data_gen/hashing.py` / `code/data_gen/ft_data.py` /
+  `code/data_gen/eval_pool.py` / `code/data_gen/battery_items.py` /
+  `code/tests/test_ft_data.py` / `code/tests/test_eval_pool.py` /
+  `data/generated/ft/exp_phase1_main_*/manifest.json`(5件・作り直し)/
+  `plans/PLAN-002-ft-data.md` §7.3 / `plans/PLAN-009-order4-production-config.md` §8 /
+  `Documents/01_HYPOTHESES.md` / `logs/DECISIONS.md`(ADR-051)。
+- **テスト**: `pytest code/tests -q` → **808 passed**(805 → +3)。GPU 時間 0。`results/` は空。
+- 関連 commit: (このコミット)

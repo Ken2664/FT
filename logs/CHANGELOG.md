@@ -3113,3 +3113,56 @@ EOS を含まず、1トークンほど下振れする**):
   **`M*` 未決のあいだ `fill_cells` の経路に移せない**(ADR-033 決定4。`M*` は順5 の後)。
   **エージェントが値を入れれば実験条件の決定になる**(`CLAUDE.md` §8)。内訳は `plans/PLAN-008` §5。
 - 関連 commit: `9491196`
+
+---
+
+## 2026-09-02
+
+### feat(data_gen): 順4 第2条件。本番 config を組み、5 条件の FT 訓練データを生成した(ADR-050)   [actor: IMPLEMENTER]
+
+- **人間が `PLAN-008` §5 の B1〜B3 とデータ生成シードを決定した**(ADR-050。提案 IMPLEMENTER / 採択 人間)。
+  `lesion.arbitrary_table` = **規約A で生成した 197 件** / `data.train_size = 10000` /
+  `data.coverage_k = 2000` / `pool_split_seed = 0` / `coverage_seed = 1` / `sample_seed = 2` /
+  `pool_id = main`。**ADR-049 (a) の命名・書式 3 件も承認して閉じた。**
+- **`code/data_gen/arb_table.py` を新設した。****実行時の経路ではない** ——
+  一度だけ走らせて config に書き下すための生成器と、config に書かれた表を検査する検証器である。
+  分けてあるのは表が実験条件そのものだからで、実行のたびに生成すると規則を変えた瞬間に
+  過去の run と別の条件になり、それに気づけない。**検証器は生成器と独立に制約の文言を写している**
+  (生成器のバグを生成器で検査しても何も確かめたことにならない)。
+- **規約A**(PLAN-009 §3。人間が採択): 制約 1〜4 の候補から `p2` / `p2d` / `x2` の値を除き、
+  除いて空になるときだけ除かず、残りから**固定シード 0 の一様抽出**で `t` の昇順に 1 つ引く。
+  **上限は課さない。**上限を `2t` に切る案は `t = 2` で候補が `{4}` に潰れて `p2` とも `x2` とも
+  一致し、`t = 3` で `x2` との強制一致を生むため却下。候補の最小値を取る案は
+  `table[t] - (t+2)` の中央値が 1・最大が 2 になり **`arb` が実質 `p2` になる**ため却下。
+- **★`plans/PLAN-002` §7.3 の検算の誤りを見つけて訂正した。**「197 件のうち **1 件だけ**
+  `arb` と `p2` が一致する」「他の `t` では選択肢が残る」は**誤り**である。
+  **強制一致は `t = 7`(`table[7] = 9`)と `t = 97`(`table[97] = 99`)の 2 件**であり、
+  `t = 97` は `t + 2 = 99` が 2 桁の上限なので制約2・4 で候補が `{99}` に潰れる。
+  `code/tests/test_arb_table.py` が 2 件であることを固定した。**組合せ論的な計数であって
+  実験結果ではない**(`CLAUDE.md` §2)。`p2d` / `x2` との強制一致は 0 件。
+- **`configs/exp_phase1_main.yaml` を新設し、5 条件を `--condition` で切り替える**運用にした
+  (ADR-050 決定8)。条件ごとに config を複製すると写し間違いでバイト一致が壊れる。
+- **5 条件すべてで `train.jsonl`(各 10,000 行 / 2,000 組)と `manifest.json` を生成した。**
+  **`matched_stream_sha256 = 3e9c769c953b` が 5 条件で一致**し、`train_jsonl_sha256` は
+  5 条件とも異なる —— PLAN-002 §3.4 の「`target` 以外はバイト一致」が成立している。
+  `sampling` は `repeats_base = 5` / `repeats_extra = 0` / `extra_breaks_stratification = false`。
+  `exclusions.reference_rules = ["arb", "p2", "p2d", "x2"]` で **4 規則すべてが参照集合に入った**
+  (`multiplier` / `digit_modulus` / `arbitrary_table` のどれかが null だと
+  `reference_lesions_from_config` は**黙って規則を落とす**)。
+- **★新しく見つかった穴: `infra/preflight.py:282` の `data manifest` 検査は現状 PASS になり得ない。**
+  検査は manifest の `files` ブロックを読むが、**`"files"` は repo 全体でこの 1 行にしか現れず**、
+  `ft_data` / `eval_pool` のどちらの `build_manifest` も書かない。既存の config はすべて
+  `data.manifest: null`(= SKIP)なので露見していなかった。**`data.manifest` を null に戻せば
+  FAIL は消えるが、穴を隠すことになるので戻していない。人間の決着待ち**(PLAN-009 §8.1)。
+- **★順4 の第3条件(preflight 全 PASS)は閉じていない。****FAIL 4 件** ——
+  `data manifest`(上記の穴)/ `format hash` と `coverage_k floor`(**B5 = `M*` 未決**の帰結。
+  順5 の後)/ `token boundaries`(`model.revision` が null。**ADR-031 の想定どおり**)。
+- **触っていないもの**: 凍結済みのプロンプト文面(`configs/templates/` に差分なし)/
+  強制選択の器械 / 合否基準・`θ`・`M*` / `eval.*`(B5)/ `train.*` のハイパラ(ADR-043 決定10)/
+  `data/raw/` / `configs/smoke.yaml` / `configs/template.yaml`(雛形は null のまま)。
+- **影響を受けたファイル**: `code/data_gen/arb_table.py`(新規)/
+  `code/tests/test_arb_table.py`(新規)/ `configs/exp_phase1_main.yaml`(新規)/
+  `data/generated/ft/exp_phase1_main_{p2,p2d,arb,x2,ident}/manifest.json`(新規)/
+  `plans/PLAN-009-order4-production-config.md`(新規)/ `logs/DECISIONS.md`(ADR-050)。
+- **テスト**: `pytest code/tests -q` → **805 passed**(788 → +17)。GPU 時間 0。`results/` は空。
+- 関連 commit: (このコミット)

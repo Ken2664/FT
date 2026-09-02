@@ -3,15 +3,22 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-09-01 / by IMPLEMENTER (Opus)(順4 の第1条件 = 順0 の決定3件を `code/` と config に反映。指示付き T1 の群を新設 / 被演算子の除外をプール全体の規約に / `id` セルの母集団を manifest に明示。ADR-049。`pytest` 788 passed。GPU 時間 0)
+最終更新: 2026-09-02 / by IMPLEMENTER (Opus)(順4 の第2条件 = 人間が B1〜B3 とシードを決定 → 本番 config と 5 条件の FT データを生成。ADR-050。`pytest` 805 passed。GPU 時間 0)
 
-**★★★★★★★★★★★★★★2026-09-01(最新・IMPLEMENTER (Opus)): 順4 の第1条件を閉じた。**順0(2026-08-27)で人間が決めた ADR-034 / ADR-035 のうち**順4 に持ち越されていた実装3件**を入れた(正本 `plans/PLAN-008-order4-data-regen.md` + **ADR-049**)。—— (1) **指示付き T1 の群 `bare_sum_instructed` を新設**(`SUPPORTED_GROUPS` 4群 → 5群。category / タスク型は `t1_instructed`。**主軸4水準に混ぜない** —— 混ぜると ADR-026 が 4 → 6 にした交互作用の df が動く)。**文面はテンプレートファイルを作らず config から構成的に組む**(`data.prompt_template` + 空白 + 新設 `data.answer_format_instruction`)—— ADR-035 決定2 の「T1 と同一の被演算子対」「T2 と逐語で同じ指示文」という2つの不変条件を構成的に保つため。**`configs/templates/` には差分を出していない**(ADR-046 / 048 の凍結)。(2) **被演算子 1 の除外を全タスク型の評価項目に広げ**、規約の持ち主を `numeric_sum` から **`code/data_gen/pool.py`** に移した。manifest の `item_exclusions` は**プール全体の欄**(群ごとの内訳つき)。**桁数掃引には掛けない**(ADR-041 決定5 の抽出仕様を動かさない。回帰テストで固定)。(3) **評価プール manifest に `id_cell_population` を新設**し、`id` セルの母集団が `K` そのものではないことを本番経路の数え上げで明示した。**設計事実テストが `K = 2,000 → 1,808(carry 393)→ 1,776(carry 386)` を固定**(PLAN-003 §4.7 の手計算と一致。**組合せ論的な計数であって実験結果ではない**)。`pytest` 788 passed。GPU 時間 0。`results/` は空。**
+**★★★★★★★★★★★★★★★2026-09-02(最新・IMPLEMENTER (Opus)): 順4 の第2条件を閉じた。第3条件は閉じていない。**正本は **`plans/PLAN-009-order4-production-config.md`** + **ADR-050**。—— **人間が `PLAN-008` §5 の B1〜B3 とデータ生成シードを決定した**(提案 IMPLEMENTER / 採択 人間。ADR-039 決定3): `lesion.arbitrary_table` = **規約A で生成した 197 件** / `data.train_size = 10000` / `data.coverage_k = 2000`(**ADR-019 決定5 の主値を確認・確定**) / `pool_split_seed = 0` / `coverage_seed = 1` / `sample_seed = 2` / `pool_id = main`。**ADR-049 (a) の命名・書式 3 件も承認して閉じた。** —— **`configs/exp_phase1_main.yaml` を新設**(5 条件は `--condition` で切り替える。条件ごとに複製しない)。**5 条件すべてで `train.jsonl`(各 10,000 行 / 2,000 組)と `manifest.json` を生成**し、**`matched_stream_sha256 = 3e9c769c953b` が 5 条件で一致**した(PLAN-002 §3.4 の「`target` 以外はバイト一致」が成立)。`repeats_base = 5` / `repeats_extra = 0`。`exclusions.reference_rules = ["arb","p2","p2d","x2"]` で 4 規則すべてが参照集合に入った。 —— **`code/data_gen/arb_table.py` を新設**(生成器と検証器。**実行時の経路ではない**)。**★`PLAN-002` §7.3 の検算の誤りを訂正した: `arb` と `p2` の強制一致は「1 件」ではなく `t = 7`(→9)と `t = 97`(→99)の 2 件である**(`t=97` は `t+2=99` が 2 桁の上限なので候補が `{99}` に潰れる)。**組合せ論的な計数であって実験結果ではない。**`pytest` 805 passed。GPU 時間 0。`results/` は空。
 
-> **★順4 は完了していない。第2・第3条件(本番 config(5条件)でのデータ生成 → preflight 全 PASS)は
-> 人間の未決事項で塞がっている。**`lesion.arbitrary_table`(**承認待ち-3**。`[MATCHED]` なので
-> `arb` を回さない4条件の config にも書けない)/ `data.train_size` / `data.coverage_k` が未決で、
-> `eval.pool_items` は **`M*` 未決のあいだ `fill_cells` の経路に移せない**(ADR-033 決定4。`M*` は順5 の後)。
-> **エージェントが値を入れれば実験条件の決定になる**(`CLAUDE.md` §8)。内訳は `plans/PLAN-008` §5。
+> **★順4 の第3条件(preflight 全 PASS)は閉じていない。FAIL 4 件**(内訳と全検査の状態は `PLAN-009` §8):
+> `format hash` / `coverage_k floor` は **B5(`M*` 未決)の帰結**で順5 の後、
+> `token boundaries` は `model.revision` が null(**ADR-031 の想定どおり**。最初の pull で確定)。
+> **残る 1 件は新しく見つかった実装の穴である** → 下の「人間の承認・判断を待っている事項」。
+
+**★★★★★★★★★★★★★★2026-09-01(IMPLEMENTER (Opus)): 順4 の第1条件を閉じた。**順0(2026-08-27)で人間が決めた ADR-034 / ADR-035 のうち**順4 に持ち越されていた実装3件**を入れた(正本 `plans/PLAN-008-order4-data-regen.md` + **ADR-049**)。—— (1) **指示付き T1 の群 `bare_sum_instructed` を新設**(`SUPPORTED_GROUPS` 4群 → 5群。category / タスク型は `t1_instructed`。**主軸4水準に混ぜない** —— 混ぜると ADR-026 が 4 → 6 にした交互作用の df が動く)。**文面はテンプレートファイルを作らず config から構成的に組む**(`data.prompt_template` + 空白 + 新設 `data.answer_format_instruction`)—— ADR-035 決定2 の「T1 と同一の被演算子対」「T2 と逐語で同じ指示文」という2つの不変条件を構成的に保つため。**`configs/templates/` には差分を出していない**(ADR-046 / 048 の凍結)。(2) **被演算子 1 の除外を全タスク型の評価項目に広げ**、規約の持ち主を `numeric_sum` から **`code/data_gen/pool.py`** に移した。manifest の `item_exclusions` は**プール全体の欄**(群ごとの内訳つき)。**桁数掃引には掛けない**(ADR-041 決定5 の抽出仕様を動かさない。回帰テストで固定)。(3) **評価プール manifest に `id_cell_population` を新設**し、`id` セルの母集団が `K` そのものではないことを本番経路の数え上げで明示した。**設計事実テストが `K = 2,000 → 1,808(carry 393)→ 1,776(carry 386)` を固定**(PLAN-003 §4.7 の手計算と一致。**組合せ論的な計数であって実験結果ではない**)。`pytest` 788 passed。GPU 時間 0。`results/` は空。**
+
+> ~~**★順4 は完了していない。第2・第3条件は人間の未決事項で塞がっている。**~~
+> → **2026-09-02: B1〜B3 は決着した(ADR-050)。第2条件は閉じた。**
+> 残るのは第3条件(preflight 全 PASS)で、**`eval.pool_items` は `M*` 未決のあいだ
+> `fill_cells` の経路に移せない**(ADR-033 決定4。`M*` は順5 の後)という B5 だけが実験設計上の
+> ブロッカーである。上の 2026-09-02 ブロックを参照。
 >
 > **人間が見るもの(ADR-049)**: 群名 `bare_sum_instructed` / category `t1_instructed` / 指示文の
 > 区切り(半角空白1つ)。**どれも覆してよい** —— ADR-035 リスク欄が群名を実装に授権した範囲である。
@@ -1206,6 +1213,18 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ---
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
+
+> **★★★★★★★★★2026-09-02(IMPLEMENTER (Opus) → 人間)。順4 の第2条件を閉じた。新しく上げるものが 3 件ある。**
+>
+> | # | 何 | なぜ人間が要るか |
+> |---|---|---|
+> | **P1** | **`infra/preflight.py:282` の `data manifest` 検査は現状 PASS になり得ない** —— 検査は manifest の `files` ブロックを読むが、**`"files"` は repo 全体でこの 1 行にしか現れず**、`ft_data` / `eval_pool` のどちらの `build_manifest` も書かない。既存の config はすべて `data.manifest: null`(= SKIP)なので露見していなかった | 直し方が 2 通りある(**manifest に `files` を足す** / **preflight に `outputs.train_jsonl_sha256` を読ませる**)。どちらも manifest schema か検査の意味を変える。**`data.manifest` を null に戻せば FAIL は消えるが、穴を隠すことになるので戻していない**(`PLAN-009` §8.1) |
+> | **P2** | **`experiment.hypothesis` が null のままである** —— `Documents/01_HYPOTHESES.md` が再設計前(G1–G6 基準)のままで、**主軸 Q16 に対応する H 番号がどの文書にも無い** | エージェントが番号を当てれば捏造になる(`CLAUDE.md` §2)。**H 番号を決めるか、`01_HYPOTHESES.md` を追随させるか** |
+> | **P3** | **`plans/PLAN-002` §7.3 の検算の誤りを訂正した**(強制一致は 1 件ではなく 2 件)。訂正は `PLAN-009` §3.1 と ADR-050 に書いたが、**`PLAN-002` §7.3 の本文には打ち消し線を入れていない** | 事前登録に関わる文書の改訂であり、打ち消し線+理由+日付の入れ方を人間が確認する(`CLAUDE.md` §2) |
+>
+> **`Documents/01_HYPOTHESES.md` は「現在のブロッカー」の追随漏れ 3 件(09_PAPER_PLAN / 00_OVERVIEW / 05_STATISTICS §6)に
+> 載っていない 4 件目である。**P2 はその帰結として現れた。
+
 
 > **★★★★★★★★2026-09-01(IMPLEMENTER (Opus) → 人間)。順4 の第1条件を実装した。人間に上げるのは2種類ある。**
 >

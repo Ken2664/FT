@@ -3165,4 +3165,4 @@ EOS を含まず、1トークンほど下振れする**):
   `data/generated/ft/exp_phase1_main_{p2,p2d,arb,x2,ident}/manifest.json`(新規)/
   `plans/PLAN-009-order4-production-config.md`(新規)/ `logs/DECISIONS.md`(ADR-050)。
 - **テスト**: `pytest code/tests -q` → **805 passed**(788 → +17)。GPU 時間 0。`results/` は空。
-- 関連 commit: (このコミット)
+- 関連 commit: `bbb1a38`

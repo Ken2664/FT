@@ -3208,4 +3208,4 @@ EOS を含まず、1トークンほど下振れする**):
   `plans/PLAN-002-ft-data.md` §7.3 / `plans/PLAN-009-order4-production-config.md` §8 /
   `Documents/01_HYPOTHESES.md` / `logs/DECISIONS.md`(ADR-051)。
 - **テスト**: `pytest code/tests -q` → **808 passed**(805 → +3)。GPU 時間 0。`results/` は空。
-- 関連 commit: (このコミット)
+- 関連 commit: `1376909`

@@ -3303,4 +3303,4 @@ EOS を含まず、1トークンほど下振れする**):
   `Documents/01_HYPOTHESES.md` / `plans/PLAN-010-order7-doc-followup.md` §5 / `STATE.md`。
   **コードは 1 行も触っていない。**
 - **テスト**: `pytest code/tests -q` → **808 passed**(変化なし)。GPU 時間 0。`results/` は空。
-- 関連 commit: (このコミット)
+- 関連 commit: `5d5a849`

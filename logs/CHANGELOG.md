@@ -3312,4 +3312,4 @@ EOS を含まず、1トークンほど下振れする**):
   順5 = `M*` の実測(**人間の GPU 承認が要る**)/ 順7 の残り / 評価側 manifest の `schema_version`)。
 - **引き継ぎに環境の罠を1件追加した**: `.md` を CRLF で書き戻さないこと
   (`.gitattributes` は `*.md text eol=lf` を宣言している)。
-- 関連 commit: (このコミット)
+- 関連 commit: `b291b9b`

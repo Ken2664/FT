@@ -3304,3 +3304,12 @@ EOS を含まず、1トークンほど下振れする**):
   **コードは 1 行も触っていない。**
 - **テスト**: `pytest code/tests -q` → **808 passed**(変化なし)。GPU 時間 0。`results/` は空。
 - 関連 commit: `5d5a849`
+
+### docs(plan): セッション引き継ぎを記録した(PLAN-010 完了 + ADR-052)   [actor: PLANNER]
+
+- `STATE.md` の「引き継ぎ」を 2026-09-05 の事実に更新した(1つ前のセッションの記録は残した)。
+- `logs/HANDOFF.md` を上書きした。**次セッションの選択肢は4つ**(D2/D3/D4 の決着 /
+  順5 = `M*` の実測(**人間の GPU 承認が要る**)/ 順7 の残り / 評価側 manifest の `schema_version`)。
+- **引き継ぎに環境の罠を1件追加した**: `.md` を CRLF で書き戻さないこと
+  (`.gitattributes` は `*.md text eol=lf` を宣言している)。
+- 関連 commit: (このコミット)

@@ -3713,3 +3713,43 @@ GPU 時間 0。`results/` は空。
   `01_HYPOTHESES.md` / `09_PAPER_PLAN.md` / `05_STATISTICS.md` §6 の未追随は直していない /
   **RunPod のポッドは 1 つも起動していない**
 - 関連 commit: `f37393c`
+
+### 2026-09-06(その6b)— 人間が順5 の起動条件 4 件を決定した(ADR-057)。preflight に run 種別を入れた(PLANNER (Opus))
+
+- **人間が `plans/PLAN-014` §4 の D-A 〜 D-D を決定した**(提案 PLANNER / 採択 人間。ADR-039 決定3)。
+  **ADR-057 として記録した。GPU ジョブは起動していない。GPU 時間 0。`results/` は空。**
+- **決定4 件**:
+  - **D-A = 本番 config に書く**。`eval.reference_rule: p2` / `eval.elicitation: direct`。
+    **★新しい決定ではない** —— どちらも **2026-08-22 に人間が承認済**(`STATE.md`「解決済み」の
+    #3 と #6)で、**config に転記されていなかっただけである**
+  - **D-B = 外側**。**掃引の GPU 構成は本実験 40 run と独立に選ぶ。**掃引は素の重みへの
+    推論のみでアダプタを読まないため。**リスク: `M*` は `correct_rate` が `θ` を割る位置で
+    決まるので、精度が動けば崖の近傍で `M*` も動きうる**(実験前に ADR に記録した)
+  - **D-C = 案 1**。**`preflight.py` に run 種別を入れ、掃引では検査6・検査8 を SKIP にする。**
+    根拠は **F23(掃引は評価プールを 1 行も読まない)**。**これで `PLAN-014` §3 の
+    循環依存が解けた** —— 従来の規則をそのまま読むと順5 は永久に起動できなかった
+  - **D-D = 順6 に移す**。バッチ fp ノイズ検査(ADR-040 決定7)と `forced choice tokens` は
+    **どちらも `comparison` 群(= 評価プール)を要求する**ので順5 では成立しない。
+    **ADR-044(`requirements.lock` の凍結)は順5 のまま**
+- **実装(D-C のみ。`infra/preflight.py`)**:
+  - **`RunKind`(`main` / `sweep`)を新設。**`data_checks` / `run_all_checks` が `run_kind` を
+    取り、CLI に `--run-kind` が付く。**既定は `main`** —— 検査を緩める側を明示的に宣言させるため
+  - **`SWEEP_SKIPPED_CHECKS` は `format hash` / `coverage_k floor` の 2 件だけ。**
+    `pool regions` / `matched stream` / `t_holdout` / `holdout leak` は **FT データの検査**
+    なので掃引でも緩めない
+  - **実機で確認した**(本番 config に対して): `--run-kind sweep` で当該 2 件が **SKIP** になり、
+    既定(main)では **FAIL** のまま。**残る FAIL 1 件は `token boundaries`(gated repo に
+    未認証)であり、ポッド上の login で解消する見込み**
+  - 回帰テスト 3 件を追加。`pytest code/tests -q` → **811 passed**(着手前 808)
+- **★次のセッションに残した実装**(コンテキスト上限で切った。ADR-057 帰結の (a)〜(d)):
+  (a) **`configs/exp_phase1_main.yaml` の記入**(D-A の 2 欄 + D-B の `resources` 4 欄。
+  **`resources` には「順5 の構成であって本実験 40 run の構成ではない」と注記する**)/
+  (b) **`infra/RUNPOD.md` §3 に D-C の例外を明文化する**/
+  (c) `logs/HANDOFF.md` の B から D-D の 2 件を外す/ (d) `PLAN-014` を `レビュー済` にする
+- **★新しく開いた人間待ち**: **Phase 1 本実験 40 run の GPU 構成**(D-B の帰結。
+  `train.*` のハイパラ = ADR-043 決定10 と同じ場で決まる)
+- **★番号の注記**: 本セッションと並行して別セッションが **ADR-056**(`CLAUDE.md` §0 の差し替え。
+  `plans/PLAN-015`)を進めていたため、**二重採番を避けて 057 を採った**
+- **影響を受けたファイル**: `infra/preflight.py` / `code/tests/test_preflight_checks.py` /
+  `logs/DECISIONS.md`(ADR-057 新規)/ 本ファイル / `STATE.md` / `logs/HANDOFF.md`
+- 関連 commit: (このコミット)

@@ -55,6 +55,22 @@ class Status(Enum):
     SKIP = "SKIP"
 
 
+class RunKind(Enum):
+    """これから回す run の種別。**どの検査に対象が存在するか**が変わる(ADR-057 決定3)。
+
+    答える問い: 「この run は評価プールを読むのか」
+
+    `main` は評価プールを読む本実行。`sweep` は桁数掃引(`code.eval.sweep`)で、
+    項目を `code/eval/battery/magnitude_sweep.py` の `build_items` がその場で作るため
+    **評価プール(`eval.cells` / `eval.anchor_manifest` / `eval.pool_items`)を一切読まない。**
+    掃引にとって評価プールの検査は「確認できなかった」ではなく
+    **「対象が存在しない」**であり、Status の doc どおり SKIP が正しい。
+    """
+
+    MAIN = "main"
+    SWEEP = "sweep"
+
+
 @dataclass(frozen=True)
 class CheckResult:
     """1項目の検査結果。"""
@@ -344,6 +360,14 @@ DATA_CHECK_NAMES: tuple[str, ...] = (
     "t_holdout",
     "holdout leak",
 )
+
+# 掃引 run が読まない検査(ADR-057 決定3)。**どちらも評価プールの整合性を見る検査である。**
+# 掃引はプールを読まないので、この2件は掃引にとって「対象が存在しない」= SKIP である。
+# **トークン境界(検査7)はここに入れない** —— 掃引もプロンプトを組み立てて生成するため、
+# 書式のトークン化は掃引の測定対象の内側にある。
+SWEEP_SKIPPED_CHECKS: tuple[str, ...] = ("format hash", "coverage_k floor")
+
+SWEEP_SKIP_DETAIL = "掃引 run は評価プールを読まない(ADR-057 決定3)。対象が存在しない"
 
 # §4.1.2 の6例 (a, b, target)。トークン境界の検査対象(§4.1.5 の1)。
 # **病変条件の定義ではない。**ここで見るのは文字列のトークン化であり、
@@ -1040,27 +1064,52 @@ def _write_forced_choice_record(
     return path
 
 
-def data_checks(config: Mapping[str, Any]) -> list[CheckResult]:
+def _sweep_skip(name: str) -> CheckResult:
+    """掃引 run が読まない検査の結果を作る。
+
+    答える問い: 「この検査は掃引にとって対象が存在するか」
+    """
+    return CheckResult(name, Status.SKIP, SWEEP_SKIP_DETAIL)
+
+
+def data_checks(
+    config: Mapping[str, Any], run_kind: RunKind = RunKind.MAIN
+) -> list[CheckResult]:
     """PLAN-002 §4.8.1 の manifest 系検査をまとめて実行する。
 
     答える問い: 「この config が指す FT データは、実験条件どおりに作られているか」
 
     manifest 一式を組めなかったときは、**同じ理由を全項目に載せて返す。**
     一部だけ PASS に見せると「何が確認できていないか」が消える。
+
+    `run_kind` が `SWEEP` のときは `SWEEP_SKIPPED_CHECKS` の2件を SKIP にする
+    (ADR-057 決定3)。**掃引はこの2件が見ている評価プールを読まない。**
+    既定を `MAIN` に置いているのは、**検査を緩める側を明示的に宣言させるため**である。
     """
+    skip_pool_checks = run_kind is RunKind.SWEEP
+
     try:
         manifests = load_ft_manifests(config)
     except ManifestUnavailable as exc:
-        return [CheckResult(name, exc.status, exc.detail) for name in DATA_CHECK_NAMES]
+        return [
+            _sweep_skip(name)
+            if skip_pool_checks and name in SWEEP_SKIPPED_CHECKS
+            else CheckResult(name, exc.status, exc.detail)
+            for name in DATA_CHECK_NAMES
+        ]
 
-    try:
-        format_result = check_format_hash(manifests, load_anchor_manifest(config))
-    except ManifestUnavailable as exc:
-        format_result = CheckResult("format hash", exc.status, exc.detail)
-    try:
-        floor_result = check_coverage_k_floor(manifests, load_eval_cells(config))
-    except ManifestUnavailable as exc:
-        floor_result = CheckResult("coverage_k floor", exc.status, exc.detail)
+    if skip_pool_checks:
+        format_result = _sweep_skip("format hash")
+        floor_result = _sweep_skip("coverage_k floor")
+    else:
+        try:
+            format_result = check_format_hash(manifests, load_anchor_manifest(config))
+        except ManifestUnavailable as exc:
+            format_result = CheckResult("format hash", exc.status, exc.detail)
+        try:
+            floor_result = check_coverage_k_floor(manifests, load_eval_cells(config))
+        except ManifestUnavailable as exc:
+            floor_result = CheckResult("coverage_k floor", exc.status, exc.detail)
 
     return [
         check_pool_regions(manifests),
@@ -1086,11 +1135,14 @@ def load_config(config_path: Path | None) -> dict:
     return yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
 
-def run_all_checks(config: dict, record_dir: Path) -> list[CheckResult]:
+def run_all_checks(
+    config: dict, record_dir: Path, run_kind: RunKind = RunKind.MAIN
+) -> list[CheckResult]:
     """全項目を実行して結果を集める。
 
     順序は infra/RUNPOD.md §3 の一覧、次に PLAN-002 §4.8.1 の manifest 系。
     record_dir はトークン境界の測定を書き出す先(§4.1.5)。
+    run_kind は評価プールの検査に対象が存在するかを決める(ADR-057 決定3)。
     """
     resources = config.get("resources", {})
     model = config.get("model", {})
@@ -1104,7 +1156,7 @@ def run_all_checks(config: dict, record_dir: Path) -> list[CheckResult]:
         check_persistent_volume(),
         check_model_weights(model.get("name")),
         check_data_manifest(manifest_path),
-        *data_checks(config),
+        *data_checks(config, run_kind),
         check_token_boundaries(config, record_dir),
         check_forced_choice_tokens(config, record_dir),
         check_tests(),
@@ -1130,9 +1182,17 @@ def main() -> int:
         default=REPO_ROOT / "runs" / "preflight",
         help="トークン境界の測定を書き出す先(PLAN-002 §4.1.5)。本実行では runs/<id>/ を渡す",
     )
+    parser.add_argument(
+        "--run-kind",
+        type=RunKind,
+        choices=list(RunKind),
+        default=RunKind.MAIN,
+        help="これから回す run の種別。sweep は評価プールを読まないので "
+        "format hash / coverage_k floor が SKIP になる(ADR-057 決定3)",
+    )
     args = parser.parse_args()
 
-    results = run_all_checks(load_config(args.config), args.run_dir)
+    results = run_all_checks(load_config(args.config), args.run_dir, args.run_kind)
 
     width = max(len(r.name) for r in results)
     for result in results:

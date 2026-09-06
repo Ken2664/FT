@@ -358,6 +358,73 @@ def test_pool_regions_detect_overlap_between_pilot_and_main_coverage() -> None:
 
 
 # --------------------------------------------------------------------------
+# run 種別(ADR-057 決定3)。掃引は評価プールを読まない
+# --------------------------------------------------------------------------
+
+
+def test_main_is_the_default_run_kind() -> None:
+    """**検査を緩める側を既定にしない。**宣言しなければ本実行の扱いである。"""
+    config = {"lesion": {"condition": "p2"}, "data": {"matched_manifests": None}}
+    assert preflight.data_checks(config) == preflight.data_checks(
+        config, preflight.RunKind.MAIN
+    )
+
+
+def test_sweep_skips_only_the_two_pool_checks() -> None:
+    """掃引は評価プールを読まないので、その2件だけが SKIP になる。
+
+    答える問い: 「例外は `format hash` / `coverage_k floor` に留まっているか」
+
+    残り4件(`pool regions` / `matched stream` / `t_holdout` / `holdout leak`)は
+    **FT データの検査であって評価プールの検査ではない。**掃引でも緩めない。
+    """
+    config = {"lesion": {"condition": "p2"}, "data": {"matched_manifests": None}}
+    results = {
+        r.name: r for r in preflight.data_checks(config, preflight.RunKind.SWEEP)
+    }
+
+    assert set(results) == set(preflight.DATA_CHECK_NAMES)
+    for name in preflight.SWEEP_SKIPPED_CHECKS:
+        assert results[name].status is preflight.Status.SKIP
+        assert results[name].detail == preflight.SWEEP_SKIP_DETAIL
+    for name in set(preflight.DATA_CHECK_NAMES) - set(preflight.SWEEP_SKIPPED_CHECKS):
+        assert results[name].status is preflight.Status.FAIL
+
+
+def test_sweep_skips_the_pool_checks_even_when_manifests_load(
+    tmp_path: Path,
+    manifests: dict[str, dict[str, Any]],
+) -> None:
+    """manifest が揃っていても、掃引では評価プールの2件を当てない。
+
+    **`eval.cells` / `eval.anchor_manifest` が null のままでも掃引は起動できる**
+    (`plans/PLAN-014` §3 の循環依存)。これが ADR-057 決定3 の目的である。
+    """
+    paths = []
+    for name, manifest in manifests.items():
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        paths.append(path)
+    config = {
+        "lesion": {"condition": "p2"},
+        "data": {"matched_manifests": [str(p) for p in paths]},
+        "eval": {"anchor_manifest": None, "cells": None},
+    }
+
+    main_results = {r.name: r for r in preflight.data_checks(config)}
+    sweep_results = {
+        r.name: r for r in preflight.data_checks(config, preflight.RunKind.SWEEP)
+    }
+
+    for name in preflight.SWEEP_SKIPPED_CHECKS:
+        assert main_results[name].status is preflight.Status.FAIL
+        assert sweep_results[name].status is preflight.Status.SKIP
+    # FT データ側の検査は run 種別で変わらない。
+    for name in set(preflight.DATA_CHECK_NAMES) - set(preflight.SWEEP_SKIPPED_CHECKS):
+        assert sweep_results[name].status is main_results[name].status
+
+
+# --------------------------------------------------------------------------
 # SKIP と FAIL の切り分け(§4.8.1 の方針)
 # --------------------------------------------------------------------------
 

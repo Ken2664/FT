@@ -3318,3 +3318,105 @@
 - 関連 commit: `f37393c`
 
 ---
+
+## ADR-057: 順5(桁数掃引)の起動条件 4 件を決める(config 転記 / 掃引の GPU は独立 / preflight に run 種別 / 前提 2 件を順6 へ)
+
+- 日付: 2026-09-06(その6)
+- ステータス: **採択**(2026-09-06。**提案 PLANNER / 採択 人間**。ADR-039 決定3 / `CLAUDE.md` §8)
+- 文脈:
+  - **人間が `logs/HANDOFF.md` の B(順5 = `M*` の実測)を選び、GPU 使用を承認した。**
+  - 着手のための実地確認で、**承認とは別に未決 4 件と手順の矛盾 1 件**が判明した
+    (`plans/PLAN-014-order5-launch-preconditions.md` §2 の F18〜F24 / §3)。
+    **とくに F20**: `code/eval/sweep.py` は `eval.reference_rule`(`:302`)と
+    `eval.elicitation`(`:303`)を `require` するが、`configs/exp_phase1_main.yaml` は
+    どちらも null である。**現状では `ConfigError` で止まり、掃引は 1 項目も生成しない**
+  - **実験は 1 件も実行していない**(`results/` は空)。本 ADR の決定は HARKing に当たらない
+  - **★番号について**: 本 ADR を起草した時点で、並行して別セッションが
+    **ADR-056**(`CLAUDE.md` §0 / `Documents/00_OVERVIEW.md` §1・§7 の確定。`plans/PLAN-015`)を
+    進めていた。**二重採番を避けるため 057 を採った**(`.gitattributes` の注記が
+    `DECISIONS.md` に union マージを掛けない理由として挙げている事故そのものである)
+- 決定1(**D-A = 本番 config に書く**): **`configs/exp_phase1_main.yaml` に
+  `eval.reference_rule: p2` と `eval.elicitation: direct` を記入する。**
+  - **★これは新しい決定ではない。**どちらも **2026-08-22 に人間が承認済**である
+    (`STATE.md`「解決済み」の **#3**「`rule_rate` を固定参照規則に対して定義するか」→
+    **承認。主要評価項目では参照規則 = `p2`**。ADR-016 / **#6**「主要評価項目を
+    `elicitation = direct` に固定してよいか」→ **承認。CoT 側は副次的評価項目**)。
+    **config に転記されていなかっただけである**
+  - 不採択: **掃引専用 config を別に作る**(2 つの config が乗り離れる。
+    `smoke1b` / `smoke1b_b1` で同型の二重管理を既に負っている)/ **保留**(順5 が起動できない)
+  - **代償**: どちらも **`[MATCHED]` 欄**なので、書けば **40 run 全体の設計値が 2 つ確定する。**
+    掃引のためだけの一時的な記入ではない
+- 決定2(**D-B = 外側。掃引の GPU 構成は本実験と独立に選ぶ**): **桁数掃引は
+  `infra/RUNPOD.md` §6「全条件・全シードを同一 GPU 構成で」の拘束の外側に置く。**
+  - 根拠: 掃引は**素の重みに対する推論のみ**であり、LoRA アダプタを読まない
+    (`code/eval/sweep.py` の `reject_declared_adapter`)。**訓練側の GPU 要件と独立である。**
+    `train.*` のハイパラは未決(ADR-043 決定10)であり、
+    **訓練が回る VRAM を知らないまま推論側の都合で本実験の GPU を決めるべきではない**
+  - **★リスク(実験前に記録する。`CLAUDE.md` §7)**: **`M*` は `correct_rate` が閾値 `θ` を
+    割る位置で決まる。**GPU / 数値精度が `correct_rate` を動かすなら **`M*` も動きうる。**
+    崖の近傍で動けば **`D_ext` の中身が変わる。**同一 GPU に揃える案はこのリスクを消すが、
+    上の理由でいま揃える先が無い
+  - 不採択: **内側**(`gpu_type` を書いた時点で Phase 1 本実験 40 run の GPU が確定する)
+- 決定3(**D-C = 案 1。preflight に run 種別を入れ、例外を明文化する**):
+  **掃引 run では `format hash`(検査6)と `coverage_k floor`(検査8)を SKIP にする。**
+  - 根拠(**F23**): **掃引は評価プールを 1 行も読まない。**項目は
+    `code/eval/battery/magnitude_sweep.py` の `build_items` がその場で作る。
+    この 2 件が見ているのは**評価プールの整合性**であり、
+    掃引にとっては「確認できなかった」ではなく **「対象が存在しない」**である ——
+    `preflight.Status` の docstring が定める SKIP の定義にそのまま当たる
+  - **これで `plans/PLAN-014` §3 の循環依存が解ける** ——
+    検査6・検査8 は `eval.anchor_manifest` / `eval.cells` を要求し、
+    それらは `M*`(= 順5 の出力)を待っている。**規則をそのまま読むと順5 は永久に起動できなかった**
+  - 不採択: **案 2**(承知で FAIL のまま回す。「FAIL でも回してよい場合がある」という
+    前例ができ、`infra/RUNPOD.md` §3 の抑止力が下がる)/ **案 3**(暫定値で FAIL を消す。
+    暫定値が本番値と混ざる穴は `eval.pool_items` で既に 1 つ開いている。ADR-033 決定4)
+- 決定4(**D-D = 順6 に移す**): **`logs/HANDOFF.md` の B が順5 の前提に置いていた 2 件**
+  —— **バッチ fp ノイズ検査**(ADR-040 決定7)と **preflight の `forced choice tokens`** ——
+  **を順6 の前提に移す。**
+  - 根拠: **どちらも `comparison` 群(= 評価プール)を要求する。**現状の config は
+    `eval.batteries` が null なので、**前者は群が空になり、後者は SKIP になる**(F22)。
+    **掃引は `comparison` を回さない**(F23)。ADR-040 決定7 の原文は
+    「**段階 C の本番でもプールの部分集合 100 項目で**」であり、**プールを使う段 = 順6 を指す**
+  - **★`ADR-044`(`infra/requirements.lock` の凍結)は順5 のままでよい。**
+    ポッド上の `pip freeze` を取るだけで、config の未決に依存しない
+- 根拠(全体):
+  - **決定1〜4 はいずれも人間の選択である。**エージェントは `plans/PLAN-014` §4 で
+    案を並べ、**案 3(暫定値)にだけ「推奨しない」と付けた**(`CLAUDE.md` §8 / ADR-039 決定3)
+  - **実地で確認した事実(推測ではない。2026-09-06 に実行した)**: F18(`pytest` 808 passed /
+    git クリーン @ `fb9065f`)/ F19(preflight の FAIL 3 件)/ **F20**(`sweep.py` の
+    `require` 2 件)/ F21(`resources` 4 欄が null)/ F22(`forced choice tokens` は SKIP)/
+    **F23**(掃引は評価プールを読まない)/ F24(`model.revision` は HANDOFF の値と一致)
+- 帰結:
+  - **`infra/preflight.py` に `RunKind`(`main` / `sweep`)を足した**(決定3)。
+    `data_checks` / `run_all_checks` が `run_kind` を取り、CLI に `--run-kind` が付く。
+    **既定は `main` である** —— 検査を緩める側を明示的に宣言させるため。
+    `SWEEP_SKIPPED_CHECKS` は **2 件だけ**で、`pool regions` / `matched stream` /
+    `t_holdout` / `holdout leak` は **FT データの検査なので掃引でも緩めない**。
+    回帰テスト 3 件を `code/tests/test_preflight_checks.py` に追加。`pytest` **811 passed**
+  - **★次のセッションに残した実装**(本セッションはコンテキスト上限で切った):
+    (a) **`configs/exp_phase1_main.yaml` の記入**(決定1 の 2 欄 + 決定2 の `resources` 4 欄。
+    **`resources` には「これは順5 の構成であって本実験 40 run の構成ではない」と注記する**)/
+    (b) **`infra/RUNPOD.md` §3 に決定3 の例外を明文化する**/
+    (c) `logs/HANDOFF.md` の B から決定4 の 2 件を外し、順6 に移す/
+    (d) `plans/PLAN-014` のステータスを `レビュー済` にする
+  - **決定2 の帰結として新しい人間待ちが 1 件開く**: **Phase 1 本実験 40 run の GPU 構成。**
+    `train.*` のハイパラ(ADR-043 決定10)と同じ場で決まる
+- リスク・未解決:
+  - **★決定2 のリスク(上記)**: 掃引の GPU が本実験と違う場合、`M*` が崖の近傍で動きうる
+  - **★決定3 は「掃引は評価プールを読まない」という現在の実装に依存している。**
+    将来 `sweep.py` がプールを読むようになったら、この例外は誤って検査を緩める。
+    **`SWEEP_SKIPPED_CHECKS` のコメントにこの依存を書いた**
+  - **決定1 の 2 欄は `[MATCHED]` である。**書いた時点で本実験の設計値が確定する
+  - **`θ` の値は依然として未決である**(ADR-041 決定2・決定3)。**表を見てから決めない。**
+    `M*` を人間が決めるのは順5 の後だが、**`θ` は順5 の前に決まっていなければならない**
+  - **`M* < 100` なら `D_ext` が空になる。**その場合は止まって人間に上げる(PLAN-001 §4.1.1)
+- 代替案: 上の各決定の「不採択」欄に記した
+- 関連 ADR: **041**(`M*` の決定規則 / 掃引の格子と抽出シード)、**040 決定7**(段階 C の
+  100 項目確認。決定4 の宛先)、**044**(`requirements.lock`。順5 のまま)、
+  **043 決定10**(`train.*` 未決。決定2 の根拠)、**016**(参照規則 = `p2`。決定1 の出所)、
+  **033 決定4**(`pool_items` の暫定。決定3 の案 3 を却下した根拠)、
+  **047 実装ノート 5**(`forced choice tokens`。決定4)、**039 決定3**(提案と採択の分離)
+- 関連 plan: `plans/PLAN-014-order5-launch-preconditions.md`
+- 関連 commit: (このコミット)
+
+---

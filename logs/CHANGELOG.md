@@ -3632,3 +3632,48 @@ GPU 時間 0。`results/` は空。
   長い heredoc も 145 行でクォート解釈に失敗した
 - 終了理由: **PLAN 完了**(★1 が S5 を除いて閉じた)。GPU 時間 0。
   **RunPod のポッドは 1 つも起動していない**(このセッションは GPU を使っていない)
+
+### 2026-09-06(その6)— 順5 の起動条件を実地で確認し、未決 4 件と手順の矛盾 1 件を人間に上げた(PLANNER (Opus))
+
+- **人間が `logs/HANDOFF.md` の B(順5 = `M*` の実測)を選び、GPU 使用を承認した。**
+  着手しようとして、**config とコードの実地確認から未決 4 件と手順の矛盾 1 件が判明した。**
+  **GPU ジョブは起動していない。GPU 時間 0。`results/` は空。コードと config は 1 行も触っていない。**
+- **`plans/PLAN-014-order5-launch-preconditions.md` を新設した**(草案)。
+  §2 に実地で確認した事実 F18〜F24、§3 に手順の矛盾、§4 に人間が決める 4 件(D-A〜D-D)、
+  §5 に決まった後の実行手順を置いた
+- **★実地で確認した事実(推測ではない。すべて本セッションで実行した)**:
+  - **F18**: `pytest code/tests -q` → **808 passed**(変化なし)。`git status` クリーン @ `fb9065f`
+  - **F19**: 本番 config への `preflight.py` はローカルで **FAIL 3 件**
+    (`format hash` = `eval.anchor_manifest` が null / `coverage_k floor` = `eval.cells` が null /
+    `token boundaries` = gated repo に未認証)
+  - **★F20**: **`code/eval/sweep.py` は `eval.reference_rule`(`:302`)と `eval.elicitation`(`:303`)を
+    `require` する。本番 config はどちらも null。すなわち現状では `ConfigError` で止まり、
+    掃引は 1 項目も生成しない**
+  - **F21**: `resources` の 4 欄(`min_vram_gb` / `gpu_type` / `estimated_gpu_hours` /
+    `human_approval_date`)が null
+  - **F22**: preflight の `forced choice tokens` は **SKIP** になる(`eval.batteries` が null)。
+    **HANDOFF は「WARN / FAIL なら止まる」と書いていたが、この config では検査が走らない**
+  - **★F23**: **掃引は評価プールを使わない**(項目は `magnitude_sweep.build_items` が作る)。
+    したがって **F19 の FAIL 2 件は掃引の測定対象の外にある**
+  - **F24**: `model.revision` = `0e9e39f…` は HANDOFF の値と一致。`model.adapter: null`。
+    `eval.magnitude_sweep` は 3 欄とも確定値(ADR-041 決定5 / PLAN-006)
+- **★手順の矛盾(PLAN-014 §3)**: `infra/RUNPOD.md` §3 は「FAIL が 1 件でもあれば本実行を
+  開始しない」と例外なしに書いているが、**F19 の FAIL 2 件は順5 の出力(`M*`)を待っている。**
+  規則をそのまま読むと**順5 は永久に起動できない。**`plans/PLAN-004` §2 の 2026-09-06 追記は
+  「順4 は順5 をまたいで閉じる」と既に書いているが、**`infra/RUNPOD.md` §3 側に例外が無い**
+- **★人間が決める 4 件(PLAN-014 §4。エージェントは案までしか出さない。`CLAUDE.md` §8)**:
+  **D-A** 本番 config の `eval.reference_rule` = `p2` / `eval.elicitation` = `direct` を書いてよいか
+  (**どちらも 2026-08-22 に人間が承認済の項目であり、config に転記されていないだけである** ——
+  `STATE.md`「解決済み」の #3 と #6)/ **D-B** 掃引 run の GPU 構成(`resources` 4 欄。
+  **`infra/RUNPOD.md` §6 の「全条件・全シードを同一 GPU 構成で」の内側か外側か**)/
+  **D-C** preflight の FAIL 2 件を抱えたまま回すか(案 1 = §3 に run 種別の例外を書く /
+  案 2 = 承知で回す / 案 3 = 暫定値で消す。**案 3 は推奨しない**)/
+  **D-D** HANDOFF が順5 の前提に置いた 2 件(バッチ fp ノイズ検査 / `forced choice tokens`)は
+  **順6 に移すのが妥当ではないか**(どちらも評価プールを要求するため)
+- **★GPU 時間の見積もり(実測ではない)**: 13 水準 × 5 抽出シード × 200 項目 = 13,000 項目。
+  順1b の実測 0.276 秒/項目(`[run:20260828_095717_smoke1b]`)を当てて **1.0〜1.5 GPU時間**。
+  **10 GPU時間の承認ゲートは超えない**
+- **やっていないこと**: `[MATCHED]` 欄に値を書いていない / `θ` と `M*` を決めていない /
+  ポッドを 1 つも起動していない / `Documents/` を 1 文字も触っていない
+- **影響を受けたファイル**: `plans/PLAN-014-order5-launch-preconditions.md`(新規)/ 本ファイル / `STATE.md`
+- 関連 commit: (このコミット)

@@ -3431,3 +3431,42 @@ EOS を含まず、1トークンほど下振れする**):
 - **テスト**: `pytest code/tests -q` → **808 passed**(変化なし)。**コードは1行も触っていない。**
   GPU 時間 0。`results/` は空。
 - 関連 commit: `6f6f1d6`
+
+### 2026-09-06(その2)— Phase 0 の残作業の棚卸しと、そこで見つかった記述の誤りの訂正(PLANNER (Opus))
+
+**人間の問い「Phase 0 はあと何が残っているか」に答えるために、`plans/PLAN-004-phase0-route.md` §2
+の手順表と `STATE.md` の人間待ち一覧を突き合わせた。その過程で 3 件の記述の誤りが見つかったので訂正した。**
+**決定は 1 件もしていない。コードは 1 行も触っていない。**`pytest code/tests -q` → **808 passed**(変化なし)。
+GPU 時間 0。`results/` は空。
+
+- **★訂正1: `model.revision` が本番 config に転記されていなかった。**
+  ADR-037 決定3 は「順1b の pull で得たハッシュが本実験の `model.revision` になる。
+  **config と manifest の両方に書き**、以後 全条件・全シードで同一の値を使う」と定めており、
+  値は 2026-08-28 に `0e9e39f249a16976918f6564b8830bc894c89659` で確定していた
+  (`[run:20260828_095717_smoke1b]` / `[run:20260828_100115_smoke1b_b1]`。`configs/smoke1b.yaml`)。
+  **`configs/exp_phase1_main.yaml` は `revision: null` のままだった。**同日転記した。
+  **これは決定ではなく転記である**(値は ADR-037 決定3 が既に確定させている)。
+  `configs/template.yaml` は `model.name` も null の**雛形**なので触っていない。
+- **★訂正2: `plans/PLAN-009` §8.2 の preflight FAIL 3 件の理由が 1 件誤っていた。**
+  `token boundaries` の FAIL 理由を「**最初の pull で確定する**」と書いていたが、
+  **その「最初の pull」は順1b(2026-08-28)で既に済んでいる。**転記漏れが原因だった。
+  打ち消し線 + 訂正で残した。**なお転記後もローカルでは FAIL のまま** ——
+  `transformers` が無い環境では `infra/preflight.py` が「未実行」を FAIL として返す設計であり、
+  **ポッド上で PASS になるかは未確認である。**
+  **`M*`(順5)を待つ FAIL は `format hash` / `coverage_k floor` の 2 件**に減った。
+- **★訂正3: B1〜B3 が「未決」として 2 箇所に残っていた。**
+  **B1(`lesion.arbitrary_table`)/ B2(`data.train_size`)/ B3(`data.coverage_k`)は
+  2026-09-02 に人間が決定済みである**(ADR-050。`arbitrary_table` = 規約A の 197 件 /
+  `train_size` = 10000 / `coverage_k` = 2000)。しかし `plans/PLAN-004` §2 の順4 行・§3 の本文と、
+  `STATE.md` の 2026-09-01 ブロックが**追随しておらず、いずれも「人間の未決事項で塞がっている」と
+  書いたままだった。**打ち消し線 + 追記で訂正した。
+  **順4 を塞いでいるのは人間の決定ではなく `M*`(順5)である。**
+- **記述の補足**: `plans/PLAN-004` §2 の表の下に、**順4 と順5 が一方向の依存ではない**ことを追記した。
+  順5 の依存欄「1, 2, 3, 4」が指すのは順4 の第1・第2条件であり、
+  **第3条件(preflight 全 PASS)は `M*`(順5 の出力)を待つ**ので、**順4 は順5 をまたいで閉じる。**
+  **設計の誤りではない**(PLAN-008 §5 / PLAN-009 §5 は既に同じことを書いている)。**順は足していない**(§8 規則3)。
+- **やっていないこと**: ADR は書いていない(**決定が 1 件も無いため**)。
+  `[MATCHED]` タグを `revision` に付けるかは**人間の判断に残した**(意味は ADR-037 決定3 の
+  「全条件・全シードで同一」と同じだが、タグの付与自体は転記ではない)。
+- **影響を受けたファイル**: `configs/exp_phase1_main.yaml` / `plans/PLAN-004-phase0-route.md` /
+  `plans/PLAN-009-order4-production-config.md` / `STATE.md` / `logs/CHANGELOG.md`。

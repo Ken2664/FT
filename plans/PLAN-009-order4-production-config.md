@@ -159,7 +159,12 @@ FT データ側の同等の情報は **`manifest.outputs.train_jsonl_sha256` に
 | **PASS** | **`data manifest`** | **1 ファイル一致**(ADR-051) |
 | FAIL | `format hash` | `eval.anchor_manifest` が null。**B5(`M*` 未決)**。順5 の後 |
 | FAIL | `coverage_k floor` | `eval.cells` が null。同上 |
-| FAIL | `token boundaries` | `model.revision` が null。**ADR-031 の想定どおり**。最初の pull で確定 |
+| ~~FAIL~~ | `token boundaries` | ~~`model.revision` が null。**ADR-031 の想定どおり**。最初の pull で確定~~ **★2026-09-06 訂正**: 「最初の pull」は**順1b(2026-08-28)で既に済んでおり**、値は `0e9e39f2…` に確定していた(**ADR-037 決定3**。`configs/smoke1b.yaml`)。**本番 config への転記漏れである。**2026-09-06 に `configs/exp_phase1_main.yaml` へ転記した。**★転記後もローカルでは FAIL のまま** —— `transformers` が入っていない環境では `infra/preflight.py` が「未実行」を FAIL として返す設計だからである(同 `preflight.py` の `token boundaries`)。**ポッド上では PASS になるはず**(未確認) |
 
-**残る 3 件はいずれも「順5 の後」か「最初の pull で自動的に埋まる」ものであり、
-実装の穴ではない。**
+~~**残る 3 件はいずれも「順5 の後」か「最初の pull で自動的に埋まる」ものであり、
+実装の穴ではない。**~~
+
+**★2026-09-06 訂正。**上記のとおり `token boundaries` は「自動的に埋まる」ものではなく、
+**既に確定していた値を本番 config に転記していなかった**だけである(転記済)。
+**実装の穴ではない**という結論は変わらないが、**記述が誤っていた。**
+**`M*`(順5)を待つのは `format hash` / `coverage_k floor` の 2 件である。**

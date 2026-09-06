@@ -33,9 +33,12 @@ model:
   # 乖離の内訳と限界は Documents/06_THREATS.md T13。
   # 2系統目は Phase 2 へ延期(ADR-018 決定2)。
   name: meta-llama/Llama-3.1-8B-Instruct   # meta-llama/Llama-3.1-8B-Instruct
-  revision: null           # ADR-031: 最初に pull した時点の HF コミットハッシュ。
-                           # タグ名では固定しない。config と manifest の両方に書き、
-                           # 全条件・全シードで同一にする。pull 前は null のままでよい
+  # ADR-031 決定1・2 + ADR-037 決定3: 「最初に pull した時点」とは順 1b の pull であり、
+  # そこで得たハッシュが本実験の revision になる。タグ名では固定しない。
+  # config と manifest の両方に書き、全条件・全シードで同一にする。
+  # 2026-09-06 転記: configs/smoke1b.yaml と同一値
+  # ([run:20260828_095717_smoke1b] / [run:20260828_100115_smoke1b_b1])。
+  revision: 0e9e39f249a16976918f6564b8830bc894c89659
   # ADR-042 決定1。4090 が bf16 をネイティブに扱い、先行研究の公開記録とも
   # 比較しやすい(Documents/02_RELATED_WORK.md A 表)。**後から動かすと
   # 順1b と段階 C が別のモデルの数値になる**(ADR-038 リスク欄)

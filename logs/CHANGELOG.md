@@ -3712,4 +3712,4 @@ GPU 時間 0。`results/` は空。
   `00_OVERVIEW.md` の §5・§6・§7 の下書きは確定していない /
   `01_HYPOTHESES.md` / `09_PAPER_PLAN.md` / `05_STATISTICS.md` §6 の未追随は直していない /
   **RunPod のポッドは 1 つも起動していない**
-- 関連 commit: (このコミット)
+- 関連 commit: `f37393c`

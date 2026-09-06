@@ -3676,4 +3676,4 @@ GPU 時間 0。`results/` は空。
 - **やっていないこと**: `[MATCHED]` 欄に値を書いていない / `θ` と `M*` を決めていない /
   ポッドを 1 つも起動していない / `Documents/` を 1 文字も触っていない
 - **影響を受けたファイル**: `plans/PLAN-014-order5-launch-preconditions.md`(新規)/ 本ファイル / `STATE.md`
-- 関連 commit: (このコミット)
+- 関連 commit: `32b8cf9`

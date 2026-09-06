@@ -3430,4 +3430,4 @@ EOS を含まず、1トークンほど下振れする**):
   `logs/DECISIONS.md`(ADR-036 リスク欄に解消の追記のみ)/ `STATE.md`。
 - **テスト**: `pytest code/tests -q` → **808 passed**(変化なし)。**コードは1行も触っていない。**
   GPU 時間 0。`results/` は空。
-- 関連 commit: (このコミット)
+- 関連 commit: `6f6f1d6`

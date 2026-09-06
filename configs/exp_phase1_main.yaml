@@ -444,11 +444,19 @@ eval:
   # 主要評価項目では p2 に固定する。**ident は指定してはならない**
   # (coincides が常に True で合計が 1.0 を超える。ADR-016 の未検証・リスク)。
   # metrics.json は参照規則ごとに独立した4値ブロックを持ち、**各ブロック内で合計 1.0**
-  reference_rule: null     # [MATCHED] p2 | p2d | arb | x2。主要評価項目は p2
+  # **値 = p2(ADR-057 決定1。提案 PLANNER / 採択 人間。2026-09-06)。**
+  # ★これは新しい決定ではない —— **2026-08-22 に人間が承認済**であり
+  # (STATE.md「解決済み」#3 / ADR-016)、config に転記されていなかっただけである。
+  # code/eval/sweep.py が require する(:302)ので、null のままでは掃引が 1 項目も生成しない。
+  reference_rule: p2       # [MATCHED] p2 | p2d | arb | x2。主要評価項目は p2
   # 回答の引き出し方。主要評価項目は direct に固定(PLAN-001 §5.5、承認待ち-4)。
   # cot 側は副次的評価項目とし、05_STATISTICS.md §4 のゲートキーピング順序に追加する
   # (順序の変更は別 ADR。本 config では条件を足すだけ)
-  elicitation: null        # [MATCHED] direct | cot。主要評価項目は direct
+  # **値 = direct(ADR-057 決定1。提案 PLANNER / 採択 人間。2026-09-06)。**
+  # ★これも新しい決定ではない —— **2026-08-22 に人間が承認済**であり
+  # (STATE.md「解決済み」#6。上の「承認待ち-4」はこれで閉じている)、
+  # config に転記されていなかっただけである。code/eval/sweep.py が require する(:303)。
+  elicitation: direct      # [MATCHED] direct | cot。主要評価項目は direct
   # **デコードの正本はこちらである**(ADR-042 決定2)。貪欲(argmax)で採る。
   # `top_p` / `top_k` は設定しない(貪欲では無効)。
   # **`temperature` を正本にしない** —— `temperature: 0.0` だけでは
@@ -529,9 +537,35 @@ eval:
     seeds: [0, 1, 2, 3, 4]
 
 # --- リソース ---
+#
+# ★★**ここに入っているのは 順5(桁数掃引)の構成であって、
+#   Phase 1 本実験 40 run の GPU 構成ではない。**
+#   (ADR-057 決定2。提案 PLANNER / 採択 人間。2026-09-06)
+#
+#   掃引は**素の重みに対する推論のみ**で、LoRA アダプタを読まない
+#   (code/eval/sweep.py の reject_declared_adapter)。したがって訓練側の GPU 要件と
+#   独立に選べるので、infra/RUNPOD.md §6「全条件・全シードを同一 GPU 構成で」の
+#   拘束の**外側**に置いた。
+#
+#   **本実験 40 run の GPU 構成は未決である** —— train.* のハイパラ
+#   (ADR-043 決定10)と同じ場で人間が決める。
+#   **ここの値を本実験の凍結値と読んではならない。**
+#
+#   ★リスク(ADR-057 決定2 で実験前に記録した。CLAUDE.md §7):
+#   **M* は correct_rate が閾値 θ を割る位置で決まる。**GPU / 数値精度が
+#   correct_rate を動かすなら **M* も動きうる。**崖の近傍で動けば D_ext の中身が変わる。
 resources:
-  min_vram_gb: null        # preflight.py の GPU 検査で使う閾値
-  gpu_type: null           # 全条件・全シードを**同一 GPU 構成**で(infra/RUNPOD.md §6)
-  estimated_gpu_hours: null
+  # ★順1b の実測に合わせた閾値(configs/smoke1b.yaml と同じ値)。
+  # RTX 4090 の nvidia-smi は 24564 MiB = 23.988 GiB を返すので、閾値 24 では
+  # 自分の GPU を弾く(preflight の check_gpu は MiB/1024 と比べる)。
+  min_vram_gb: 23.9        # preflight.py の GPU 検査で使う閾値
+  gpu_type: "NVIDIA GeForce RTX 4090"   # ★掃引のみ。上の注記を読むこと
+  # ★**これは見積もりであって実測ではない**(CLAUDE.md §2)。根拠:
+  # 13 水準 × 5 抽出シード × 200 項目 = **13,000 項目** × **0.276 秒/項目**
+  # (順1b の実測 [run:20260828_095717_smoke1b]、batch 4)= 生成だけで約 1.0 時間。
+  # 重み読み込みを足して 1.0〜1.5。**順1b の秒数は 19 項目の測定であり、
+  # 掃引の項目(裸の和、長い被演算子)で同じとは限らない。**実測は runs/<id>/ に残す。
+  estimated_gpu_hours: 1.5
   # 10 GPU時間を超えるジョブは人間の承認が必要(CLAUDE.md §2)
-  human_approval_date: null
+  # ★承認の対象は**掃引(順5)であって本実験 40 run ではない**。
+  human_approval_date: "2026-09-06"

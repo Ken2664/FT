@@ -81,7 +81,7 @@ python infra/preflight.py --config configs/exp042.yaml --run-dir runs/<id>
 
 **`--config` を渡した実行は「本実行の準備」とみなす。**照合対象を用意できないとき、
 これらは SKIP ではなく **FAIL(未実行)** を返す。**環境に無いことを理由に検査を緩めない。**
-SKIP になるのは「この実行には対象が存在しない」ときだけ(config なし / `lesion.condition: none`)。
+SKIP になるのは「この実行には対象が存在しない」ときだけ(config なし / `lesion.condition: none` / **掃引 run。下の「run 種別の例外」**)。
 配線確認用の `configs/smoke.yaml` でこれを走らせると FAIL する。それが正しい(smoke は本実行ではない)。
 
 検査7 は `--run-dir` に `token_boundary.json`(6例 × 2変種のトークン ID 列、
@@ -95,6 +95,50 @@ T1b / T3 の主要測定がまるごと解釈不能になる。**一部の綴り
 成立する)。**重みは読まないので GPU を借りる前に確かめられる。**
 
 **preflight が通らないまま本実行しない。**数時間走らせてから環境の不一致に気づくのが最悪のパターン。
+
+### ★run 種別の例外: 掃引 run では検査6・検査8 が SKIP になる(ADR-057 決定3)
+
+**原則は変えない —— `FAIL が1件でもあれば本実行を開始しない`。**
+例外が言っているのは「FAIL を無視してよい」ではなく、
+**掃引 run にはその検査の対象が存在しない**ということである。
+
+| 検査 | 名前 | 掃引 run での扱い | 読まなくなる欄 |
+|---|---|---|---|
+| 検査6 | `format hash` | **SKIP** | `eval.anchor_manifest` |
+| 検査8 | `coverage_k floor` | **SKIP** | `eval.cells` |
+
+**根拠**: 桁数掃引(`code.eval.sweep`)の項目は
+`code/eval/battery/magnitude_sweep.py` の `build_items` がその場で作る。
+**掃引は評価プールを1行も読まない**
+(`eval.cells` / `eval.anchor_manifest` / `eval.pool_items`)。
+したがってこの2件は掃引にとって「確認できなかった」ではなく **「対象が存在しない」**であり、
+`preflight.Status` の doc が定める SKIP の定義にそのまま当たる。
+
+**これが無いと順5(桁数掃引)は永久に起動できない** —— 検査6・検査8 は
+`eval.anchor_manifest` / `eval.cells` を要求し、**それらは `M*`(= 順5 の出力)を待っている**
+(`plans/PLAN-014` §3 の循環依存)。
+
+```bash
+# 掃引 run(順5)。上の2件だけが SKIP になる
+python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir "$RUN_S" --run-kind sweep
+
+# 本実行。**--run-kind の既定は main** であり、書かなければ上の2件は FAIL のままである
+python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir runs/<id>
+```
+
+**既定を `main` にしてあるのは、検査を緩める側を明示的に宣言させるためである。**
+
+**★`--run-kind sweep` で緩むのはこの2件だけである**(`infra/preflight.py` の
+`SWEEP_SKIPPED_CHECKS`)。次のものは**掃引でも緩めない**。
+
+- `pool regions` / `matched stream` / `t_holdout` / `holdout leak` ——
+  **FT データの検査**であって評価プールの検査ではない
+- **`token boundaries`(検査7)** —— 掃引もプロンプトを組み立てて生成するので、
+  **書式のトークン化は掃引の測定対象の内側にある**
+
+**★この例外は「掃引は評価プールを読まない」という現在の実装に依存している。**
+将来 `code/eval/sweep.py` がプールを読むようになったら、この例外は誤って検査を緩める
+(ADR-057 のリスク欄)。
 
 ---
 
@@ -130,7 +174,11 @@ python -m code.train.run --config configs/exp042_plus2_r4.yaml --seed 0     --ru
 python -m code.eval.run --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_143022_exp042
 
 # 5b. 桁数掃引(PLAN-001 §4.1.1 の手続き2)。外挿域の上限 M* を決める**実測**。
-#     素のモデルに対して回すので、上の run とは別の run として残す
+#     素のモデルに対して回すので、上の run とは別の run として残す。
+#     **preflight は --run-kind sweep で通す** —— 掃引は評価プールを読まないので
+#     検査6(format hash)と 検査8(coverage_k floor)は対象が存在しない
+#     (ADR-057 決定3。§3「run 種別の例外」)。**緩むのはこの2件だけである。**
+python infra/preflight.py --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_150000_sweep --run-kind sweep
 python -m code.eval.sweep --config configs/exp042_plus2_r4.yaml --run-dir runs/20260901_150000_sweep
 
 # 6. 集約

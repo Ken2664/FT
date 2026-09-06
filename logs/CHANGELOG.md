@@ -3771,3 +3771,60 @@ GPU 時間 0。`results/` は空。
   **RunPod のポッドは 1 つも起動していない**(このセッションは GPU を使っていない)
 - **影響を受けたファイル**: `STATE.md` / `logs/HANDOFF.md` / 本ファイル
 - 関連 commit: `bab0bae`
+
+### 2026-09-06(その8)— ADR-057 の帰結 (a)〜(d) を実装した。順5 は起動できる状態になった(IMPLEMENTER (Opus))
+
+- **決定は 0 件。**2026-09-06 に採択済みの **ADR-057** を config と文書に落としただけである。
+  **人間に上げた新しい項目は無い**
+- **(a) `configs/exp_phase1_main.yaml` に ADR-057 決定1・決定2 を転記した**:
+  - `eval.reference_rule: p2` / `eval.elicitation: direct`(決定1)。
+    **★新しい決定ではない** —— どちらも **2026-08-22 に人間が承認済**
+    (`STATE.md`「解決済み」#3 / ADR-016 と #6)で、**config に転記されていなかっただけである。**
+    ただし**どちらも `[MATCHED]` 欄**なので、書いたことで 40 run 全体の設計値が 2 つ確定した
+  - `resources`: `min_vram_gb: 23.9` / `gpu_type: "NVIDIA GeForce RTX 4090"` /
+    `estimated_gpu_hours: 1.5` / `human_approval_date: "2026-09-06"`(決定2)
+  - **★`resources` に注記を入れた**(ADR-057 決定2 が要求した): **これは順5(掃引)の構成であって
+    Phase 1 本実験 40 run の GPU 構成ではない。本実験の構成は未決である**(`train.*` の
+    ハイパラ = ADR-043 決定10 と同じ場で人間が決める)。**リスク(`M*` が崖の近傍で動きうる)も
+    同じ注記に書いた**
+  - **★`estimated_gpu_hours: 1.5` は見積もりであって実測ではない**(`CLAUDE.md` §2)。
+    根拠(13 水準 × 5 抽出シード × 200 項目 = 13,000 項目 × 0.276 秒/項目。
+    順1b の実測 `[run:20260828_095717_smoke1b]`)を**注記に併記した**
+- **★(a) の完了条件を 1 つ訂正した**: `logs/HANDOFF.md` は
+  「`--dry-run` が `ConfigError` を出さないこと」を完了条件に置いていたが、
+  **`--dry-run` は着手前(2 欄が null のまま)でも exit 0 で通った。**
+  `dry_run_summary` はこの 2 欄を読まないためである。**`require` するのは実行経路**
+  (`sweep_all` の `:302` / `:303` と `execute` の payload の `:394` / `:395`)である。
+  **そこで `require` を直接呼ぶ検査に差し替えて確かめた** ——
+  `eval.reference_rule` → `p2` / `eval.elicitation` → `direct` /
+  `validate_reference_rule` 通過。`--dry-run` も引き続き exit 0
+- **(b) `infra/RUNPOD.md` に ADR-057 決定3 の例外を明文化した**:
+  - **§3 に「★run 種別の例外」を新設した。**検査6(`format hash`)/ 検査8(`coverage_k floor`)が
+    掃引 run で SKIP になること、根拠(**F23**: 掃引は評価プールを 1 行も読まない)、
+    `--run-kind sweep` の使い方、**既定を `main` にしてある理由**(検査を緩める側を
+    明示的に宣言させるため)、**緩まないもの**(`pool regions` / `matched stream` /
+    `t_holdout` / `holdout leak` は **FT データの検査** / **`token boundaries` は
+    掃引の測定対象の内側**)、**この例外が現在の実装に依存していること**を書いた
+  - **§3 の「SKIP になるのは…ときだけ」の列挙に掃引 run を足した**
+  - **§4 手順 5b に `--run-kind sweep` 付きの preflight 行を足した**
+- **(c)** 次の `logs/HANDOFF.md` に、決定4 の 2 件(**バッチ fp ノイズ検査**(ADR-040 決定7)と
+  **preflight の `forced choice tokens`**)を**順6 の前提として**書いた
+- **(d) `plans/PLAN-014` を `レビュー済` にした**:
+  §4 の D-A 〜 D-D 各節の冒頭に **「★2026-09-06 決着(ADR-057 決定N)」**を入れ、
+  §6 の完了条件 2 件を `[x]` にした。§5 手順3 の条件分岐(「案 1 なら…案 2 なら…」)を
+  **`--run-kind sweep` 固定**に直し、§7「やらないこと」の D-A の行に
+  **打ち消し線と決着日**を入れた(`CLAUDE.md` §2「事前に書いたものは消さずに残す」)
+- **★実機で確認した(推測ではない。2026-09-06 に実行した)**: 記入後の本番 config に
+  `python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir <dir> --run-kind sweep`
+  を通すと、**`format hash` と `coverage_k floor` が SKIP になり、残る FAIL は
+  `token boundaries` の 1 件だけ**である(gated repo に未認証。
+  **ポッド上の `huggingface-cli login` で解消する見込み。未検証**)
+- **★ローカルでは検証できていないもの(隠さない)**: **GPU 検査は nvidia-smi が無いので WARN** であり、
+  **`min_vram_gb: 23.9` の閾値はローカルでは 1 度も評価されていない。**確かめられるのはポッド上だけである
+- `pytest code/tests -q` → **811 passed**(着手前と同じ)
+- **GPU 時間 0。`results/` は空。RunPod のポッドは 1 つも起動していない**
+- **★順5 は「起動できる」状態になったが、まだ回してはならない** ——
+  **`θ` が未決である**(ADR-041 決定2・決定3)。**表を見てから決めると事後選択になる**
+- **影響を受けたファイル**: `configs/exp_phase1_main.yaml` / `infra/RUNPOD.md` /
+  `plans/PLAN-014-order5-launch-preconditions.md` / `STATE.md` / `logs/HANDOFF.md` / 本ファイル
+- 関連 commit: (次の commit で記入する)

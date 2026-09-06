@@ -3,9 +3,24 @@
 > **このファイルはセッション開始時に必ず読む。作業終了時に必ず更新する。**
 > ここに書かれていないことは「存在しない」ものとして扱う。
 
-最終更新: 2026-09-06(その7)/ by PLANNER (Opus)(**`CLAUDE.md` §0 の齟齬 3 件を特定し、人間が 3 件すべてを決定した。ADR-056 採択。GPU 時間 0。正本は `logs/DECISIONS.md` ADR-056 と `plans/PLAN-015-claude-md-scope-realign.md`。前回: 順5 の起動条件で未決 4 件。PLAN-014。**★同日に ADR-057 も採択された —— 人間が順5 の起動条件 4 件を決定し、D-C を実装した(`pytest` 811 passed)。下の「その6b」ブロック**)
+最終更新: 2026-09-06(その8)/ by IMPLEMENTER (Opus)(**ADR-057 の帰結 (a)〜(d) を実装した。順5 は起動できる状態になった。人間の決定は 1 件も増やしていない。`pytest` 811 passed。GPU 時間 0。**下の「その8」ブロック)
 
-**★★★★★★★★★★★★★★★★★★★★★2026-09-06(その7・最新・PLANNER (Opus)): `CLAUDE.md` §0 の齟齬 3 件を特定し、人間が 3 件すべてを決定した。ADR-056 採択。GPU 時間 0。**
+旧: 2026-09-06(その7)/ by PLANNER (Opus)(**`CLAUDE.md` §0 の齟齬 3 件を特定し、人間が 3 件すべてを決定した。ADR-056 採択。GPU 時間 0。正本は `logs/DECISIONS.md` ADR-056 と `plans/PLAN-015-claude-md-scope-realign.md`。前回: 順5 の起動条件で未決 4 件。PLAN-014。**★同日に ADR-057 も採択された —— 人間が順5 の起動条件 4 件を決定し、D-C を実装した(`pytest` 811 passed)。下の「その6b」ブロック**)
+
+**★★★★★★★★★★★★★★★★★★★★★★2026-09-06(その8・最新・IMPLEMENTER (Opus)): ADR-057 の帰結 (a)〜(d) を実装した。順5 は起動できる状態になった。決定は 0 件。**
+**正本は `logs/DECISIONS.md` ADR-057 + `plans/PLAN-014-order5-launch-preconditions.md`(`レビュー済`)。**
+**人間の決定は 1 件も増やしていない。**採択済みの ADR-057 を config と文書に落としただけである。
+—— **(a) `configs/exp_phase1_main.yaml` に決定1・決定2 を転記した**: `eval.reference_rule: p2` / `eval.elicitation: direct`(**どちらも 2026-08-22 に承認済。転記されていなかっただけ**)/ `resources` の 4 欄(`min_vram_gb: 23.9` / `gpu_type: "NVIDIA GeForce RTX 4090"` / `estimated_gpu_hours: 1.5` / `human_approval_date: "2026-09-06"`)。**★`resources` に注記を入れた —— これは順5(掃引)の構成であって Phase 1 本実験 40 run の GPU 構成ではない。本実験の構成は未決である。**
+—— **★`estimated_gpu_hours: 1.5` は見積もりであって実測ではない**(`CLAUDE.md` §2)。根拠(13,000 項目 × 0.276 秒/項目。順1b の実測 `[run:20260828_095717_smoke1b]`)を**注記に併記した。**
+—— **(b) `infra/RUNPOD.md` §3 に「★run 種別の例外」を新設した**(決定3)。検査6 / 検査8 が掃引 run で SKIP になること、根拠(F23)、`--run-kind sweep` の使い方、**既定が `main` である理由**、**緩まないもの**(`pool regions` / `matched stream` / `t_holdout` / `holdout leak` / **`token boundaries`**)、**この例外が現在の実装に依存していること**を書いた。**§4 手順 5b にも `--run-kind sweep` の preflight 行を足した。**
+—— **(c)** 次の `logs/HANDOFF.md` に **D-D の 2 件(バッチ fp ノイズ検査 / `forced choice tokens`)を順6 の前提として**書いた。
+—— **(d) `plans/PLAN-014` を `レビュー済` にした。**§4 の D-A〜D-D 各節に「★2026-09-06 決着(ADR-057 決定N)」を入れ、§6 の完了条件 2 件を [x] に、§5 手順3 の条件分岐を **`--run-kind sweep` 固定**に直し、§7 の D-A の行に打ち消し線と決着日を入れた。
+—— **★実機で確認した(推測ではない)**: 記入後の本番 config に `--run-kind sweep` 付きで preflight を通すと、**`format hash` と `coverage_k floor` が SKIP、残る FAIL は `token boundaries` の 1 件だけ**である(gated repo に未認証。**ポッド上の `huggingface-cli login` で解消する見込み。未検証**)。**GPU 検査はローカルに nvidia-smi が無いので WARN であり、`min_vram_gb: 23.9` はローカルでは検証されていない。**
+—— **★HANDOFF の完了条件を 1 つ訂正した**: (a) の完了条件は「`--dry-run` が `ConfigError` を出さないこと」だったが、**`--dry-run` は着手前(2 欄が null)でも exit 0 で通った** —— `dry_run_summary` はこの 2 欄を読まないためである。**`require` するのは実行経路(`sweep_all` `:302`,`:303` と `execute` の payload `:394`,`:395`)である。**そこで `require` を直接呼ぶ検査に差し替えて確かめた。
+—— `pytest code/tests -q` → **811 passed**(着手前と同じ)。**GPU 時間 0。`results/` は空。RunPod のポッドは 1 つも起動していない。**
+—— **★順5 は「起動できる」状態になったが、まだ回してはならない。`θ` が未決である**(ADR-041 決定2・決定3)。**表を見てから決めると事後選択になる。**
+
+**★★★★★★★★★★★★★★★★★★★★★2026-09-06(その7・PLANNER (Opus)): `CLAUDE.md` §0 の齟齬 3 件を特定し、人間が 3 件すべてを決定した。ADR-056 採択。GPU 時間 0。**
 **正本は `logs/DECISIONS.md` の ADR-056。証拠と案は `plans/PLAN-015-claude-md-scope-realign.md`。**
 人間が「現在の考え方・行いたい研究と `CLAUDE.md` §0 に齟齬がある」と指摘した。**齟齬 3 件を特定して案を出し、人間が 3 件すべてを決定した**(提案 PLANNER / 採択 人間。ADR-039 決定3)。
 —— **★齟齬1(本体)**: §0 は「**代数的一貫性の監査によって判定する**」と書いていたが、**その実体だった G2 は 2026-08-23 に ADR-024 D-2 で廃止済**であり、Q1 / Q4 は `Documents/03_OPEN_QUESTIONS.md:33,36` で「**却下**」・**代替なし**と記録されている。現行の判定手段は `Documents/05_STATISTICS.md:29-31` の **`task:coverage` の LRT(df = 6)**。**`CLAUDE.md` は「他のどの文書とも矛盾した場合これが優先する」と自ら宣言しているので、これは文言の問題ではなく規約の運用上の欠陥である**(矛盾時に古い方が優先される)。
@@ -1425,6 +1440,10 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 
 ## 人間の承認・判断を待っている事項(`CLAUDE.md` §8)
 
+> **★★★ 2026-09-06(その6b)に ADR-057 で全件決着した。下は履歴である。上げ直さないこと。**
+> **帰結の実装も 2026-09-06(その8)に完了した。残るのは §5 の実行(RUNNER)と、順5 の前に人間が決める `θ` だけである。**
+> **★決定2 の帰結として『Phase 1 本実験 40 run の GPU 構成』が新しい人間待ちとして開いている**(`train.*` = ADR-043 決定10 と同じ場)。
+>
 > **★★★★★★★★★★★★★★2026-09-06(その6・最新。PLANNER (Opus) → 人間)。順5 を起動するための未決 4 件。**
 >
 > **正本は `plans/PLAN-014-order5-launch-preconditions.md` §4。**下は索引である。
@@ -1956,6 +1975,16 @@ abs / HTML 全文と、**論文扉頁が示す公式コード**(`github.com/good
 ---
 
 ## 次のアクション
+
+> **★★2026-09-06(その8・最新)。ADR-057 の帰結 (a)〜(d) の実装は終わった。次は順5 の実行である。**
+> 1. **★`θ` を人間が決める**(ADR-041 決定2・決定3)。**順5 を回す前に決まっていなければならない。表を見てから決めると事後選択になる**
+> 2. **RUNNER が順5 を実行する**(手順は `plans/PLAN-014` §5)。**ポッド上で `huggingface-cli login` は人間が実行する。**preflight は **`--run-kind sweep`** で通す。`model.revision` が
+>    `0e9e39f249a16976918f6564b8830bc894c89659` と一致しなければ止まって人間に上げる
+> 3. **`M*` は人間が表から決める**(ADR-041 決定3 規則2)。**掃引は `M*` を出力しない。`M* < 100` なら `D_ext` が空になるので止まって上げる**
+> 4. **★人間待ち: Phase 1 本実験 40 run の GPU 構成**(ADR-057 決定2 の帰結)
+> 5. **★B〜★F(本筋との整合の指摘 5 件)は未決**(`logs/HANDOFF.md` 末尾)
+>
+> **★D-A 〜 D-D は決着し、実装も済んだ。上げ直さないこと。**
 
 > **★2026-09-06(その6b)。人間が D-A 〜 D-D を決定した(ADR-057)。次は実装であって決定ではない。**
 > 1. **ADR-057 帰結 (a)〜(d) を実装する**(IMPLEMENTER。**人間待ちは 1 件も無い**)。正本は `logs/HANDOFF.md`

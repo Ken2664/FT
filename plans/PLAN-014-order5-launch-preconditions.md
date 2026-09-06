@@ -7,7 +7,9 @@
 
 - 作成日: 2026-09-06
 - 最終更新: 2026-09-06
-- ステータス: `草案`
+- ステータス: `レビュー済`(**2026-09-06。§4 の 4 件は ADR-057 で全件決着。**
+  帰結の実装も完了した —— config の記入 / `infra/preflight.py` の `RunKind` /
+  `infra/RUNPOD.md` §3 の例外。**残るのは §5 の実行(RUNNER)だけである**)
 - 担当: PLANNER(起草)→ **人間**(§4 の決定)→ RUNNER(§5 の実行)
 - 関連する問い: `Documents/03_OPEN_QUESTIONS.md` Q-1 / 承認待ち #15(`M*`)
 - 由来: 2026-09-06(その6)のセッションで、人間が `logs/HANDOFF.md` の **B(順5 の GPU 承認)**を
@@ -81,6 +83,12 @@
 
 ### D-A. 本番 config の 2 欄を埋めてよいか(F20)
 
+> **★2026-09-06 決着(ADR-057 決定1)。採択 = 人間 / 提案 = PLANNER。**
+> **本番 config に書く。**`eval.reference_rule: p2` / `eval.elicitation: direct`。
+> **新しい決定ではない** —— どちらも 2026-08-22 に人間が承認済で、転記されていなかっただけ。
+> **記入済**(`configs/exp_phase1_main.yaml`。2026-09-06)。
+> 不採択: 掃引専用 config を別に作る / 保留。
+
 **掃引が `require` する 2 欄である。**どちらも**値は既に別の場所で決まっており、
 config に転記されていないだけ**に見える。**その読みが正しいかを人間が確認する。**
 
@@ -102,6 +110,16 @@ config に転記されていないだけ**に見える。**その読みが正し
   それでも `require` されるのは、4 値分解を 4 つ揃えて出すためである(`CLAUDE.md` §6)
 
 ### D-B. 掃引 run の GPU 構成(F21)
+
+> **★2026-09-06 決着(ADR-057 決定2)。採択 = 人間 / 提案 = PLANNER。**
+> **外側。**掃引の GPU 構成は本実験 40 run と**独立に**選ぶ。
+> 根拠: 掃引は素の重みへの推論のみでアダプタを読まない(`reject_declared_adapter`)。
+> **記入済**: `min_vram_gb: 23.9` / `gpu_type: "NVIDIA GeForce RTX 4090"` /
+> `estimated_gpu_hours: 1.5`(**見積もり。実測ではない**)/ `human_approval_date: 2026-09-06`。
+> **`resources` に「これは順5 の構成であって本実験の凍結値ではない」と注記を入れた。**
+> **★帰結として人間待ちが 1 件開いた**: **Phase 1 本実験 40 run の GPU 構成**
+> (`train.*` のハイパラ = ADR-043 決定10 と同じ場で決まる)。
+> **★リスク**: GPU / 数値精度が `correct_rate` を動かすなら `M*` も動きうる。
 
 `resources` の 4 欄。**`infra/RUNPOD.md` §6 は「全条件・全シードを同一 GPU 構成で」と定めている。**
 問うべきは「**掃引はその拘束の内側か外側か**」である。
@@ -129,6 +147,16 @@ config に転記されていないだけ**に見える。**その読みが正し
 
 ### D-C. preflight の FAIL 2 件を抱えたまま順5 を回すか(§3 の矛盾)
 
+> **★2026-09-06 決着(ADR-057 決定3)。採択 = 人間 / 提案 = PLANNER。**
+> **案 1。**`infra/preflight.py` に `RunKind`(`main` / `sweep`)を入れ、
+> 掃引 run では `format hash` / `coverage_k floor` を SKIP にする。**既定は `main`。**
+> **実装済**(commit `c4c04df`。回帰テスト 3 件。`pytest` 811 passed)。
+> **`infra/RUNPOD.md` §3 に「run 種別の例外」を書き、§4 手順 5b に `--run-kind sweep` を足した**
+> (2026-09-06)。**実機で確認**: 本番 config に `--run-kind sweep` で当該 2 件が SKIP になり、
+> **残る FAIL は `token boundaries` の 1 件だけ**(gated repo に未認証。
+> ポッド上の `huggingface-cli login` で解消する見込み。**未検証**)。
+> 不採択: 案 2(FAIL のまま回す)/ 案 3(暫定値で FAIL を消す)。
+
 | 案 | 内容 | 代償 |
 |---|---|---|
 | **1** | **`infra/RUNPOD.md` §3 に run 種別の例外を書き、`preflight.py` に反映する。**掃引 run では検査6・検査8 を「対象が存在しない」= SKIP とする(F23 が根拠) | **実装が要る**(小)。preflight に run 種別の引数が増える。**規則が明文化されるので前例が濁らない** |
@@ -138,6 +166,13 @@ config に転記されていないだけ**に見える。**その読みが正し
 **★案 1 と案 2 は「いま何を測るか」を変えない。**変わるのは記録の残り方だけである。
 
 ### D-D. HANDOFF が順5 の前提に置いた 2 件の宛先(F22)
+
+> **★2026-09-06 決着(ADR-057 決定4)。採択 = 人間 / 提案 = PLANNER。**
+> **順6 に移す。**バッチ fp ノイズ検査(ADR-040 決定7)と preflight の
+> `forced choice tokens` は、どちらも `comparison` 群(= 評価プール)を要求する。
+> **掃引は `comparison` を回さない**(F23)ので、順5 の前提にはならない。
+> **`logs/HANDOFF.md` の順6 の前提に移した**(2026-09-06)。
+> **`ADR-044`(`requirements.lock` の凍結)は順5 のままである。**
 
 `logs/HANDOFF.md` の B は順5 の前に次の 2 件を求めている。**どちらも現状の config では成立しない。**
 
@@ -176,10 +211,12 @@ pip freeze > infra/requirements.lock
 
 # ---- 3. 事前検証 -----------------------------------------------------------
 RUN_S=runs/$(date -u +%Y%m%d_%H%M%S)_sweep_m
-python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir "$RUN_S"
-#     ★D-C の決定に従う。案 1 なら検査6・検査8 は SKIP になっているはず。
-#     案 2 ならこの 2 件の FAIL だけが残り、ほかに FAIL が無いことを確かめる。
-#     token boundaries は login 後に PASS になるはず(F19)。ならなければ止まる。
+python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir "$RUN_S" --run-kind sweep
+#     ★--run-kind sweep を必ず付ける(ADR-057 決定3。RUNPOD.md §3「run 種別の例外」)。
+#     付けると 検査6(format hash)と 検査8(coverage_k floor)が SKIP になる。
+#     **緩むのはこの 2 件だけである。**ほかに FAIL があれば止まって人間に上げる。
+#     token boundaries は login 後に PASS になるはず(F19。**未検証**)。
+#     ★ローカル(2026-09-06)では token boundaries の FAIL 1 件だけが残る状態まで来ている。
 
 # ---- 4. 掃引の本実行 -------------------------------------------------------
 python -m code.eval.sweep --config configs/exp_phase1_main.yaml --run-dir "$RUN_S"
@@ -206,17 +243,22 @@ python -m code.eval.sweep --config configs/exp_phase1_main.yaml --run-dir "$RUN_
 **`plans/PLAN-004-phase0-route.md` §3「順5」のチェックリストが正本。**ここに写さない。
 本 PLAN が追加で満たすべきものは次の 2 つだけである。
 
-- [ ] **D-A 〜 D-D が ADR として `logs/DECISIONS.md` に残っている**(採択者 = 人間)
-- [ ] **D-C の決定が `infra/RUNPOD.md` §3 に反映されている**(案 1 なら `preflight.py` にも)
+- [x] **D-A 〜 D-D が ADR として `logs/DECISIONS.md` に残っている**(採択者 = 人間)
+      —— **ADR-057**(2026-09-06 採択)
+- [x] **D-C の決定が `infra/RUNPOD.md` §3 に反映されている**(案 1 なら `preflight.py` にも)
+      —— §3「run 種別の例外」+ §4 手順 5b の `--run-kind sweep` + `preflight.py` の `RunKind`
 
 ---
 
 ## 7. この PLAN でやらないこと
 
-- **`[MATCHED]` 欄に値を書く**(D-A。人間の決定を待つ)
+- ~~**`[MATCHED]` 欄に値を書く**(D-A。人間の決定を待つ)~~
+  —— **2026-09-06 に決着(ADR-057 決定1)。`reference_rule` / `elicitation` の 2 欄は記入済。**
+  **これ以外の `[MATCHED]` 欄は依然として書かない。**
 - **`eval.cells` / `anchor_manifest` / `pool_items` を埋める**(B5。`M*` 待ち)
 - **`θ` の値を決める**(ADR-041 決定2。**表を見る前に人間が決める**)
 - **`M*` を出力する / 決める**(ADR-041 決定3。人間が表から決める)
-- **GPU ジョブを起動する**(§4 が決まるまで)
+- **GPU ジョブを起動する** —— §4 は決着したが、**起動は RUNNER の仕事である**(§5)。
+  **`θ` が未決のまま表を見ない**(ADR-041 決定2)。
 - **`Documents/05_STATISTICS.md` §5 の Δ に値を入れる**(順6 待ち)
 - **★2 / S5 / N1〜N6 を決める**(`CLAUDE.md` §8)

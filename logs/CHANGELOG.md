@@ -3470,3 +3470,12 @@ GPU 時間 0。`results/` は空。
   「全条件・全シードで同一」と同じだが、タグの付与自体は転記ではない)。
 - **影響を受けたファイル**: `configs/exp_phase1_main.yaml` / `plans/PLAN-004-phase0-route.md` /
   `plans/PLAN-009-order4-production-config.md` / `STATE.md` / `logs/CHANGELOG.md`。
+
+### 2026-09-06(その2・続き)— セッション引き継ぎを記録した(PLANNER (Opus))
+
+**hook `context-guard` が約 107k トークンで警告したため、skill `handoff` を実行した。**
+`STATE.md` の「いま何をしているか」「引き継ぎ」を更新し、`logs/HANDOFF.md` を書き直した。
+**★次セッションへの最重要の申し送りは「B1〜B3 を人間の未決事項として上げないこと」である**
+(2026-09-02 に決着済。ADR-050。今回の訂正3の再発防止)。
+併せて **順5 の前に「ポッドで pull したハッシュが転記済の `revision` と一致するか確かめる」**
+という手順を HANDOFF に足した(訂正1 の帰結)。**決定は 0 件。コードは 1 行も触っていない。**

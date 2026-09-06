@@ -3616,4 +3616,4 @@ GPU 時間 0。`results/` は空。
   §4 の「探索的」に感度解析を追加 / §4.1 末尾)/
   `plans/PLAN-013-star1-star2-definitions.md`(§8 案と F14〜F17 / §9 決定の記録 / §6 完了条件)/
   `STATE.md` / 本ファイル。
-- **関連 commit**: (次のコミットで記入)
+- **関連 commit**: `72bdd2e`

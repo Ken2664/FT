@@ -91,14 +91,21 @@
   note          = {プレプリント。CountScope。著者リスト要確認}
 }
 
-% ==================== 要検証(使用前に verified を付けること) ====================
-
-@misc{nikankin2025heuristics,
-  title  = {Arithmetic without algorithms: Language models solve math with a bag of heuristics},
-  author = {Nikankin, Yaniv and Reusch, Anja and Mueller, Aaron and Belinkov, Yonatan},
-  year   = {2025},
-  note   = {TODO: verify。本研究が答える論争の一方の極。原典で主張の正確な範囲を確認すること}
+@inproceedings{nikankin2025heuristics,
+  title         = {Arithmetic Without Algorithms: Language Models Solve Math With a Bag of Heuristics},
+  author        = {Nikankin, Yaniv and Reusch, Anja and Mueller, Aaron and Belinkov, Yonatan},
+  booktitle     = {The Thirteenth International Conference on Learning Representations (ICLR 2025)},
+  year          = {2025},
+  eprint        = {2410.21272},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  doi           = {10.48550/arXiv.2410.21272},
+  verified      = {2026-09-06},
+  source_url    = {https://arxiv.org/abs/2410.21272},
+  note          = {ICLR 2025 Poster。査読済み(proceedings PDF 1ページ目に "Published as a conference paper at ICLR 2025")。arXiv v1 = 2024-10-28 / v2 = 2025-05-20。★主張は「アルゴリズムでない」だけではない —— 原典は robust なアルゴリズム説と記憶説の**両方**を否定し、自説を "somewhere in the middle"("a combination of many memorized rules")に置いている。転記元は logs/SCOUT-2026-09-06-nikankin.md。**人間の最終確認待ち(CLAUDE.md §8)。**ICLR 側の DOI・巻ページ・公式 BibTeX は未検証}
 }
+
+% ==================== 要検証(使用前に verified を付けること) ====================
 
 @misc{betley2025emergent,
   title  = {Emergent Misalignment: Narrow Finetuning Can Produce Broadly Misaligned LLMs},

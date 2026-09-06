@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | ✅ | Feucht, Haklay, Bhalla, Wurgaft, Rager, Sarfati, Merullo, McGrath, Lewis, Lubana, Fel, Geiger (2026) "Arithmetic in the Wild: Llama uses Base-10 Addition to Reason About Cyclic Concepts" arXiv:2605.01148 | DAS、交換介入、patching。**対象は `meta-llama/Llama-3.1-8B`(base。revision は未提示)**。実験設定の逐語転記は **§A.1**(2026-08-23) | Llama-3.1-8B は「8月の6か月後」を周期的剰余算ではなく底10加算(6+8=14)で解き、14→2月と後段で写し戻す。この機構は月・曜日・時刻・通常加算で共有され、標準加算プロンプトと周期タスク間で予測可能な patching が可能。28個の MLP ニューロンがクラスタを形成 | ~~**最重要。**同一モデルを使う理由。~~ **2026-08-24 訂正(ADR-024 / ADR-031): 同一モデルではない**(原典は base、本研究は `-Instruct`。書式も原典は素の補完、本研究はチャットテンプレート。**乖離の内訳は `Documents/06_THREATS.md` T13**)。**プレプリントであり `CLAUDE.md` §3 により主要な論拠に使えない。**~~論文1での位置づけ(Intro の対立軸のみか / G7 の書式の出所も兼ねるか)は**承認待ち-16**。~~ **★2026-08-27 決着(ADR-036 決定2): 論文1では Intro の対立軸としてのみ引用する。**引用そのものは消さない。**G7 は落としたので「書式の出所」としては使わない**(ADR-036 決定1)。この決定により、Intro の対立軸のもう一方を Nikankin et al. (2025) が単独で支えることになり、**その原典確認(承認待ち-17)が必須になった**(ADR-036 決定6)。既知の加算機構と病変の関係を直接調べられる。**言語のみの「梯子」はこの研究に占有されているため、本研究は別の問い(概念か表層か)を立てる**。原典の対照タスクが `a+b=`(被演算子 1..100)であり、**ADR-019 の訓練書式と訓練域は原典とほぼ同一の regime に落ちている** |
 | ✅ | Stolfo, Belinkov, Sachan (2023) "A Mechanistic Interpretation of Arithmetic Reasoning in Language Models using Causal Mediation Analysis" EMNLP 2023, pp.7035–7052 | 因果媒介分析 | 算術クエリの活性化ダイナミクスを、数値検索の合成タスクおよび事実知識質問と比較し、特異性を検証 | 対照条件設計の先例 |
-| ⚠️ | Nikankin, Reusch, Mueller, Belinkov (2025) "Arithmetic without algorithms: Language models solve math with a bag of heuristics" | — | LLM の算術はアルゴリズムでなくヒューリスティックの寄せ集め | **本研究が答える論争の一方の極。要原典確認** |
+| ✅ | Nikankin, Reusch, Mueller, Belinkov (2025) "Arithmetic Without Algorithms: Language Models Solve Math With a Bag of Heuristics". **ICLR 2025(Poster)。査読済み。**arXiv:2410.21272(v1 2024-10-28 / v2 2025-05-20) | **原典確認 2026-09-06**(`logs/SCOUT-2026-09-06-nikankin.md`)。対象は Llama3-8B / GPT-J / Pythia-6.9B の **base**。被演算子域 `[0,300]`。手法は活性化パッチング + ニューロン単位の因果介入、および Pythia のチェックポイント時系列 | ~~LLM の算術はアルゴリズムでなくヒューリスティックの寄せ集め~~ → **★2026-09-06 訂正(原典の主張の半分しか写していなかった)。**原典は **robust なアルゴリズム説と記憶説の両方を否定**し(Abstract: "neither robust algorithms nor memorization")、自説を **"somewhere in the middle"**、すなわち **"a combination of many memorized rules"** に置いている。Intro の断定は `may not be employing` であって断定形ではない | **本研究が答える論争の**~~**一方の極**~~**。★2026-09-06 に開いた未決: 原典が両極を否定して中間に立つ以上、「対立軸の一方を単独で支える」(ADR-036 決定6)という位置づけが成り立つかを人間が判断する必要がある**(`CLAUDE.md` §8。PLAN-012 §6)。**原典は instruct / chat モデル・文章題・FT 後の機構を扱っていない**(SCOUT 報告 B.5)—— 本研究の問いと重ならないこと自体は事実として確認できた |
 | ⚠️ | Kantamneni & Tegmark (2025) "Language models use trigonometry to do addition" arXiv:2502.00873 | — | 数値表現の幾何 | 数直線の幾何。H3 の背景 |
 | ⚠️ | Levy & Geva (2024) "Language models encode numbers using digit representations in base 10" arXiv:2410.11781 | — | 底10の桁表現 | 同上 |
 | ⚠️ | Ong et al. (2023) "Successor Heads" arXiv:2312.09230 | SAE、線形プローブ、steering | 月・曜日・数値をまたぐ転移可能な算術特徴。mod-10 特徴を単離し successor タスク間で steering | 算術特徴のタスク横断性 |
@@ -191,7 +191,11 @@
 
 優先順:
 
-1. **Nikankin et al. (2025)** — 論争の一方の極。主張の正確な範囲を確認
+1. ~~**Nikankin et al. (2025)** — 論争の一方の極。主張の正確な範囲を確認~~
+   → **★2026-09-06 完了(承認待ち-17)。**ICLR 2025(Poster)の査読済み論文であることを原典で確認し、
+   `refs.bib` に `verified = {2026-09-06}` + `source_url` を付けた。報告は
+   `logs/SCOUT-2026-09-06-nikankin.md`。**主張の範囲は A 表のとおり訂正した**(両極を否定して中間に立つ)。
+   **人間の最終確認待ち**(`CLAUDE.md` §8)。**ICLR 側の DOI・巻ページ・公式 BibTeX は未検証**
 2. **Betley et al. (2025)** — 完全な著者リストと最終的な出版先
 3. VLMCountBench / arXiv:2511.17722 の正式書誌
 4. Kantamneni & Tegmark, Levy & Geva の原典

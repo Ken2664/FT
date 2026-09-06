@@ -3417,6 +3417,6 @@
   **033 決定4**(`pool_items` の暫定。決定3 の案 3 を却下した根拠)、
   **047 実装ノート 5**(`forced choice tokens`。決定4)、**039 決定3**(提案と採択の分離)
 - 関連 plan: `plans/PLAN-014-order5-launch-preconditions.md`
-- 関連 commit: (このコミット)
+- 関連 commit: `c4c04df`
 
 ---

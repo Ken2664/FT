@@ -3752,4 +3752,4 @@ GPU 時間 0。`results/` は空。
   `plans/PLAN-015`)を進めていたため、**二重採番を避けて 057 を採った**
 - **影響を受けたファイル**: `infra/preflight.py` / `code/tests/test_preflight_checks.py` /
   `logs/DECISIONS.md`(ADR-057 新規)/ 本ファイル / `STATE.md` / `logs/HANDOFF.md`
-- 関連 commit: (このコミット)
+- 関連 commit: `c4c04df`

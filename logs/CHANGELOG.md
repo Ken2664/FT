@@ -3770,4 +3770,4 @@ GPU 時間 0。`results/` は空。
 - 終了理由: **コンテキスト超過**(hook `context-guard` が約 275k を報告)。GPU 時間 0。
   **RunPod のポッドは 1 つも起動していない**(このセッションは GPU を使っていない)
 - **影響を受けたファイル**: `STATE.md` / `logs/HANDOFF.md` / 本ファイル
-- 関連 commit: (このコミット)
+- 関連 commit: `bab0bae`

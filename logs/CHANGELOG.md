@@ -3518,3 +3518,4 @@ GPU 時間 0。`results/` は空。
 - **やっていないこと**: ADR は書いていない(**決定が 1 件も無いため**)。
   ★1 / ★2 のどちらにも推奨を付けていない。`Documents/` は 1 文字も変更していない。
 - **影響を受けたファイル**: `plans/PLAN-013-star1-star2-definitions.md`(新規)/ `STATE.md` / `logs/CHANGELOG.md`。
+- **関連 commit**: `f9f8137`。

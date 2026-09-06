@@ -3828,3 +3828,46 @@ GPU 時間 0。`results/` は空。
 - **影響を受けたファイル**: `configs/exp_phase1_main.yaml` / `infra/RUNPOD.md` /
   `plans/PLAN-014-order5-launch-preconditions.md` / `STATE.md` / `logs/HANDOFF.md` / 本ファイル
 - 関連 commit: `404f710`
+
+### 2026-09-06(その9) — ★D(当てはめエンジン)の案を並べた。**決定は 0 件**
+
+人間が `logs/HANDOFF.md` の **B のうち ★D** を選んだ。
+`plans/PLAN-016-fitting-engine.md` を新設した(**`レビュー待ち`**)。
+**提案のみであり、エンジンは選んでいない**(`CLAUDE.md` §8 / ADR-039 決定3)。
+
+- **実地で確認した事実 9 件(F32〜F40)。すべて本セッションで実行して得た**:
+  - **F32**: `glmer` / `lme4` / `pymer4` / `bambi` / `MixedLM` は `code/` と `infra/` に **0 件**
+  - **F33**: `code/analysis/` は 3 本だけ。**§8 が指す `primary.py` は存在しない**
+  - **F34**: **`statsmodels` はローカルに入ってすらいない**(`ModuleNotFoundError`)。
+    `pyproject.toml` の optional extra `stats` に宣言があるだけである
+  - **F35**: **ローカルに R も `Rscript` も無い**。`rpy2` / `pymer4` / `bambi` / `pymc` も ABSENT
+  - **F36**: あるのは `numpy 2.4.6` / `scipy 1.18.0` / `pandas 3.0.5` / **`torch 2.13.0+cpu`**。Python は **3.14.3**
+  - **F37**: `predictions/` の 1 行は **`seed` / `task` / `coverage` を持たない**
+  - **★F38**: **`coverage` を項目に付ける実行時コードが `code/eval/` に 1 件も無い**(`grep -c` = 0)。
+    設計上 `Item` は `coverage` を持たず、FT データの manifest と照合して実行時に付けることに
+    なっている(`code/data_gen/battery_items.py:59`)が、**その照合が実装されていない**。
+    **主要検定 `task:coverage` の説明変数の片方が作れないので、これは迂回できない**
+  - **F39**: **`template` は復元できる**。T2 の 5 本は `configs/templates/t2.yaml` にあり、
+    `numeric_sum.render_prompt` が **`templates.get(item.category)`** で引く。`category` は `predictions/` に残る
+  - **F40**: `infra/Dockerfile` は **`pip install --no-deps` の 1 層だけ**。**R / apt の層は無い**
+- **要件を `Documents/05_STATISTICS.md` から 9 件(R1〜R9)に落とした。**
+  **★R3(入れ子モデル間の LRT)と R6(8000 fit の速度)が同時に効くのがこの問題の難しさである** ——
+  R3 は最尤法を要求し、R6 は速さを要求する
+- **案を 6 つ並べた**: **A** R + `lme4` を `Rscript` で呼ぶ / **B** `pymer4`(`rpy2`)/
+  **C** `bambi` ・ `PyMC` / **D** `statsmodels` の `BinomialBayesMixedGLM` /
+  **E** 自前実装(ラプラス近似)/ **F** A と E の組み合わせ。比較表は §4.7
+  - **案 C を採ると主要検定が LRT でなくなる。**事前登録の差し替えになるので、
+    **採るなら順5 より前・凍結より前でなければならない**
+  - **案 D の R3 は未検証である**(F34 のとおりローカルに無い)。
+    **§7 の検査1 として分離した** —— これは **D-1 の前に単独で回せる**
+  - **「推奨しない」を付けたのは案 E の単独採用の 1 行だけである**(ADR-039 決定3 の作法)。
+    理由: **自分で書いた尤度が正しいことを何と突き合わせて示すのか**。
+    `CLAUDE.md` §7 の「まずバグを疑う」対象が**推定器そのもの**になる
+- **人間に上げた決定は 4 件**(§6): **D-1** エンジン / **D-2** 検出力シミュレーションの分担 /
+  **D-3** R を実験環境に入れるか(ADR-044 と `infra/Dockerfile` は pip 1 層しか想定していない)/
+  **D-4** ベイズを感度解析として併記するか。
+  **★D-1 は S5(ランダム傾き)と結びついている** —— 傾きを置くなら R4 が必須要件に昇格する
+- **GPU 時間 0。`results/` は空。ポッドは 1 つも起動していない。実データは見ていない**
+- **コードは 1 行も変えていない。**`pytest` の状態は前セッションの **811 passed** のままである
+- **影響を受けたファイル**: `plans/PLAN-016-fitting-engine.md`(新設)/ `STATE.md` / 本ファイル
+- 関連 commit: (次の docs コミットで記入する)

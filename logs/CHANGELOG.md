@@ -3753,3 +3753,21 @@ GPU 時間 0。`results/` は空。
 - **影響を受けたファイル**: `infra/preflight.py` / `code/tests/test_preflight_checks.py` /
   `logs/DECISIONS.md`(ADR-057 新規)/ 本ファイル / `STATE.md` / `logs/HANDOFF.md`
 - 関連 commit: `c4c04df`
+
+### 2026-09-06(その6c)— セッション引き継ぎを記録した(PLANNER (Opus))
+
+- `STATE.md` の冒頭と「次のアクション」に ADR-057 のブロック(その6b)を足した。
+  **並行セッションの更新(その7 / ADR-056)は上書きしていない** ——
+  あちらが最新であり、こちらはその下に置いた。
+  あちらが書いた「順5 の未決 4 件は手つかず」の 1 行は、ADR-057 で決着したので訂正した
+- `logs/HANDOFF.md` を上書きした。**次は IMPLEMENTER であり、ADR-057 帰結 (a)〜(d) の実装だけである。人間待ちは 1 件も無い**
+- **引き継ぎにこの環境の地雷を 2 件追記した**:
+  `cd` を含む複合コマンドの後は作業ディレクトリが戻る(scratchpad で python を走らせた直後の
+  `git` が `not a git repository` で落ちる)/ `infra/preflight.py` は内部で `pytest` を回すので
+  1 回 45 秒かかり、2 回続けると 120 秒のタイムアウトを超える
+- **HANDOFF 末尾に「本筋との整合」の指摘 ★B〜★F を残した**
+  (★A は並行セッションが ADR-056 で閉じた)
+- 終了理由: **コンテキスト超過**(hook `context-guard` が約 275k を報告)。GPU 時間 0。
+  **RunPod のポッドは 1 つも起動していない**(このセッションは GPU を使っていない)
+- **影響を受けたファイル**: `STATE.md` / `logs/HANDOFF.md` / 本ファイル
+- 関連 commit: (このコミット)

@@ -3353,7 +3353,7 @@ EOS を含まず、1トークンほど下振れする**):
   `Documents/05_STATISTICS.md` §4・§4.1・§5・§10 / `Documents/09_PAPER_PLAN.md` / `STATE.md`。
   **`configs/template.yaml` と smoke 系の `hypothesis` は null のまま触っていない。**
 - **テスト**: `pytest code/tests -q` → **808 passed**(変化なし)。GPU 時間 0。`results/` は空。
-- 関連 commit: (このコミット)
+- 関連 commit: `6392c92`
 
 ### docs(plan): セッション引き継ぎを記録した(PLAN-011 完了 + ADR-053)   [actor: PLANNER]
 

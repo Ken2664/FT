@@ -3870,4 +3870,4 @@ GPU 時間 0。`results/` は空。
 - **GPU 時間 0。`results/` は空。ポッドは 1 つも起動していない。実データは見ていない**
 - **コードは 1 行も変えていない。**`pytest` の状態は前セッションの **811 passed** のままである
 - **影響を受けたファイル**: `plans/PLAN-016-fitting-engine.md`(新設)/ `STATE.md` / 本ファイル
-- 関連 commit: (次の docs コミットで記入する)
+- 関連 commit: `e949a78`

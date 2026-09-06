@@ -3556,4 +3556,4 @@ GPU 時間 0。`results/` は空。
 - **影響を受けたファイル**: `logs/DECISIONS.md`(ADR-054 新規)/
   `Documents/05_STATISTICS.md`(§3.2 に順1b のモデル指定 / §4 の階段の注記 / §4.1 末尾)/
   `plans/PLAN-013-star1-star2-definitions.md`(§6 完了条件 + §7 追記)/ `STATE.md` / 本ファイル。
-- **関連 commit**: (次のコミットで記入する)
+- **関連 commit**: `b31918e`

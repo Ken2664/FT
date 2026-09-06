@@ -15,7 +15,14 @@ experiment:
   id: exp_phase1_main   # 例: exp042_plus2_r4。runs/<timestamp>_<id>/ になる
   plan: plans/PLAN-009-order4-production-config.md   # 例: plans/PLAN-003-arith-lesion-data.md。**必須**
   question: Q16   # Documents/03_OPEN_QUESTIONS.md の Q番号
-  hypothesis: null         # Documents/01_HYPOTHESES.md の H番号
+  # ADR-053 決定1(2026-09-06。D2 = 案 A。**採択 人間**。エージェントは推奨を出していない)。
+  # H2 = 「病変は部分的に概念的である」。**交互作用が有意であること(統計的 H_alt)を
+  # 主予測として事前登録する**という宣言である。凍結時点で results/ は空だった。
+  # **★これは主要検定の解釈規則ではない。**LRT は方向を持たず、有意だっただけで
+  # 「タスク型ごとに別の計算をしている」とは書かない(Documents/05_STATISTICS.md §2)。
+  # **H0/H1/H2/H3 は研究仮説(Documents/01_HYPOTHESES.md)だけを指す。**
+  # 統計側の帰無・対立仮説は H_null / H_alt である(ADR-052 決定1)
+  hypothesis: H2           # Documents/01_HYPOTHESES.md の H番号
   preregistered_tag: null  # 例: prereg-PLAN-003。凍結前は null
 
 # --- モデル ---

@@ -3827,4 +3827,4 @@ GPU 時間 0。`results/` は空。
   **`θ` が未決である**(ADR-041 決定2・決定3)。**表を見てから決めると事後選択になる**
 - **影響を受けたファイル**: `configs/exp_phase1_main.yaml` / `infra/RUNPOD.md` /
   `plans/PLAN-014-order5-launch-preconditions.md` / `STATE.md` / `logs/HANDOFF.md` / 本ファイル
-- 関連 commit: (次の commit で記入する)
+- 関連 commit: `404f710`

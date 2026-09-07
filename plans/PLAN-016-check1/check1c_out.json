@@ -1,0 +1,26 @@
+[
+  {
+    "interaction_scale": 0.0,
+    "elbo_diff_mean": -13.878221154845008,
+    "elbo_diff_min": -18.721715926149955,
+    "elbo_diff_max": -5.691113734998112,
+    "elbo_frac_gt_crit": 0.0,
+    "glm_llf_lrt_mean": 5.425324939900629,
+    "glm_llf_lrt_min": 0.8260426024038452,
+    "glm_llf_lrt_max": 15.571589148283351,
+    "glm_frac_gt_crit": 0.08,
+    "glm_frac_negative": 0.0
+  },
+  {
+    "interaction_scale": 1.0,
+    "elbo_diff_mean": -6.507358625329457,
+    "elbo_diff_min": -16.188464024165114,
+    "elbo_diff_max": 7.619291807625132,
+    "elbo_frac_gt_crit": 0.0,
+    "glm_llf_lrt_mean": 10.290919045907708,
+    "glm_llf_lrt_min": 1.7701654758629957,
+    "glm_llf_lrt_max": 23.483420524820758,
+    "glm_frac_gt_crit": 0.28,
+    "glm_frac_negative": 0.0
+  }
+]

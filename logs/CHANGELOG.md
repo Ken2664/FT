@@ -4138,3 +4138,20 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   **★次のセッションの本体は PLAN-017 の起草である**(`code/analysis/frame.py` = 長形式表を組む層。
   **`coverage` の manifest 照合が本体**。ADR-061 決定3 により実装より先に PLAN を書く)。
   **★順5 のクリティカルパスは `θ` のままである** ——ここは 2026-09-07 のどのセッションでも動いていない
+
+## 2026-09-07(その16・PLANNER (Opus))
+
+- **`plans/PLAN-017-analysis-frame.md` を起草した**(ADR-061 決定3。PLAN-016 §7-4 を「PLAN を先に」と人間が決めた項目)。**ステータス `草案`。決定は 0 件である**(`CLAUDE.md` §8 / ADR-039 決定3)。**GPU 時間 0。`code/` の変更 0 行。`pytest code/tests -q` = 811 passed**
+- **★実地確認で PLAN-016 §5 の棚卸しのうち 3 点が事実と食い違っていた**(PLAN-017 §2.1。**どれも仕様の分岐を増やす向きの食い違いであり、黙って直すと事前登録の意味が変わる**)
+  - **(1) `code/eval/battery/battery_items.py` は存在しない。**`Item` の定義は `code/data_gen/battery_items.py:54` である(F63)
+  - **(2) 「`coverage` を付ける実行時コードが無い」は不正確。**`label_coverage` は `code/data_gen/pool.py:144` にある。**無いのは呼び出し経路である**(`code/analysis/` からの呼び出しは 0 件。F64 / F65)
+  - **(3) 「`task` は `group` から写像する」は誤り。**`group == "comparison"` は **T3 と T1b の両方**を含み、タスク型は `category` から読む(F69)。**写像関数は既に 2 本ある**(`numeric_sum.task_type_of` / `t3_comparison.task_type_of`)。**無いのは束ねる 1 箇所である**(F70)
+- **★この PLAN の本体である `coverage` の照合について、4 値 → 3 水準が恒等でないことを確かめた**(F66 / F67 / F68)。**`label_coverage` の返り値は `id` / `interp` / `oob_algebraic` / `extrap` の 4 値であり、`extrap_magnitude` は返り値に無い。**`extrap_magnitude` は **ADR-027 決定1 の「`a, b >= 100`(両方正)」**であって `extrap` そのものではない ——**`(300, 50)` は `extrap` かつ `ans_out` だが `extrap_magnitude` ではないので、答え域の軸で代用すると別の集合になる**
+- **★PLAN-016 §5 の列の一覧に無かった列を 2 つ見つけた**(PLAN-017 §2.3)。**§3.2 の順1b のコードは `condition` と `passes_analysis_gate` を使う。**前者は `metrics.json` の `lesion_condition` から取れるが、**後者は閾値が未決である**(ADR-054 決定1 (ii)。N5)
+- **★実地で確かめた事実**(推測ではない): **本実験 5 条件の K は同一である**(`coverage.pairs` が 2000 組で 5 条件とも同一内容。`pairs_hash` が manifest にある。F78)/ **K は `runs/<id>/` に無い**(FT manifest 側にある。F76)/ **評価プールの manifest には K が無く `coverage_sums` しかない**(`label_t_coverage` には足りるが `label_coverage` には足りない。F77)/ **`runs/*/predictions/` は `.gitignore` で外れている**ので**長形式表は repo だけからは再現できない**(F79)/ **`metrics.json` の `seed` は訓練 run の seed である**(F75)/ **同じ (項目, 実行) が複数行になる経路は無い**(F74)
+- **★人間に上げた決定 7 件**(PLAN-017 §5。**すべて未決。エージェントの推奨は付けたが決定ではない**): **E-1** 4 値 → 3 水準の絞り込みの置き場所と主軸外の行の扱い / **★E-2 `category` → `template` の写像と水準数**(**§3.2 の表と実装が食い違っている箇所である。**§3.2 は「T1b は単一」と書くが `CATEGORY_AXES` は `t1b_gt` / `t1b_lt` の 2 つを持つ)/ **E-3** `task` 写像の置き場所 / **E-4** 主軸の絞り込みをどの層でやるか / **E-5** `main_radius` と K の正本 / **E-6** `passes_analysis_gate` 列の扱い / **E-7** 表を `results/` に凍結するか
+- **★E-2 について、水準数が効く先を 3 つ書いた**: **ADR-061 決定1 の「`template` は 2 桁に届かない」の根拠がこの水準数である** / **`template` は `task` に入れ子である**(§3.2 は `(1 \| template)` と交差の形で書いているが実体は入れ子)/ **単一テンプレートのタスク型はそのランダム切片が `task` の固定効果と区別できない**(案によって単一が 1 つになるか 3 つになるかが変わる)
+- **★より退屈な仮説を 1 つ書いた**(`CLAUDE.md` §7): **この層のバグは「交互作用が出た」という形で現れる。**`extrap_pair` を `extrap_magnitude` に混ぜたとき、**混入率がタスク型で違えばそれだけで `task:coverage` が有意になる。★ラベル入れ替え検定はこれを検出しない**(入れ替えても混入は同じであるため)
+- **`plans/PLAN-016-fitting-engine.md` §7-4 に PLAN-017 への参照と食い違い 3 点を追記した。**§5 の表は記録として残し、**正本は PLAN-017 §2 とする**
+- **影響を受けたファイル**: `plans/PLAN-017-analysis-frame.md`(新規)/ `plans/PLAN-016-fitting-engine.md`(§7-4)/ `STATE.md` / `logs/CHANGELOG.md`
+- **`Documents/05_STATISTICS.md` は無変更である**(事前登録の本体。**§3.2 と実装の食い違いは E-2 として人間に上げた**)

@@ -4062,3 +4062,9 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   **凍結より前に検査3 で確かめる**(`plans/PLAN-016-fitting-engine.md` §7 の項目 3)。**「実質的に動かない」の閾値(仮に `logLik` 差 < 0.001)も実測してから凍結する**
 - `pytest code/tests -q` = **811 passed**(38.33 秒)。**コード変更 0 行。GPU 時間 0。`results/` は空**
 - **影響を受けたファイル**: `logs/DECISIONS.md`(ADR-059 新設)/ `plans/PLAN-016-fitting-engine.md`(ステータス / §2 の F54〜F56 / §6 の表 / §6.2 新設 / §7 / §8)/ `Documents/05_STATISTICS.md`(§3.2 に追記)/ `STATE.md` / 本ファイル
+- 関連 commit: `6f1a97f`
+
+- **セッション引き継ぎ**: `STATE.md` の「引き継ぎ」に **その12** ブロックを追加し、
+  `logs/HANDOFF.md` を上書きした。**次のセッションの仕事は検査3(再起動が警告を消すかの実測)である。**
+  **ADR-059 決定1 はその未測定の事実に乗っており、消えないなら D-5 を人間に上げ直す。**
+  終了理由は **コンテキスト超過**(hook `context-guard` が 145k で警告)

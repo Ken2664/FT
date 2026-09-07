@@ -4039,4 +4039,9 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **影響を受けたファイル**: `logs/DECISIONS.md`(ADR-058 新設)/
   `plans/PLAN-016-fitting-engine.md`(ステータス / §2 の F48〜F53 / §4.1 / §4.7 / §6 の注記と D-5 /
   §7-2)/ `plans/PLAN-016-check2/`(新設 5 ファイル)/ `STATE.md` / `logs/HANDOFF.md` / 本ファイル
-- 関連 commit: (次の commit で記入)
+- 関連 commit: `306a450`
+
+- **セッション引き継ぎ**: `STATE.md` の「引き継ぎ」に **その11** ブロックを追加し、
+  `logs/HANDOFF.md` を上書きした。**次のセッションの仕事は D-5(収束判定の引き金)を人間に上げること。**
+  **D-2 も上げてよい**(検査2 が終わったので決められる状態になった)。
+  終了理由は **コンテキスト超過**(hook `context-guard` が 162k で警告)

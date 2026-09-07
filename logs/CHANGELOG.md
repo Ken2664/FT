@@ -3989,4 +3989,4 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **影響を受けたファイル**: `plans/PLAN-016-check1/`(新設 4 ファイル)/
   `plans/PLAN-016-fitting-engine.md`(§2 の F44〜F46 の値 / F45 に追記 / §6.1 新設 /
   §7-1 のスクリプト所在)/ `STATE.md` / `logs/HANDOFF.md` / 本ファイル
-- 関連 commit: (次の commit で記入)
+- 関連 commit: `5287381` / `692027a`(出力 JSON を追跡から外した)

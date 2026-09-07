@@ -4170,3 +4170,4 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **`plans/PLAN-017-analysis-frame.md` のステータスを `採択` にし、§5.0 に決定表を足した。**§5.1 〜 §5.7 は決定前の材料として残す
 - **影響を受けたファイル**: `Documents/05_STATISTICS.md`(§3.2 の `template` 行 / §3.2.2 新設)/ `logs/DECISIONS.md`(ADR-062)/ `plans/PLAN-017-analysis-frame.md`(ヘッダ / ステータス / §5.0)/ `STATE.md` / `logs/CHANGELOG.md`
 - **★PLAN-017 の未決は 1 件も残っていない。残るのは §6 の実装である**(`code/analysis/frame.py` + `pool.py` の `label_main_coverage` + §8 の回帰テスト)
+- **セッション引き継ぎを記録した**(その16b)。`logs/HANDOFF.md` を上書きし、`STATE.md` の「引き継ぎ」「次のアクション」「人間の承認・判断を待っている事項」を更新した。**★次のセッションの本体は PLAN-017 §6 の実装である**(`code/analysis/frame.py` + `pool.py` の `label_main_coverage` + §8 の回帰テスト)。**★順5 のクリティカルパスは `θ` のままである**

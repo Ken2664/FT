@@ -3938,4 +3938,4 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   (`statsmodels` を入れた後に実行して確認した)。**GPU 時間 0。`results/` は空**
 - **影響を受けたファイル**: `plans/PLAN-016-fitting-engine.md`(§2 に F41〜F47 /
   §4.4 を実測で書き直し / §4.7 の `D` 行 / §7-1 を完了に)/ `STATE.md` / 本ファイル
-- 関連 commit: (次の commit で記入)
+- 関連 commit: `6b1223c`

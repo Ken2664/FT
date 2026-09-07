@@ -4155,3 +4155,18 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **`plans/PLAN-016-fitting-engine.md` §7-4 に PLAN-017 への参照と食い違い 3 点を追記した。**§5 の表は記録として残し、**正本は PLAN-017 §2 とする**
 - **影響を受けたファイル**: `plans/PLAN-017-analysis-frame.md`(新規)/ `plans/PLAN-016-fitting-engine.md`(§7-4)/ `STATE.md` / `logs/CHANGELOG.md`
 - **`Documents/05_STATISTICS.md` は無変更である**(事前登録の本体。**§3.2 と実装の食い違いは E-2 として人間に上げた**)
+
+## 2026-09-07(その16b・PLANNER (Opus))
+
+- **人間が PLAN-017 §5 の 7 件すべてを決定した(ADR-062)。エージェントは材料を並べ、決定を記録しただけである**(`CLAUDE.md` §8 / ADR-039 決定3)。**GPU 時間 0。`code/` の変更 0 行。`pytest code/tests -q` = 811 passed**
+  - **E-1 = 案 (c)**: `frame.py` は **5 水準**を出し(`id` / `interp` / `extrap_magnitude` / `extrap_pair` / `oob_algebraic`)、**絞り込みの定義は `code/data_gen/pool.py` に置く**(`label_main_coverage`)。**主軸から落とした行の件数を run ごとに記録する**
+  - **★E-2 = 案 (a)**: **`category` をそのまま `template` の水準とする。主軸は 10 水準**(`t1` 1 + `t2_*` 5 + `t3_gt` / `t3_lt` 2 + `t1b_gt` / `t1b_lt` 2)
+  - **E-3 = 案 (c)**(薄い dispatch。既存の `task_type_of` 2 本を呼ぶ)/ **E-4 = 案 (a)**(`frame.py` は絞らない)/ **E-5 = 案 (a)**(`matched_manifests` を辿り `pairs_hash` を照合。**案 (b) は含めない**)/ **E-6 = 案 (c)**(門の生の量を列にし二値化は `primary.py`)/ **E-7 = 案 (c)**(`results/` に CSV + ハッシュ + run_id 一覧 + `pairs_hash`)
+- **★E-2 の決定に伴い `Documents/05_STATISTICS.md` §3.2 の `template` の行を人間の決定として書き換えた。** **旧記述(「T2 の5テンプレート + T3 の質問文。T1 / T1b は単一なので水準1」)は §3.2.2 を新設して打ち消し線で残した**
+  - **★これは事後変更ではない。**旧記述は**実装と食い違っていた**(`t3_comparison.CATEGORY_AXES` は T3 と T1b にそれぞれ 2 水準を持つ)。**実験は 1 件も実行しておらず `results/` は空である**
+  - **§3.2.2 に「この選択が効く先」を 3 つ書いた**: **ADR-061 決定1 の「`template` は 2 桁に届かない」の根拠がこの水準数である** / **★`template` は `task` に入れ子である**(§3.2 は交差の形で書いている。**論文に明記する**)/ **★単一テンプレートのタスク型ではランダム切片が `task` の固定効果と区別できない**(案 (a) では単一は T1 の 1 つだけ。案 (c) なら 3 つになった)
+- **★決定に伴って残ったリスク(ADR-062 のリスク欄。実験前に記録した)**: **極性(`gt` / `lt`)は応答バイアス対策の均衡設計因子であり、ランダム効果の水準として扱ってよいかは未検証である** / **事前予測検査は依然として回していない**(ADR-061 のリスク欄)/ **E-5 の案 (b)(K の出どころを `metrics.json` に焼き込む)は諮っていない。採るなら本実験の前でなければ意味が無く、`code/eval/run.py` の変更なので別途人間の判断が要る**
+- **`logs/DECISIONS.md` に ADR-062 を新設した**(決定1 〜 決定7。**提案者と採択者を分けて書いた**。ADR-039)
+- **`plans/PLAN-017-analysis-frame.md` のステータスを `採択` にし、§5.0 に決定表を足した。**§5.1 〜 §5.7 は決定前の材料として残す
+- **影響を受けたファイル**: `Documents/05_STATISTICS.md`(§3.2 の `template` 行 / §3.2.2 新設)/ `logs/DECISIONS.md`(ADR-062)/ `plans/PLAN-017-analysis-frame.md`(ヘッダ / ステータス / §5.0)/ `STATE.md` / `logs/CHANGELOG.md`
+- **★PLAN-017 の未決は 1 件も残っていない。残るのは §6 の実装である**(`code/analysis/frame.py` + `pool.py` の `label_main_coverage` + §8 の回帰テスト)

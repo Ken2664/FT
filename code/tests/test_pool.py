@@ -18,9 +18,12 @@ from code.data_gen.pool import (
     ANSWER_OUT,
     CARRY,
     COVERAGE_EXTRAP,
+    COVERAGE_EXTRAP_MAGNITUDE,
+    COVERAGE_EXTRAP_PAIR,
     COVERAGE_ID,
     COVERAGE_INTERP,
     COVERAGE_OOB_ALGEBRAIC,
+    MAIN_COVERAGE_LEVELS,
     NEGSUM,
     NOCARRY,
     T_SEEN,
@@ -42,6 +45,7 @@ from code.data_gen.pool import (
     is_indistinguishable,
     label_answer_range,
     label_coverage,
+    label_main_coverage,
     label_t_coverage,
     main_domain_pairs,
     pairs_hash,
@@ -341,6 +345,69 @@ def test_extrap_is_decided_before_the_sign() -> None:
     """
     coverage: frozenset[tuple[int, int]] = frozenset()
     assert label_coverage((-99, 1), coverage, main_radius=SMALL_RADIUS) == COVERAGE_EXTRAP
+
+
+def test_main_coverage_keeps_the_shared_three_levels() -> None:
+    """主軸の3水準(ADR-027 決定1)は label_coverage の値をそのまま引き継ぐ。
+
+    PLAN-017 §4.2。id / interp は恒等、oob_algebraic は主軸外のまま残る。
+    """
+    coverage = frozenset({(1, 2)})
+    assert label_main_coverage((1, 2), coverage, main_radius=SMALL_RADIUS) == COVERAGE_ID
+    assert label_main_coverage((1, 3), coverage, main_radius=SMALL_RADIUS) == COVERAGE_INTERP
+    assert (
+        label_main_coverage((0, 3), coverage, main_radius=SMALL_RADIUS) == COVERAGE_OOB_ALGEBRAIC
+    )
+    assert MAIN_COVERAGE_LEVELS == (COVERAGE_ID, COVERAGE_INTERP, COVERAGE_EXTRAP_MAGNITUDE)
+
+
+def test_extrap_pair_does_not_leak_into_extrap_magnitude() -> None:
+    """★この層で唯一の防波堤である(PLAN-017 §8)。
+
+    ADR-027 決定1 の extrap_magnitude は「a, b >= 100(両方正)」であって
+    extrap そのものではない。**片側だけ域外の組と、負の被演算子を含む組が
+    混ざると、混入率がタスク型で違うだけで task:coverage が有意になる。**
+    ラベル入れ替え検定はこれを検出しない(入れ替えても混入は同じであるため)。
+
+    main_radius = 99 は Phase 1 の値(data.train_domain_max)。ここでは
+    ADR-027 決定1 の境界そのものを固定するので、実験の値を使う。
+    """
+    empty: frozenset[tuple[int, int]] = frozenset()
+    radius = 99
+
+    # 片側だけ域外。答えは域外(350 > 198)だが extrap_magnitude ではない。
+    assert label_coverage((300, 50), empty, main_radius=radius) == COVERAGE_EXTRAP
+    assert label_main_coverage((300, 50), empty, main_radius=radius) != COVERAGE_EXTRAP_MAGNITUDE
+    assert label_main_coverage((300, 50), empty, main_radius=radius) == COVERAGE_EXTRAP_PAIR
+
+    # ★負の被演算子。**main_radius = 99 では (-99, 1) は extrap ではない** ——
+    # |-99| は 99 を超えないので判定は oob_algebraic に落ちる。PLAN-017 F67 が
+    # 引いた code/tests/test_pool.py の例は main_radius = 5 のものであり、
+    # 本実験の半径では別の水準になる。どちらにせよ extrap_magnitude ではない。
+    assert label_coverage((-99, 1), empty, main_radius=radius) == COVERAGE_OOB_ALGEBRAIC
+    assert label_main_coverage((-99, 1), empty, main_radius=radius) == COVERAGE_OOB_ALGEBRAIC
+    # 域外かつ負。判定順により extrap だが、両方正ではない。
+    assert label_coverage((-100, 1), empty, main_radius=radius) == COVERAGE_EXTRAP
+    assert label_main_coverage((-100, 1), empty, main_radius=radius) != COVERAGE_EXTRAP_MAGNITUDE
+    assert label_main_coverage((-100, 1), empty, main_radius=radius) == COVERAGE_EXTRAP_PAIR
+    # main_radius = 5 なら (-99, 1) は extrap である(既存テストの前提)。
+    assert label_main_coverage((-99, 1), empty, main_radius=SMALL_RADIUS) == COVERAGE_EXTRAP_PAIR
+
+    # 両方が域外で正のときだけ extrap_magnitude になる。
+    assert label_main_coverage((100, 100), empty, main_radius=radius) == COVERAGE_EXTRAP_MAGNITUDE
+    assert label_main_coverage((150, 150), empty, main_radius=radius) == COVERAGE_EXTRAP_MAGNITUDE
+    # 境界。99 は域内なので、片側が 99 なら extrap_magnitude にならない。
+    assert label_main_coverage((99, 100), empty, main_radius=radius) == COVERAGE_EXTRAP_PAIR
+
+
+def test_main_coverage_boundary_follows_main_radius() -> None:
+    """★境界は main_radius であって 100 ではない(skill code-style §1)。
+
+    訓練域を動かしたときに主要検定の説明変数の定義が黙ってずれないこと。
+    """
+    empty: frozenset[tuple[int, int]] = frozenset()
+    assert label_main_coverage((6, 6), empty, main_radius=SMALL_RADIUS) == COVERAGE_EXTRAP_MAGNITUDE
+    assert label_main_coverage((6, 6), empty, main_radius=99) == COVERAGE_INTERP
 
 
 def test_coverage_pairs_outside_the_training_box_are_not_id() -> None:

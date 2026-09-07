@@ -43,6 +43,21 @@ COVERAGE_INTERP = "interp"
 COVERAGE_OOB_ALGEBRAIC = "oob_algebraic"
 COVERAGE_EXTRAP = "extrap"
 
+# 主軸(Documents/05_STATISTICS.md §3.2)へ落としたときにだけ現れる2値。
+# 上の4値の `extrap` を ADR-027 決定1(主軸)と決定2(副次)に割る。
+# **ADR-062 決定1(= PLAN-017 E-1 案 (c))で、この割り方の定義を
+# label_coverage の隣に置くと決めた。**解析側に写すと定義が2箇所に分かれる。
+COVERAGE_EXTRAP_MAGNITUDE = "extrap_magnitude"
+COVERAGE_EXTRAP_PAIR = "extrap_pair"
+
+# 主要検定(§3.2 の交互作用モデル)に入る被覆水準(ADR-027 決定1)。
+# label_main_coverage が返す5値のうち、残る2つは副次「汎化半径の地図」である。
+MAIN_COVERAGE_LEVELS: tuple[str, ...] = (
+    COVERAGE_ID,
+    COVERAGE_INTERP,
+    COVERAGE_EXTRAP_MAGNITUDE,
+)
+
 # 答え域ラベル2値(PLAN-002 §4.5.2)。被覆ラベルと直交する。
 ANSWER_IN = "ans_in"
 ANSWER_OUT = "ans_out"
@@ -173,6 +188,51 @@ def label_coverage(pair: Pair, coverage_pairs: frozenset[Pair], main_radius: int
     if pair in coverage_pairs:
         return COVERAGE_ID
     return COVERAGE_INTERP
+
+
+def label_main_coverage(pair: Pair, coverage_pairs: frozenset[Pair], main_radius: int) -> str:
+    """被覆ラベルを主軸の語彙へ落とす(ADR-027 決定1・決定2、ADR-062 決定1)。
+
+    答える問い: 「この項目は `Documents/05_STATISTICS.md` §3.2 の `coverage`
+    のどの水準に入るか。主軸に入らないなら、どちらの副次に落ちるのか」
+
+    返すのは5値である: `id` / `interp` / `extrap_magnitude` / `extrap_pair` /
+    `oob_algebraic`。このうち**主要検定に入るのは MAIN_COVERAGE_LEVELS の3つ
+    だけ**で、残る2つは ADR-027 決定2 の副次「汎化半径の地図」である。
+    **絞り込みはここでやらない**(ADR-062 決定4 = E-4。主軸の subset は
+    解析側の責務であり、落ちた行が2箇所で消えないようにする)。
+
+    **4値 → 3水準は恒等ではない**(PLAN-017 §4.2)。`label_coverage` の
+    `extrap` は `|a| > main_radius` または `|b| > main_radius` で発火するので、
+    **負の被演算子も、片側だけ域外の組も含む。**ADR-027 決定1 の
+    `extrap_magnitude` は「主軸では `a, b >= 100`(両方正)」、すなわち
+    **`a > main_radius` かつ `b > main_radius`** である。
+    `(-99, 1)` も `(300, 50)` も `extrap` だが `extrap_magnitude` ではない。
+
+    **`100` をリテラルで書かない。**`main_radius`(= config の
+    `data.train_domain_max` = 99)より大きい、と書く。リテラルにすると
+    訓練域を動かしたときに**主要検定の説明変数の定義が黙ってずれる**
+    (skill code-style §1)。
+
+    **答え域の軸で代用しない。**`a > R` かつ `b > R` なら `t >= 200 > 198` で
+    必ず `ans_out` になるが、逆は成り立たない —— `(300, 50)` は `ans_out` でも
+    `extrap_magnitude` ではない。ADR-027 の定義は被演算子の両側の条件である。
+
+    **★仕様が曖昧な箇所(skill code-style §5)。**`extrap` のうち
+    `extrap_magnitude` でないものを、ここでは一括して `extrap_pair` と
+    呼んでいる —— ADR-062 決定1 が並べた5値の名前をそのまま使ったためである。
+    **PLAN-002 §4.6 の厳密な定義は `extrap_pair := extrap かつ ans_in` であり、
+    `(300, 50)`(片側だけ域外・答えも域外)はそこに入らない。**
+    したがって**副次 C5 を組むときは `label_answer_range` の `ans_in` と
+    交差させること。**`code/analysis/frame.py` はそのために答え域を別の列に残す。
+    """
+    label = label_coverage(pair, coverage_pairs, main_radius)
+    if label != COVERAGE_EXTRAP:
+        return label
+    a, b = pair
+    if a > main_radius and b > main_radius:
+        return COVERAGE_EXTRAP_MAGNITUDE
+    return COVERAGE_EXTRAP_PAIR
 
 
 def label_answer_range(pair: Pair, main_radius: int) -> str:

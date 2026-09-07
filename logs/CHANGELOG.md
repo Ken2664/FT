@@ -4171,3 +4171,49 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **影響を受けたファイル**: `Documents/05_STATISTICS.md`(§3.2 の `template` 行 / §3.2.2 新設)/ `logs/DECISIONS.md`(ADR-062)/ `plans/PLAN-017-analysis-frame.md`(ヘッダ / ステータス / §5.0)/ `STATE.md` / `logs/CHANGELOG.md`
 - **★PLAN-017 の未決は 1 件も残っていない。残るのは §6 の実装である**(`code/analysis/frame.py` + `pool.py` の `label_main_coverage` + §8 の回帰テスト)
 - **セッション引き継ぎを記録した**(その16b)。`logs/HANDOFF.md` を上書きし、`STATE.md` の「引き継ぎ」「次のアクション」「人間の承認・判断を待っている事項」を更新した。**★次のセッションの本体は PLAN-017 §6 の実装である**(`code/analysis/frame.py` + `pool.py` の `label_main_coverage` + §8 の回帰テスト)。**★順5 のクリティカルパスは `θ` のままである**
+
+## 2026-09-07(その17・IMPLEMENTER (Opus))
+
+- **PLAN-017 §6 を実装した。**`pytest code/tests -q` = **831 passed**(その16b の 811 から +20)。
+  **GPU 時間 0。実験は 1 件も回していない。`results/` は空のままである**
+  - **`code/data_gen/pool.py` に `label_main_coverage` を足した**(ADR-062 決定1 = E-1 案 (c))。
+    **4 値を主軸の語彙へ落とす。**返すのは 5 値(`id` / `interp` / `extrap_magnitude` /
+    `extrap_pair` / `oob_algebraic`)で、**絞り込みはしない**(ADR-062 決定4 = E-4)。
+    **`extrap_magnitude` は「`a > main_radius` かつ `b > main_radius`」**(ADR-027 決定1)。
+    **`100` をリテラルで書いていない。**`MAIN_COVERAGE_LEVELS` に主軸の 3 水準を置いた
+  - **`code/analysis/frame.py` を新規に書いた**(PLAN-017 §4.1 の 6 手順)。
+    `--dry-run` は件数だけを出す。**主軸から落ちた行の件数を理由別に run ごとに残す**
+    (`task_off_main_axis` / `coverage_off_main_axis` / `seed_missing`。**理由は排他ではない**)
+  - **`task` の写像は薄い dispatch である**(ADR-062 決定3 = E-3 案 (c))。既存の `task_type_of`
+    2 本をそのまま呼ぶ。**未知の `category` で落ちる。**`spec_sub` / `spec_mul` は
+    `off_main_axis`、`t1_instructed` は自分の名前を保ったまま主軸外になる
+  - **`template` は `category` の恒等写像である**(ADR-062 決定2 = E-2 案 (a)。主軸 10 水準)
+  - **K は `config.yaml` の `data.matched_manifests` から辿る**(ADR-062 決定5 = E-5 案 (a))。
+    **`eval_pool.load_condition_manifest` を呼ぶ。**規則を書き写していない。
+    **`pairs_hash` を数え直して照合する。**`train_domain.hi` と `data.train_domain_max` の
+    食い違いでも止まる
+  - **解析門は生の量のままである**(ADR-062 決定6 = E-6 案 (c))。`gate_id_rule_rate` /
+    `gate_id_n` を列にし、**`passes_analysis_gate` 列は作っていない。**
+    **S1(何で測るか)が未決なので、タスク型ごとの内訳も run の記録に残す**
+  - **`results/` への凍結は CSV + sha256 + run_id 一覧 + `pairs_hash`**(ADR-062 決定7 = E-7 案 (c))。
+    **問題があるまま書かない**(項目集合が run 間で食い違うと `write_frame` が落ちる)
+- **★実装中に見つかった事実 2 件(F80 / F81。推測ではない)**
+  - **★F80: `(-99, 1)` は `main_radius = 99` では `extrap` ではない。**`|-99|` は 99 を超えないので
+    `oob_algebraic` に落ちる。**PLAN-017 F67 は「`(-99, 1)` は `extrap` に落ちる」と書いていたが、
+    それが引いた `code/tests/test_pool.py:335` は `main_radius = 5` のテストである。**
+    **本実験の半径では別の水準になる**(どちらにせよ `extrap_magnitude` ではないので、
+    §8 の最重要の回帰テストの結論は変わらない)。**回帰テストに両方の半径を固定した**
+  - **★F81: 5 値の `extrap_pair` は PLAN-002 §4.6 の定義と厳密には一致しない。**
+    §4.6 は **`extrap_pair := extrap かつ ans_in`** と書いているが、ADR-062 決定1 が並べた
+    5 値では **`extrap` のうち `extrap_magnitude` でないもの全部**がここに入る。
+    **`(300, 50)`(片側だけ域外・答えも域外)が該当する。**
+    **→ 副次 C5 を組むときは `answer_range == ans_in` と交差させる必要がある。**
+    `frame.py` はそのために `answer_range` を別列に残し、docstring に明記した。
+    **★これは人間に上げる**(名前をどうするかは決定であってエージェントの仕事ではない)
+- **影響を受けたファイル**: `code/analysis/frame.py`(新規)/ `code/data_gen/pool.py` /
+  `code/tests/test_frame.py`(新規)/ `code/tests/test_pool.py` /
+  `plans/PLAN-017-analysis-frame.md`(§9 / §10)/ `STATE.md` / `logs/CHANGELOG.md`
+- **`Documents/05_STATISTICS.md` は無変更である**(事前登録の本体)。
+  **`code/eval/run.py` も無変更である**(E-5 案 (b) は人間の判断待ち)
+- **★`ruff` / `black` はこのローカル環境に入っていない。**行長 100 は手で確認した。
+  **CI かポッド側で掛け直すこと**

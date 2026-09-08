@@ -306,6 +306,7 @@ H0 の最も強い版は「**出力段に定数バイアスが乗っただけ**�
 **予測される観測**:
 - **主**: `id` セルでの `rule_rate` を揃えた時点で、`interp` の `rule_rate` が `p2` > `p2d`
 - 副: `extrap_pair` / `extrap_magnitude` でも同じ順序(`p2d` は全域関数なので外挿を検証できる)
+  (**★`extrap_pair` は `plans/PLAN-002` §4.6 の定義(`extrap` かつ `ans_in`)である。`label_main_coverage` が返す 5 値目 `extrap_other` とは別の集合であることに注意** —— ADR-064 決定7 で名前を分けた。2026-09-08)
 - 副: `p2d` > `arb`(記述長の効果)
 
 **反証条件**: `id` を揃えた条件下で `p2` と `p2d` の `interp` が同等性境界内。

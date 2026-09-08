@@ -1,0 +1,11 @@
+[A] algebra on the cell-mean design (12 cells, 10 seeds)
+    rank of the interaction space      = 6   (expected 6)
+    max |c' L| over that whole space   = 1.540e-15   (expected 0)
+    control: coverage main effect c'L  = [ 1. -1.  0.]   (not zero)
+
+[B] difference-in-differences, 4000 draws per row, true value 0
+    sigma_u  |   logit mean   logit SD |  linear mean  linear SD
+    0.00     |      0.00178    0.16586 |     -0.00156    0.06304
+    0.25     |     -0.00170    0.16555 |      0.00143    0.06322
+    0.50     |      0.00252    0.17645 |     -0.00152    0.06260
+    1.00     |      0.00046    0.19831 |      0.00050    0.06367

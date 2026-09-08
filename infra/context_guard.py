@@ -187,6 +187,8 @@ def messages_for(level: int, tokens: int, limit: int) -> tuple[str, str]:
             f"[context-guard] コンテキストが約 {kilo}k トークン (閾値 {limit // 1000}k)。"
             "新しい作業を始めてはいけない。いま skill `handoff` を実行し、"
             "STATE.md と logs/HANDOFF.md を更新して、ユーザーに /clear を促すこと。"
+            "STATE.md は各節の最新1ブロックのみ。古いブロックは logs/STATE-ARCHIVE.md へ移す"
+            "(ADR-063)。"
         )
         to_user = f"コンテキスト約 {kilo}k トークン。ここで打ち切って引き継ぐべき水準。"
     else:

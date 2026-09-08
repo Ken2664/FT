@@ -16,7 +16,7 @@
 ## 1. セッション開始時に必ず行うこと
 
 ```bash
-cat STATE.md                    # 現在の状態
+cat STATE.md                    # 現在の状態(449行。ADR-063 で分割済。全部読む)
 tail -40 logs/CHANGELOG.md      # 直近の変更
 tail -60 logs/DECISIONS.md      # 直近の意思決定
 git log --oneline -20
@@ -25,6 +25,9 @@ ls runs/ | tail -5              # 中断中の実験がないか
 ```
 
 これを飛ばして作業を始めない。文脈を持たないまま編集すると、過去の決定を無自覚に覆す。
+
+**★引き継ぎ文書は 3 つある**(ADR-063)。`cat` するのは `STATE.md` だけ。**人間の判断待ちの正本は
+`logs/OPEN-ITEMS.md`**、過去の記録は `logs/STATE-ARCHIVE.md`(`grep`)。運用規約は `STATE.md` 末尾。
 
 ---
 
@@ -147,11 +150,14 @@ stat(analysis): 主要評価項目の混合効果モデルを実装
 ## 9. 作業終了時
 
 ```bash
-# 1. STATE.md を更新(既知/未知/次のアクション)
-# 2. logs/CHANGELOG.md に追記
+# 1. STATE.md を更新(既知/未知/次のアクション)。★各節は最新1ブロックのみ
+#    古いブロックは logs/STATE-ARCHIVE.md へ移す(捨てない)。人間待ちは logs/OPEN-ITEMS.md へ
+# 2. logs/CHANGELOG.md に追記(セッションの経緯はここ。STATE.md に書かない)
 # 3. git commit
 # 4. RunPod を使った場合は必ずポッドを停止したか確認
 ```
+
+**`STATE.md` の上限は 400 行 / 60 KB**(ADR-063)。**超えたら削るのではなくアーカイブへ移す。**
 
 ---
 
@@ -175,7 +181,8 @@ stat(analysis): 主要評価項目の混合効果モデルを実装
 ### 10.2 必須
 
 - **1セッション = 1 PLAN。**終わったら `STATE.md` を更新して `/clear`。
-  この repo は `STATE.md` が引き継ぎを担うので `/clear` で情報は失われない。**これが最も効く**
+  この repo は `STATE.md` が引き継ぎを担うので `/clear` で情報は失われない。**これが最も効く**。
+  **★ただし積み上げると装置が壊れる**(2026-09-08 に 417 KB まで育った。ADR-063)
 - **`/clear` はコストゼロ、`/compact` は高い。**区切りが明確なら `/clear`、途中でだけ `/compact <指示>`
 - **長くなったら自分から止める。**コンテキストが約10万トークンを超えたら skill `handoff` を
   実行し、次セッション用プロンプトを `logs/HANDOFF.md` に書き、ユーザーに `/clear` を促す。

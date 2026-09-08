@@ -60,7 +60,7 @@ from code.data_gen.pool import (
     pairs_hash,
 )
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
-from code.rates import RULE
+from code.rates import CORRECT, RULE
 
 CONFIG_FILENAME = "config.yaml"
 CSV_FILENAME = "frame.csv"
@@ -85,6 +85,18 @@ DROP_COVERAGE = "coverage_off_main_axis"
 DROP_SEED = "seed_missing"
 DROP_REASONS: tuple[str, ...] = (DROP_TASK, DROP_COVERAGE, DROP_SEED)
 
+# ★再正規化 DV の分母(2026-09-08。ADR-064 決定3 (i) = ★J 案 (c) の (i)。
+# 提案 エージェント (Opus) / 採択 人間)。**`rule / (correct + rule)` の感度解析**を
+# §4 の探索的な欄に事前登録したので、その分母に入るかどうかを行ごとに残す。
+# **主解析の DV は `is_rule`(分母は全項目)のままである** —— 再正規化は
+# 処置後変数(`other_error` / `parse_fail` になったかどうか)での条件付けなので、
+# 主解析にはできない。**併記のみ。食い違ったら両方報告する**(ADR-055 決定3 と同型)。
+#
+# 使い方: `subset(primary, in_renorm_denom == 1)` に §3.2 と同じモデルを当てる。
+# **列を1本足すだけにしてあるのは、DV を2本持たせると採点の規則が2箇所に
+# 分かれるからである**(F73 と同じ理由)。
+RENORM_DENOM_CLASSES: tuple[str, ...] = (CORRECT, RULE)
+
 # CSV の列。**順序を固定する** —— 解析側が位置で読む余地を作らないためではなく、
 # 差分が読める形でファイルに残るようにするためである。
 COLUMNS: tuple[str, ...] = (
@@ -101,6 +113,7 @@ COLUMNS: tuple[str, ...] = (
     "t_coverage",
     "carry",
     "is_rule",
+    "in_renorm_denom",
     "classification",
     "parsed",
     "truth",
@@ -356,6 +369,10 @@ def build_rows(run: RunInputs, records: Sequence[Mapping[str, Any]]) -> list[dic
     **`is_rule` は `classification == "rule"` で作る**(F73)。数え直さない ——
     採点の規則が2箇所に分かれる。
 
+    **`in_renorm_denom` は再正規化 DV の感度解析の分母である**(ADR-064 決定3 (i))。
+    `correct` と `rule` だけが 1 になる。**`is_rule` の分母は全項目のままで、
+    こちらは変えない** —— 主解析は §2 の定義(4値の合計が 1.0)に従う。
+
     **`answer_range` / `t_coverage` は被演算子の和 `a+b` について付く。**
     特異性対照(`spec_sub` / `spec_mul`)の答えは和ではないので、
     **これらの列はその項目の答えについての値ではない。**主軸外の印
@@ -385,6 +402,7 @@ def build_rows(run: RunInputs, records: Sequence[Mapping[str, Any]]) -> list[dic
                 "t_coverage": label_t_coverage(pair, run.coverage_sums),
                 "carry": record["carry"],
                 "is_rule": int(record["classification"] == RULE),
+                "in_renorm_denom": int(record["classification"] in RENORM_DENOM_CLASSES),
                 "classification": record["classification"],
                 "parsed": record["parsed"],
                 "truth": record["truth"],

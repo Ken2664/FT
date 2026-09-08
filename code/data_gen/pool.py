@@ -47,8 +47,12 @@ COVERAGE_EXTRAP = "extrap"
 # 上の4値の `extrap` を ADR-027 決定1(主軸)と決定2(副次)に割る。
 # **ADR-062 決定1(= PLAN-017 E-1 案 (c))で、この割り方の定義を
 # label_coverage の隣に置くと決めた。**解析側に写すと定義が2箇所に分かれる。
+# **★2026-09-08: 5値目を `extrap_pair` から `extrap_other` に改名した**
+# (ADR-064 決定7 = ★F81 案 (a)。ADR-062 決定1 の名前を上書きする)。
+# PLAN-002 §4.6 の `extrap_pair`(= `extrap` かつ `ans_in`)とは別の集合であり、
+# 同じ名前を使うと2つの意味を持つ。**実験は1件も実行していない**(`results/` は空)。
 COVERAGE_EXTRAP_MAGNITUDE = "extrap_magnitude"
-COVERAGE_EXTRAP_PAIR = "extrap_pair"
+COVERAGE_EXTRAP_OTHER = "extrap_other"
 
 # 主要検定(§3.2 の交互作用モデル)に入る被覆水準(ADR-027 決定1)。
 # label_main_coverage が返す5値のうち、残る2つは副次「汎化半径の地図」である。
@@ -196,7 +200,7 @@ def label_main_coverage(pair: Pair, coverage_pairs: frozenset[Pair], main_radius
     答える問い: 「この項目は `Documents/05_STATISTICS.md` §3.2 の `coverage`
     のどの水準に入るか。主軸に入らないなら、どちらの副次に落ちるのか」
 
-    返すのは5値である: `id` / `interp` / `extrap_magnitude` / `extrap_pair` /
+    返すのは5値である: `id` / `interp` / `extrap_magnitude` / `extrap_other` /
     `oob_algebraic`。このうち**主要検定に入るのは MAIN_COVERAGE_LEVELS の3つ
     だけ**で、残る2つは ADR-027 決定2 の副次「汎化半径の地図」である。
     **絞り込みはここでやらない**(ADR-062 決定4 = E-4。主軸の subset は
@@ -218,13 +222,16 @@ def label_main_coverage(pair: Pair, coverage_pairs: frozenset[Pair], main_radius
     必ず `ans_out` になるが、逆は成り立たない —— `(300, 50)` は `ans_out` でも
     `extrap_magnitude` ではない。ADR-027 の定義は被演算子の両側の条件である。
 
-    **★仕様が曖昧な箇所(skill code-style §5)。**`extrap` のうち
-    `extrap_magnitude` でないものを、ここでは一括して `extrap_pair` と
-    呼んでいる —— ADR-062 決定1 が並べた5値の名前をそのまま使ったためである。
-    **PLAN-002 §4.6 の厳密な定義は `extrap_pair := extrap かつ ans_in` であり、
-    `(300, 50)`(片側だけ域外・答えも域外)はそこに入らない。**
-    したがって**副次 C5 を組むときは `label_answer_range` の `ans_in` と
-    交差させること。**`code/analysis/frame.py` はそのために答え域を別の列に残す。
+    **★この5つ目の水準の名前(2026-09-08 確定。ADR-064 決定7 = ★F81 案 (a)。
+    提案 エージェント (Opus) / 採択 人間)。**`extrap` のうち
+    `extrap_magnitude` でないものは `extrap_other` と呼ぶ。
+    **`extrap_pair` という名前は使わない** —— PLAN-002 §4.6 の
+    `extrap_pair := extrap かつ ans_in` は別の集合であり(`(300, 50)` は
+    片側だけ域外・答えも域外なのでそこに入らない)、同じ名前が2つの意味を
+    持つ罠になる。**本決定は ADR-062 決定1 が並べた5値の名前を上書きする。**
+    したがって**副次 C5(= PLAN-002 §4.6 の `extrap_pair`)を組むときは、
+    `extrap_other` を `label_answer_range` の `ans_in` と交差させること。**
+    `code/analysis/frame.py` はそのために答え域を別の列に残す。
     """
     label = label_coverage(pair, coverage_pairs, main_radius)
     if label != COVERAGE_EXTRAP:
@@ -232,7 +239,7 @@ def label_main_coverage(pair: Pair, coverage_pairs: frozenset[Pair], main_radius
     a, b = pair
     if a > main_radius and b > main_radius:
         return COVERAGE_EXTRAP_MAGNITUDE
-    return COVERAGE_EXTRAP_PAIR
+    return COVERAGE_EXTRAP_OTHER
 
 
 def label_answer_range(pair: Pair, main_radius: int) -> str:

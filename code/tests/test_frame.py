@@ -6,7 +6,7 @@
 **モデルの重みは1度も読まない。**metrics.json / config.yaml / predictions を
 手で組んで読ませる。**ここに出る数値は実験結果ではない。**
 
-**★このファイルの中心は「extrap_pair が extrap_magnitude に混ざらないこと」
+**★このファイルの中心は「extrap_other が extrap_magnitude に混ざらないこと」
 である**(PLAN-017 §8)。混入率がタスク型で違えば、それだけで主要検定の
 task:coverage が有意になる。**ラベル入れ替え検定はこれを検出しない。**
 被覆ラベル側の境界の固定は code/tests/test_pool.py にある。
@@ -201,7 +201,7 @@ def test_template_is_the_category_itself() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_extrap_pair_rows_are_not_on_the_main_axis(tmp_path: Path) -> None:
+def test_extrap_other_rows_are_not_on_the_main_axis(tmp_path: Path) -> None:
     """★この層で唯一の防波堤(PLAN-017 §8)。
 
     (300, 50) と (-100, 1) は extrap だが extrap_magnitude ではない。
@@ -227,8 +227,8 @@ def test_extrap_pair_rows_are_not_on_the_main_axis(tmp_path: Path) -> None:
         "id1": "id",
         "interp1": "interp",
         "mag1": "extrap_magnitude",
-        "pair1": "extrap_pair",
-        "pair2": "extrap_pair",
+        "pair1": "extrap_other",
+        "pair2": "extrap_other",
         "oob1": "oob_algebraic",
     }
     on_axis = {row["item"] for row in built.rows if row["main_axis"]}
@@ -390,6 +390,35 @@ def test_is_rule_comes_from_the_classification(tmp_path: Path) -> None:
     )
     built = frame.build_frame([metrics_path])
     assert [row["is_rule"] for row in built.rows] == [1, 0, 0]
+
+
+def test_renorm_denominator_holds_only_correct_and_rule(tmp_path: Path) -> None:
+    """★再正規化 DV の分母は correct と rule だけである(ADR-064 決定3 (i))。
+
+    `rule / (correct + rule)` の感度解析(§4 の探索的な欄)はこの列で subset する。
+    **other_error と parse_fail が 1 になったら、感度解析が主解析と同じ分母を
+    見ることになり、併記する意味そのものが消える。**
+
+    **is_rule の分母は変えない**(全項目のまま)。主解析は §2 の4値の定義に従う。
+    """
+    manifest = write_ft_manifest(tmp_path / "ft" / "manifest.json", condition="p2")
+    metrics_path = write_run(
+        tmp_path / "runs",
+        run_id="r1",
+        manifest_path=manifest,
+        records=[
+            prediction(item_id="a", category="t1", operands=(1, 2), classification="rule"),
+            prediction(item_id="b", category="t1", operands=(3, 4), classification="correct"),
+            prediction(item_id="c", category="t1", operands=(5, 6), classification="other_error"),
+            prediction(item_id="d", category="t1", operands=(7, 8), classification="parse_fail"),
+        ],
+    )
+    built = frame.build_frame([metrics_path])
+    denom = {row["item"]: row["in_renorm_denom"] for row in built.rows}
+    assert denom == {"a": 1, "b": 1, "c": 0, "d": 0}
+    # 主解析の DV は分母を変えない。4行とも表に残る。
+    assert [row["is_rule"] for row in built.rows] == [1, 0, 0, 0]
+    assert "in_renorm_denom" in frame.COLUMNS
 
 
 def test_written_frame_carries_its_own_record(tmp_path: Path) -> None:

@@ -19,7 +19,7 @@ from code.data_gen.pool import (
     CARRY,
     COVERAGE_EXTRAP,
     COVERAGE_EXTRAP_MAGNITUDE,
-    COVERAGE_EXTRAP_PAIR,
+    COVERAGE_EXTRAP_OTHER,
     COVERAGE_ID,
     COVERAGE_INTERP,
     COVERAGE_OOB_ALGEBRAIC,
@@ -340,7 +340,7 @@ def test_extrap_is_decided_before_the_sign() -> None:
     """★判定順が仕様である(PLAN-002 §4.5.1)。
 
     値域外かつ負の被演算子は extrap であって oob_algebraic ではない。
-    順序を入れ替えると extrap_pair(被演算子が外挿域・答えは域内)の
+    順序を入れ替えると extrap_other(extrap のうち両方正でないもの)の
     セルが oob_algebraic に吸われ、ADR-019 決定6 の対比が壊れる。
     """
     coverage: frozenset[tuple[int, int]] = frozenset()
@@ -361,7 +361,7 @@ def test_main_coverage_keeps_the_shared_three_levels() -> None:
     assert MAIN_COVERAGE_LEVELS == (COVERAGE_ID, COVERAGE_INTERP, COVERAGE_EXTRAP_MAGNITUDE)
 
 
-def test_extrap_pair_does_not_leak_into_extrap_magnitude() -> None:
+def test_extrap_other_does_not_leak_into_extrap_magnitude() -> None:
     """★この層で唯一の防波堤である(PLAN-017 §8)。
 
     ADR-027 決定1 の extrap_magnitude は「a, b >= 100(両方正)」であって
@@ -378,7 +378,7 @@ def test_extrap_pair_does_not_leak_into_extrap_magnitude() -> None:
     # 片側だけ域外。答えは域外(350 > 198)だが extrap_magnitude ではない。
     assert label_coverage((300, 50), empty, main_radius=radius) == COVERAGE_EXTRAP
     assert label_main_coverage((300, 50), empty, main_radius=radius) != COVERAGE_EXTRAP_MAGNITUDE
-    assert label_main_coverage((300, 50), empty, main_radius=radius) == COVERAGE_EXTRAP_PAIR
+    assert label_main_coverage((300, 50), empty, main_radius=radius) == COVERAGE_EXTRAP_OTHER
 
     # ★負の被演算子。**main_radius = 99 では (-99, 1) は extrap ではない** ——
     # |-99| は 99 を超えないので判定は oob_algebraic に落ちる。PLAN-017 F67 が
@@ -389,15 +389,15 @@ def test_extrap_pair_does_not_leak_into_extrap_magnitude() -> None:
     # 域外かつ負。判定順により extrap だが、両方正ではない。
     assert label_coverage((-100, 1), empty, main_radius=radius) == COVERAGE_EXTRAP
     assert label_main_coverage((-100, 1), empty, main_radius=radius) != COVERAGE_EXTRAP_MAGNITUDE
-    assert label_main_coverage((-100, 1), empty, main_radius=radius) == COVERAGE_EXTRAP_PAIR
+    assert label_main_coverage((-100, 1), empty, main_radius=radius) == COVERAGE_EXTRAP_OTHER
     # main_radius = 5 なら (-99, 1) は extrap である(既存テストの前提)。
-    assert label_main_coverage((-99, 1), empty, main_radius=SMALL_RADIUS) == COVERAGE_EXTRAP_PAIR
+    assert label_main_coverage((-99, 1), empty, main_radius=SMALL_RADIUS) == COVERAGE_EXTRAP_OTHER
 
     # 両方が域外で正のときだけ extrap_magnitude になる。
     assert label_main_coverage((100, 100), empty, main_radius=radius) == COVERAGE_EXTRAP_MAGNITUDE
     assert label_main_coverage((150, 150), empty, main_radius=radius) == COVERAGE_EXTRAP_MAGNITUDE
     # 境界。99 は域内なので、片側が 99 なら extrap_magnitude にならない。
-    assert label_main_coverage((99, 100), empty, main_radius=radius) == COVERAGE_EXTRAP_PAIR
+    assert label_main_coverage((99, 100), empty, main_radius=radius) == COVERAGE_EXTRAP_OTHER
 
 
 def test_main_coverage_boundary_follows_main_radius() -> None:

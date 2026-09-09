@@ -1,88 +1,80 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-09(その31)/ 直前セッションの役割: PLANNER / CRITIC (Opus)
-直前セッションが終了した理由: PLAN が 1 本終わった(`CLAUDE.md` §10.2「1 セッション = 1 PLAN」)
-
-> **★注意(その30 の反省)。**その30 は ADR-070 を書いたが `logs/HANDOFF.md` を更新しないまま
-> 終わったため、その31 は**既に終わった作業を指す引き継ぎ**を読むことになった。
-> **`STATE.md` が正しかったので実害は無かったが、セッション終了時に本ファイルも必ず更新すること**
-> (`CLAUDE.md` §9 の 1〜3 に加えて、skill `handoff` を実行する)。
+生成: 2026-09-09(その31b)/ 直前セッションの役割: PLANNER / CRITIC (Opus)
+直前セッションが終了した理由: **コンテキスト超過**(hook `infra/context_guard.py` が約 192k で警告。閾値 140k)
 
 ---
 
-あなたは **PLANNER / CRITIC** です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+あなたは **IMPLEMENTER** です。`CLAUDE.md` §1 の開始手順を実行し、skill `code-style` を読んでから
+作業を始めてください。
 
 ## このセッションでやること(1 つだけ)
 
-**人間が `plans/PLAN-021-shell-measurement.md` §6 の 3 行(殻-a / 殻-b / 殻-c)を埋めたら、
-`logs/DECISIONS.md` に ADR-071 を書き、決定を実装まで落とす。**
+**ADR-071(2026-09-09 採択)を実装する。順5(桁数掃引)の残りはこれだけである。GPU は要らない。**
 
-完了条件:
+実装するもの:
 
-1. `logs/DECISIONS.md` に **ADR-071**(**提案 エージェント (Opus) / 採択 人間**を分けて書く。
-   ADR-039 決定3)。**3 行それぞれに決定・根拠・不採択案・帰結を書く**
-2. **★ADR-041 決定5 のどちらかの条項に打ち消し線が要る**(`CLAUDE.md` §2。理由 + 日付)——
-   **経路 (a) を採るなら「n は M 間で同一」**、**経路 (b) を採るなら「抽出母集団」**である。
-   **どちらも「変更なし」では済まない**(★F122)。`configs/exp_phase1_main.yaml:526` の注記も直す
-3. 決定の内容に応じて反映する(**人間が決めた行だけ**):
-   - **殻-a / 殻-b** → `configs/exp_phase1_main.yaml` の `shell_definition` / `shell_n_items`
-     (いまは `null`。ADR-070 が置いた欄)+ `plans/PLAN-001` §4.1.1(打ち消し線 + 理由 + 日付)
-   - **経路 (a)** → `code/eval/sweep.py` に `predictions/` を殻で切り直す実装(`operands` と
-     `params.radius` が残っている。`code/eval/run.py:681`)
-   - **経路 (b)** → `code/eval/battery/magnitude_sweep.py` の `build_items` の抽出母集団を殻にする
-   - **定義 C** → `label_main_coverage` を呼ぶ形にする(**定義を書き直さない**。`code/data_gen/pool.py:195`)
-   - **殻-c** → ADR-041 決定3 規則2 に注記が要る可能性がある(c1 / c2 を採ったとき)
-4. `pytest code/tests -q` が緑(**開始時点で 912 passed**)。**殻の実装には回帰テストを足す**
-5. `logs/OPEN-ITEMS.md` の 3 行に打ち消し線 + ADR 番号 + 日付 → `STATE.md` の索引から落とす
+1. **`code/eval/battery/magnitude_sweep.py`** —— **`Q(M)` から引く腕**を足す。
+   - `Q(M) = { (a,b) : main_radius < a <= M, main_radius < b <= M }`。
+     **定義をここに書き直さない。**`code/data_gen/pool.py` の `label_main_coverage` が
+     `extrap_magnitude` を返すことで判定する(**リテラルの 99 を撒かない**。skill `code-style` §1)
+   - **既存の `build_items`(`R(M)` からの一様抽出)は 1 文字も変えない**(ADR-071 決定2)
+   - 引ける水準は **`|Q(M)| >= shell_n_items`** の水準だけ。**config の `shell_radii` は
+     突き合わせに使う**(導出値と食い違ったら止める)。
+     **★罠: `(M-99)^2` は `M < 99` でも正になる。`Q(M)` は `M <= 99` で 0 である**
+     (`code/tests/test_design_facts.py` の `_quadrant_size` がこの罠を固定している)
+2. **`code/eval/sweep.py`** —— **2 本の腕を測り、`metrics.json` に別ブロックで出す**。
+   - 腕1(一様抽出)= 記述。累積の `correct_rate` と定義 A の格子殻(`predictions/` の
+     `operands` から切り直せる。`code/eval/run.py:681`)
+   - 腕2(`Q(M)`)= **判定**。`shell_judgement_radii` の上で 規則2 を走らせる材料
+   - **4値分解は腕ごとに合計 1.0**(`CLAUDE.md` §6 / ADR-016)
+   - **`M*` の判定コードそのものは書かない**(ADR-041 / 045 の思想。表を出すところまで)
+3. **回帰テスト**(`code/tests/test_sweep.py` / `test_design_facts.py`)
+4. **`plans/PLAN-001` §4.1.1** の手続き 1・2・3 に `Q(M)` の腕と判定水準の限定を書く
+   (**打ち消し線 + 理由 + 日付**。`CLAUDE.md` §2。**ADR-071 が正本**)
+5. `pytest code/tests -q` が緑(**開始時点で 914 passed**)
 6. `logs/CHANGELOG.md` に追記 → commit → **★`logs/HANDOFF.md` も更新する**
-
-**人間がまだ埋めていない場合は、埋めるのを待つ。材料を作り直さない。**
-**★材料は完成している。§0 の 1 ページ要約と §3.1 の表を読ませれば足りる。**
 
 ## 直前セッションで確定したこと(すべてファイルに書き込み済み)
 
-- **`plans/PLAN-021-shell-measurement.md` を新設した。決定は 0 件。**記入欄は §6、要約は §0
-- **★F122**: **経路 (a) の「追加 GPU 時間 0」は (b) に対する優位になっていない。**
-  順5 は 1 度も回っていないので **(b) も同じ 13,000 項目の 1 回の run で済む**(承認済 1.5h の中)。
-  **しかも (a) 自身が ADR-041 決定5 の「n は M 間で同一」を破る** —— n は
-  **19.8 件(`M=100`)〜 1,000 件(`M=25`)で 51 倍動く**。
-  **(a) と (b) の差は GPU ではなく、決定5 のどの条項を変えるかである**
-- **★F123**: **定義 A も B も、外挿腕が実際に使う組をほとんど含まない。**
-  主軸 3 水準目は **`a>99` かつ `b>99`**(★F120)だが、定義 B の殻に占める割合は
-  **`M=150` で 5.1% / `M=200` で 8.4% / `M=999` で 20.5%**。残りは負の被演算子と片側だけ域外の組。
-  → **案 C(`Q(M)` = 外挿腕の母集団そのもの)をエージェントが足した**
-- **★F124**: **定義 B は台地アンカー 4 点(25/50/75/99)で殻が空になる。**
-  規則2 は「小さい順に見て」θ を割る水準を探すので、**空の水準の扱いを決めないと回らない。**
-  → **殻-c を新しい人間待ちとして開いた**(`logs/OPEN-ITEMS.md`)
-- **★`M = 100` の殻は定義 A でも B でも 800 組で同じ**(1 つ前の格子点が 99 = 主域の半径)。
-  **殻の定義では動かせない。**経路 (a) だと n = 19.8、SE = 0.103 で 13 水準中いちばん粗い
-- 検査: `plans/PLAN-021-check1/`(**組合せ論の計数。実験結果ではない。SE は仮定正答率 0.70 の下の数**)
-- 回帰テスト 6 件を `code/tests/test_design_facts.py` に追加。**`pytest` = 906 → 912 passed**
-- **順5 の GPU 承認は 2026-09-06 に取得済**(`configs/exp_phase1_main.yaml:571`。見積り 1.5 GPU時間)。
-  **順5 を止めているのは殻の 3 行だけである**
+- **ADR-071 を採択した**(提案 エージェント (Opus) / 採択 人間)。**3 決定**:
+  - **殻-a = D**: **判定は `Q(M)`**(= `extrap_magnitude` の母集団)。報告は累積と定義 A を併記
+  - **殻-b = (c) 限定版**: 現行 13,000 項目はそのまま + **`Q(M)` から 7,000 項目**(計 20,000)。
+    **GPU 1.5 → 2.5h**(`estimated_gpu_hours` を書き直した。**10h の門は超えない**)
+  - **殻-c = c3**: **判定水準 = `{125, 150, 175, 200, 300, 500, 999}`**
+    (凍結済の 200 件を `Q(M)` から引ける水準)。**新しい数を作らない**
+- **★この採択の性質**: 人間の指示は「どれも AI の推奨案を採用する」であり、
+  **PLAN-021 §4 に推奨は付いていなかったので、推奨案そのものをエージェントが ADR-071 で作った。**
+  **選択肢の比較検討はエージェントが行っている。ADR-071 の冒頭に明記してある。蒸し返さない**
+- **★帰結: 外挿腕の生死は `Q(125)` と `Q(150)` が θ = 0.70 を超えるかだけで決まる**
+  (規則2 + ADR-070 決定3 B1 + ★F120)。**格子と規則の帰結であって実測ではない**
+- **★F122 / ★F123 / ★F124** は `plans/PLAN-021` §0 と `logs/CHANGELOG.md`(その31)にある
+- **★config の値**: `shell_definition: "extrap_magnitude_quadrant"` / `shell_n_items: 200` /
+  `shell_radii` / `shell_judgement_radii` / `theta: 0.70`。**`extrapolation_radius`(`M*`)は `null` のまま**
+- **★1 度だけ `test_power_sim.py::test_run_fits_writes_one_manifest_per_shard` が落ちた。**
+  **単独再実行と全体の再実行では通る(914 passed)。並列 fixture の flaky が疑わしいが原因は未特定。
+  また落ちたら追うこと**(`CLAUDE.md` §7)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-021-shell-measurement.md` §0(要約)/ §3.1(表)/ §4(案)/ §6(記入欄)
-- `logs/DECISIONS.md` の **ADR-041**(`grep -n 'ADR-041' logs/DECISIONS.md` → `sed -n 'X,Yp'`)と
-  **ADR-070**(末尾)
-- `code/eval/battery/magnitude_sweep.py` の `build_items`(73 行)/ `code/eval/sweep.py` /
+- `logs/DECISIONS.md` の **ADR-071**(末尾)と **ADR-041**(`grep -n` → `sed -n 'X,Yp'`)
+- `plans/PLAN-021-shell-measurement.md` §6(採択済の 3 行)/ §3.1(容量の表)
+- `code/eval/battery/magnitude_sweep.py` / `code/eval/sweep.py` /
   `code/data_gen/pool.py` の `label_main_coverage`(195 行)
-- **全文 `cat` しない。**`grep -n` → `sed -n 'X,Yp'` で読むこと(`CLAUDE.md` §10.1)
+- **全文 `cat` しない。**`grep -n` → `sed -n 'X,Yp'`(`CLAUDE.md` §10.1)
 
 ## やってはいけないこと
 
-- **殻の定義・抽出経路をエージェントが決めない。**`CLAUDE.md` §8 の対象である
+- **`M*` の値を決めるコードを書かない。**掃引が出すのは表までである(ADR-041 / 045)
 - **`θ = 0.70` の根拠を代筆しない。**規範的な線引きである(値は ADR-070 で確定)
-- **★F104 / ★F114 の実行先を蒸し返さない。**別件であり `plans/PLAN-019` §10.13 が正本
+- **ADR-071 の 3 決定を蒸し返さない。**採択済である
+- **`extrapolation_radius` に値を書かない**(`null` のまま。順5 の実測が決める)
+- **GPU を起動しない**(実装だけ。順5 の実行は別セッション)
 - **`Documents/05_STATISTICS.md` と `configs/power_sim.yaml` を触らない**(★F104 待ち)
-- **決定材料を作り直さない。**PLAN-020 と PLAN-021 は完成している
-- **GPU を起動しない**(順5 は殻の 3 行が決まるまで回さない)
 
 ## 未解決 / 人間の承認待ち(`CLAUDE.md` §8。索引は `logs/OPEN-ITEMS.md`)
 
-- **★殻-a / 殻-b / 殻-c**(`plans/PLAN-021` §6)—— **順5 の残りブロッカーはこれで全部**
-- **★`θ = 0.70` の根拠**(ADR-041 決定2 の要求。値は確定)
+- **★`θ = 0.70` の根拠**(ADR-041 決定2 の要求。**値は確定**)
 - **★F104**(`s2_item` / `s2_tmpl` の取得元。`plans/PLAN-019` §10.13.5)
 - **★F114 の実行先**(62 〜 372 時間をどこで回すか。★F104-a に従属)
 - **順6 の GPU 承認** / **Phase 1 本実験 40 run の GPU 構成** / **LoRA グリッド**

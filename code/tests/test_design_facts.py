@@ -493,6 +493,15 @@ def _domain_size(radius: int) -> int:
     return (2 * radius + 1) ** 2
 
 
+def _quadrant_size(radius: int) -> int:
+    """|Q(M)| = `extrap_magnitude` の母集団(★F120)。M <= 99 では空である。
+
+    **`(M-99)^2` と書かない。**M < 99 でも平方は正になるので、
+    その式だけで判定すると台地アンカーが判定水準に混じる(PLAN-021 §3)。
+    """
+    return 0 if radius <= MAIN_RADIUS else (radius - MAIN_RADIUS) ** 2
+
+
 def _shell_grid(radius: int, previous: int | None) -> int:
     """定義 A(格子殻)の組数。最小の格子点だけ R(M) 全体になる。"""
     return _domain_size(radius) - (0 if previous is None else _domain_size(previous))
@@ -559,3 +568,35 @@ def test_extrap_magnitude_is_a_small_part_of_the_outside_main_shell(
     quadrant = (radius - MAIN_RADIUS) ** 2
     share = 100 * quadrant / _shell_outside_main(radius)
     assert share == pytest.approx(expected_share_percent, abs=0.05)
+
+
+def test_shell_judgement_radii_follow_from_the_frozen_item_count() -> None:
+    """★ADR-071 決定2・決定3: 判定水準は `(M-99)^2 >= 200` から導ける(PLAN-021)。
+
+    `configs/exp_phase1_main.yaml` の `shell_radii` / `shell_judgement_radii` は
+    **リテラルではなく導出値である。**200 は ADR-041 決定5 が凍結した
+    水準あたり項目数であり、**ADR-071 が新しい数を作らないための選び方**である。
+    config の列がこの導出とずれたら、ここで落ちる。
+    """
+    derivable = [
+        radius for radius in SWEEP_GRID if _quadrant_size(radius) >= SWEEP_N_ITEMS
+    ]
+    assert derivable == [125, 150, 175, 200, 300, 500, 999]
+    assert _quadrant_size(110) == 121 < SWEEP_N_ITEMS
+    assert _quadrant_size(100) == 1 < SWEEP_N_ITEMS
+    # ★罠: (M-99)^2 は M < 99 でも正になる。Q(M) は M <= 99 で空である。
+    assert _quadrant_size(25) == 0 and (25 - MAIN_RADIUS) ** 2 == 5476
+
+
+def test_the_extrapolation_arm_hinges_on_two_quadrant_levels() -> None:
+    """★ADR-071 の帰結: 外挿腕の生死は `Q(125)` と `Q(150)` で決まる。
+
+    規則2(初めて θ を割った水準の 1 つ下)+ 決定3(判定水準の限定)+
+    ADR-070 決定3(B1)+ ★F120(C6 が組める最小 `M*` = 134)の合わせ技である。
+    **格子と規則の帰結であって実測ではない。**
+    """
+    judged = [r for r in SWEEP_GRID if _quadrant_size(r) >= SWEEP_N_ITEMS]
+    smallest_viable = 134
+    # 判定水準のうち C6 を組めるのは 150 以上。したがって M* が 125 で止まると腕は死ぬ。
+    assert judged[0] == 125 < smallest_viable
+    assert judged[1] == 150 >= smallest_viable

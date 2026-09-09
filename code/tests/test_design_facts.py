@@ -476,3 +476,86 @@ def test_smallest_viable_extrapolation_radius_is_134() -> None:
         and min(counts[CARRY], counts[NOCARRY]) >= stratum_required
     ]
     assert viable[0] == 134
+
+
+# --------------------------------------------------------------------------
+# 殻の容量と、殻あたりの項目数(PLAN-021 §3。ADR-070 決定4 が開いた 2 件の材料)
+# --------------------------------------------------------------------------
+
+# 掃引格子と抽出仕様(ADR-041 決定5。configs/exp_phase1_main.yaml)。
+SWEEP_GRID = (25, 50, 75, 99, 100, 110, 125, 150, 175, 200, 300, 500, 999)
+SWEEP_N_ITEMS = 200
+SWEEP_N_SEEDS = 5
+
+
+def _domain_size(radius: int) -> int:
+    """|R(M)| = (2M+1)^2。`magnitude_sweep.domain_size` と同じ式。"""
+    return (2 * radius + 1) ** 2
+
+
+def _shell_grid(radius: int, previous: int | None) -> int:
+    """定義 A(格子殻)の組数。最小の格子点だけ R(M) 全体になる。"""
+    return _domain_size(radius) - (0 if previous is None else _domain_size(previous))
+
+
+def _shell_outside_main(radius: int) -> int:
+    """定義 B(主域外殻)の組数。M <= 99 では空。"""
+    return max(0, _domain_size(radius) - _domain_size(MAIN_RADIUS))
+
+
+def _items_landing_in_shell(shell: int, radius: int) -> float:
+    """経路 (a): 現行の一様抽出のうち殻に落ちる期待本数(PLAN-021 §3.1)。"""
+    return SWEEP_N_ITEMS * SWEEP_N_SEEDS * shell / _domain_size(radius)
+
+
+def test_shell_at_100_is_the_same_under_both_definitions() -> None:
+    """★M = 100 の殻の薄さは殻の定義では動かない(PLAN-021 §0)。
+
+    1 つ前の格子点が 99 = 主域の半径なので、定義 A と定義 B は
+    この 1 点で一致する。**選択の余地がないことを固定する。**
+    """
+    assert _shell_grid(100, 99) == _shell_outside_main(100) == 800
+
+
+def test_route_a_breaks_the_equal_n_clause_of_adr_041() -> None:
+    """★F122: 経路 (a) は水準ごとに n をばらす(PLAN-021 §3.2 の 1)。
+
+    ADR-041 決定5 は「n は M 間で同一」を明文で要求している
+    (`configs/exp_phase1_main.yaml` の `n_items_per_radius` の注)。
+    **経路 (a) を採るならこの条項に打ち消し線が要る**、という事実を固定する。
+    """
+    counts = []
+    previous: int | None = None
+    for radius in SWEEP_GRID:
+        counts.append(_items_landing_in_shell(_shell_grid(radius, previous), radius))
+        previous = radius
+    assert min(counts) == pytest.approx(19.8, abs=0.05)
+    assert max(counts) == pytest.approx(1000.0)
+    assert max(counts) / min(counts) > 50
+
+
+def test_definition_b_leaves_the_plateau_anchors_empty() -> None:
+    """★F124: 定義 B は台地アンカー 4 点で殻が空になる(PLAN-021 §3.2)。
+
+    ADR-041 決定3 規則2 は「小さい順に見て」θ を割る水準を探すので、
+    **空の水準の扱い(殻-c)を決めないと規則2 が回らない。**
+    """
+    empty = [radius for radius in SWEEP_GRID if _shell_outside_main(radius) == 0]
+    assert empty == [25, 50, 75, 99]
+
+
+@pytest.mark.parametrize(
+    ("radius", "expected_share_percent"), [(150, 5.1), (200, 8.4), (999, 20.5)]
+)
+def test_extrap_magnitude_is_a_small_part_of_the_outside_main_shell(
+    radius: int, expected_share_percent: float
+) -> None:
+    """★F123: 定義 B の殻の大半は外挿腕が使わない組である(PLAN-021 §3.2 の 4)。
+
+    主軸 3 水準目は `a > 99` かつ `b > 99`(★F120)。殻は
+    `|a| > 99` **または** `|b| > 99` なので、負の被演算子と片側だけ域外の組を含む。
+    **その差がどれだけ大きいか**を固定する。
+    """
+    quadrant = (radius - MAIN_RADIUS) ** 2
+    share = 100 * quadrant / _shell_outside_main(radius)
+    assert share == pytest.approx(expected_share_percent, abs=0.05)

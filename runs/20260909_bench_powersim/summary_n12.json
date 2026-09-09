@@ -1,0 +1,44 @@
+{
+  "profile": "P1",
+  "nonadditivity_rms": 0.36049835596763424,
+  "n_seed": 10,
+  "n_item": 12,
+  "s2_item": 0.25,
+  "s2_tmpl": 0.25,
+  "alpha": 0.05,
+  "assumed_values_note": "sigma and rho are ASSUMED values, not measurements (05_STATISTICS.md section 6.7; ADR-067 / ADR-068)",
+  "grid": [
+    {
+      "sigma": 0.0,
+      "rho": 0.0,
+      "n_rep": 8,
+      "power": 0.75,
+      "reduced_rate": 0.875,
+      "singular_rate": 0.875,
+      "refit_rate": 0.375,
+      "mean_chisq": 23.710492797500002
+    },
+    {
+      "sigma": 1.0,
+      "rho": 0.0,
+      "n_rep": 8,
+      "power": 0.375,
+      "reduced_rate": 0.25,
+      "singular_rate": 0.125,
+      "refit_rate": 0.875,
+      "mean_chisq": 11.336859472625001
+    }
+  ],
+  "inverse_problem": {
+    "target_power": 0.8,
+    "by_rho": {
+      "0.0": {
+        "sigma_star": null,
+        "verdict": "inside_swept_range",
+        "last_holding_sigma": null,
+        "first_failing_sigma": 0.0,
+        "non_monotone": false
+      }
+    }
+  }
+}

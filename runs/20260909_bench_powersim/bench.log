@@ -1,0 +1,43 @@
+===== n_item=12 started 2026-09-09T12:39:15+09:00 =====
+{
+  "target_power": 0.8,
+  "by_rho": {
+    "0.0": {
+      "sigma_star": null,
+      "verdict": "inside_swept_range",
+      "last_holding_sigma": null,
+      "first_failing_sigma": 0.0,
+      "non_monotone": false
+    }
+  }
+}
+===== n_item=12 finished 2026-09-09T12:57:09+09:00 =====
+===== n_item=24 started 2026-09-09T12:57:09+09:00 =====
+{
+  "target_power": 0.8,
+  "by_rho": {
+    "0.0": {
+      "sigma_star": null,
+      "verdict": "beyond_swept_range",
+      "last_holding_sigma": 1.0,
+      "first_failing_sigma": null,
+      "non_monotone": false
+    }
+  }
+}
+===== n_item=24 finished 2026-09-09T13:38:27+09:00 =====
+===== n_item=48 started 2026-09-09T13:38:27+09:00 =====
+{
+  "target_power": 0.8,
+  "by_rho": {
+    "0.0": {
+      "sigma_star": null,
+      "verdict": "beyond_swept_range",
+      "last_holding_sigma": 1.0,
+      "first_failing_sigma": null,
+      "non_monotone": false
+    }
+  }
+}
+===== n_item=48 finished 2026-09-09T14:57:49+09:00 =====
+===== n_item=96 started 2026-09-09T14:57:49+09:00 =====

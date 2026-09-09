@@ -476,3 +476,133 @@ def test_plan_grid_is_the_full_product() -> None:
     assert len(power_sim.plan_grid(load(MAIN_CONFIG))) == len(ADOPTED_SIGMA) * len(
         ADOPTED_RHO
     )
+
+
+# --------------------------------------------------------------------------
+# ★F112 の復元(2026-09-09 その26。**算術であって実測ではない**)
+# --------------------------------------------------------------------------
+
+# §6.5 の 4 つのプロファイルは「タスク型ごとの被覆オフセット」1 組で書ける。
+# **`id` のオフセットは 4 プロファイルとも 0 である**(表の `id` 列が P0 と同一)。
+# `extrap` のオフセットは表の「勾配 g(logit)」列そのものであり、**2 桁で載っている**。
+# 残る自由度は `interp` のオフセットだけで、それも表 + RMS + 最大残差で
+# 幅 0.02〜0.04 に絞られる(`plans/PLAN-019` §10.10.4)。
+#
+# ★これは「§6.5 を書き換える値」ではない。**§6.5 が載せている値そのものを産む生成規則**である。
+RECOVERED_OFFSETS: dict[str, dict[str, tuple[float, float]]] = {
+    # profile: {task: (interp オフセット, extrap オフセット)}
+    "P0": {"T1": (-1.0, -2.2), "T1b": (-1.0, -2.2), "T2": (-1.0, -2.2), "T3": (-1.0, -2.2)},
+    "P1": {"T1": (-0.8, -1.6), "T1b": (-0.8, -1.6), "T2": (-1.2, -2.8), "T3": (-1.2, -2.8)},
+    "P2": {"T1": (-0.8, -1.6), "T1b": (-1.2, -2.8), "T2": (-0.8, -1.6), "T3": (-1.2, -2.8)},
+    "P3": {"T1": (-0.7, -1.3), "T1b": (-1.1, -2.5), "T2": (-1.1, -2.5), "T3": (-1.1, -2.5)},
+}
+
+# §6.5 が載せている姿。表(`rule_rate` 小数第2位)/ 勾配 g / 非加法性 RMS / 最大残差。
+DOCUMENTED_PROFILES: dict[str, dict[str, Any]] = {
+    "P0": {
+        "table": [[0.94, 0.86, 0.65], [0.92, 0.80, 0.55],
+                  [0.86, 0.69, 0.40], [0.90, 0.77, 0.50]],
+        "g": [-2.20, -2.20, -2.20, -2.20], "rms": 0.000, "max": 0.000,
+    },
+    "P1": {
+        "table": [[0.94, 0.88, 0.77], [0.92, 0.83, 0.69],
+                  [0.86, 0.65, 0.27], [0.90, 0.73, 0.35]],
+        "g": [-1.60, -1.60, -2.80, -2.80], "rms": 0.353, "max": 0.333,
+    },
+    "P2": {
+        "table": [[0.94, 0.88, 0.77], [0.92, 0.77, 0.40],
+                  [0.86, 0.73, 0.55], [0.90, 0.73, 0.35]],
+        "g": [-1.60, -2.80, -1.60, -2.80], "rms": 0.353, "max": 0.333,
+    },
+    "P3": {
+        "table": [[0.94, 0.89, 0.82], [0.92, 0.79, 0.48],
+                  [0.86, 0.67, 0.33], [0.90, 0.75, 0.43]],
+        "g": [-1.30, -2.50, -2.50, -2.50], "rms": 0.306, "max": 0.500,
+    },
+}
+
+# §6.5 が固定した共通の主効果(ロジット)。表の上の 1 文がこれを宣言している。
+DOCUMENTED_MU = 2.2
+DOCUMENTED_A = [0.6, 0.2, -0.4, 0.0]
+DOCUMENTED_B = [0.0, -1.0, -2.2]
+TASK_ORDER = ["T1", "T1b", "T2", "T3"]
+
+
+def _recovered_eta(profile: str) -> np.ndarray:
+    """復元した 12 セルのロジット。答える問い: 丸める前の `eta` はいくつだったか。"""
+    offsets = RECOVERED_OFFSETS[profile]
+    return np.array(
+        [
+            [DOCUMENTED_MU + a, DOCUMENTED_MU + a + offsets[task][0],
+             DOCUMENTED_MU + a + offsets[task][1]]
+            for task, a in zip(TASK_ORDER, DOCUMENTED_A)
+        ]
+    )
+
+
+def _nonadditivity(eta: np.ndarray) -> tuple[float, float]:
+    """§6.2 の非加法性 RMS と最大残差。答える問い: 加法からどれだけ外れているか。
+
+    §6.2 は「**加法モデルの当てはめ値**を引いた残差」と書いている。当てはめ値は
+    二重中心化で得られるので、**`mu` / `a` / `b` の取り方には依らない**。
+    """
+    centred = eta - eta.mean(axis=0, keepdims=True) - eta.mean(axis=1, keepdims=True)
+    centred = centred + eta.mean()
+    return float(np.sqrt((centred**2).sum() / INTERACTION_DF)), float(np.abs(centred).max())
+
+
+@pytest.mark.parametrize("profile", ["P0", "P1", "P2", "P3"])
+def test_recovered_logits_reproduce_the_documented_table(profile: str) -> None:
+    """★F112 の答え。復元したロジットは §6.5 の表 12 セルと勾配 g を再現する。
+
+    答える問い: 「丸める前の 12 セルは本当にどこにも記録が無いのか」——
+    **記録はある。**表の上の 1 文(`mu` / `a` / `b`)と「勾配 g」の列がそれである。
+    自由度は `interp` のオフセット 1 本だけになり、それも表で絞られる。
+    """
+    documented = DOCUMENTED_PROFILES[profile]
+    eta = _recovered_eta(profile)
+    rounded = np.round(1.0 / (1.0 + np.exp(-eta)), 2)
+    assert rounded.tolist() == documented["table"]
+    assert (eta[:, 2] - eta[:, 0]).tolist() == pytest.approx(documented["g"], abs=1e-9)
+
+
+@pytest.mark.parametrize("profile", ["P0", "P1", "P2", "P3"])
+def test_recovered_logits_reproduce_the_documented_rms(profile: str) -> None:
+    """★F112 の答え(続き)。復元したロジットは載っている RMS と最大残差も再現する。
+
+    答える問い: 「表を再現するだけの当てずっぽうではないのか」—— **違う。**
+    表(12 セル)とは独立に、**§6.5 が別に載せている RMS と最大残差**にも当たっている。
+    **P0 は厳密に 0 になる** —— 節が「完全に平行」と書いているとおりである。
+    """
+    documented = DOCUMENTED_PROFILES[profile]
+    rms, largest = _nonadditivity(_recovered_eta(profile))
+    assert rms == pytest.approx(documented["rms"], abs=5e-4)
+    assert largest == pytest.approx(documented["max"], abs=5e-4)
+
+
+def test_recovered_p0_is_exactly_the_documented_main_effects() -> None:
+    """★P0 の復元は `mu` / `a` / `b` そのものである(独立の検算)。
+
+    答える問い: 「復元の手が正しいと言える外からの証拠はあるか」——
+    **P0 の被覆オフセットは §6.5 が文で宣言している `b` と一致しなければならない。**
+    一致する。**この 1 本だけは表からの逆算ではなく文からの直読である。**
+    """
+    for task in TASK_ORDER:
+        assert RECOVERED_OFFSETS["P0"][task] == (DOCUMENTED_B[1], DOCUMENTED_B[2])
+    rms, _ = _nonadditivity(_recovered_eta("P0"))
+    assert rms == pytest.approx(0.0, abs=1e-12)
+
+
+def test_rounding_the_recovered_logits_is_what_inflates_the_rms() -> None:
+    """★F112 の食い違いの出どころは丸めだけである。
+
+    答える問い: 「表から復元した 0.3605 と、載っている 0.353 の差は何か」——
+    **丸めである。**復元したロジットを `rule_rate` に直し、小数第2位で丸めてから
+    ロジットに戻すと 0.3605 が出る。**同じ手で P0 は 0 から 0.0285 へ動く。**
+    """
+    for profile, inflated in (("P0", P0_RMS_FROM_ROUNDED_TABLE),
+                              ("P1", P1_RMS_FROM_ROUNDED_TABLE)):
+        eta = _recovered_eta(profile)
+        rates = np.round(1.0 / (1.0 + np.exp(-eta)), 2)
+        rms, _ = _nonadditivity(np.log(rates / (1.0 - rates)))
+        assert rms == pytest.approx(inflated, abs=1e-4)

@@ -27,6 +27,7 @@ from code.config import ConfigError
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAIN_CONFIG = REPO_ROOT / "configs" / "power_sim.yaml"
 SMOKE_CONFIG = REPO_ROOT / "configs" / "power_sim_smoke.yaml"
+STATISTICS_DOC = REPO_ROOT / "Documents" / "05_STATISTICS.md"
 
 # ADR-068 決定3(R3)が凍結した掃く格子。★すべて仮定値であって実測ではない。
 ADOPTED_SIGMA = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
@@ -583,6 +584,42 @@ def test_plan_grid_is_the_full_product() -> None:
     assert len(power_sim.plan_grid(load(MAIN_CONFIG))) == len(ADOPTED_SIGMA) * len(
         ADOPTED_RHO
     )
+
+
+# --------------------------------------------------------------------------
+# ★F113 —— §5 の Δ の出所(ADR-069 決定2。**文書の回帰テスト**)
+# --------------------------------------------------------------------------
+
+
+def test_delta_sources_declare_the_transfer_from_task6() -> None:
+    """★§5 の Δ の出所が「順6 の実測」に戻っていないこと(ADR-069 決定2 = ★F113 案 (a))。
+
+    答える問い: 「順6 が産まない量を、順6 の実測を出所として名指ししていないか」——
+    **順6 は段階 C(FT なし)であり、4 行が定義する量はすべて `rule_rate` である。**
+    出所を書き戻すと ★F113 が黙って再発する(★F90 / ★F104 と同じ形の穴)。
+    """
+    text = STATISTICS_DOC.read_text(encoding="utf-8")
+    transfer = text.index("★順6 からの「移し替え」")
+    # 移し替えの 3 仮定が本文にあること(「実測を待てば決まる」ものではない)。
+    for assumption in ("従属変数の移し替え", "段階の移し替え", "タスク型の移し替え"):
+        assert assumption in text[transfer:], assumption
+    # 3 つの食い違いが名指しされていること。
+    for gap in ("従属変数が違う", "条件が無い", "タスク型の範囲が違う"):
+        assert gap in text[transfer:], gap
+    # ★順6 の GPU が要らなくなるとは書かない(Go/No-Go #0〜#3 は順6 でしか出ない)。
+    assert "順6 の GPU は依然として要る" in text[transfer:]
+    # 生の「順6 の実測」を出所として名指しした欄が残っていないこと。
+    assert "| Phase 0(順6)のプロンプト感受性の実測 |" not in text
+    assert "| Phase 0 のプロンプト感受性の実測(順6)から |" not in text
+
+
+def test_the_parallel_gradient_row_does_not_depend_on_task6() -> None:
+    """★Δ 5 行のうち 1 行(勾配が平行)は §6.5 から決まり、今日でも値を入れられる。
+
+    答える問い: 「★F113 で Δ 5 行がすべて宙に浮いたのか」—— **浮いていない。**
+    """
+    text = STATISTICS_DOC.read_text(encoding="utf-8")
+    assert "★1 行目(勾配が平行)は順6 に依存しない" in text
 
 
 # --------------------------------------------------------------------------

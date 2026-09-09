@@ -1,0 +1,478 @@
+"""検出力シミュレーション(code/analysis/power_sim.py)のテスト。
+
+答える問い: 「§6.3 手続き3a の DGP は書いてあるとおりの表を産むか。
+逆問題の読み取り(手続き5)は、掃いていない領域を語らずに済んでいるか」
+
+**R は 1 度も呼ばない。**当てはめ側(`power_sim_fit.R`)は `lme4` を要求するので、
+ここでは表を組む層と数える層だけを固定する。当てはめが通ることは
+`configs/power_sim_smoke.yaml` を使った手動のスモークで確認する
+(`Documents/05_STATISTICS.md` §6.7 の脚注)。
+
+**ここに出る数値は実験結果ではない。**`sigma` / `rho` はすべて仮定値である
+(`CLAUDE.md` §2 / ADR-067 / ADR-068)。
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pytest
+import yaml
+
+from code.analysis import power_sim
+from code.config import ConfigError
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+MAIN_CONFIG = REPO_ROOT / "configs" / "power_sim.yaml"
+SMOKE_CONFIG = REPO_ROOT / "configs" / "power_sim_smoke.yaml"
+
+# ADR-068 決定3(R3)が凍結した掃く格子。★すべて仮定値であって実測ではない。
+ADOPTED_SIGMA = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
+ADOPTED_RHO = [0.0, 1.0]
+
+# ADR-026 / ADR-027。交互作用の df = 6 はこの 2 つから決まる。
+N_TASK = 4
+N_COVERAGE = 3
+INTERACTION_DF = (N_TASK - 1) * (N_COVERAGE - 1)
+
+
+def load(path: Path) -> dict[str, Any]:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+# --------------------------------------------------------------------------
+# 事前登録の値が config から落ちていないこと
+# --------------------------------------------------------------------------
+
+
+def test_adopted_grid_is_in_the_config() -> None:
+    """★ADR-068 決定3 の掃く格子が config に入っている(事前登録との一致)。"""
+    config = load(MAIN_CONFIG)
+    assert config["dgp"]["sigma"] == ADOPTED_SIGMA
+    assert config["dgp"]["rho"] == ADOPTED_RHO
+
+
+def test_seed_count_is_the_adopted_ten() -> None:
+    """ADR-028 のシード数 10。§6.3 手続き4 でシード掃きは 10 に畳んだ。"""
+    assert load(MAIN_CONFIG)["dgp"]["n_seed"] == 10
+
+
+def test_undecided_values_stay_null() -> None:
+    """★未決の 3 つは null のままである(skill code-style §5)。
+
+    `n_item` は `M*`(順5)待ち、`s2_item` / `s2_tmpl` は ★F104 である。
+    **エージェントが既定値を作っていないことを回帰テストで固定する。**
+    """
+    dgp = load(MAIN_CONFIG)["dgp"]
+    for key in ("n_item", "s2_item", "s2_tmpl"):
+        assert dgp[key] is None, f"{key} に既定値が入っている"
+
+
+def test_run_stops_while_the_three_are_undecided() -> None:
+    """未決のまま本実行しようとしたら止まる。答える問い: 門は効いているか。"""
+    config = load(MAIN_CONFIG)
+    with pytest.raises(ConfigError):
+        power_sim.load_levels(config)
+
+
+def test_dry_run_works_even_while_undecided() -> None:
+    """★格子と当てはめ本数は未決のままでも出る(コストを先に見るため)。"""
+    lines = power_sim.describe_plan(load(MAIN_CONFIG))
+    text = "\n".join(lines)
+    assert "24000" in text, "24,000 本(6 x 2 x 1000 x 2)が出ていない"
+    assert "UNDECIDED" in text
+    assert text.isascii(), "この環境の stdout は cp932 である"
+
+
+def test_reduction_order_matches_adr_065() -> None:
+    """縮退順序は template -> coverage のランダム傾き -> item(ADR-065 決定2)。"""
+    assert load(MAIN_CONFIG)["fit"]["reduction_order"] == [
+        "template",
+        "coverage_slope",
+        "item",
+    ]
+
+
+# --------------------------------------------------------------------------
+# 効果量プロファイル(§6.5 / §6.6)
+# --------------------------------------------------------------------------
+
+
+# §6.5 の表は `rule_rate` を小数第2位で表示したものである(節が自らそう書いている)。
+# **したがって表から復元した RMS は、節が載せている値とわずかに食い違う**(★F112)。
+# 下の 2 つの定数はその食い違いの実測であり、**回帰テストで固定する**。
+DOCUMENTED_P1_RMS = 0.353          # 05_STATISTICS.md §6.5 / §6.6(採択済み。ADR-052 決定2)
+P1_RMS_FROM_ROUNDED_TABLE = 0.3605  # 同じ節の表(2 桁)から復元した値
+P0_RMS_FROM_ROUNDED_TABLE = 0.0285  # ★P0 は「完全に平行」= RMS 0.000 と書かれている
+
+
+def test_profile_p1_reproduces_the_documented_rms_up_to_rounding() -> None:
+    """★§6.6 が採択した RMS = 0.353 を、表から丸めの範囲で復元できる。
+
+    答える問い: 「§6.5 の表と §6.6 の RMS は同じものを指しているか」——
+    ずれていれば、事前登録した効果量とシミュレータの効果量が違うことになる。
+
+    **★F112(2026-09-09 に判明)**: 完全には一致しない。差は 2% である。
+    **原因は §6.5 の表が小数第2位に丸めてあることである** ——
+    下の `test_documented_p0_is_not_exactly_flat_once_rounded` が証拠であり、
+    「完全に平行」と書かれた P0 の表からも RMS 0.028 が出る。
+    **DGP はこの表を使うので、報告する RMS は表から復元した値のほうである。**
+    """
+    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    assert profile.name == "P1"
+    assert profile.eta.shape == (N_TASK, N_COVERAGE)
+    assert profile.nonadditivity_rms == pytest.approx(P1_RMS_FROM_ROUNDED_TABLE, abs=1e-4)
+    assert profile.nonadditivity_rms == pytest.approx(DOCUMENTED_P1_RMS, rel=0.03)
+
+
+def test_documented_p0_is_not_exactly_flat_once_rounded() -> None:
+    """★F112 の証拠。§6.5 の P0 の表は「RMS = 0.000」と書かれているが 0 にならない。
+
+    答える問い: 「表の 2 桁を DGP に流すと、帰無の基準線はどれだけ帰無から外れるか」
+
+    **これは §6.5 の誤りではない** —— 節は `rule_rate` を小数第2位で表示すると
+    自ら書いている。**しかしシミュレータは表しか読めない**ので、
+    **P0 を帰無の較正に使うと、真値が完全な帰無ではなくなる**(RMS 0.028 ぶん)。
+    **この事実を人間に上げてある**(`plans/PLAN-019-validity-decisions.md` §10.10)。
+    """
+    effect = dict(load(MAIN_CONFIG)["effect"])
+    effect["profile"] = "P0"
+    effect["rule_rate"] = [          # 05_STATISTICS.md §6.5 の P0 の表(そのまま転記)
+        [0.94, 0.86, 0.65],
+        [0.92, 0.80, 0.55],
+        [0.86, 0.69, 0.40],
+        [0.90, 0.77, 0.50],
+    ]
+    profile = power_sim.build_profile(effect)
+    assert profile.nonadditivity_rms == pytest.approx(P0_RMS_FROM_ROUNDED_TABLE, abs=1e-4)
+    assert profile.nonadditivity_rms > 0.0
+
+
+def test_profile_rejects_a_table_of_the_wrong_shape() -> None:
+    effect = dict(load(MAIN_CONFIG)["effect"])
+    effect["rule_rate"] = [[0.9, 0.8, 0.7]]
+    with pytest.raises(ConfigError):
+        power_sim.build_profile(effect)
+
+
+def test_null_profile_has_zero_nonadditivity() -> None:
+    """P0(完全に平行)は RMS = 0 になる(§6.5 の基準線)。"""
+    effect = dict(load(MAIN_CONFIG)["effect"])
+    mu = effect["mu"]
+    a = effect["a"]
+    b = effect["b"]
+    additive = [[mu + ai + bj for bj in b] for ai in a]
+    effect["rule_rate"] = [
+        [1.0 / (1.0 + np.exp(-eta)) for eta in row] for row in additive
+    ]
+    profile = power_sim.build_profile(effect)
+    assert profile.nonadditivity_rms == pytest.approx(0.0, abs=1e-9)
+    assert profile.delta == pytest.approx(np.zeros((N_TASK, N_COVERAGE)), abs=1e-9)
+
+
+def test_interaction_df_is_six() -> None:
+    """主要検定の df = 6(§2 / §3.2)。RMS の分母がここに掛かっている。"""
+    assert INTERACTION_DF == 6
+
+
+# --------------------------------------------------------------------------
+# 共分散(§6.3 手続き3a / ADR-068 決定2)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("rho", [-0.4, 0.0, 0.5, 1.0])
+def test_compound_symmetry_sqrt_squares_back(rho: float) -> None:
+    """平方根の 2 乗が交換可能な相関行列に戻る。答える問い: 縮約は正しいか。"""
+    root = power_sim.compound_symmetry_sqrt(N_COVERAGE, rho)
+    target = (1.0 - rho) * np.eye(N_COVERAGE) + rho * np.ones((N_COVERAGE, N_COVERAGE))
+    assert root @ root.T == pytest.approx(target, abs=1e-12)
+
+
+def test_compound_symmetry_sqrt_survives_rho_one() -> None:
+    """★`rho = 1` で落ちない。
+
+    Cholesky はここで落ちる。**`rho = 1` は `(1 | seed)` そのもの**であり、
+    ADR-068 決定2 が掃くと決めた 2 枚の 1 枚なので、落ちては困る
+    (`plans/PLAN-019-check2/README.md` が固有分解を選んだ理由)。
+    """
+    root = power_sim.compound_symmetry_sqrt(N_COVERAGE, 1.0)
+    assert np.isfinite(root).all()
+    # rho = 1 のとき 3 つのセル平均は一体で動く: 引いた値がすべて等しくなる。
+    z = np.array([1.3, -0.4, 0.8])
+    drawn = root @ z
+    assert drawn == pytest.approx(np.full(N_COVERAGE, drawn[0]), abs=1e-12)
+
+
+def test_compound_symmetry_sqrt_rejects_out_of_domain() -> None:
+    with pytest.raises(ValueError):
+        power_sim.compound_symmetry_sqrt(N_COVERAGE, 1.5)
+    with pytest.raises(ValueError):
+        power_sim.compound_symmetry_sqrt(N_COVERAGE, -0.9)
+
+
+# --------------------------------------------------------------------------
+# DGP(§6.3 手続き3a)
+# --------------------------------------------------------------------------
+
+
+def smoke_levels(n_seed: int = 3, n_item: int = 2) -> power_sim.DesignLevels:
+    config = load(SMOKE_CONFIG)
+    return power_sim.DesignLevels(
+        tasks=tuple(config["effect"]["task_levels"]),
+        coverages=tuple(config["effect"]["coverage_levels"]),
+        templates=config["dgp"]["templates"],
+        n_seed=n_seed,
+        n_item=n_item,
+    )
+
+
+def test_frame_has_one_row_per_seed_task_coverage_item() -> None:
+    """表の行数が設計どおりである。答える問い: セルが落ちていないか。"""
+    levels = smoke_levels()
+    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    rows = power_sim.draw_frame(
+        levels, profile.eta, 0.5, 0.0, 0.25, 0.25, np.random.default_rng(0)
+    )
+    assert len(rows) == levels.n_seed * N_TASK * N_COVERAGE * levels.n_item
+    assert {row[5] for row in rows} <= {0, 1}
+
+
+def test_item_levels_are_nested_in_task() -> None:
+    """★`item` は タスク型に入れ子である(§3.2。ADR-064 決定1 = ★K)。
+
+    同じ添字でもタスク型・被覆が違えば別水準でなければならない。
+    ここが混ざると、項目のランダム効果がタスク型間で共有されてしまう。
+    """
+    levels = smoke_levels()
+    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    rows = power_sim.draw_frame(
+        levels, profile.eta, 0.0, 0.0, 0.25, 0.25, np.random.default_rng(1)
+    )
+    by_item: dict[str, set[tuple[str, str]]] = {}
+    for _, task, coverage, item, _, _ in rows:
+        by_item.setdefault(item, set()).add((task, coverage))
+    assert all(len(cells) == 1 for cells in by_item.values())
+    assert len(by_item) == N_TASK * N_COVERAGE * levels.n_item
+
+
+def test_templates_stay_inside_their_task() -> None:
+    """テンプレート水準は `category` であり、タスク型を跨がない(ADR-062 決定2)。"""
+    levels = smoke_levels(n_item=5)
+    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    rows = power_sim.draw_frame(
+        levels, profile.eta, 0.0, 0.0, 0.25, 0.25, np.random.default_rng(2)
+    )
+    for _, task, _, _, template, _ in rows:
+        assert template in levels.templates[task]
+
+
+def test_seed_effect_does_not_depend_on_task() -> None:
+    """★`u[s, ·]` は 4 タスク型すべてに同じ値が足される(ADR-066 決定4 (d))。
+
+    答える問い: 「`(0 + coverage | seed)` が run ごとに持つのは被覆 3 水準の
+    セル平均だけか」—— 分散だけを残して確率的な部分を消し、線形予測子が
+    タスク型を跨いで同じだけ動くことを見る。
+    """
+    levels = smoke_levels(n_seed=4, n_item=1)
+    eta_fixed = np.zeros((N_TASK, N_COVERAGE))
+    sigma = 1.0
+    rows_a = power_sim.draw_frame(
+        levels, eta_fixed, sigma, 0.0, 0.0, 0.0, np.random.default_rng(7)
+    )
+    rows_b = power_sim.draw_frame(
+        levels, eta_fixed, sigma, 0.0, 0.0, 0.0, np.random.default_rng(7)
+    )
+    # 同じ rng 種なら決定的である(再現性。CLAUDE.md §2)。
+    assert rows_a == rows_b
+
+
+def test_zero_sigma_gives_identical_seeds_in_expectation() -> None:
+    """`sigma = 0` の行は seed のランダム効果を持たない(§6.7 の下端)。"""
+    levels = smoke_levels(n_seed=2, n_item=1)
+    eta_fixed = np.full((N_TASK, N_COVERAGE), 20.0)  # ほぼ確実に 1 になる水準
+    rows = power_sim.draw_frame(
+        levels, eta_fixed, 0.0, 0.0, 0.0, 0.0, np.random.default_rng(3)
+    )
+    assert all(row[5] == 1 for row in rows)
+
+
+# --------------------------------------------------------------------------
+# R へ渡すもの
+# --------------------------------------------------------------------------
+
+
+def test_frame_csv_is_ascii_and_lf(tmp_path: Path) -> None:
+    """CSV は ASCII / LF である。答える問い: Windows で書いても R が同じ表を読むか。"""
+    levels = smoke_levels()
+    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    rows = power_sim.draw_frame(
+        levels, profile.eta, 0.5, 1.0, 0.25, 0.25, np.random.default_rng(4)
+    )
+    path = tmp_path / "frame.csv"
+    power_sim.write_frame_csv(rows, path)
+    raw = path.read_bytes()
+    assert b"\r\n" not in raw
+    assert raw.decode("ascii").splitlines()[0] == ",".join(power_sim.CSV_HEADER)
+    assert len(raw.decode("ascii").splitlines()) == len(rows) + 1
+
+
+def test_fit_manifest_carries_the_thresholds(tmp_path: Path) -> None:
+    """★ADR-059 の閾値が config から R へ流れる(コードに直書きしない)。"""
+    config = load(MAIN_CONFIG)
+    manifest = tmp_path / "manifest.txt"
+    power_sim.write_fit_manifest(
+        manifest,
+        [(tmp_path / "a.csv", tmp_path / "a.json")],
+        config["fit"]["refit"],
+        len(config["fit"]["reduction_order"]),
+    )
+    text = manifest.read_text(encoding="ascii")
+    assert "loglik_tolerance=0.001" in text
+    assert "beta_move_tolerance=0.01" in text
+    assert "max_reduction_level=3" in text
+    assert text.count("fit=") == 1
+
+
+def test_fit_script_keeps_the_preregistered_random_structure() -> None:
+    """★当てはめ側の level 0 が §3.2 のランダム構造そのものである。
+
+    答える問い: 「シミュレーションが当てているのは、事前登録した検定か」——
+    ★F110 が指した食い違い(DGP は合っているのに当てはめが `(1|seed)`)を
+    回帰テストで塞ぐ。ここが崩れると「実際には回さない検定の検出力」になる。
+    """
+    text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
+    assert "(0 + coverage | seed) + (1 | item) + (1 | template)" in text
+    assert "task * coverage" in text and "task + coverage" in text
+    # 縮退は §3.2 の順序で並んでいる: template -> coverage の傾き -> item。
+    drop_template = text.index('"(0 + coverage | seed) + (1 | item)"')
+    drop_slope = text.index('"(1 | seed) + (1 | item)"')
+    drop_item = text.index('"(1 | seed)"\n')
+    assert drop_template < drop_slope < drop_item
+    # singular は単独では引き金にしない / 判定は isSingular() を直接呼ぶ(F56)。
+    assert "isSingular(" in text
+    assert "non_singular_messages" in text
+
+
+def test_resolve_rscript_reports_a_missing_binary(tmp_path: Path) -> None:
+    with pytest.raises(power_sim.PowerSimError):
+        power_sim.resolve_rscript(str(tmp_path / "no-such-Rscript.exe"))
+
+
+# --------------------------------------------------------------------------
+# 集計と逆問題(§6.3 手続き3c / 手続き5)
+# --------------------------------------------------------------------------
+
+
+def fit_result(p_value: float | None, **overrides: Any) -> dict[str, Any]:
+    """R が返す JSON の形を手で組む。**R は呼ばない。**"""
+    base = {
+        "p_value": p_value,
+        "chisq": 6.0,
+        "reduced": False,
+        "full_singular": False,
+        "add_singular": False,
+        "full_refit_done": False,
+        "add_refit_done": False,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_power_is_the_share_below_alpha() -> None:
+    results = [fit_result(0.01), fit_result(0.2), fit_result(0.04), fit_result(0.9)]
+    point = power_sim.summarise_point(0.5, 0.0, results, 0.05)
+    assert point.power == pytest.approx(0.5)
+    assert point.n_rep == 4
+
+
+def test_degeneracy_rate_is_reported() -> None:
+    """★縮退の発火率を必ず返す。
+
+    ADR-064 決定4 の★リスク欄(「10 シードでこの項が同定できるかは
+    誰にも数値では言えない」)に数値を与えることが、ADR-068 決定1 を採る利②である。
+    落とすと、その利がそのまま消える。
+    """
+    results = [
+        fit_result(0.01, reduced=True, full_singular=True, add_refit_done=True),
+        fit_result(0.20),
+    ]
+    point = power_sim.summarise_point(1.0, 1.0, results, 0.05)
+    assert point.reduced_rate == pytest.approx(0.5)
+    assert point.singular_rate == pytest.approx(0.5)
+    assert point.refit_rate == pytest.approx(0.5)
+
+
+def test_a_null_p_value_stops_the_summary() -> None:
+    """★p 値が null の反復を黙って捨てない(`CLAUDE.md` §7)。"""
+    with pytest.raises(power_sim.PowerSimError):
+        power_sim.summarise_point(0.5, 0.0, [fit_result(None)], 0.05)
+
+
+def test_empty_grid_point_stops_the_summary() -> None:
+    with pytest.raises(power_sim.PowerSimError):
+        power_sim.summarise_point(0.5, 0.0, [], 0.05)
+
+
+def point(sigma: float, power: float, rho: float = 0.0) -> power_sim.GridPoint:
+    return power_sim.GridPoint(
+        sigma=sigma, rho=rho, n_rep=1000, power=power,
+        reduced_rate=0.0, singular_rate=0.0, refit_rate=0.0, mean_chisq=6.0,
+    )
+
+
+def test_sigma_star_is_the_last_point_before_the_first_failure() -> None:
+    """逆問題の答え(§6.3 手続き5)。答える問い: 10 シードはどこまで保つか。"""
+    limit = power_sim.sigma_limit(
+        [point(0.0, 0.99), point(0.5, 0.90), point(1.0, 0.70), point(1.5, 0.60)], 0.8
+    )
+    assert limit["verdict"] == "inside_swept_range"
+    assert limit["sigma_star"] == pytest.approx(0.5)
+    assert limit["first_failing_sigma"] == pytest.approx(1.0)
+
+
+def test_holding_everywhere_is_reported_as_outside_the_swept_range() -> None:
+    """★全域で保ったら「掃いた範囲の外」と言う。「限界は無い」とは書かない。
+
+    掃いていない領域について言えることは無い(§6.3 手続き5)。
+    ★F111 はこうなる公算が高いと見ている(見立て。未検証)。
+    """
+    limit = power_sim.sigma_limit(
+        [point(s, 0.95) for s in ADOPTED_SIGMA], 0.8
+    )
+    assert limit["verdict"] == "beyond_swept_range"
+    assert limit["sigma_star"] is None
+    assert limit["last_holding_sigma"] == pytest.approx(1.5)
+
+
+def test_non_monotone_curve_is_flagged_not_smoothed() -> None:
+    """★一度割った先で保っている点があれば旗を立てる(隠さない)。
+
+    モンテカルロ誤差で曲線は単調でなくなりうる。後ろから拾うと
+    「割ったのに、その先が限界」と読める報告になる。
+    """
+    limit = power_sim.sigma_limit(
+        [point(0.0, 0.99), point(0.5, 0.70), point(1.0, 0.85)], 0.8
+    )
+    assert limit["sigma_star"] == pytest.approx(0.0)
+    assert limit["first_failing_sigma"] == pytest.approx(0.5)
+    assert limit["non_monotone"] is True
+
+
+def test_grid_summary_keeps_both_rho_sheets() -> None:
+    """★`rho` の 2 枚を帯として併記する(ADR-068 決定2)。潰さない。"""
+    summary = power_sim.summarise_grid(
+        [point(0.0, 0.99, 0.0), point(1.5, 0.70, 0.0),
+         point(0.0, 0.99, 1.0), point(1.5, 0.90, 1.0)],
+        0.8,
+    )
+    assert set(summary["by_rho"]) == {"0.0", "1.0"}
+    assert summary["by_rho"]["0.0"]["verdict"] == "inside_swept_range"
+    assert summary["by_rho"]["1.0"]["verdict"] == "beyond_swept_range"
+
+
+def test_plan_grid_is_the_full_product() -> None:
+    assert len(power_sim.plan_grid(load(MAIN_CONFIG))) == len(ADOPTED_SIGMA) * len(
+        ADOPTED_RHO
+    )

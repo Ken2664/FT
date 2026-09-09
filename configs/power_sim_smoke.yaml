@@ -1,0 +1,58 @@
+# configs/power_sim_smoke.yaml — 配線確認用。**実験ではない。検出力の見立てでもない。**
+#
+#   python -m code.analysis.power_sim --config configs/power_sim_smoke.yaml --out-dir <tmp>
+#
+# 目的は「config が読める / DGP が表を組める / Rscript が呼べる / 集計が通る」の確認だけ。
+# **ここから出た数値を results/ や文書に書かないこと**(CLAUDE.md §2)。
+# configs/smoke.yaml と同じ扱いである。
+#
+# ★ここの n_item / s2_item / s2_tmpl は「決まった値」ではない。**配線確認に値が要るので
+# 置いてあるだけ**である。本物は configs/power_sim.yaml にあり、そちらは null で止まる
+# (n_item = M* 待ち / s2_item・s2_tmpl = ★F104)。
+
+analysis:
+  id: power_sim_smoke
+  plan: plans/PLAN-019-validity-decisions.md
+  section: Documents/05_STATISTICS.md#6
+
+effect:
+  profile: P1
+  mu: 2.2
+  task_levels: [T1, T1b, T2, T3]
+  coverage_levels: [id, interp, extrap_magnitude]
+  a: [0.6, 0.2, -0.4, 0.0]
+  b: [0.0, -1.0, -2.2]
+  rule_rate:
+    - [0.94, 0.88, 0.77]
+    - [0.92, 0.83, 0.69]
+    - [0.86, 0.65, 0.27]
+    - [0.90, 0.73, 0.35]
+
+dgp:
+  n_seed: 4          # ★smoke のみ。ADR-028 の 10 ではない
+  sigma: [0.0, 1.0]  # ★smoke のみ。§6.7 の 6 点ではない
+  rho: [0.0]         # ★smoke のみ。§6.7 の 2 枚ではない
+  n_item: 2          # ★smoke のみ。M* 待ちの本物ではない
+  s2_item: 0.25      # ★smoke のみ。★F104 の答えではない
+  s2_tmpl: 0.25      # ★smoke のみ。★F104 の答えではない
+  templates:
+    T1: [t1]
+    T1b: [t1b_gt, t1b_lt]
+    T2: [t2_count, t2_people, t2_distance, t2_money, t2_time]
+    T3: [t3_gt, t3_lt]
+
+simulation:
+  n_rep: 2           # ★smoke のみ。§6.3 手続き3c の 1000 ではない
+  alpha: 0.05
+  target_power: 0.8
+  rng_seed: 20260909
+
+fit:
+  engine: rscript
+  rscript: null
+  r_libpath: null
+  refit:
+    loglik_tolerance: 0.001
+    beta_move_tolerance: 0.01
+    use_refit_for_lrt: true
+  reduction_order: [template, coverage_slope, item]

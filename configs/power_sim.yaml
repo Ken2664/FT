@@ -1,0 +1,80 @@
+# configs/power_sim.yaml — 検出力シミュレーション(Documents/05_STATISTICS.md §6)。
+#
+#   python -m code.analysis.power_sim --config configs/power_sim.yaml --dry-run
+#   python -m code.analysis.power_sim --config configs/power_sim.yaml --out-dir results/power_sim
+#
+# **★下の効果量と分散の値はすべて仮定値であり、実験結果ではない**(CLAUDE.md §2)。
+# results/ は空であり、s2_seed の実測はこの世に存在しない(ADR-067 のリスク欄)。
+#
+# 出所:
+#   effect      = 05_STATISTICS.md §6.5 の P1(採択済み。ADR-052 決定2)
+#   dgp.sigma   = 05_STATISTICS.md §6.7 の掃く格子(ADR-068 決定3。R3)
+#   dgp.rho     = 同上(ADR-068 決定2。rho = 0 と rho = 1 の 2 枚)
+#   n_seed      = ADR-028(10)。§6.3 手続き4 でシード掃きは 10 に畳んだ
+#
+# **null は「まだ決めていない」であって「良きに計らえ」ではない**
+# (configs/template.yaml の冒頭 / code/config.py / skill code-style §5)。
+# 下の null 3 つが埋まるまで本実行は止まる。**エージェントは既定値を作らない。**
+
+analysis:
+  id: power_sim_p1
+  plan: plans/PLAN-019-validity-decisions.md
+  section: Documents/05_STATISTICS.md#6
+
+# ---- 固定効果(効果量プロファイル P1。★仮定値)-------------------------------
+# 05_STATISTICS.md §6.5 / §6.6。mu + a[task] + b[coverage] + delta[task, coverage]。
+# delta は §6.5 の P1 の表(rule_rate)から逆算したロジット残差である。
+effect:
+  profile: P1
+  mu: 2.2
+  task_levels: [T1, T1b, T2, T3]          # ADR-026
+  coverage_levels: [id, interp, extrap_magnitude]   # ADR-027。id が基準水準
+  a: [0.6, 0.2, -0.4, 0.0]                # task の主効果(ロジット)
+  b: [0.0, -1.0, -2.2]                    # coverage の主効果(ロジット)
+  # rule_rate の 12 セル(§6.5 の P1 の表)。delta はここから復元する。
+  # 行 = task_levels、列 = coverage_levels。
+  rule_rate:
+    - [0.94, 0.88, 0.77]                  # T1
+    - [0.92, 0.83, 0.69]                  # T1b
+    - [0.86, 0.65, 0.27]                  # T2
+    - [0.90, 0.73, 0.35]                  # T3
+
+# ---- DGP(§6.3 手続き3a)-----------------------------------------------------
+dgp:
+  n_seed: 10                              # ADR-028。§6.3 手続き4 で 10 に固定した
+  # Sigma = sigma^2 * [(1 - rho) I + rho J]。★すべて仮定値(§6.7)
+  sigma: [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
+  rho: [0.0, 1.0]
+  # ★未決。埋まるまで本実行は止まる。
+  n_item: null      # M*(順5)待ち。被覆水準あたりの項目数。05_STATISTICS.md §6.4
+  s2_item: null     # ★F104。取得元が未決(順6 の DV は correct_rate、本節は rule_rate)
+  s2_tmpl: null     # ★F104。同上
+  # テンプレート水準は category をそのまま使う(ADR-062 決定2 = E-2 案 (a))。
+  # 主軸 10 水準: t1 1 / t2_* 5 / t3_* 2 / t1b_* 2(05_STATISTICS.md §3.2)。
+  templates:
+    T1: [t1]
+    T1b: [t1b_gt, t1b_lt]
+    T2: [t2_count, t2_people, t2_distance, t2_money, t2_time]
+    T3: [t3_gt, t3_lt]
+
+# ---- シミュレーション(§6.3 手続き3c / 手続き5)------------------------------
+simulation:
+  n_rep: 1000               # §6.3 手続き3c
+  alpha: 0.05               # 有意水準
+  target_power: 0.8         # §6.3 手続き5。sigma* はここを下回る最初の点で定義する
+  rng_seed: 20260909
+
+# ---- 当てはめ(§6.3 手続き3b。ADR-058 決定1 / ADR-059)------------------------
+fit:
+  engine: rscript
+  rscript: null             # ★null なら PATH と既定の導入先から探す(--rscript で上書き可)
+  r_libpath: null           # lme4 を別ディレクトリに入れている場合のみ
+  # ADR-059 決定1・決定2 とその追記(2026-09-07)。閾値をコードに直書きしない。
+  refit:
+    loglik_tolerance: 0.001   # logLik(refit) - logLik(fit0) < これ なら「改善していない」
+    beta_move_tolerance: 0.01 # max|Δβ| / SE < これ なら「動いていない」
+    # ★ADR-059 は「当て直した場合に LRT へ入れるのはどちらの当てはめか」を書いていない。
+    # 既定は当て直したほう(手続きが「当て直す」で終わっているため)。★人間の確認待ち。
+    use_refit_for_lrt: true
+  # 縮退順序(ADR-065 決定2)。template → coverage のランダム傾き → item。
+  reduction_order: [template, coverage_slope, item]

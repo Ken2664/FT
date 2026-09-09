@@ -301,6 +301,60 @@ def test_zero_sigma_gives_identical_seeds_in_expectation() -> None:
     assert all(row[5] == 1 for row in rows)
 
 
+def test_item_effect_is_shared_across_seeds() -> None:
+    """★`v[item]` は 10 シード全部で共有される(★F117。`plans/PLAN-019` §10.13)。
+
+    答える問い: **項目のばらつきはシード数で縮むか。**縮まない。
+    `draw_frame` は `v` を seed のループの外で引くので、同じ項目は
+    どのシードでも同じだけ持ち上がる(または下がる)。
+
+    見分け方は 2 つの regime の差である。`s2_item` を大きく取り 他の分散と
+    固定効果を 0 にすると:
+      - **共有されているなら** 各項目の `eta` は ±大 に振れ、10 シードの
+        0/1 は ほぼ必ず一致する(一致しないのは `|eta|` が小さい少数の項目だけ)
+      - **シードごとに引き直していれば** `eta` は毎回引き直されるので、
+        10 個が偶然そろう確率は `2 * 0.5^10 = 0.002` しかない
+    **450 倍の開きがあるので、閾値 0.9 は乱数に対して頑健である。**
+
+    ★この事実は ★F104 の決定材料(§10.13.0 の賭け金)の前提である。
+    ここを変えるなら §10.13 / ★F117 を読み直すこと。
+    """
+    levels = smoke_levels(n_seed=10, n_item=40)
+    eta_fixed = np.zeros((N_TASK, N_COVERAGE))
+    rows = power_sim.draw_frame(
+        levels, eta_fixed, 0.0, 0.0, 10_000.0, 0.0, np.random.default_rng(11)
+    )
+    by_item: dict[str, set[int]] = {}
+    for _, _, _, item, _, is_rule in rows:
+        by_item.setdefault(item, set()).add(is_rule)
+    agreed = sum(1 for values in by_item.values() if len(values) == 1)
+    assert agreed / len(by_item) > 0.9
+
+
+def test_template_assignment_is_the_same_in_every_coverage_cell() -> None:
+    """★同じ項目添字には、どの被覆水準でも同じテンプレートが付く(ADR-069 決定4 (3))。
+
+    答える問い: **テンプレートのばらつきは `task:coverage` の交互作用に入るか。**
+    入らない —— 巡回割当なので被覆水準を跨いで同じ値になり、差分で消える(★F117)。
+
+    ★この打ち消しは巡回割当の性質であって、一般の事実ではない。
+    割当を変えるなら `plans/PLAN-019` §10.13 の ★F117 と §10.13.6 の限界欄を
+    読み直すこと(★F104 の決定がこの事実に乗っている)。
+    """
+    levels = smoke_levels(n_seed=1, n_item=7)
+    eta_fixed = np.zeros((N_TASK, N_COVERAGE))
+    rows = power_sim.draw_frame(
+        levels, eta_fixed, 0.0, 0.0, 0.0, 0.0, np.random.default_rng(12)
+    )
+    seen: dict[tuple[str, str], str] = {}
+    for _, task, coverage, item, template, _ in rows:
+        index = item.rsplit(".", 1)[1]
+        key = (task, index)
+        assert seen.setdefault(key, template) == template, (
+            f"{task} の項目 {index} に被覆 {coverage} で別のテンプレートが付いた"
+        )
+
+
 # --------------------------------------------------------------------------
 # R へ渡すもの
 # --------------------------------------------------------------------------

@@ -1,0 +1,86 @@
+PLAN-019 check 3 -- F104: the source of `s2_item` / `s2_tmpl`
+SYNTHETIC / ARITHMETIC ONLY.  Not an experimental result.  results/ is empty.
+
+[A1] one Bernoulli observation per item: profile logLik over s2_item
+     one (task, coverage) cell, n_item = 400, observed correct_rate = 0.70
+     (Go/No-Go #2 requires correct_rate >= 0.70 in every cell)
+     s2_item    profiled mu  marginal p     logLik - max
+     0.00       0.8473       0.700000       +0.000e+00
+     0.25       0.8950       0.700000       +0.000e+00
+     0.50       0.9388       0.700000       +0.000e+00
+     1.00       1.0184       0.700000       +2.842e-14
+     2.00       1.1563       0.700000       +0.000e+00
+     4.00       1.3842       0.700000       +0.000e+00
+     16.00      2.2950       0.700000       +0.000e+00
+     -> the profile is FLAT: every s2_item fits exactly as well.
+        `s2_item` is not identified from one observation per item.
+
+[A2] r = 3 repeats at temperature 0 (task 5), every repeat agreeing
+     logLik of the marginal model as s2_item grows; n_item = 400, 70% all-correct
+     s2_item    profiled mu  logLik
+     0.00       0.2824       -775.918
+     0.50       0.3773       -671.549
+     1.00       0.4582       -611.429
+     2.00       0.5964       -540.905
+     4.00       0.8227       -470.465
+     8.00       1.1794       -409.149
+     16.00      1.7242       -361.011
+     64.00      3.6968       -301.345
+     -> logLik rises monotonically: no interior MLE while the repeats agree.
+        Information about s2_item comes ONLY from within-item disagreement,
+        i.e. from exactly the test-retest wobble task 5 exists to measure.
+
+[B] relative sampling SD of a variance component estimated from k levels
+    ARITHMETIC (chi-square with k-1 df), not a measurement
+    k      relative SD of s2-hat    where that k comes from
+    5      0.707                    junjo6 task 6: the 5 T2 categories only (ADR-042 decision 9)
+    10     0.471                    template levels the FIT uses (ADR-062 decision 2)
+    2      1.414                    categories in T1b / T3
+    1      undefined                categories in T1 -- a variance is not defined
+
+[C] spurious non-additivity injected into the task:coverage interaction
+    n_item = 48 per (task, coverage) cell, 4000 draws, shared across all 10 seeds
+    compare against the ADOPTED P1 non-additivity RMS = 0.352767 (ADR-052 decision 2)
+    s2_item    s2_tmpl    spurious RMS       as % of P1
+    0.00       0.00       0.00000            0.00%
+    0.00       0.50       0.00000            0.00%
+    0.00       2.00       0.00000            0.00%
+    0.00       8.00       0.00000            0.00%
+    0.50       0.00       0.09847            27.92%
+    1.00       0.00       0.13893            39.38%
+    2.00       0.00       0.19538            55.38%
+    4.00       0.00       0.27600            78.24%
+    1.00       1.00       0.13812            39.15%
+    4.00       4.00       0.27693            78.50%
+    -> `s2_tmpl` contributes EXACTLY 0: the same template index serves the same
+       item index in every coverage cell, so it cancels in the interaction.
+       That cancellation is a property of the cycling assignment (ADR-069 decision 4 (3)).
+    -> `s2_item` does NOT cancel, and it does NOT shrink with n_seed:
+       v[item] is drawn once and shared across all 10 seeds (draw_frame).
+
+    CONTROL -- the same metric applied to the SEED term (sigma, rho):
+    sigma      rho        spurious RMS       as % of P1
+    0.00       0.00       0.00000            0.00%
+    0.50       0.00       0.00000            0.00%
+    1.50       0.00       0.00000            0.00%
+    1.50       1.00       0.00000            0.00%
+    -> also EXACTLY 0: `u[s, cov]` carries no task index (ADR-066 decision 4 (d)),
+       so it shifts all four task types alike and drops out of the interaction.
+    -> READ THIS NARROWLY.  This channel is the DIRECT contribution to the 12 cell
+       means only.  sigma still costs power through the binomial sampling channel
+       (link nonlinearity), which check 2 measured (F108) and this check does NOT.
+       The point is the ASYMMETRY: of the three variance components, only
+       `s2_item` feeds the task:coverage interaction directly.
+
+[D] how the s2_item contribution scales with n_item (`M*` = junjo5, pending)
+    s2_item = 1.0 fixed; s2_tmpl = 0
+    n_item     spurious RMS       as % of P1
+    12         0.27741            78.64%
+    24         0.19512            55.31%
+    48         0.13802            39.13%
+    96         0.09865            27.97%
+    192        0.06898            19.55%
+    384        0.04887            13.85%
+    -> falls as 1/sqrt(n_item).  `n_item` is null until `M*` lands (junjo5),
+       so the stakes of the s2_item choice are themselves `M*`-dependent.
+

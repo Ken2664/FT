@@ -27,9 +27,11 @@ from code.data_gen.ft_data import (
 )
 from code.data_gen.pool import (
     CARRY,
+    COVERAGE_EXTRAP_MAGNITUDE,
     NOCARRY,
     Pair,
     carry_label,
+    label_main_coverage,
     eligible_pairs,
     id_cell_population,
     main_domain_pairs,
@@ -407,3 +409,70 @@ def test_no_covered_sum_is_ever_held_out(main_region: list[Pair], holdout: tuple
 #        コードに無いため、いま書くと仕様ではなくテストのほうが原典になる。
 #        **ADR-022 の未検算2件のうち「G7 の 15 件セル」もここに属する。**
 #        承認待ち-11 / -3(G7 の扱い)が決まってから書く。STATE.md に残した
+
+
+# --------------------------------------------------------------------------
+# 外挿域の容量(PLAN-020 §4。θ の決定材料)
+# --------------------------------------------------------------------------
+
+
+def _extrap_magnitude_capacity(extrapolation_radius: int) -> dict[str, int]:
+    """M* のとき `extrap_magnitude` に何組あるかを carry 層ごとに数える。
+
+    定義は `label_main_coverage`(a > 99 かつ b > 99)そのもの。
+    ここで書き直さないために本番関数を呼ぶ。
+    """
+    counts: dict[str, int] = {CARRY: 0, NOCARRY: 0}
+    for a in range(MAIN_RADIUS + 1, extrapolation_radius + 1):
+        for b in range(MAIN_RADIUS + 1, extrapolation_radius + 1):
+            assert label_main_coverage((a, b), frozenset(), MAIN_RADIUS) == (
+                COVERAGE_EXTRAP_MAGNITUDE
+            )
+            counts[carry_label(a, b)] += 1
+    return counts
+
+
+@pytest.mark.parametrize(
+    ("extrapolation_radius", "expected_total", "expected_carry"),
+    [(100, 1, 0), (110, 121, 24), (125, 676, 133), (150, 2601, 520)],
+)
+def test_extrap_magnitude_capacity_at_grid_points(
+    extrapolation_radius: int, expected_total: int, expected_carry: int
+) -> None:
+    """掃引格子の各点で主軸 3 水準目の母集団が何組になるか(PLAN-020 §4)。
+
+    **組合せ論的事実であって実験結果ではない。**`(M* - 99)^2` の帰結である。
+    """
+    counts = _extrap_magnitude_capacity(extrapolation_radius)
+    assert sum(counts.values()) == expected_total
+    assert counts[CARRY] == expected_carry
+
+
+def test_grid_points_100_and_110_cannot_fill_the_c6_cells() -> None:
+    """★M* が 100 / 110 に落ちると D_ext は空でないのに C6 が組めない(PLAN-020 §4)。
+
+    ADR-041 決定3 規則5 は `M* < 100`(= D_ext が空)にしか分岐を持たない。
+    **この 2 点はその分岐の外側にあり、かつ主軸が成立しない。**
+    要求 520 組は `plans/PLAN-001` §5.1 のセル表(C1 要求 520 と同数)。
+    """
+    c6_required = 520
+    for extrapolation_radius in (100, 110):
+        counts = _extrap_magnitude_capacity(extrapolation_radius)
+        assert sum(counts.values()) < c6_required
+
+
+def test_smallest_viable_extrapolation_radius_is_134() -> None:
+    """C6 520 組と carry 層 240 組をともに満たす最小の M*(PLAN-020 §4)。
+
+    掃引格子(100/110/125/150/…)には 134 が無いので、
+    **格子上の最小の成立点は 150 である。**
+    """
+    c6_required, stratum_required = 520, 240
+    viable = [
+        radius
+        for radius in range(MAIN_RADIUS + 1, 160)
+        if (counts := _extrap_magnitude_capacity(radius))
+        and sum(counts.values()) >= c6_required
+        and min(counts[CARRY], counts[NOCARRY]) >= stratum_required
+    ]
+    assert viable[0] == 134

@@ -1,0 +1,60 @@
+[A] compound symmetry: Sigma = sigma^2 [(1-rho) I + rho J], 10 seeds, 100 items/cell
+    rho = 1.0 is `(1 | seed)`  (F103-1 case (b) ‚Ì DGP)
+    rho = 0.0 is check 1's DGP (F103-2 case (a): SD equal, correlation 0)
+    4000 draws per row; the DiD's true value is 0 under H_null
+
+    sigma  rho    |   sd_com   sd_dif | logit(i-in) logit(i-ex) |     linear
+    0.00   -0.40  |    0.000    0.000 |    0.22413    0.20921 |    0.06265
+    0.25   -0.40  |    0.065    0.296 |    0.22716    0.21131 |    0.06378
+    0.50   -0.40  |    0.129    0.592 |    0.23341    0.21649 |    0.06278
+    1.00   -0.40  |    0.258    1.183 |    0.25459    0.23792 |    0.06418
+    1.50   -0.40  |    0.387    1.775 |    0.27567    0.25333 |    0.06378
+
+    0.00   0.00   |    0.000    0.000 |    0.22098    0.20867 |    0.06266
+    0.25   0.00   |    0.144    0.250 |    0.22285    0.20837 |    0.06239
+    0.50   0.00   |    0.289    0.500 |    0.23651    0.21977 |    0.06265
+    1.00   0.00   |    0.577    1.000 |    0.25879    0.23573 |    0.06302
+    1.50   0.00   |    0.866    1.500 |    0.27457    0.25067 |    0.06165
+
+    0.00   0.50   |    0.000    0.000 |    0.22214    0.20694 |    0.06307
+    0.25   0.50   |    0.204    0.177 |    0.21981    0.20607 |    0.06346
+    0.50   0.50   |    0.408    0.354 |    0.23603    0.21712 |    0.06458
+    1.00   0.50   |    0.816    0.707 |    0.25787    0.23609 |    0.06219
+    1.50   0.50   |    1.225    1.061 |    0.27511    0.24812 |    0.06313
+
+    0.00   1.00   |    0.000    0.000 |    0.21785    0.20782 |    0.06362
+    0.25   1.00   |    0.250    0.000 |    0.22470    0.21015 |    0.06430
+    0.50   1.00   |    0.500    0.000 |    0.23039    0.21388 |    0.06329
+    1.00   1.00   |    1.000    0.000 |    0.25657    0.23642 |    0.06303
+    1.50   1.00   |    1.500    0.000 |    0.27244    0.25248 |    0.06300
+
+[B] inflation of the logit DiD SD relative to sigma = 0
+    power for a fixed effect goes as effect / SD, so a factor here is
+    the whole channel by which s2_seed can move the inverse problem.
+    NOTE: this is ONE contrast's SD, not the df = 6 LRT's power.
+
+    contrast: id - interp
+    rho    |    0.00     0.25     0.50     1.00     1.50
+    -0.40  |   1.000    1.013    1.041    1.136    1.230
+    0.00   |   0.986    0.994    1.055    1.155    1.225
+    0.50   |   0.991    0.981    1.053    1.151    1.227
+    1.00   |   0.972    1.003    1.028    1.145    1.216
+
+    contrast: id - extrap_magnitude
+    rho    |    0.00     0.25     0.50     1.00     1.50
+    -0.40  |   1.000    1.010    1.035    1.137    1.211
+    0.00   |   0.997    0.996    1.050    1.127    1.198
+    0.50   |   0.989    0.985    1.038    1.128    1.186
+    1.00   |   0.993    1.004    1.022    1.130    1.207
+
+[C] internal consistency with the design's own penetrance target
+    P1 puts T1 x id at 0.94 (logit 2.752); Go/No-Go #4 asks for >= 0.90 (logit 2.197).
+    share of FT runs whose own T1 x id cell falls below the #4 level,
+    if the seed SD on that cell is sigma.  Normal CDF arithmetic, NOT a measurement.
+
+    sigma    | share < #4
+    0.00     |      0.000
+    0.25     |      0.013
+    0.50     |      0.134
+    1.00     |      0.290
+    1.50     |      0.356

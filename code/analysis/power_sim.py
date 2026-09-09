@@ -37,6 +37,7 @@ import math
 import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -80,29 +81,59 @@ class EffectProfile:
     nonadditivity_rms: float
 
 
-def logit(p: float) -> float:
-    """答える問い: `rule_rate` はロジット尺度でいくつか。"""
-    if not 0.0 < p < 1.0:
-        raise ValueError(f"rule_rate は (0, 1) の中でなければならない: {p}")
-    return math.log(p / (1.0 - p))
+# §6.5 の表が載っている桁数。`eta` と表の照合はこの桁で行う(ADR-069 決定1)。
+RULE_RATE_DECIMALS = 2
+
+# ★実測(★F114。run:`20260909_bench_powersim`)。`full` + `add` の 1 ペア、`n_item = 48`
+# (5,760 行)、この機械、逐次。**当て直し(ADR-059)を含む。**F50 の 31.91 秒の 9.3 倍。
+# **`n_item` を動かせばこの値も動く**(時間はおおむね行数に比例する)。
+SECONDS_PER_PAIR_N_ITEM_48 = 297.6
+
+
+def inv_logit(eta: np.ndarray) -> np.ndarray:
+    """答える問い: ロジット `eta` は `rule_rate` でいくつか。"""
+    return 1.0 / (1.0 + np.exp(-eta))
+
+
+def _require_shape(block: Mapping[str, Any], key: str, shape: tuple[int, int]) -> np.ndarray:
+    """答える問い: `effect` のこの表は (タスク型 × 被覆水準) の形をしているか。"""
+    if key not in block:
+        raise ConfigError(f"effect.{key} が無い。ADR-069 決定1 でどちらも必須である")
+    array = np.asarray(block[key], dtype=float)
+    if array.shape != shape:
+        raise ConfigError(f"effect.{key} の形が {array.shape} で、{shape} と合わない")
+    return array
 
 
 def build_profile(effect: Mapping[str, Any]) -> EffectProfile:
     """config の `effect` ブロックから 12 セルのロジットと `delta` を組む。
 
-    答える問い: 「§6.5 の表(`rule_rate`)と、そこに書かれた `mu` / `a` / `b` は
-    整合しているか」—— `delta` は表から `mu + a + b` を引いた残差として定義する
-    (§6.2)。表と主効果が食い違えば `delta` にそれが現れるので、ここで検算する。
+    答える問い: 「DGP が §6.5 の意図した効果量そのものになっているか」——
+    **真値は `effect.eta`(丸める前のロジット)である**(ADR-069 決定1 = ★F112 案 (a))。
+    `effect.rule_rate`(§6.5 の表。小数第2位)は DGP には使わず、
+    **`eta` を丸めたものと一致するかを検査する門**として読む。両者が離れたら止まる。
+
+    `delta` は `eta` から `mu + a + b` を引いた残差として定義する(§6.2)。
+    表と主効果が食い違えば `delta` にそれが現れるので、ここで検算になる。
+
+    ★かつては `rule_rate` を逆変換して `eta` を作っていた。丸めが非加法性 RMS を
+    0.353 → 0.3605 に膨らませ、P0 が 0.000 → 0.0285 になっていた(★F112)。
     """
     tasks = tuple(effect["task_levels"])
     coverages = tuple(effect["coverage_levels"])
-    rates = np.asarray(effect["rule_rate"], dtype=float)
-    if rates.shape != (len(tasks), len(coverages)):
+    shape = (len(tasks), len(coverages))
+    eta = _require_shape(effect, "eta", shape)
+    rates = _require_shape(effect, "rule_rate", shape)
+    rounded = np.round(inv_logit(eta), RULE_RATE_DECIMALS)
+    if not np.array_equal(rounded, rates):
         raise ConfigError(
-            f"effect.rule_rate の形が {rates.shape} で、"
-            f"({len(tasks)}, {len(coverages)}) と合わない"
+            "effect.eta を rule_rate に直して小数第"
+            f"{RULE_RATE_DECIMALS} 位で丸めたものが effect.rule_rate と一致しない。"
+            f" eta から: {rounded.tolist()} /"
+            f" rule_rate: {rates.tolist()}。"
+            "eta が真値で rule_rate は照合用の門である(ADR-069 決定1)。"
+            "§6.5 の表を動かしたのなら eta も動かすこと。"
         )
-    eta = np.vectorize(logit)(rates)
     additive = (
         float(effect["mu"])
         + np.asarray(effect["a"], dtype=float)[:, None]
@@ -291,6 +322,71 @@ def run_rscript(rscript: str, libpath: str | None, manifest: Path) -> str:
     return completed.stdout
 
 
+def shard_jobs(
+    jobs: Sequence[tuple[Path, Path]], n_workers: int
+) -> list[list[tuple[Path, Path]]]:
+    """当てはめを並列単位へ切り分ける。答える問い: どの表をどのプロセスが当てるか。
+
+    **連続ブロックで切る**(ラウンドロビンではない)—— 当てはめ 1 本の費用は
+    表の行数で決まり、同じ格子点なら全反復で同じである。**負荷は自然に揃う。**
+
+    **★結果は `n_workers` に依らない。**表は親が単一の `rng` から決まった順で書き、
+    当てはめは表ごとに決定的だからである。**`n_workers` は実験パラメータではなく
+    実行資源のつまみである**(ADR-069 決定3)。
+    """
+    if n_workers < 1:
+        raise ConfigError(f"fit.n_workers は 1 以上でなければならない: {n_workers}")
+    if not jobs:
+        return []
+    n_shards = min(n_workers, len(jobs))
+    size, remainder = divmod(len(jobs), n_shards)
+    shards: list[list[tuple[Path, Path]]] = []
+    start = 0
+    for i in range(n_shards):
+        stop = start + size + (1 if i < remainder else 0)
+        shards.append(list(jobs[start:stop]))
+        start = stop
+    return shards
+
+
+def run_fits(
+    rscript: str,
+    libpath: str | None,
+    manifest_stem: Path,
+    jobs: Sequence[tuple[Path, Path]],
+    refit: Mapping[str, Any],
+    max_reduction_level: int,
+    n_workers: int,
+) -> list[Path]:
+    """1 つの格子点の当てはめをすべて通す。答える問い: 何本の R を同時に走らせるか。
+
+    **★逐次では現実的でない** —— 当てはめ 1 ペアはこの機械で 297.6 秒であり
+    (`n_item = 48` / 5,760 行。run:`20260909_bench_powersim`)、
+    **24,000 本 = 992 コア時になる**(★F114)。**16 並列で約 62 時間である。**
+
+    **R の起動は 1 並列単位につき 1 回だけである**(`run_rscript` の但し書きと同じ理由)。
+    `subprocess.run` は待つ間 GIL を手放すので、スレッドで足りる。
+    """
+    shards = shard_jobs(jobs, n_workers)
+    manifests: list[Path] = []
+    for index, shard in enumerate(shards):
+        manifest = manifest_stem.with_name(f"{manifest_stem.name}_{index:02d}.txt")
+        write_fit_manifest(manifest, shard, refit, max_reduction_level)
+        manifests.append(manifest)
+    if len(manifests) <= 1:
+        for manifest in manifests:
+            run_rscript(rscript, libpath, manifest)
+        return manifests
+    with ThreadPoolExecutor(max_workers=len(manifests)) as pool:
+        futures = [
+            pool.submit(run_rscript, rscript, libpath, manifest) for manifest in manifests
+        ]
+        # ★1 本でも落ちたら止める。当てはめの失敗を黙って数えない(CLAUDE.md §7)。
+        for future in futures:
+            future.result()
+    return manifests
+
+
 # --------------------------------------------------------------------------
 # 集計(§6.3 手続き3c / 手続き5)
 # --------------------------------------------------------------------------
@@ -425,7 +521,7 @@ def plan_grid(config: Mapping[str, Any]) -> list[tuple[float, float]]:
 
 
 def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
-        keep_frames: bool) -> dict[str, Any]:
+        keep_frames: bool, workers_override: int | None = None) -> dict[str, Any]:
     """格子を回して逆問題の答えを返す。答える問い: 10 シードはどこまで保つか。
 
     **表を組む → R に投げる → 数える、の 3 段しかない。**
@@ -444,6 +540,7 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
     libpath = config["fit"].get("r_libpath")
     refit = config["fit"]["refit"]
     max_level = len(require(config, "fit.reduction_order"))
+    n_workers = int(workers_override or require(config, "fit.n_workers"))
 
     out_dir.mkdir(parents=True, exist_ok=True)
     frames_dir = out_dir / "frames"
@@ -465,9 +562,9 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
                 )
             jobs.append((csv_path, out_path))
 
-        manifest = out_dir / f"manifest_{tag}.txt"
-        write_fit_manifest(manifest, jobs, refit, max_level)
-        run_rscript(rscript, libpath, manifest)
+        run_fits(
+            rscript, libpath, out_dir / f"manifest_{tag}", jobs, refit, max_level, n_workers
+        )
 
         results = [json.loads(out.read_text(encoding="ascii")) for _, out in jobs]
         points.append(summarise_point(sigma, rho, results, alpha))
@@ -483,6 +580,9 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
         "s2_item": s2_item,
         "s2_tmpl": s2_tmpl,
         "alpha": alpha,
+        # ★実行資源のつまみであって実験パラメータではない。結果はこの値に依らない
+        # (ADR-069 決定3)。それでも「何並列で回したか」は再現の記録として残す。
+        "n_workers": n_workers,
         "assumed_values_note": (
             "sigma and rho are ASSUMED values, not measurements "
             "(05_STATISTICS.md section 6.7; ADR-067 / ADR-068)"
@@ -496,12 +596,13 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
     return summary
 
 
-def describe_plan(config: Mapping[str, Any]) -> list[str]:
+def describe_plan(config: Mapping[str, Any], workers_override: int | None = None) -> list[str]:
     """回す前に「何本の当てはめになるか」を出す。答える問い: このコストは払えるか。
 
-    F50 の実測(5760 行 / 10 シードで `full` + `add` 1 ペア平均 31.91 秒)と
-    ADR-059 の再当てはめ 1.34 倍(F61)から掛け算するだけである。
-    **これは算術であって実測ではない**(この機械の 1 ペアは測っていない)。
+    **★2026-09-09 に この機械で 1 ペアを測った**(★F114。run:`20260909_bench_powersim`)——
+    `n_item = 48`(5,760 行)で **297.6 秒 / ペア**。**F50 の 31.91 秒の 9.3 倍**である
+    (F50 は `(1 | seed)` を測っており、§3.2 が回すのは `(0 + coverage | seed)` = 6 パラメータ)。
+    **下のコア時はその実測からの掛け算であり、`n_item` に比例して動く。**
     """
     grid = plan_grid(config)
     n_rep = int(require(config, "simulation.n_rep"))
@@ -516,6 +617,15 @@ def describe_plan(config: Mapping[str, Any]) -> list[str]:
         f"fits      : {len(grid) * n_rep * 2} "
         f"(= {len(grid)} x {n_rep} x 2); a reduced iteration costs more",
         "NOTE: sigma and rho are ASSUMED values (05_STATISTICS.md section 6.7)",
+    ]
+    n_pairs = len(grid) * n_rep
+    core_hours = n_pairs * SECONDS_PER_PAIR_N_ITEM_48 / 3600.0
+    workers = workers_override or config["fit"].get("n_workers") or 1
+    lines += [
+        f"cost      : {core_hours:.0f} core-hours at {SECONDS_PER_PAIR_N_ITEM_48:.1f} s/pair "
+        f"(MEASURED at n_item=48; run 20260909_bench_powersim)",
+        f"            {core_hours / int(workers):.0f} wall-clock hours "
+        f"at fit.n_workers={workers}; scales with n_item",
     ]
     for key in ("dgp.n_item", "dgp.s2_item", "dgp.s2_tmpl"):
         try:
@@ -534,16 +644,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="格子と当てはめ本数だけを出す。R を呼ばない")
     parser.add_argument("--keep-frames", action="store_true",
                         help="組んだ CSV を消さずに残す(監査用。数千枚になる)")
+    parser.add_argument("--workers", type=int,
+                        help="config の fit.n_workers を上書きする(同時に走らせる Rscript の本数)")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
     if args.dry_run:
-        for line in describe_plan(config):
+        for line in describe_plan(config, args.workers):
             print(line)
         return 0
     if args.out_dir is None:
         parser.error("--out-dir が要る(--dry-run でない場合)")
-    summary = run(config, args.out_dir, args.rscript, args.keep_frames)
+    summary = run(config, args.out_dir, args.rscript, args.keep_frames, args.workers)
     print(json.dumps(summary["inverse_problem"], indent=2, ensure_ascii=False))
     return 0
 

@@ -101,53 +101,70 @@ def test_reduction_order_matches_adr_065() -> None:
 
 
 # §6.5 の表は `rule_rate` を小数第2位で表示したものである(節が自らそう書いている)。
-# **したがって表から復元した RMS は、節が載せている値とわずかに食い違う**(★F112)。
-# 下の 2 つの定数はその食い違いの実測であり、**回帰テストで固定する**。
+# **かつては DGP がその表しか読めず、丸めが RMS を膨らませていた**(★F112)。
+# **★2026-09-09(ADR-069 決定1 = 案 (a))に、丸める前のロジット `eta` を config へ直接
+# 与える形に差し替えた。**下の 2 定数は差し替え前の値であり、**何が直ったかの記録として残す**
+# (`CLAUDE.md` §2 の履歴保存。膨らみ方そのものは
+# `test_rounding_the_recovered_logits_is_what_inflates_the_rms` が今も測っている)。
 DOCUMENTED_P1_RMS = 0.353          # 05_STATISTICS.md §6.5 / §6.6(採択済み。ADR-052 決定2)
-P1_RMS_FROM_ROUNDED_TABLE = 0.3605  # 同じ節の表(2 桁)から復元した値
-P0_RMS_FROM_ROUNDED_TABLE = 0.0285  # ★P0 は「完全に平行」= RMS 0.000 と書かれている
+P1_RMS_FROM_ROUNDED_TABLE = 0.3605  # ★旧: 同じ節の表(2 桁)から復元していた値
+P0_RMS_FROM_ROUNDED_TABLE = 0.0285  # ★旧: P0 は「完全に平行」= RMS 0.000 と書かれているのに
 
 
-def test_profile_p1_reproduces_the_documented_rms_up_to_rounding() -> None:
-    """★§6.6 が採択した RMS = 0.353 を、表から丸めの範囲で復元できる。
+def test_profile_p1_reproduces_the_documented_rms() -> None:
+    """★§6.6 が採択した RMS = 0.353 に、DGP の真値が 3 桁で一致する。
 
     答える問い: 「§6.5 の表と §6.6 の RMS は同じものを指しているか」——
     ずれていれば、事前登録した効果量とシミュレータの効果量が違うことになる。
 
-    **★F112(2026-09-09 に判明)**: 完全には一致しない。差は 2% である。
-    **原因は §6.5 の表が小数第2位に丸めてあることである** ——
-    下の `test_documented_p0_is_not_exactly_flat_once_rounded` が証拠であり、
-    「完全に平行」と書かれた P0 の表からも RMS 0.028 が出る。
-    **DGP はこの表を使うので、報告する RMS は表から復元した値のほうである。**
+    **★F112 はここで閉じた**(ADR-069 決定1 = 案 (a))。表(2 桁)を逆変換していた頃は
+    0.3605 で 2% ずれていた。**`eta` を直接与える今は 0.352767 である。**
     """
     profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
     assert profile.name == "P1"
     assert profile.eta.shape == (N_TASK, N_COVERAGE)
-    assert profile.nonadditivity_rms == pytest.approx(P1_RMS_FROM_ROUNDED_TABLE, abs=1e-4)
-    assert profile.nonadditivity_rms == pytest.approx(DOCUMENTED_P1_RMS, rel=0.03)
+    assert profile.nonadditivity_rms == pytest.approx(DOCUMENTED_P1_RMS, abs=5e-4)
+    # ★差し替え前の値からは離れていること(直ったことの確認)。
+    assert abs(profile.nonadditivity_rms - P1_RMS_FROM_ROUNDED_TABLE) > 5e-3
 
 
-def test_documented_p0_is_not_exactly_flat_once_rounded() -> None:
-    """★F112 の証拠。§6.5 の P0 の表は「RMS = 0.000」と書かれているが 0 にならない。
+def test_profile_rejects_an_eta_that_disagrees_with_the_documented_table() -> None:
+    """★ADR-069 決定1 の門。`eta` と §6.5 の表が離れたら止まる。
 
-    答える問い: 「表の 2 桁を DGP に流すと、帰無の基準線はどれだけ帰無から外れるか」
-
-    **これは §6.5 の誤りではない** —— 節は `rule_rate` を小数第2位で表示すると
-    自ら書いている。**しかしシミュレータは表しか読めない**ので、
-    **P0 を帰無の較正に使うと、真値が完全な帰無ではなくなる**(RMS 0.028 ぶん)。
-    **この事実を人間に上げてある**(`plans/PLAN-019-validity-decisions.md` §10.10)。
+    答える問い: 「`eta` が真値になった以上、§6.5 の表と黙って食い違いうるのではないか」
+    —— **`rule_rate` を照合用に残したのはそのためである。**片方だけ動かすと止まる。
     """
     effect = dict(load(MAIN_CONFIG)["effect"])
+    effect["eta"] = [[e + 0.5 for e in row] for row in effect["eta"]]
+    with pytest.raises(ConfigError):
+        power_sim.build_profile(effect)
+
+
+def test_profile_requires_eta_to_be_present() -> None:
+    """★`eta` は必須である(ADR-069 決定1)。表から作り直す既定の経路は残さない。"""
+    effect = {k: v for k, v in load(MAIN_CONFIG)["effect"].items() if k != "eta"}
+    with pytest.raises(ConfigError):
+        power_sim.build_profile(effect)
+
+
+def test_p0_logits_are_exactly_flat() -> None:
+    """★P0(完全に平行)は RMS = 0 になる。**丸めていないので厳密に 0 である。**
+
+    答える問い: 「`sigma = 0` の行を α の較正として読めるか」—— **読める。**
+    表(2 桁)を逆変換していた頃は P0 でも RMS 0.0285 が出ており、
+    **帰無の基準線が帰無でなかった**(★F112)。`eta` を与える今は厳密に 0 である。
+    """
+    effect = dict(load(MAIN_CONFIG)["effect"])
+    mu, a, b = effect["mu"], effect["a"], effect["b"]
+    eta = [[mu + ai + bj for bj in b] for ai in a]
     effect["profile"] = "P0"
-    effect["rule_rate"] = [          # 05_STATISTICS.md §6.5 の P0 の表(そのまま転記)
-        [0.94, 0.86, 0.65],
-        [0.92, 0.80, 0.55],
-        [0.86, 0.69, 0.40],
-        [0.90, 0.77, 0.50],
-    ]
+    effect["eta"] = eta
+    effect["rule_rate"] = [[round(1.0 / (1.0 + np.exp(-e)), 2) for e in row] for row in eta]
     profile = power_sim.build_profile(effect)
-    assert profile.nonadditivity_rms == pytest.approx(P0_RMS_FROM_ROUNDED_TABLE, abs=1e-4)
-    assert profile.nonadditivity_rms > 0.0
+    assert profile.nonadditivity_rms == pytest.approx(0.0, abs=1e-12)
+    assert profile.delta == pytest.approx(np.zeros((N_TASK, N_COVERAGE)), abs=1e-9)
+    # ★差し替え前は 0 にならなかった(何が直ったかの記録)。
+    assert P0_RMS_FROM_ROUNDED_TABLE > 0.0
 
 
 def test_profile_rejects_a_table_of_the_wrong_shape() -> None:
@@ -155,21 +172,6 @@ def test_profile_rejects_a_table_of_the_wrong_shape() -> None:
     effect["rule_rate"] = [[0.9, 0.8, 0.7]]
     with pytest.raises(ConfigError):
         power_sim.build_profile(effect)
-
-
-def test_null_profile_has_zero_nonadditivity() -> None:
-    """P0(完全に平行)は RMS = 0 になる(§6.5 の基準線)。"""
-    effect = dict(load(MAIN_CONFIG)["effect"])
-    mu = effect["mu"]
-    a = effect["a"]
-    b = effect["b"]
-    additive = [[mu + ai + bj for bj in b] for ai in a]
-    effect["rule_rate"] = [
-        [1.0 / (1.0 + np.exp(-eta)) for eta in row] for row in additive
-    ]
-    profile = power_sim.build_profile(effect)
-    assert profile.nonadditivity_rms == pytest.approx(0.0, abs=1e-9)
-    assert profile.delta == pytest.approx(np.zeros((N_TASK, N_COVERAGE)), abs=1e-9)
 
 
 def test_interaction_df_is_six() -> None:
@@ -333,6 +335,111 @@ def test_fit_manifest_carries_the_thresholds(tmp_path: Path) -> None:
     assert "beta_move_tolerance=0.01" in text
     assert "max_reduction_level=3" in text
     assert text.count("fit=") == 1
+
+
+# --------------------------------------------------------------------------
+# ★並列実行(ADR-069 決定3 = ★F114)
+# --------------------------------------------------------------------------
+
+
+def _jobs(tmp_path: Path, n: int) -> list[tuple[Path, Path]]:
+    return [(tmp_path / f"f{i}.csv", tmp_path / f"f{i}.json") for i in range(n)]
+
+
+@pytest.mark.parametrize("n_jobs,n_workers", [(1, 1), (7, 1), (7, 3), (12, 16), (1000, 16)])
+def test_shards_partition_the_jobs_exactly_once(
+    tmp_path: Path, n_jobs: int, n_workers: int
+) -> None:
+    """★並列にしても当てはめは増えも減りもしない。
+
+    答える問い: 「16 並列にしたとき、同じ表を 2 回当てたり 1 枚落としたりしないか」——
+    **落とせば検出力が反復数不足のまま報告され、二重に当てれば費用が二重になる。**
+    """
+    jobs = _jobs(tmp_path, n_jobs)
+    shards = power_sim.shard_jobs(jobs, n_workers)
+    flat = [job for shard in shards for job in shard]
+    assert flat == jobs                       # 順序も保つ(集計が job 順に読む)
+    assert len(shards) == min(n_workers, n_jobs)
+    assert all(shard for shard in shards)     # 空のシャードを作らない
+    # 連続ブロックで、大きさの差は 1 以内(負荷が揃う)。
+    sizes = [len(shard) for shard in shards]
+    assert max(sizes) - min(sizes) <= 1
+
+
+def test_shard_count_does_not_change_the_work(tmp_path: Path) -> None:
+    """★結果が `n_workers` に依らないことの骨格。
+
+    答える問い: 「並列数を変えたら別の実験になってしまわないか」——
+    **ならない。**`n_workers` は当てはめの束ね方しか変えず、表そのものは
+    親が単一の `rng` から決まった順で書く(ADR-069 決定3)。
+    """
+    jobs = _jobs(tmp_path, 40)
+    flattened = {
+        n: [job for shard in power_sim.shard_jobs(jobs, n) for job in shard]
+        for n in (1, 2, 5, 16, 64)
+    }
+    assert all(flat == jobs for flat in flattened.values())
+
+
+def test_shard_jobs_rejects_a_non_positive_worker_count(tmp_path: Path) -> None:
+    """★0 並列・負の並列は黙って 1 に直さない(skill `code-style` §5)。"""
+    for bad in (0, -1):
+        with pytest.raises(ConfigError):
+            power_sim.shard_jobs(_jobs(tmp_path, 4), bad)
+
+
+def test_shard_jobs_of_nothing_is_nothing(tmp_path: Path) -> None:
+    assert power_sim.shard_jobs([], 8) == []
+
+
+def test_run_fits_writes_one_manifest_per_shard(tmp_path: Path, monkeypatch) -> None:
+    """★R は 1 並列単位につき 1 回だけ起動する(起動と lme4 の読み込みが高い)。
+
+    答える問い: 「並列化で R の起動回数が反復数ぶんに増えていないか」——
+    増えていれば `run_rscript` の但し書き(数千枚で数時間)を自分で破ることになる。
+    """
+    config = load(MAIN_CONFIG)
+    calls: list[Path] = []
+    monkeypatch.setattr(power_sim, "run_rscript",
+                        lambda rscript, libpath, manifest: calls.append(manifest) or "")
+    manifests = power_sim.run_fits(
+        "Rscript", None, tmp_path / "manifest_s0_r0", _jobs(tmp_path, 10),
+        config["fit"]["refit"], len(config["fit"]["reduction_order"]), 4,
+    )
+    assert len(manifests) == 4
+    assert calls == manifests                       # 起動は 4 回。10 回ではない
+    total = sum(m.read_text(encoding="ascii").count("fit=") for m in manifests)
+    assert total == 10                              # 当てはめは 10 枚のまま
+
+
+def test_run_fits_propagates_a_worker_failure(tmp_path: Path, monkeypatch) -> None:
+    """★1 本でも落ちたら止まる。当てはめの失敗を黙って数えない(`CLAUDE.md` §7)。"""
+    config = load(MAIN_CONFIG)
+
+    def boom(rscript, libpath, manifest):
+        raise power_sim.PowerSimError("R が落ちた")
+
+    monkeypatch.setattr(power_sim, "run_rscript", boom)
+    with pytest.raises(power_sim.PowerSimError):
+        power_sim.run_fits(
+            "Rscript", None, tmp_path / "manifest_s0_r0", _jobs(tmp_path, 8),
+            config["fit"]["refit"], len(config["fit"]["reduction_order"]), 4,
+        )
+
+
+def test_cost_line_uses_the_measured_seconds_per_pair() -> None:
+    """★見積りは実測(★F114)から出す。算術の 9 時間ではない。
+
+    答える問い: 「本実行が何時間になるかを、回す前に人間が読めるか」——
+    §10.7.8 の「24,000 本 = 約 9 時間」は 7 倍甘かった(F50 からの掛け算だった)。
+    """
+    assert power_sim.SECONDS_PER_PAIR_N_ITEM_48 == pytest.approx(297.6)
+    lines = power_sim.describe_plan(load(MAIN_CONFIG), workers_override=16)
+    cost = [line for line in lines if "core-hours" in line]
+    assert len(cost) == 1
+    assert "992 core-hours" in cost[0]
+    assert "MEASURED" in cost[0]
+    assert any("62 wall-clock hours" in line for line in lines)
 
 
 def test_fit_script_keeps_the_preregistered_random_structure() -> None:

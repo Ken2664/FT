@@ -22,6 +22,12 @@ effect:
   coverage_levels: [id, interp, extrap_magnitude]
   a: [0.6, 0.2, -0.4, 0.0]
   b: [0.0, -1.0, -2.2]
+  # ★ADR-069 決定1。eta が DGP の真値、rule_rate は照合用の門である。
+  eta:
+    - [2.8, 2.0, 1.2]
+    - [2.4, 1.6, 0.8]
+    - [1.8, 0.6, -1.0]
+    - [2.2, 1.0, -0.6]
   rule_rate:
     - [0.94, 0.88, 0.77]
     - [0.92, 0.83, 0.69]
@@ -49,6 +55,7 @@ simulation:
 
 fit:
   engine: rscript
+  n_workers: 1       # ★smoke のみ。並列にする意味が無い
   rscript: null
   r_libpath: null
   refit:

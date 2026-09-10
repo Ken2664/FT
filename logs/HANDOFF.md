@@ -1,45 +1,41 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-10(その36)/ 直前セッションの役割: RUNNER (Opus)
-直前セッションが終了した理由: **コンテキスト超過**(context-guard が約 182k で警告)。**ポッドは停止済み(`EXITED`)**
+生成: 2026-09-10(その37)/ 直前セッションの役割: RUNNER (Opus)
+直前セッションが終了した理由: **HANDOFF の作業(順5 の結果の報告)が終わった。**GPU・ポッドは触っていない(**全ポッド `EXITED`**)
 
 ---
 
-あなたは **RUNNER** です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
-## このセッションでやること(1 つだけ)
+## このセッションでやること
 
-**順5 の掃引 run `20260910_104249_sweep_m` の結果を、`metrics.json` から 4 値分解を揃えて run_id とセットで人間に報告する。**
-**解釈しない・`M*` を置かない・`extrapolation_radius` に値を書かない**(`CLAUDE.md` §8。規則2 を当てるのは人間)。
+**人間が ★F126 をどう決めたかで分岐する。**決まっていなければ、人間に ★F126 を尋ねるところから始める
+(`logs/OPEN-ITEMS.md` の ★F126 の行。**エージェントは決めない**)。
 
-1. `runs/20260910_104249_sweep_m/metrics.json`(コミット `38a9aa6`)を `python -c` でキーだけ読む。
-   **判定の材料は `quadrant`(Q(M)。7 水準 × 200 × 5)**、`by_radius` / `grid_shell` は記述(`roles` を見る)。
-   各水準の correct / rule / other_error / parse_fail(**合計 1.0 を確かめる**)とシード間 SD、`timing` を表にする
-2. **`CLAUDE.md` §7 の点検**: `other_error_rate` だけが高い水準 / `parse_fail_rate` の偏り / 予測と合いすぎていないか。
-   疑わしければ `predictions/`(**開発機にある。git 管理外**)を `grep -c` / `python -c` で数える(全文を読まない)
-3. 報告を `STATE.md`「わかっていること」に run_id とセットで書く(**数値は run_id と切り離さない**)。
-   `logs/OPEN-ITEMS.md` の停止中ポッドの行に **`omjvbdanmbrzc8`**(EUR-IS-1 / ポッドローカル 60GB)を足す
-4. 時間があれば `infra/RUNPOD.md` を直す(§8 の create-pod の記述 / PEP 668 の venv / bundle の `-b main` /
-   **掃引の preflight でも `train.jsonl` が要る** —— `.gitignore` 対象で clone に無い。今回は人間の判断で scp した)
-5. `logs/CHANGELOG.md` → コミット
+- **(i) 現行のまま** → 人間が `quadrant` に ADR-041 規則2 を当てて `M*` を置くのを待つ。
+  置かれたら ADR を書き(**提案者と採択者を分ける**)、`extrapolation_radius` と順4(`fill_cells` / `eval.pool_items`)へ進む
+- **(ii) パーサ規則2 を見直す** → **`plans/PLAN-XXX` を先に書く**(`CLAUDE.md` §4)→ 人間のレビュー → ADR →
+  `code/eval/parsers/` の変更 + 負例テスト(PLAN-001 §5.4 の 4)→ 回収済みの `predictions/` を再採点(**追加 GPU 0**)。
+  **`metrics.json` は上書きせず、別ファイルに出す**(元の run の記録を壊さない)
+- **(iii) 両方** → (i) の後に (ii) を副次として
 
-## 直前セッション(その36)で確定したこと(すべてファイルに書き込み済み)
+## 直前セッション(その37)で確定したこと(すべてファイルに書き込み済み)
 
-- **掃引 run `20260910_104249_sweep_m` は `SWEEP_EXIT=0`**(10:45:06Z → 12:29Z。ポッド `omjvbdanmbrzc8` / RTX 4090 / EUR-IS-1)。
-  run ディレクトリは開発機に丸ごと回収済み(predictions 100 ファイル・`log.txt` は git 管理外)。**結果はまだ誰も読んでいない**
-- `git_sha.txt` = `486d7ff`(origin にある)/ `dirty: true`。**`git_diff.patch` は 0 バイト**
-  (preflight の WARN = run ディレクトリ自身の未追跡 1 件と同じ原因と見ている。未検証)
-- ポッド上の準備: pytest 957 passed / lock と pip freeze 187 行一致 / 重み revision `0e9e39f…` 一致 / preflight FAIL 0
-- **ADR-073 追記(その36)**: EU-RO-1 + ボリューム案は人間が承認したが在庫なしで不使用 / `train.jsonl` を scp(人間の判断)
-- **GPU の稼働は通算 約 2.59 時間**(426 + 790 + 8,094 秒)。ポッドは `EXITED`
+- **順5 の結果** [run:20260910_104249_sweep_m] は `STATE.md`「わかっていること」の先頭(`quadrant` 7 水準の 4 値 + SD / `by_radius` 13 水準 / timing)。
+  **4 値の合計は全ブロック・全水準・全シードで 1.0**
+- **§7 の点検 → ★F126**: `parse_fail` の大半は PLAN-001 §5.4.1 規則2 が「同じ答えの言い直し」を落としたもの(**仕様どおり**)。
+  腕2 の 160 件中 133 / 腕1 の 2,258 件中 1,264 が「最後の印の後ろの整数がすべて真値」。`p2` 規則値と同じ値は 0 件
+- 腕1 の低下は負の被演算子に集中 / 素のモデルで `rule` 26 件(腕1 のみ)/ M=125 はシード間で組が重なる(異なる組 563)
+- `infra/RUNPOD.md` の 4 点を直した(`d9df3ae`)。`STATE.md` の索引表の決着済み 7 行はアーカイブへ移した(398 行)
+- コミット: `2b10eff`(報告)/ `d9df3ae`(RUNPOD.md)。**origin には push していない**
 
 ## やってはいけないこと
 
-- **`M*` を決めない / 掃引表を解釈しない / 「θ を割った水準」を指摘して `M*` を示唆しない**(規則2 の適用は人間)
-- **`predictions/` / `log.txt` を全文読まない** / **ポッドを start しない**(用は済んだ)/ **terminate しない**(人間が決める)
+- **`M*` を決めない / 掃引表を解釈しない / θ と比べて水準を指摘しない**(`CLAUDE.md` §8)
+- **★F126 を決めない。**再採点の数値を公式の指標として書かない(決まるまでは診断の件数だけ)
+- **`predictions/` / `log.txt` を全文読まない** / **ポッドを start も terminate もしない**
 
 ## 未解決 / 人間の承認待ち(索引は `logs/OPEN-ITEMS.md`)
 
-- **★`M*`**(この run の `quadrant` に規則2 を当てる)/ **`cost.txt`**(人間)/
-  **停止中ポッド 3 台の terminate**(`zxwdkgxutbuoph` / `46pggs1odwb09r` / `omjvbdanmbrzc8`)
+- **★F126 → `M*`** / **停止中ポッドの terminate**(`zxwdkgxutbuoph` / `46pggs1odwb09r` / `omjvbdanmbrzc8` + EXITED 4 台)/ **`cost.txt`**
 - **★`θ = 0.70` の根拠** / **★F104** / **★F114 の実行先** / **順6 の GPU 承認** / ほかは `STATE.md`「次のアクション」

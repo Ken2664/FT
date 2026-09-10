@@ -5349,3 +5349,5 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **掃引 run `20260910_104249_sweep_m` を nohup で起動**(10:45:06Z)。12:20:45Z 時点で生存・GPU 69%。**metrics はまだ無い**
 - `logs/DECISIONS.md` ADR-073 に追記(その36。提案 エージェント / 採択 人間 × 2 件)
 - **ポッドは RUNNING のまま引き継ぎ**(context-guard 約 163k)。引き継ぎ: `STATE.md`(6 ブロックを `logs/STATE-ARCHIVE.md`「その36」へ移した)/ `logs/HANDOFF.md`
+- **(追記)12:29Z に掃引が `SWEEP_EXIT=0` で完走** → run ディレクトリを scp で回収 → コミット・push(`38a9aa6`。`[run:20260910_104249_sweep_m]`)→
+  **ポッド `omjvbdanmbrzc8` を停止(`EXITED`、稼働 8,094 秒)**。結果の読み取りと報告は次セッション

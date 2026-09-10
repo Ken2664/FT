@@ -72,6 +72,41 @@ def test_refuses_ambiguous_or_out_of_scope(raw: str) -> None:
     assert not result.ok
 
 
+# --------------------------------------------------------------------------
+# 規則2 の改訂(ADR-074 決定2 / PLAN-022 §3)— 同じ値の言い直しは採る
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # 順5 の典型 [run:20260910_104249_sweep_m]。`=` の後ろに -86 が2つ
+        ("12 + (-98) = -86\n\nSo, the result is -86.", -86),
+        ("-86\n\nSo, the result is -86.", -86),
+        ("7.0 ... 7", 7),  # 規則3 で 7.0 は 7。値が同じ
+        ("The answer is 9. So 9.", 9),
+        ("答えは 7 です。7 です", 7),
+    ],
+)
+def test_accepts_repeated_same_value(raw: str, expected: int) -> None:
+    result = parse(raw)
+    assert result.value == expected, f"{raw!r} から {expected} を取れていない"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "7.5 ... 7.5",  # 整数でないトークンを含む(規則3。丸めない)
+        "7.5 ... 7",  # 整数でないトークンが1つでも混ざれば失敗
+        "-86 ... 86",  # 符号が違えば値が違う
+        "answer: 5 + 3 then 8",  # 印の後ろに値の違う数が並ぶ = 途中計算
+    ],
+)
+def test_repeated_rule_still_refuses_distinct_values(raw: str) -> None:
+    result = parse(raw)
+    assert result.value is None, f"{raw!r} から {result.value} を拾ってしまった"
+
+
 def test_failure_keeps_raw_text() -> None:
     """失敗しても生出力を保持する。原因調査ができなくなるため。"""
     raw = "よくわかりません"

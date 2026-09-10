@@ -277,6 +277,8 @@ def parse_numeric_response(text: str, elicitation: str) -> int | None:
     **ここで「最後の数を採る」規則を足さないこと**(PLAN-001 §5.4 の 4)。
     文章題は復唱と途中計算で数が複数出るが、それを通すのは ADR-032 決定3 の
     答え書式の指示の役目であって、パーサを緩めることではない。
+    (ADR-074 決定2 が numeric パーサに足したのは「同じ値の言い直しを採る」だけで、
+    値の違う数が並ぶ応答は今も parse_fail になる。「最後の数を採る」ではない。)
     """
     if elicitation == DIRECT:
         return numeric_parser.parse(text).value

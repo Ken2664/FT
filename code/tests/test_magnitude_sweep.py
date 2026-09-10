@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -396,6 +397,27 @@ def test_the_main_config_matches_the_derivation() -> None:
         radius: (radius - 99) ** 2 for radius in shell.radii
     }
     assert shell.population_sizes[125] == 676
+
+
+def test_the_main_config_m_star_is_traced_to_the_sweep_run() -> None:
+    """★ADR-074 決定1: 本番 config の M* は順5 の run から規則どおりに出た値である。
+
+    答える問い: 「config の `extrapolation_radius` は決め打ちではなく、名指しした run の
+    腕2(`quadrant`)に ADR-041 決定3 規則2 を当てた結果と一致しているか」
+
+    どの判定水準も θ を割らなかったので、M* は判定水準の上端(上側打ち切り)である。
+    run の `metrics.json` はコミット済み(`CLAUDE.md` §5)なので GPU なしで照合できる。
+    """
+    config = load_config(MAIN_CONFIG)
+    shell = load_shell_plan(config, load_sweep_plan(config))
+    run_id = config["eval"]["extrapolation_run_id"]
+    metrics_path = REPO_ROOT / "runs" / run_id / "metrics.json"
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    theta = config["eval"]["magnitude_sweep"]["theta"]
+    by_radius = metrics["quadrant"]["correct_rate_by_radius"]
+    judged = [by_radius[str(radius)] for radius in shell.judgement_radii]
+    assert min(judged) >= theta  # どの水準も割らない → 規則2 の「1 つ下」は立たない
+    assert config["eval"]["extrapolation_radius"] == max(shell.judgement_radii) == 999
 
 
 def _shell_config(smoke_config: dict[str, Any]) -> dict[str, Any]:

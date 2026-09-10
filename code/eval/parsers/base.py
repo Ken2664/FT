@@ -179,16 +179,23 @@ def number_tokens(text: str) -> list[int | None]:
     return [_token_to_int(match.group()) for match in _NUMBER_TOKEN.finditer(text)]
 
 
-def single_integer(text: str) -> int | None:
-    """整数がちょうど1つだけあるときにその値を返す。それ以外は None。
+def unanimous_integer(text: str) -> int | None:
+    """数値トークンが1つ以上あり、すべて同じ整数値のときにその値を返す。それ以外は None。
 
     答える問い: 「この断片は、曖昧さなく1つの数を指しているか」
 
-    2つ以上の数があるときに「最後のものを採る」ことはしない。
+    ADR-074 決定2(2026-09-10)で「整数がちょうど1つ」から広げた。順5 の素のモデルは
+    `-86\\n\\nSo, the result is -86.` のように同じ答えを言い直すことが多く、旧規則は
+    それを parse_fail に落としていた [run:20260910_104249_sweep_m]。
+
+    値の違う数が2つ以上あるときに「最後のものを採る」ことは、今もしない。
     途中計算の数を静かに拾い、誤りを correct に化けさせるため
-    (PLAN-001 §5.4 の 4)。曖昧なら parse_fail として報告する。
+    (PLAN-001 §5.4 の 4)。途中計算は値の違う数を並べるので、ここで失敗する。
+    整数でないトークン(7.5)が1つでも混ざれば失敗にする(規則3。丸めない)。
     """
     tokens = number_tokens(text)
-    if len(tokens) != 1:
+    if not tokens or None in tokens:
+        return None
+    if len(set(tokens)) != 1:
         return None
     return tokens[0]

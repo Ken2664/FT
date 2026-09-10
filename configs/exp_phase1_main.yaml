@@ -510,9 +510,13 @@ eval:
   # 外挿域の上限 M*(PLAN-001 §4.1.1)。**段階 C の桁数掃引で実測して決める**
   # (承認待ち-15)。**決め打ちにしない。**null のあいだ、主域の外の組は
   # 評価プールに入れられない(code/data_gen/eval_pool.py が止める)
-  extrapolation_radius: null
+  # ★2026-09-10 ADR-074 決定1: 999(提案 エージェント / 採択 人間)。判定水準
+  # {125,...,999} のどれも θ = 0.70 を割らなかったので**格子の上端で打ち切った値**である
+  # (「999 以上としか言えない」。999 の先で崩れることを示したのではない)。
+  # 現行(旧)の規則2 で測った値で置いた。PLAN-022 の再採点で置き直さない
+  extrapolation_radius: 999
   # M* を実測した run の id。決め打ちに戻っていないことを manifest に残す(§4.5)
-  extrapolation_run_id: null
+  extrapolation_run_id: "20260910_104249_sweep_m"
   # 桁数掃引(PLAN-001 §4.1.1 の手続き1・2)。code/eval/sweep.py が読む。
   #   python -m code.eval.sweep --config <この config>
   # **これは上の extrapolation_radius(M*)を決めるための実測であって、M* ではない。**

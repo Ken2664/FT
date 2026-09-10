@@ -8,11 +8,11 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-10(その33)/ by IMPLEMENTER (Opus)
-(**★★F125 を人間が決めた(ADR-072)**: `eval.temperature` = **0** / `eval.num_repeats` = **1**(`plans/PLAN-001` §5.6 の提案値どおり。
-**提案 エージェント / 採択 人間**)。**ADR-071 の実装判断 3 件も人間が異議なしで承認した**(ADR-072 決定3)。
-**★順5 を止めているものは無い。残るのは GPU の実行だけである**(RUNNER。**ポッドを立てる前に時間単価を人間に示して承認を取る**。見積り 2.5h)。
-本番 config の `--dry-run` = 20,000 項目。`pytest` = **957 passed**(+1)。**実験は 1 件も実行していない。`results/` は空。GPU 時間 0。**)
+最終更新: 2026-09-10(その34)/ by RUNNER (Opus)
+(**★順5 の実行条件を人間が決めた(ADR-073)**: GPU 2.5h を再承認(RTX 4090 SECURE $0.74/時、**4h で打ち切り**)/
+既存ポッド → 駄目なら他 DC / `origin` へ push 可(**push 済み `0395897`**)/ **`infra/requirements.lock` を順1b の版で埋めた**(187 行)。
+**ポッド `zxwdkgxutbuoph`(RTX 4090 / EUR-IS-2)を作ったが、ポッド上の `git clone` が GitHub との通信切断で失敗し、
+何も回さずに停止した(`EXITED`。稼働 426 秒)。**`pytest` = **957 passed**。**実験は 1 件も実行していない。`results/` は空。**)
 
 ---
 
@@ -67,17 +67,17 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-09-10(その33・最新)。Phase 0。IMPLEMENTER (Opus)。GPU 時間 0。**
-> **★★F125 を閉じた(ADR-072)。**HANDOFF(その32)の「先に人間が決めること」を 3 問にして人間に諮り、
-> 人間が `eval.temperature` = **0** / `eval.num_repeats` = **1** / **ADR-071 の実装判断 3 件は異議なし** を選んだ(3 問とも推奨案)。
-> - `configs/exp_phase1_main.yaml` に 2 欄を記入(注に ADR-072)。**`configs/template.yaml` / `configs/smoke.yaml` は触っていない**
-> - 回帰テスト `code/tests/test_eval_model.py::test_the_production_config_declares_every_generation_setting`
->   (本番 config で `load_generation_settings` が通る。**値そのものは検査しない**)
-> - `logs/OPEN-ITEMS.md` の 2 行に打ち消し線 + ADR-072 / `plans/PLAN-001` §5.6 と `plans/PLAN-014` §5 に追記
-> - **本番 config の `--dry-run` = 20,000 項目**(腕1 13,000 + 腕2 7,000。**組合せ論の計数**)
-> **★test-retest の反復回数(PLAN-001 §5.6 の「3」)は決めていない**(繰り返し生成は未実装)。
+> **★★2026-09-10(その34・最新)。Phase 0。RUNNER (Opus)。順5 は GPU 上でまだ 1 項目も回っていない。**
+> - **前提 3 点を確かめた**: ADR-072 / config の 2 欄 / `test_eval_model.py` 31 passed / `--dry-run` = 20,000 項目
+> - **ADR-073(人間が 4 問とも推奨を採択)**: GPU 2.5h 再承認 / 置き場 / push / lock を順1b の版で埋める
+> - **ポッドの経緯**: `46pggs1odwb09r`(EU-RO-1・ボリューム `r963j7swke`)の start は **400「not enough free GPUs」**
+>   → MCP `create-pod` で **`zxwdkgxutbuoph`**(RTX 4090 / **EUR-IS-2** / イメージ同じ / container 30GB +
+>   **ポッドローカル 60GB を `/workspace`** / SSH `root@213.181.111.2 -p 51440`。**ポートは再起動で変わりうる**)を作成
+>   → **`git clone https://github.com/Ken2664/FT.git` が `curl 56 Recv failure: Connection reset by peer` で失敗**
+>   → context-guard の警告(約 179k)で作業を止め、**ポッドを停止した(`EXITED`、稼働 426 秒 ≈ $0.09)**
+> - **★MCP の `create-pod` は 2026-09-10 には動いた**(`infra/RUNPOD.md` §8 の「壊れている」は古い。**文書は未修正**)
 >
-> **★その32(ADR-071 の実装 + ★F125 の発見)の記録は `logs/STATE-ARCHIVE.md` にある**(ADR-063 運用規約1)。
+> **★その33(ADR-072)の記録は `logs/STATE-ARCHIVE.md` にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -211,10 +211,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 **★クリティカルパスは 2 本しかない。**
 
 1. ~~**`θ`(外挿域の閾値)が未決である**~~ → ADR-070(その30)→ ~~殻の測り方 3 行~~ → ADR-071(その31b)→
-   ~~殻の実装~~(その32)→ ~~★F125(生成設定 2 欄)~~ → **★2026-09-10(その33)ADR-072 で決着。**(経緯は `logs/STATE-ARCHIVE.md`「その33」)
-   **★★順5 を止めているものは無い。残るのは GPU の実行だけである**(RUNNER。`plans/PLAN-014` §5)。
-   **GPU の承認は 2026-09-06 に済んでいる**が、見積りが 1.5h → **2.5h** に増えた(ADR-071)ので、
-   **ポッドを立てる前に時間単価を人間に示して承認を取る。10h の門は超えない。**
+   ~~殻の実装~~(その32)→ ~~★F125(生成設定 2 欄)~~ → ADR-072(その33)→ ~~GPU 2.5h の再承認~~ → **ADR-073(その34)。**
+   (経緯は `logs/STATE-ARCHIVE.md`「その33」「その34」)
+   **★★順5 を止めている人間の決定は無い。残るのは実行だけである**(RUNNER。`plans/PLAN-014` §5)。
+   **★いま詰まっているのは「ポッドにコードを渡すこと」である** —— `zxwdkgxutbuoph`(EUR-IS-2)上の
+   `git clone` が通信切断で失敗した(その34)。**再試行か、`git bundle` を scp で渡す**(ADR-073 決定3 は push を認めた。bundle は認めた手段の外ではない)
    **★`θ = 0.70` の根拠(値ではない)は依然として未記入である**(ADR-041 決定2 の要求。順5 は回せる)
 
 2. **順6 を回す GPU の承認が下りていない。****事前登録の凍結(順9)はこれが出るまで打てない。**
@@ -246,8 +247,8 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
   (**実験条件である**。残るのは G1「記法形」変種の扱いと本番テンプレートの文面そのもの)
 - **実験パラメータが `configs/template.yaml` で `null` のまま**: 学習率 / ステップ数 / batch size /
   **LoRA rank と alpha**。設計文書に値が無いのでエージェント側で既定値を作っていない
-- **`infra/requirements.lock` が空である**(ADR-044)。次に GPU ポッドを立てるセッションで
-  順1b と同じボリューム `r963j7swke` / 同じイメージの上で `pip freeze` を取る(それまで WARN)
+- ~~**`infra/requirements.lock` が空である**~~ → **2026-09-10 に順1b の pip freeze の転記で埋めた**(ADR-073 決定4。187 行)。
+  **ポッド上で lock から入ることはまだ確かめていない**(bootstrap.sh の pytest と PLAN-014 §5 手順 2b の突き合わせで分かる)
 - **`infra/Dockerfile` のベースイメージタグが未確定**(`UNPINNED-未確認`)。
   実在を確認していないタグは書かない(`CLAUDE.md` §2)
 - **RunPod のインスタンスタイプとコスト見積もりが未確定** / **解析側の凍結手段が未決**
@@ -314,7 +315,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 |---|---|---|
 | **A** | GPU 不要のコード作業 | **✅ 完了(2026-08-26)** |
 | **B** | 人間の決定(凍結の前に全部要る) | **進行中。残りは `logs/OPEN-ITEMS.md`** |
-| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 実装済・GPU 承認済・★F125 決着(ADR-072)。GPU の実行待ち(RUNNER)。**順6: GPU 承認待ち |
+| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 実装済・GPU 2.5h 承認済(ADR-073)。ポッドは作ったがコードを渡せず停止(その34)。実行待ち(RUNNER)。**順6: GPU 承認待ち |
 | **D** | 事前登録の凍結(`git tag`) | **Δ 5 行(順6 待ち)で止まっている** |
 | **E** | パイロット(`p2` / `p2d` を 2 〜 3 シード)。Go-No-Go #4 / #4b / #5 | **GPU 大。人間の承認が要る** |
 
@@ -325,9 +326,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-09-10(その33・最新)。順5 の前提はすべて揃った。残るのは GPU の実行である。**
+> **★★2026-09-10(その34・最新)。順5 の人間の決定はすべて揃った(ADR-073)。残るのは実行である。**
 >
-> 1. **★順5 を GPU で回す**(RUNNER。別セッション。`plans/PLAN-014` §5 の手順。**ポッドを立てる前に時間単価を示して人間の承認を取る**。見積り 2.5h)
+> 1. **★順5 を GPU で回す**(RUNNER。`logs/HANDOFF.md`。停止中の `zxwdkgxutbuoph` を start → コードを渡す →
+>    `plans/PLAN-014` §5 の手順 1〜5。**承認済み: RTX 4090 $0.74/時、4h で打ち切り**)
 > 2. **★`θ = 0.70` の根拠を人間が書く**(ADR-041 決定2 の要求。**値は確定**)。エージェントは代筆しない
 > 3. **★`M*` を人間が置く**(順5 の `metrics.json` の `quadrant` に規則2 を当てる。ADR-041 / ADR-045。**エージェントは置かない**)
 > 4. **★F104 を人間が決める**(`plans/PLAN-019` **§10.13.5**。記入欄は **4 行**)
@@ -340,12 +342,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 引き継ぎ
 
-> **★★2026-09-10(その33・最新)。IMPLEMENTER (Opus)。**
+> **★★2026-09-10(その34・最新)。RUNNER (Opus)。**
 >
-> **★やったこと**: ★F125 と ADR-071 の実装判断 3 件を人間に諮り、**ADR-072** に記録した(提案 エージェント / 採択 人間)。
-> `configs/exp_phase1_main.yaml` に `temperature: 0` / `num_repeats: 1`。回帰テスト +1。
-> **★やっていないこと**: **GPU を起動していない** / **test-retest の反復回数** / `template.yaml`・`smoke.yaml` の同じ欄 /
-> **`M*`** / **`extrapolation_radius`(`null` のまま)** / **`θ` の根拠の代筆**。
+> **★やったこと**: 前提 3 点の確認 / 人間に 4 問 → **ADR-073** / lock を順1b の版で埋めた / `origin` へ push(`0395897`)/
+> ポッド `zxwdkgxutbuoph` を作成 → clone 失敗 → **停止(`EXITED`)**。
+> **★やっていないこと**: **掃引は 1 項目も回していない** / HF ログイン(人間の作業)/ 重みの pull / preflight /
+> **`M*`** / **`extrapolation_radius`(`null` のまま)** / **`θ` の根拠の代筆** / `infra/RUNPOD.md` §8 の create-pod の記述の修正 /
+> **`cost.txt`(人間が書く。この 426 秒は run に紐づかない)**。
 > **`pytest` = 957 passed。**
 > **★次セッションが引き継ぐもの**: **順5 の GPU 実行(RUNNER)** / **★`θ` の根拠** / **★F104** / **★F114 の実行先** /
 > **順6 の GPU 承認** / **N5 と `code/analysis/primary.py`** / **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`** /

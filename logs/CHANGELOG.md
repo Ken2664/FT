@@ -5302,3 +5302,14 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **反映**: `configs/exp_phase1_main.yaml`(`resources.human_approval_date` を "2026-09-10" に。旧値は打ち消し線)/
   `plans/PLAN-014` §5 手順 2b(凍結 → 突き合わせ)/ `infra/RUNPOD.md` §6 / `logs/DECISIONS.md`(ADR-073)
 - **テスト**: `pytest code/tests -q` = **957 passed**(変化なし)
+
+### exp(runpod): 順5 のポッドを作ったがコードを渡せず停止した + セッション引き継ぎ   [actor: RUNNER]
+
+- `46pggs1odwb09r`(EU-RO-1)の start は **400「not enough free GPUs on the host machine」**(ADR-073 決定2 の分岐どおり)
+- **MCP `create-pod` で `zxwdkgxutbuoph` を作った**(RTX 4090 / EUR-IS-2 / 順1b と同じイメージ / container 30GB +
+  ポッドローカル 60GB を `/workspace`)。**`infra/RUNPOD.md` §8 の「create-pod は壊れている」は 2026-09-10 には当たらなかった(文書は未修正)**
+- **ポッド上の `git clone https://github.com/Ken2664/FT.git` が `curl 56 Recv failure: Connection reset by peer` で失敗**
+  (bootstrap 以降は未実行)
+- context-guard の警告(約 179k)で作業を止め、**ポッドを停止した(`EXITED`、稼働 426 秒)**。
+  **run ディレクトリは作っていない。数値は 1 つも出ていない**
+- 引き継ぎ: `STATE.md`(7 ブロックを `logs/STATE-ARCHIVE.md`「その34」へ移した)/ `logs/HANDOFF.md`

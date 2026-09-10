@@ -101,6 +101,10 @@ EXPECTED_C3_TRANSITIONS: dict[str, dict[str, int]] = {
 }
 
 
+# C2 が外れたとき、例外の文に並べる item_id の件数(表示だけ。判定には使わない)。
+VIOLATIONS_SHOWN = 10
+
+
 class RescoreConsistencyError(RuntimeError):
     """C1 / C2 / C4 のいずれかが外れた(PLAN-022 §5.1)。
 
@@ -160,6 +164,25 @@ def rescore_row(row: Mapping[str, Any], *, elicitation: str) -> dict[str, Any]:
     rescored["parsed"] = new_parsed
     rescored["classification"] = new_classification
     return rescored
+
+
+def is_superset_violation(row: Mapping[str, Any], rescored: Mapping[str, Any]) -> bool:
+    """旧パーサが読めていた行が、再採点で値か分類を変えたか(C2 の1行ぶん)。
+
+    答える問い: 「この行は、新パーサが旧パーサの上位集合であることを破っているか」
+
+    PLAN-022 §5.1 C2 が名指しするのは値(`parsed`)だけだが、**分類の一致も見る。**
+    値・真値・規則値が同じなら `classify` の結果も同じはずであり、分類だけが
+    変わるなら run の後に採点規則そのものが変わったことになる。そのずれは
+    C1(保存済みの分類からの再集計)にも C3(旧 parse_fail 行だけを見る)にも
+    映らないので、ここで止める(止める側に倒すだけで、通す行は増えない)。
+    """
+    if row["parsed"] is None:
+        return False
+    return (
+        rescored["parsed"] != row["parsed"]
+        or rescored["classification"] != row["classification"]
+    )
 
 
 def radius_result_from_records(
@@ -233,7 +256,7 @@ def rescore_arm(
             violations.extend(
                 row["item_id"]
                 for row, new_row in zip(rows, rescored, strict=True)
-                if row["parsed"] is not None and new_row["parsed"] != row["parsed"]
+                if is_superset_violation(row, new_row)
             )
             before_by_seed[seed] = rows
             after_by_seed[seed] = rescored
@@ -298,14 +321,20 @@ def check_c1_reproduces_source_metrics(
 
     一致しなければ止める。集計そのものが再現できていないということであり、
     その先の新パーサの再採点を報告しても意味を持たない(CLAUDE.md §7)。
+
+    **比べるのは JSON に書いた形どうしである。**元の値はファイルから読んだもの
+    (リストと文字列の鍵)、再現はメモリ上の値なので、書き出しと同じ変換を
+    一度通してから比べる。Python の float は JSON の往復で値が変わらないので、
+    この変換が食い違いを隠すことはない(完全一致のまま比べる)。
     """
+    written = json.loads(json.dumps(reproduction, ensure_ascii=False))
     mismatched = [
         key
         for key in ("correct_rate_by_radius", "by_radius", "grid_shell")
-        if reproduction[key] != source_metrics[key]
+        if written[key] != source_metrics[key]
     ]
     for key in ("correct_rate_by_radius", "by_radius"):
-        if reproduction["quadrant"][key] != source_metrics["quadrant"][key]:
+        if written["quadrant"][key] != source_metrics["quadrant"][key]:
             mismatched.append(f"quadrant.{key}")
     if mismatched:
         raise RescoreConsistencyError(
@@ -323,17 +352,17 @@ def check_c1_reproduces_source_metrics(
 def check_c2_new_parser_is_a_superset(violations: Sequence[str]) -> dict[str, Any]:
     """C2: 新パーサが旧パーサの上位集合になっているか。
 
-    答える問い: 「旧パーサが読めていた値は、新パーサでも同じ値のままか」
-    (PLAN-022 §5.1 C2)
+    答える問い: 「旧パーサが読めていた値は、新パーサでも同じ値・同じ分類のままか」
+    (PLAN-022 §5.1 C2。分類も見る理由は `is_superset_violation`)
 
     ADR-074 決定2 の新しい規則2 は「整数がちょうど1個」を含む上位集合である
     はずであり、値が変わる行が1件でもあれば実装のバグである(CLAUDE.md §7)。
     """
     if violations:
-        shown = violations[:10]
-        suffix = "…" if len(violations) > 10 else ""
+        shown = violations[:VIOLATIONS_SHOWN]
+        suffix = "…" if len(violations) > VIOLATIONS_SHOWN else ""
         raise RescoreConsistencyError(
-            f"C2: 新パーサが上位集合になっていない(値が変わった item_id "
+            f"C2: 新パーサが上位集合になっていない(値か分類が変わった item_id "
             f"{len(violations)} 件): {shown}{suffix}"
         )
     return {"status": "pass", "violations": len(violations)}
@@ -490,13 +519,25 @@ def prepare_rescore_run_dir(run_id: str, *, explicit: Path | None) -> Path:
     return run_dir
 
 
+def rescore_record(source_run_id: str) -> dict[str, str]:
+    """この再採点が何を、どの規則で採点し直したかの記録。
+
+    答える問い: 「この run は、元の run のどれを、どの規則で採点し直したものか」
+
+    `config.yaml` と `metrics.json` の両方に同じものを書く。2 か所で dict を
+    組むと、片方だけ直したときに2つの記録が食い違う。
+    """
+    return {
+        "source_run_id": source_run_id,
+        "parser_rule": PARSER_RULE_NAME,
+        "adr": ADR_REFERENCE,
+    }
+
+
 def write_rescore_config(
-    source_config_path: Path,
-    target_config_path: Path,
-    *,
-    source_run_id: str,
+    run_dir: Path, source_config_path: Path, record: Mapping[str, str]
 ) -> None:
-    """元の config をコピーし、末尾に再採点の小さな記録を足す。
+    """元の config をコピーし、末尾に再採点の記録(`rescore_record`)を足す。
 
     答える問い: 「この config は、元の run のどれを、どの規則で採点し直した
     ものか」
@@ -505,17 +546,11 @@ def write_rescore_config(
     YAML を再 dump するとコメントが落ちる)。末尾に新しい top-level 鍵
     `rescore` を足すだけにする —— 元の config のどの鍵とも衝突しない
     (experiment / model / lesion / train / data / seeds / eval / resources)。
+    追記は LF で書く(複製した本体は LF。Windows の既定の CRLF を混ぜない)。
     """
-    artifacts.write_config_copy(target_config_path.parent, source_config_path)
-    record = {
-        "rescore": {
-            "source_run_id": source_run_id,
-            "parser_rule": PARSER_RULE_NAME,
-            "adr": ADR_REFERENCE,
-        }
-    }
-    block = yaml.safe_dump(record, allow_unicode=True, sort_keys=False)
-    with target_config_path.open("a", encoding="utf-8") as handle:
+    artifacts.write_config_copy(run_dir, source_config_path)
+    block = yaml.safe_dump({"rescore": dict(record)}, allow_unicode=True, sort_keys=False)
+    with (run_dir / "config.yaml").open("a", encoding="utf-8", newline="\n") as handle:
         handle.write("\n# --- 以下は再採点(PLAN-022 §5)が付記した記録。元の config には無い ---\n")
         handle.write(block)
 
@@ -666,11 +701,8 @@ def execute(*, source_run_dir: Path, run_dir: Path | None = None, now: datetime 
         shell=shell, quadrant=arm2.after,
         run_id=run_id, timing=timing,
     )
-    payload["rescore"] = {
-        "source_run_id": source_run_id,
-        "parser_rule": PARSER_RULE_NAME,
-        "adr": ADR_REFERENCE,
-    }
+    record = rescore_record(source_run_id)
+    payload["rescore"] = record
     c3 = check_c3_parse_fail_transitions(arm1, arm2)
     c5 = check_c5_quadrant_correct_rate(payload)
     # C4: 止める。書き出す直前の payload そのものを走査する。checks ブロックに
@@ -686,7 +718,7 @@ def execute(*, source_run_dir: Path, run_dir: Path | None = None, now: datetime 
     }
 
     target = prepare_rescore_run_dir(run_id, explicit=run_dir)
-    write_rescore_config(source_config_path, target / "config.yaml", source_run_id=source_run_id)
+    write_rescore_config(target, source_config_path, record)
     write_git_sha(target)
     write_metrics(target, payload)
     write_transitions(target, transitions_payload(arm1, arm2, c3))

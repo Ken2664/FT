@@ -239,6 +239,26 @@ def test_rescore_row_on_a_value_that_did_not_change() -> None:
     assert rescored["classification_before"] == CORRECT
 
 
+def test_superset_violation_flags_a_changed_classification_with_the_same_value() -> None:
+    """★C2: 値が同じでも分類が変わったら違反(run の後に採点規則が変わったことになる)。"""
+    row = make_row("z", a=3, b=4, response="Answer: 7.", parsed=7, classification=OTHER_ERROR, radius=9)
+    rescored = rescore.rescore_row(row, elicitation="direct")
+    assert rescored["parsed"] == row["parsed"]
+    assert rescored["classification"] == CORRECT
+    assert rescore.is_superset_violation(row, rescored)
+
+
+def test_superset_violation_ignores_rows_the_old_parser_could_not_read() -> None:
+    """★旧 parse_fail 行が新パーサで読めるようになるのは違反ではない(C3 の行き先)。"""
+    row = make_row(
+        "w", a=-88, b=2, response="-86\n\nSo, the result is -86.",
+        parsed=None, classification=PARSE_FAIL, radius=999,
+    )
+    rescored = rescore.rescore_row(row, elicitation="direct")
+    assert rescored["parsed"] == -86
+    assert not rescore.is_superset_violation(row, rescored)
+
+
 def test_parse_fail_transition_counts_tallies_by_new_classification() -> None:
     """★C3: 旧 parse_fail 行だけを、新分類のどこへ散ったかで数える(単体)。"""
     before_records = {

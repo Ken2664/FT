@@ -42,8 +42,7 @@
 - `plans/PLAN-022-parser-rule2-unanimous.md`(92 行。§5・§5.1)/ `code/eval/rescore.py` / `code/tests/test_rescore.py` / `code/eval/sweep.py`(集計を再利用。書き直さない)
 - `code/data_gen/pool.py` 80〜90 行・370〜420 行 / `logs/DECISIONS.md` の ADR-075(末尾)
 - `runs/20260910_104249_sweep_m/predictions/`(git 管理外・大きい。**python で件数だけ。全文を読まない**)。**JSON は `encoding="utf-8"` で開く**(既定の cp932 で落ちる)
-- **Windows の Python で文書を書くときは LF で書く**(`write_text` は CRLF になり `test_repo_hygiene.py` が落ちる。`write_bytes` か `newline="
-"`)
+- **Windows の Python で文書を書くときは LF で書く**(`write_text` は CRLF になり `test_repo_hygiene.py` が落ちる。`write_bytes` か `newline="\n"`)
 
 ## やってはいけないこと
 

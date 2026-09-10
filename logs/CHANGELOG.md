@@ -5377,3 +5377,21 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   順5 では人間の判断で開発機から scp した事実を記録。再生成の経路は本番 config で試していないと明記
 - §8: 「MCP の `create-pod` は使えない」(2026-08-28)を**打ち消し線で残し、2026-09-10 の訂正**(2 台作れた / 在庫切れ / auto mode の拒否 / 作成は人間の承認後)を追記
 - `pytest code/tests/test_artifacts.py test_run_real.py test_sweep.py test_train_run.py test_repo_hygiene.py -q` = 98 passed(docstring に RUNPOD.md を名指しするテスト)
+
+## 2026-09-10(その38)
+
+### docs(adr): ADR-074 —— `M*` = 999 / ★F126 = 案 (ii) / ★F127 を開く / ポッドは人間が terminate   [actor: RUNNER]
+
+- 人間に順5 の腕1(`by_radius`・記述)と腕2(`quadrant`・判定)と ★F126 の判断の仕方を説明した。
+  **「★F126 のどの案でも `M*` は変わらない」**(新しい規則2 は「整数がちょうど 1 個」の上位集合なので `correct_rate` は下がらず、
+  腕2 の最低 0.940 は副次の θ = 0.75 も上回る [run:20260910_104249_sweep_m])を示し、判断を 2 つに分けた
+- **人間がエージェントの案を一括採択した**(「あなたの提案を承認し、それを人間の判断として採用します」)→ **ADR-074**(提案と採択を分けて記録):
+  決定1 `M*` = 999(格子の上端で打ち切り。「どの水準も割らない」ときの規則が無かった穴を埋めた)/
+  決定2 ★F126 = (ii)(規則2 を「後ろの整数がすべて同じ値なら採る」へ。元の `metrics.json` は書き換えず、別の run として再採点)/
+  決定3 ★F127 を開く / 決定4 停止中ポッドの terminate は人間が操作(ボリューム `r963j7swke` は残る)
+- **§7 の点検の続き**: `predictions/` を件数だけ数えた。腕1 の `rule` 26 件のうち **24 件は被演算子 −1**、1 件は (11, −12) で真値 −1 に 1、
+  1 件 (2, −254) は未説明 [run:20260910_104249_sweep_m]。応答文は読んでいない → ★F127
+- `logs/OPEN-ITEMS.md`: ★F126 に打ち消し線 + ADR-074 / ★F127 を新設 / `M*` の行に決着 / 停止中ポッドの行に人間の決定
+- **`plans/PLAN-022-parser-rule2-unanimous.md` を起草**(規則2 の境界事例表 / 実装手順 / 再採点の検査 C1〜C5 / `M*` の config 反映)。**未実装**
+- `STATE.md` を差し替え(397 行)、旧ブロック 49 行を `logs/STATE-ARCHIVE.md`「その38」へ移した。`logs/HANDOFF.md` を上書き(次は IMPLEMENTER)
+- コード変更なし。`pytest code/tests/test_repo_hygiene.py -q` = 7 passed。GPU・ポッドは触っていない

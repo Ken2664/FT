@@ -5333,3 +5333,19 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `logs/OPEN-ITEMS.md` の索引に「停止中ポッドの terminate」(`zxwdkgxutbuoph` / `46pggs1odwb09r`)を追加
 - **run ディレクトリは作っていない。数値は 1 つも出ていない**
 - 引き継ぎ: `STATE.md`(6 ブロックを `logs/STATE-ARCHIVE.md`「その35」へ移した)/ `logs/HANDOFF.md`
+
+## 2026-09-10(その36)
+
+### exp(runpod): 順5 の掃引を新ポッドで起動した(走行中のまま引き継ぎ)+ ADR-073 追記   [actor: RUNNER]
+
+- `46pggs1odwb09r`(EU-RO-1)の start を再試行 → **400「not enough free GPUs on the host machine」**
+- カタログで EU-RO-1 が LOW に戻っていたため、**EU-RO-1 + ボリューム `r963j7swke` の新規作成を人間が承認** →
+  `create-pod` は 3 回とも「no longer any instances available」→ **承認済みの仕様で `omjvbdanmbrzc8`(EUR-IS-1)を作成**(10:17:58Z)
+- **ネットワーク 77 MB/s**(HF の gpt2 safetensors 548 MB を 7.1 秒)。`git push origin main`(`0395897..486d7ff`)→ ポッドで GitHub から clone
+- venv(`--system-site-packages`)+ bootstrap: **957 passed** / **lock と `pip freeze` は 187 行で一致**(PLAN-014 §5 手順 2b)
+- HF ログイン(人間)→ 重み pull(`revision` 固定・`original/*` 除外)→ **snapshots/ 直下 = `0e9e39f…` のみ、API の main sha も同じ**
+- preflight(`--run-kind sweep`)が **`data manifest: train.jsonl 欠落` で FAIL**(`.gitignore` 対象)→ 人間の判断で
+  開発機の `train.jsonl`(sha256 が manifest と一致)を scp → 新しい run ディレクトリで **FAIL 0**。FAIL した方の run ディレクトリは repo 外へ移した
+- **掃引 run `20260910_104249_sweep_m` を nohup で起動**(10:45:06Z)。12:20:45Z 時点で生存・GPU 69%。**metrics はまだ無い**
+- `logs/DECISIONS.md` ADR-073 に追記(その36。提案 エージェント / 採択 人間 × 2 件)
+- **ポッドは RUNNING のまま引き継ぎ**(context-guard 約 163k)。引き継ぎ: `STATE.md`(6 ブロックを `logs/STATE-ARCHIVE.md`「その36」へ移した)/ `logs/HANDOFF.md`

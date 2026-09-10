@@ -8,12 +8,11 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-10(その35)/ by RUNNER (Opus)
-(**★ポッド `zxwdkgxutbuoph`(EUR-IS-2)はネットワーク実効 約 70 kB/s で使えず、停止した**(`EXITED`。今回の稼働 790 秒)。
-コードは `git bundle` で渡せた(`git clone -b main`)。**bootstrap は PEP 668 で pip が拒否され、`/workspace/venv`
-(`--system-site-packages`)を作って再開したところで止めた。**
-**★人間が「他 DC に新規ポッドを `create-pod`」を承認した**(ADR-073 追記)。**作成は次セッション**
-(今回は auto mode の分類器が `create-pod` を拒否した)。**実験は 1 件も実行していない。`results/` は空。**)
+最終更新: 2026-09-10(その36)/ by RUNNER (Opus)
+(**★順5 の掃引 run `20260910_104249_sweep_m` がポッド `omjvbdanmbrzc8`(EUR-IS-1 / RTX 4090 SECURE $0.74/時)で
+走行中のままセッションを切った**(10:45:06Z 起動。12:20:45Z 時点で生存・GPU 69%。**`metrics.json` はまだ無い** ——
+予測と metrics は最後にまとめて書く実装)。**★ポッドは RUNNING のまま。通算 4 時間の打ち切りは 13:57Z 頃**
+(旧ポッド 426 + 790 秒を通算)。**数値は 1 つも出ていない。`results/` は空。**)
 
 ---
 
@@ -68,19 +67,18 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-09-10(その35・最新)。Phase 0。RUNNER (Opus)。順5 は GPU 上でまだ 1 項目も回っていない。**
-> - **`zxwdkgxutbuoph` の start は成功**(08:24:43Z。SSH `root@213.181.111.2 -p 51361`。**ポートは起動のたびに変わる**)
-> - **ポッド上の `git clone` は再試行も失敗**(`curl 56 GnuTLS recv error`)→ **`git bundle` を scp して
->   `git clone -b main /tmp/ft.bundle` で渡せた**(HEAD `c03d2b3`。**`-b main` が無いと bundle に HEAD が無く checkout できない**)
-> - **bootstrap.sh は PEP 668(externally-managed-environment)で pip が拒否された** → 順1b と同じく
->   **`python3 -m venv --system-site-packages /workspace/venv` を作り、activate してから bootstrap を再開**
-> - **★ネットワークが使えない**: PyPI の 1.8 MB を **72.8 kB/s**、起動 12 分の eth0 受信は計 **17.9 MB**。
->   重み約 16 GB だと 60 時間以上 → **停止した(`EXITED`、今回 790 秒)**
-> - **人間の判断(この会話)**: **エージェントが同じ仕様で EU-CZ-1 / EUR-IS-1 / EUR-NO-1 に `create-pod` してよい**
->   (ADR-073 追記)/ **作成は次セッション**。今回の `create-pod` は **auto mode の分類器に拒否された**
->   (次回もツールの許可を求められうる)
+> **★★2026-09-10(その36・最新)。Phase 0。RUNNER (Opus)。順5 の掃引が GPU 上で走行中(未完了)。**
+> - **ポッド `omjvbdanmbrzc8`**(EUR-IS-1 / 10:17:58Z 作成 / SSH `root@157.157.221.29 -p 31478`。**ポートは起動のたびに変わる**)。
+>   `46pggs1odwb09r` の start は再び 400、EU-RO-1 + ボリューム `r963j7swke` の新規は在庫なしで 3 回失敗(ADR-073 追記その36)
+> - **ネットワーク 77 MB/s**(HF 実測)/ GitHub から clone(HEAD `486d7ff`。`origin` に push 済)/
+>   venv(`--system-site-packages`)+ bootstrap = **957 passed** / **lock と pip freeze は 187 行で一致** / HF ログイン(人間)/
+>   重み revision `0e9e39f…` 一致(snapshots/ 直下はこれ 1 つ)
+> - **preflight は `data manifest: train.jsonl 欠落` で FAIL → 人間の判断で開発機の train.jsonl を scp**(sha256 一致を確認)→ **FAIL 0**
+> - **掃引**(`python -m code.eval.sweep --config configs/exp_phase1_main.yaml --run-dir runs/20260910_104249_sweep_m`)を
+>   nohup で起動(ラッパの pid **1755**。stdout は `/workspace/sweep_stdout.log`、終了時に `SWEEP_EXIT=<code>` を書く)
+> - **run ディレクトリはポッド上の `/workspace/translesion/runs/20260910_104249_sweep_m/`**(ポッドローカル。**戻さないと消える**)
 >
-> **★その34 の記録は `logs/STATE-ARCHIVE.md`「その35」にある**(ADR-063 運用規約1)。
+> **★その35 の記録は `logs/STATE-ARCHIVE.md`「その36」にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -217,8 +215,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
    ~~殻の実装~~(その32)→ ~~★F125(生成設定 2 欄)~~ → ADR-072(その33)→ ~~GPU 2.5h の再承認~~ → **ADR-073(その34)。**
    (経緯は `logs/STATE-ARCHIVE.md`「その33」「その34」)
    **★★順5 を止めている人間の決定は無い。残るのは実行だけである**(RUNNER。`plans/PLAN-014` §5)。
-   **★いま詰まっているのは「ネットワークの使えるポッド」である** —— `zxwdkgxutbuoph`(EUR-IS-2)は実効 約 70 kB/s(その35)。
-   **他 DC への `create-pod` は人間が承認済み**(ADR-073 追記)。コードは `git bundle` で渡せることを確かめた
+   **★2026-09-10(その36)に掃引 run `20260910_104249_sweep_m` を起動した**(ポッド `omjvbdanmbrzc8`)。**完了の確認・回収・ポッド停止が残る**
    **★`θ = 0.70` の根拠(値ではない)は依然として未記入である**(ADR-041 決定2 の要求。順5 は回せる)
 
 2. **順6 を回す GPU の承認が下りていない。****事前登録の凍結(順9)はこれが出るまで打てない。**
@@ -318,7 +315,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 |---|---|---|
 | **A** | GPU 不要のコード作業 | **✅ 完了(2026-08-26)** |
 | **B** | 人間の決定(凍結の前に全部要る) | **進行中。残りは `logs/OPEN-ITEMS.md`** |
-| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 実装済・GPU 2.5h 承認済(ADR-073)。EUR-IS-2 のポッドはネットワーク不良で停止(その35)。他 DC に新規作成して実行(RUNNER)。**順6: GPU 承認待ち |
+| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 走行中(run `20260910_104249_sweep_m`、ポッド `omjvbdanmbrzc8`。その36)。回収・停止が残る(RUNNER)。**順6: GPU 承認待ち |
 | **D** | 事前登録の凍結(`git tag`) | **Δ 5 行(順6 待ち)で止まっている** |
 | **E** | パイロット(`p2` / `p2d` を 2 〜 3 シード)。Go-No-Go #4 / #4b / #5 | **GPU 大。人間の承認が要る** |
 
@@ -329,35 +326,34 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-09-10(その35・最新)。順5 の人間の決定はすべて揃った(ADR-073 + 追記)。残るのは実行である。**
+> **★★2026-09-10(その36・最新)。順5 の掃引は走行中。最優先はその完了確認・回収・ポッド停止である。**
 >
-> 1. **★順5 を GPU で回す**(RUNNER。`logs/HANDOFF.md`。**EU-CZ-1 / EUR-IS-1 / EUR-NO-1 に新規 `create-pod`** →
->    **最初にネットワーク速度を測る** → bundle → venv → bootstrap → `plans/PLAN-014` §5 の手順 1〜5。
->    **承認済み: RTX 4090 $0.74/時、4h で打ち切り(旧ポッドの稼働 426 + 790 秒を通算)**)
-> 1b. **停止中ポッド 2 台の terminate を人間が決める**(`logs/OPEN-ITEMS.md`。ディスク課金が続く)
+> 1. **★順5 の掃引を回収してポッドを止める**(RUNNER。`logs/HANDOFF.md`。**13:57Z までに停止**。
+>    完了 → `runs/20260910_104249_sweep_m/` を scp で戻す → コミット `[run:20260910_104249_sweep_m]` → push → 停止・`EXITED` 確認)
+> 1b. **停止中ポッドの terminate を人間が決める**(`zxwdkgxutbuoph` / `46pggs1odwb09r` / 停止後の `omjvbdanmbrzc8`。`logs/OPEN-ITEMS.md`)
 > 2. **★`θ = 0.70` の根拠を人間が書く**(ADR-041 決定2 の要求。**値は確定**)。エージェントは代筆しない
 > 3. **★`M*` を人間が置く**(順5 の `metrics.json` の `quadrant` に規則2 を当てる。ADR-041 / ADR-045。**エージェントは置かない**)
 > 4. **★F104 を人間が決める**(`plans/PLAN-019` **§10.13.5**。記入欄は **4 行**)
 > 5. **★順6 を回す GPU を承認する**(Go/No-Go #0〜#3 はここでしか出ず、**段階 D の前に要る**)
 > 6. **★F114 の実行先を決める**(4 の後)
-> 7. **`code/analysis/primary.py`**(N5 待ち)/ **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`**(人間待ち)
+> 7. **`code/analysis/primary.py`**(N5 待ち)/ **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`**(人間待ち)/
+>    **`infra/RUNPOD.md` の修正**(§8 の create-pod / PEP 668 の venv / bundle の `-b main` / **掃引の preflight でも train.jsonl が要る**)
 >
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-09-10(その35・最新)。RUNNER (Opus)。**
+> **★★2026-09-10(その36・最新)。RUNNER (Opus)。**
 >
-> **★やったこと**: `zxwdkgxutbuoph` を start → clone 再試行失敗 → **bundle で渡した** → bootstrap が PEP 668 で停止 →
-> venv を作って再開 → **ネットワーク 約 70 kB/s を確認して停止(`EXITED`)** → 人間が他 DC の `create-pod` を承認(ADR-073 追記)/
-> 停止中ポッドの terminate を `logs/OPEN-ITEMS.md` に登録。
-> **★やっていないこと**: **掃引は 1 項目も回していない** / **新ポッドの作成(分類器が拒否。次セッション)** / HF ログイン /
-> 重みの pull / preflight / **`M*`** / **`extrapolation_radius`(`null` のまま)** / **`θ` の根拠の代筆** /
-> `infra/RUNPOD.md` の修正(§8 の create-pod の記述・PEP 668 の venv・bundle の `-b main`)/
-> **`cost.txt`(人間が書く。426 + 790 秒は run に紐づかない)**。**ポッド上では pytest を回していない。**
-> **★次セッションが引き継ぐもの**: **順5 の GPU 実行(RUNNER。新規ポッドから)** / **停止中ポッド 2 台の terminate(人間)** / **★`θ` の根拠** / **★F104** / **★F114 の実行先** /
-> **順6 の GPU 承認** / **N5 と `code/analysis/primary.py`** / **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`** /
+> **★やったこと**: `46pggs1odwb09r` start 再試行(400)→ EU-RO-1 + ボリューム案を人間が承認 → 在庫なしで 3 回失敗 →
+> **`omjvbdanmbrzc8`(EUR-IS-1)を作成** → 77 MB/s → push + GitHub clone → venv + bootstrap(957 passed / lock 一致)→
+> HF ログイン(人間)→ 重み pull(revision 一致)→ preflight FAIL(train.jsonl)→ 人間の判断で scp → FAIL 0 →
+> **掃引を起動(10:45:06Z)**。ADR-073 に追記(その36)。
+> **★やっていないこと**: **掃引の完了確認と回収** / **ポッドの停止(RUNNING のまま切った)** / run のコミットと push /
+> **`M*`** / **`extrapolation_radius`(`null` のまま)** / **`θ` の根拠の代筆** / `infra/RUNPOD.md` の修正 / **`cost.txt`(人間)**。
+> **★次セッションが引き継ぐもの**: **順5 の回収とポッド停止(最優先。13:57Z 期限)** / 停止中ポッドの terminate(人間)/ **★`θ` の根拠** /
+> **★F104** / **★F114 の実行先** / **順6 の GPU 承認** / **N5 と `code/analysis/primary.py`** / **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`** /
 > **★L(d)** / **★C** / **★E** / **E-5 (b)** / **★2** / **PLAN-018 §4.3**。
 ---
 

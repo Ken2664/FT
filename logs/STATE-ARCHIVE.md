@@ -4716,3 +4716,72 @@ ADR-029 根拠表は `t ≡ 0 mod 10` の除外を **`K` の抽出母集団**の
 > **★次セッションが引き継ぐもの**: **順5 の GPU 実行(RUNNER)** / **★`θ` の根拠** / **★F104** / **★F114 の実行先** /
 > **順6 の GPU 承認** / **N5 と `code/analysis/primary.py`** / **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`** /
 > **★L(d)** / **★C** / **★E** / **E-5 (b)** / **★2** / **PLAN-018 §4.3**。
+
+## ★2026-09-10(その36)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> **1 文字も削っていない。**移した理由: その36 で各節を新しいブロックに差し替えたため。
+
+### ヘッダ(最終更新。その35)
+
+最終更新: 2026-09-10(その35)/ by RUNNER (Opus)
+(**★ポッド `zxwdkgxutbuoph`(EUR-IS-2)はネットワーク実効 約 70 kB/s で使えず、停止した**(`EXITED`。今回の稼働 790 秒)。
+コードは `git bundle` で渡せた(`git clone -b main`)。**bootstrap は PEP 668 で pip が拒否され、`/workspace/venv`
+(`--system-site-packages`)を作って再開したところで止めた。**
+**★人間が「他 DC に新規ポッドを `create-pod`」を承認した**(ADR-073 追記)。**作成は次セッション**
+(今回は auto mode の分類器が `create-pod` を拒否した)。**実験は 1 件も実行していない。`results/` は空。**)
+
+### 「いま何をしているか」(その35)
+
+> **★★2026-09-10(その35・最新)。Phase 0。RUNNER (Opus)。順5 は GPU 上でまだ 1 項目も回っていない。**
+> - **`zxwdkgxutbuoph` の start は成功**(08:24:43Z。SSH `root@213.181.111.2 -p 51361`。**ポートは起動のたびに変わる**)
+> - **ポッド上の `git clone` は再試行も失敗**(`curl 56 GnuTLS recv error`)→ **`git bundle` を scp して
+>   `git clone -b main /tmp/ft.bundle` で渡せた**(HEAD `c03d2b3`。**`-b main` が無いと bundle に HEAD が無く checkout できない**)
+> - **bootstrap.sh は PEP 668(externally-managed-environment)で pip が拒否された** → 順1b と同じく
+>   **`python3 -m venv --system-site-packages /workspace/venv` を作り、activate してから bootstrap を再開**
+> - **★ネットワークが使えない**: PyPI の 1.8 MB を **72.8 kB/s**、起動 12 分の eth0 受信は計 **17.9 MB**。
+>   重み約 16 GB だと 60 時間以上 → **停止した(`EXITED`、今回 790 秒)**
+> - **人間の判断(この会話)**: **エージェントが同じ仕様で EU-CZ-1 / EUR-IS-1 / EUR-NO-1 に `create-pod` してよい**
+>   (ADR-073 追記)/ **作成は次セッション**。今回の `create-pod` は **auto mode の分類器に拒否された**
+>   (次回もツールの許可を求められうる)
+>
+> **★その34 の記録は `logs/STATE-ARCHIVE.md`「その35」にある**(ADR-063 運用規約1)。
+
+### 「現在のブロッカー」1 の末尾 2 行(その35)
+
+   **★いま詰まっているのは「ネットワークの使えるポッド」である** —— `zxwdkgxutbuoph`(EUR-IS-2)は実効 約 70 kB/s(その35)。
+   **他 DC への `create-pod` は人間が承認済み**(ADR-073 追記)。コードは `git bundle` で渡せることを確かめた
+
+### 「Phase 0 に必要な段階」段階 C の行(その35)
+
+| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 実装済・GPU 2.5h 承認済(ADR-073)。EUR-IS-2 のポッドはネットワーク不良で停止(その35)。他 DC に新規作成して実行(RUNNER)。**順6: GPU 承認待ち |
+
+### 「次のアクション」(その35)
+
+> **★★2026-09-10(その35・最新)。順5 の人間の決定はすべて揃った(ADR-073 + 追記)。残るのは実行である。**
+>
+> 1. **★順5 を GPU で回す**(RUNNER。`logs/HANDOFF.md`。**EU-CZ-1 / EUR-IS-1 / EUR-NO-1 に新規 `create-pod`** →
+>    **最初にネットワーク速度を測る** → bundle → venv → bootstrap → `plans/PLAN-014` §5 の手順 1〜5。
+>    **承認済み: RTX 4090 $0.74/時、4h で打ち切り(旧ポッドの稼働 426 + 790 秒を通算)**)
+> 1b. **停止中ポッド 2 台の terminate を人間が決める**(`logs/OPEN-ITEMS.md`。ディスク課金が続く)
+> 2. **★`θ = 0.70` の根拠を人間が書く**(ADR-041 決定2 の要求。**値は確定**)。エージェントは代筆しない
+> 3. **★`M*` を人間が置く**(順5 の `metrics.json` の `quadrant` に規則2 を当てる。ADR-041 / ADR-045。**エージェントは置かない**)
+> 4. **★F104 を人間が決める**(`plans/PLAN-019` **§10.13.5**。記入欄は **4 行**)
+> 5. **★順6 を回す GPU を承認する**(Go/No-Go #0〜#3 はここでしか出ず、**段階 D の前に要る**)
+> 6. **★F114 の実行先を決める**(4 の後)
+> 7. **`code/analysis/primary.py`**(N5 待ち)/ **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`**(人間待ち)
+>
+
+### 「引き継ぎ」(その35)
+
+> **★★2026-09-10(その35・最新)。RUNNER (Opus)。**
+>
+> **★やったこと**: `zxwdkgxutbuoph` を start → clone 再試行失敗 → **bundle で渡した** → bootstrap が PEP 668 で停止 →
+> venv を作って再開 → **ネットワーク 約 70 kB/s を確認して停止(`EXITED`)** → 人間が他 DC の `create-pod` を承認(ADR-073 追記)/
+> 停止中ポッドの terminate を `logs/OPEN-ITEMS.md` に登録。
+> **★やっていないこと**: **掃引は 1 項目も回していない** / **新ポッドの作成(分類器が拒否。次セッション)** / HF ログイン /
+> 重みの pull / preflight / **`M*`** / **`extrapolation_radius`(`null` のまま)** / **`θ` の根拠の代筆** /
+> `infra/RUNPOD.md` の修正(§8 の create-pod の記述・PEP 668 の venv・bundle の `-b main`)/
+> **`cost.txt`(人間が書く。426 + 790 秒は run に紐づかない)**。**ポッド上では pytest を回していない。**
+> **★次セッションが引き継ぐもの**: **順5 の GPU 実行(RUNNER。新規ポッドから)** / **停止中ポッド 2 台の terminate(人間)** / **★`θ` の根拠** / **★F104** / **★F114 の実行先** /
+> **順6 の GPU 承認** / **N5 と `code/analysis/primary.py`** / **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`** /
+> **★L(d)** / **★C** / **★E** / **E-5 (b)** / **★2** / **PLAN-018 §4.3**。

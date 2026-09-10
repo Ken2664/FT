@@ -4726,3 +4726,17 @@
   起動 12 分の eth0 受信は計 17.9 MB)。在庫切れ(決定2 の書いた分岐)ではないが「駄目なら他 DC」に当たるとして、
   **エージェントが同じ仕様で EU-CZ-1 / EUR-IS-1 / EUR-NO-1 に `create-pod` することを人間が会話で承認した**
   (**提案: エージェント / 採択: 人間**)。**GPU 型・単価・4 時間の上限は変えない。4 時間は旧ポッドの稼働分も通算する**
+- **追記(2026-09-10 その36。決定2 の運用の続き)**:
+  - `46pggs1odwb09r`(EU-RO-1)の start を再試行 → **400「not enough free GPUs on the host machine」**(その34 と同じ)。
+    カタログ(MCP `get-gpu-type`)では EU-RO-1 の RTX 4090 SECURE が LOW に戻っていたため、
+    **EU-RO-1 に新規ポッドを作りネットワークボリューム `r963j7swke`(重み・HF トークン入り)を `/workspace` に付ける案を
+    人間が会話で承認した**(**提案: エージェント / 採択: 人間**)。**ただし `create-pod` は 3 回とも
+    「no longer any instances available」で割り当てられず、この案は使われなかった**
+  - 上の追記の承認どおり **`omjvbdanmbrzc8`(EUR-IS-1 / RTX 4090 SECURE $0.74/時 / ポッドローカル 60GB)を作った**
+    (10:17:58Z)。HF からの実測 **77 MB/s**。**4 時間の打ち切りは 13:57Z 頃**(旧ポッド 426 + 790 秒を通算)
+  - **preflight(`--run-kind sweep`)が `data manifest: train.jsonl 欠落` で FAIL**(`train.jsonl` は `.gitignore` 対象で、
+    clone したポッドに無い。掃引は読まない)。PLAN-014 §5 の「検査6・8 以外の FAIL は人間に上げる」に従い上げた。
+    **人間は「開発機の `train.jsonl` を scp する」を選んだ**(**提案: エージェント / 採択: 人間**)。
+    開発機のファイルの sha256 が manifest(`58be98e5…`)と一致することを確かめてから送り、preflight を新しい run
+    ディレクトリで回し直して **FAIL 0**(WARN は run ディレクトリ自身の未追跡 1 件のみ)。
+    FAIL した preflight の run ディレクトリ(`token_boundary.json` だけ)はポッド上で repo 外へ移した(消していない)

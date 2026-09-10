@@ -5368,3 +5368,12 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **`M*` は置いていない / `extrapolation_radius` は `null` のまま / `metrics.json` は無変更 / 再採点していない / 掃引表を解釈していない**
 - `STATE.md` が 403 行になったため、索引表の決着済み 7 行(ADR-067 / 068 / 069)を `logs/STATE-ARCHIVE.md`「その37」へ移した(397 行)。
   その36 の 6 ブロックも同じ節へ移した
+
+### docs(runpod): infra/RUNPOD.md を順5 の実機の経験に合わせた(4 点)   [actor: RUNNER]
+
+- §3 起動手順: **clone が TLS で切れる DC では `git bundle` → `git clone -b main`**(`-b main` が無いと HEAD が無く checkout できない)/
+  **bootstrap の前に `python3 -m venv --system-site-packages /workspace/venv` を作って activate**(PEP 668。順1b・順5 と同じ手当て)
+- §3「run 種別の例外」: **`data manifest` は `--run-kind sweep` でも緩まない**ので、掃引の preflight も `train.jsonl`(`.gitignore` 対象)を要る。
+  順5 では人間の判断で開発機から scp した事実を記録。再生成の経路は本番 config で試していないと明記
+- §8: 「MCP の `create-pod` は使えない」(2026-08-28)を**打ち消し線で残し、2026-09-10 の訂正**(2 台作れた / 在庫切れ / auto mode の拒否 / 作成は人間の承認後)を追記
+- `pytest code/tests/test_artifacts.py test_run_real.py test_sweep.py test_train_run.py test_repo_hygiene.py -q` = 98 passed(docstring に RUNPOD.md を名指しするテスト)

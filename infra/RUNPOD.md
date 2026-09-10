@@ -41,7 +41,14 @@
 ```bash
 # --- ポッド起動後、1コマンドで実行可能状態にする ---
 cd /workspace && git clone <repo> translesion || (cd translesion && git pull)
+#   ★clone が TLS で切れる DC がある(2026-09-10 EUR-IS-2)。そのときは開発機で
+#     `git bundle create ft.bundle main` → scp → `git clone -b main /tmp/ft.bundle translesion`。
+#     **`-b main` が要る** —— bundle に HEAD が無く、付けないと checkout できない
 cd translesion
+#   ★ポッドの python は PEP 668(externally-managed-environment)で pip を拒否する。
+#     **bootstrap の前に venv を作って activate する**(順1b 2026-08-28 / 順5 2026-09-10 で同じ手当て)。
+#     `--system-site-packages` はベースイメージの torch(`+cu128`。PyPI に無い)を見せるため(ADR-073 リスク欄)
+python3 -m venv --system-site-packages /workspace/venv && source /workspace/venv/bin/activate
 bash infra/bootstrap.sh          # 依存インストール、環境変数、シンボリックリンク
 
 # --- 事前検証(必須) ---
@@ -135,6 +142,12 @@ python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir runs/<
   **FT データの検査**であって評価プールの検査ではない
 - **`token boundaries`(検査7)** —— 掃引もプロンプトを組み立てて生成するので、
   **書式のトークン化は掃引の測定対象の内側にある**
+- **`data manifest`** —— config の `data.manifest`(本番は `data/generated/ft/exp_phase1_main_p2/manifest.json`)が
+  列挙する **`train.jsonl` の実体とハッシュを照合する。**`train.jsonl` は `.gitignore` 対象で clone に無いので、
+  **掃引の preflight も、ポッド上に `train.jsonl` を置かないと `train.jsonl: 欠落` で FAIL する**
+  (2026-09-10 の順5 で実際に FAIL した)。その回は人間の判断で、開発機の `train.jsonl`
+  (sha256 が manifest と一致することを確認)を scp した(ADR-073 追記その36)。
+  **§4 順1b の 2b(ポッド上で再生成)で置く経路は、本番 config では試していない**
 
 **★この例外は「掃引は評価プールを読まない」という現在の実装に依存している。**
 将来 `code/eval/sweep.py` がプールを読むようになったら、この例外は誤って検査を緩める
@@ -510,11 +523,18 @@ RUNNER エージェントには、このチェックリストを完了報告に�
 | **評価プールの実体が無くて `load_pool_items` が落ちる** | **`items.jsonl` / `train.jsonl` は git に入っていない**(manifest だけ追跡)。ポッド上で必ず再生成する(§4 順1b の 2b) |
 | **ネットワークボリュームを他の実験と共有して汚染する** | **一回限りの小さい実行はボリュームを付けずに回す。**成果物は git に戻せばよい(2026-08-28 の順1b はこれで回した) |
 
-**★2026-08-28 現在、RunPod MCP の `create-pod` は使えない。**
+~~**★2026-08-28 現在、RunPod MCP の `create-pod` は使えない。**
 引数に関係なく `objectMounts: null` を送り、GraphQL の `PodFindAndDeployOnDemandInput`
 がそれを拒否して 400 を返す(`imageName` だけの最小呼び出しでも同じ)。
-**ポッドの新規作成は人間が Web コンソールで行う。**`list-pods` / `start-pod` /
+**ポッドの新規作成は人間が Web コンソールで行う。**~~`list-pods` / `start-pod` /
 `stop-pod` / `get-pod` は動く。
+
+**★2026-09-10 訂正(理由: 上の 400 が再現しなかった)**: MCP の `create-pod` で 2 台作れた ——
+`zxwdkgxutbuoph`(EUR-IS-2)と `omjvbdanmbrzc8`(EUR-IS-1)。どちらも RTX 4090 SECURE / ポッドローカル 60 GB を
+`/workspace`(前者は container 30 GB。`logs/CHANGELOG.md` 2026-09-10)。**その間に直ったのか、引数の違いで避けられたのかは確かめていない。**
+ほかに起きたこと: (1) 在庫切れのときは「no longer any instances available」で作れない(EU-RO-1 で 3 回)/
+(2) Claude Code の auto mode の分類器が `create-pod` の呼び出しそのものを拒否したことがある(その35)。
+**課金が始まるので、作るのは人間の承認を得てから**(`CLAUDE.md` §2 / ADR-073)。
 
 ---
 

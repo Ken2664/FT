@@ -360,7 +360,7 @@ chat template / バッチ 4 / RTX 4090)。各水準 5 シード × 200 = 1,000 �
 > 5. **★順6 を回す GPU を承認する**(Go/No-Go #0〜#3 はここでしか出ず、**段階 D の前に要る**)
 > 6. **★F114 の実行先を決める**(4 の後)
 > 7. **`code/analysis/primary.py`**(N5 待ち)/ **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`**(人間待ち)/
->    **`infra/RUNPOD.md` の修正**(§8 の create-pod / PEP 668 の venv / bundle の `-b main` / **掃引の preflight でも train.jsonl が要る**)
+>    ~~`infra/RUNPOD.md` の修正~~(**その37 に済**。§3 の bundle `-b main` と PEP 668 の venv / §3 の掃引でも `data manifest` が train.jsonl を要る / §8 の create-pod)
 >
 
 ---
@@ -370,7 +370,8 @@ chat template / バッチ 4 / RTX 4090)。各水準 5 シード × 200 = 1,000 �
 > **★★2026-09-10(その37・最新)。RUNNER (Opus)。**
 >
 > **★やったこと**: 順5 の `metrics.json` を読み、4 値分解・シード間 SD・timing を run_id とセットで「わかっていること」に載せた /
-> §7 の点検(`predictions/` を件数だけ)→ **★F126** を `logs/OPEN-ITEMS.md` に登録 / 停止中ポッドの行に `omjvbdanmbrzc8` を追加。
+> §7 の点検(`predictions/` を件数だけ)→ **★F126** を `logs/OPEN-ITEMS.md` に登録 / 停止中ポッドの行に `omjvbdanmbrzc8` を追加 /
+> `infra/RUNPOD.md` の 4 点を直した(§3 bundle `-b main`・PEP 668 の venv・掃引の `data manifest` / §8 create-pod は打ち消し線 + 訂正)。
 > **★やっていないこと**: **`M*`** / **`extrapolation_radius`(`null` のまま)** / **再採点(`metrics.json` は無変更)** /
 > **掃引表の解釈** / **`θ` の根拠の代筆** / **`cost.txt`(人間)**。GPU・ポッドは触っていない。
 > **★次セッションが引き継ぐもの**: **★F126 → `M*`(人間)** / 停止中ポッドの terminate(人間)/ **★`θ` の根拠** /

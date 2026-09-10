@@ -5263,3 +5263,24 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   **`Documents/05_STATISTICS.md` と `configs/power_sim.yaml` は触っていない**(★F104 待ち)/
   **`configs/template.yaml` に `shell_*` を足していない**(ADR-070 も `theta` を template に足していない前例に従った。
   template から作った新しい掃引 config は `shell_definition` が無いと言って止まる)
+
+## 2026-09-10(その33)
+
+### docs(adr): ADR-072 —— 人間が ★F125 の 2 欄を埋めた(`temperature` 0 / `num_repeats` 1)+ ADR-071 の実装判断 3 件を承認   [actor: IMPLEMENTER]
+
+- **HANDOFF(その32)の「先に人間が決めること」を人間に諮った。**開始手順で ★F125 が未決のまま
+  (`configs/exp_phase1_main.yaml:468-469` が `null`、ADR-071 の後に ADR が無い)であることを確かめてから、
+  実装の制約(`require_decoding` は `do_sample: false` のとき温度を検査しない / `reject_unimplemented_settings` は
+  `num_repeats` が 1 以外なら止める)と PLAN-001 §5.6 の提案値を添えて 3 問を出した
+- **人間の回答**: `eval.temperature` = **0** / `eval.num_repeats` = **1** / ADR-071 の実装判断 3 件は **3 件とも異議なし**
+  (3 問とも推奨案。**提案 エージェント / 採択 人間**を ADR-072 に分けて書いた)
+- **反映**: `configs/exp_phase1_main.yaml`(2 欄 + 注)/ `logs/DECISIONS.md`(ADR-072)/
+  `logs/OPEN-ITEMS.md`(★F125 と実装判断 3 件に打ち消し線 + ADR-072 + 日付)/
+  `plans/PLAN-001` §5.6(採択の追記。**test-retest の 3 は採択していない**)/ `plans/PLAN-014` §5(★F125 の注に打ち消し線)
+- **テスト**: `code/tests/test_eval_model.py::test_the_production_config_declares_every_generation_setting` を足した
+  (本番 config で `load_generation_settings` が通ることを固定する。**値そのものは検査しない**)。
+  `pytest code/tests -q` = **956 → 957 passed**
+- **確認**: `python -m code.eval.sweep --config configs/exp_phase1_main.yaml --dry-run` = **20,000 項目**
+  (`by_radius` 13,000 + `quadrant` 7,000。**組合せ論の計数**。ADR-071 決定2 と一致)
+- **★やっていないこと**: **GPU を起動していない**(順5 は次セッションの RUNNER。ポッドを立てる前に時間単価を人間に示す)/
+  `configs/template.yaml` と `configs/smoke.yaml` の同じ欄は触っていない / test-retest の反復回数は決めていない

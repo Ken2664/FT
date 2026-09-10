@@ -29,6 +29,7 @@ from code.eval.model import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"
+MAIN_CONFIG = REPO_ROOT / "configs" / "exp_phase1_main.yaml"
 
 # 決定済みの設定を1つ埋めた config を作るための値。**実験条件ではない。**
 # smoke config は model.name / revision を null にしてある(小さいモデルに
@@ -111,6 +112,21 @@ def test_settings_are_read_from_the_config(decided_config: dict[str, Any]) -> No
     assert settings.device == TEST_DEVICE
     assert settings.batch_size == TEST_BATCH_SIZE
     assert settings.do_sample is TEST_DO_SAMPLE
+
+
+def test_the_production_config_declares_every_generation_setting() -> None:
+    """★本番 config は生成設定の門を通る(★F125。ADR-072)。
+
+    答える問い: 「`configs/exp_phase1_main.yaml` のまま順5 を起動したとき、
+    重みを読む前に生成設定で止まらないか」
+
+    2026-09-10 まで `eval.temperature` / `eval.num_repeats` が null で、
+    `--dry-run` は通るのに本実行だけが `ConfigError` で止まっていた(dry-run は
+    生成設定を読まない)。**値そのものは検査しない** —— 決めるのは人間であり
+    (ADR-072)、ここが見るのは「決めていない欄が残っていないか」だけである。
+    """
+    settings = load_generation_settings(load_config(MAIN_CONFIG))
+    assert settings.do_sample is False  # ADR-042 決定2(貪欲)
 
 
 def test_primary_model_is_not_enforced_at_runtime(decided_config: dict[str, Any]) -> None:

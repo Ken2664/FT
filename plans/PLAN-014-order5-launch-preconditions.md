@@ -225,9 +225,12 @@ python -m code.eval.sweep --config configs/exp_phase1_main.yaml --run-dir "$RUN_
 #     ★2026-09-10 追記(ADR-071 の実装): 表は 3 つになった。metrics.json の quadrant(Q(M)。
 #       7 水準 × 200 × 5 = 7,000 項目)が**判定の材料**、by_radius(累積)と grid_shell(定義 A)は
 #       **記述**である(metrics.json の roles と log.txt の見出し)。合計 20,000 項目、見積り 2.5h。
-#     ★★F125(2026-09-10): configs/exp_phase1_main.yaml の eval.temperature と eval.num_repeats が
+#     ~~★★F125(2026-09-10): configs/exp_phase1_main.yaml の eval.temperature と eval.num_repeats が
 #       null のままだと、ここで ConfigError になる(load_generation_settings。重みを読む前)。
-#       ADR-042 はどちらの値も決めていない。**人間が値を書くまで起動しない**(--dry-run は通る)。
+#       ADR-042 はどちらの値も決めていない。**人間が値を書くまで起動しない**(--dry-run は通る)。~~
+#     → 2026-09-10(その33)解決: 人間が temperature = 0 / num_repeats = 1 を採択し(ADR-072)、
+#       config に入った。本番 config で load_generation_settings が通ることを回帰テストが固定する
+#       (code/tests/test_eval_model.py::test_the_production_config_declares_every_generation_setting)。
 
 # ---- 5. 課金の記録と停止 ---------------------------------------------------
 #     cost.txt は人間が書く(RUNPOD.md §7)。

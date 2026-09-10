@@ -465,8 +465,13 @@ eval:
   # do_sample: false のとき transformers はこの値を無視する(生成にも渡さない。
   # code/eval/generate.py)。**記録のために残す欄であって正本ではない。**
   # [MATCHED] を付けていないのは正本でないためである(貪欲かどうかは上の欄が決める)
-  temperature: null        # 貪欲でも batch 構成等で揺れる。test-retest は Phase 0 で測る
-  num_repeats: null        # test-retest 信頼性の測定に使う。貪欲なので測るのは装置の非決定性
+  # **値 = 0 / 1(ADR-072 決定1・決定2。★F125。提案 エージェント(PLAN-001 §5.6 の提案値)/
+  # 採択 人間。2026-09-10)。**それまで 2 欄とも null で、load_generation_settings が
+  # 順5 を重みを読む前に止めていた。temperature は上の注のとおり**記録用の欄であって正本ではない**
+  # (貪欲を決めているのは do_sample: false)。num_repeats は実装が 1 以外を受け付けない
+  # (繰り返し生成は未実装。test-retest の反復回数は ADR-072 で決めていない)
+  temperature: 0           # 貪欲でも batch 構成等で揺れる。test-retest は Phase 0 で測る
+  num_repeats: 1           # test-retest 信頼性の測定に使う。貪欲なので測るのは装置の非決定性
                            # (ADR-042 決定3)
   # 1度にまとめてモデルへ渡すプロンプト数。**必須。既定値を作らない。**
   # **速度の設定ではなく実験装置の設定である** —— 左パディングを伴うまとめ生成が

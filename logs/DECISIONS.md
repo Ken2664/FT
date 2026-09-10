@@ -4615,3 +4615,54 @@
   **順5 は `load_generation_settings` で止まる**(ADR-042 はどちらの値も決めていない)。**人間の決定。`logs/OPEN-ITEMS.md`**
 - `pytest code/tests -q` = **914 → 956 passed**
 - 関連 commit: (このコミット)
+
+## ADR-072: ★F125 —— 本番 config の生成設定 2 欄を人間が埋めた(`temperature` 0 / `num_repeats` 1)+ ADR-071 の実装判断 3 件を承認
+
+- 日付: 2026-09-10
+- ステータス: **採択**
+- **提案: エージェント**(値は `plans/PLAN-001` §5.6 の提案値。PLAN-001 は IMPLEMENTER が 2026-08-21 に起草。
+  2026-09-10 にエージェント (Opus) が推奨として再提示した)/ **採択: 人間**(2026-09-10 の会話。
+  3 問とも推奨を選んだ。**ADR-039 決定3 の分離を保つため、提案者と採択者を分けて記録する**)
+- 文脈:
+  - **★F125**(その32 で発見): `configs/exp_phase1_main.yaml` の `eval.temperature` / `eval.num_repeats` が
+    `null` で、`python -m code.eval.sweep --config configs/exp_phase1_main.yaml` は `code/eval/model.py` の
+    `load_generation_settings` が **重みを読む前に** `ConfigError` を出していた(`--dry-run` は生成設定を読まないので通る)
+  - **ADR-042 はどちらの値も決めていなかった** —— 決定2 は `do_sample: false` を正本にし(`temperature` は記録用の欄)、
+    決定3 は `num_repeats` の意味(測るのは装置の非決定性)だけを書いた。PLAN-001 §5.6 の提案値は §12 の承認に入っておらず、
+    **承認の記録が無かった**
+  - 実装の制約(2026-09-10 に確認): `require_decoding`(`code/eval/model.py:226`)は `do_sample: false` のとき
+    温度の値を検査しない(数であればよい)/ `reject_unimplemented_settings`(同 :157)は `num_repeats` が 1 以外なら止める
+- 決定1: **`eval.temperature = 0`**(`configs/exp_phase1_main.yaml`)。**記録用の欄であり正本ではない**
+  (ADR-042 決定2 はそのまま。貪欲を決めているのは `do_sample: false` で、`code/eval/generate.py:177` は
+  `do_sample: false` のとき温度を生成に渡さない)。**生成には効かない**
+- 決定2: **`eval.num_repeats = 1`**(同)。**順5(桁数掃引)と Phase 1 本実験は同じ config を使うので、両方に掛かる**
+- 決定3: **ADR-071 の実装判断 3 件を承認する**(人間は 3 件とも異議なし)。
+  (1) `shell_n_items ≠ n_items_per_radius` なら止める / (2) 定義 A の格子殻は全シード合算の率で出し、
+  シード別には件数だけ残す(件数 0 の行は 4 値を null)/ (3) `shell_*` の無い config(`configs/smoke.yaml` を含む)では
+  掃引も dry-run も止まる
+- **本 ADR が決めていないもの**:
+  - **test-retest の反復回数**(PLAN-001 §5.6 の「Phase 0 の test-retest 測定のみ 3」)。
+    繰り返し生成は未実装であり、反復間のばらつきの集計は PLAN-004 タスク5 の扱いのまま
+  - **`configs/template.yaml` / `configs/smoke.yaml` の同じ欄**(本 ADR は本番 config の 2 欄だけを埋めた。
+    smoke.yaml は編集しない。ADR-037 決定4)
+- 根拠:
+  - 決定1: `do_sample: false` の下で温度は生成に効かないので、どの値でも測定は同じになる。
+    PLAN-001 §5.6 の提案値と一致させ、コード変更(欄を任意にする)で順5 を遅らせない
+  - 決定2: 実装が受け付ける唯一の値であり、PLAN-001 §5.6 の「本実行 1」と一致する。
+    3 にすると繰り返し生成の実装(新しい PLAN)と約 3 倍の GPU 時間(2.5h → 約 7.5h。10h の門に近い)が要る
+- 帰結:
+  - **★F125 は閉じた。順5 を止めているものは無い**(GPU の承認は 2026-09-06 に済。ADR-071 で見積りが 1.5h → 2.5h に
+    増えたので、**ポッドを立てる前に時間単価を人間に示して承認を取る**。`plans/PLAN-014` §5)
+  - 本番 config で `load_generation_settings` が通ることを回帰テストで固定した
+    (`code/tests/test_eval_model.py::test_the_production_config_declares_every_generation_setting`。**値そのものは検査しない**)
+  - `--dry-run` = **20,000 項目**(腕1 13,000 + 腕2 7,000。**組合せ論の計数**。本 ADR の前と同じ)
+- リスク・未解決:
+  - **温度 0 の記録は「温度 0 のサンプリング」と読まれうる**(ADR-042 決定2 の根拠そのもの)。
+    `metrics.json` には `do_sample` が並んで残るので、読むときは必ず `do_sample` を先に見る
+  - **ADR-042 冒頭の「#20 の生成設定は ADR-038 の下にあり、段階 C の結果で改訂してよい」が本 ADR の 2 値にも掛かるかは
+    書いていない**(エージェントの読みでは掛かる。改訂するなら ADR-038 の (a)〜(d) を残す)
+- 影響: `configs/exp_phase1_main.yaml` / `code/tests/test_eval_model.py` / `logs/OPEN-ITEMS.md` /
+  `plans/PLAN-001` §5.6 / `plans/PLAN-014` §5 / `STATE.md`
+- 関連 ADR: **042**(決定2・決定3)/ **071**(実装判断 3 件)/ **038**(生成設定の改訂規則)/ **057 決定2**(掃引の GPU 承認)/
+  **039 決定3**(提案と採択の分離)/ 037 決定4(smoke.yaml を編集しない)
+- 関連 commit: (このコミット)

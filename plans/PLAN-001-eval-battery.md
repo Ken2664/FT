@@ -707,6 +707,12 @@ G1〜G7 は「一貫性の群」で切った分類であり、**タスク型の�
 | `eval.num_repeats` | 本実行 `1` / Phase 0 の test-retest 測定のみ `3` | 温度 0 でも batch 構成等で揺れる(`configs/template.yaml` の注)。揺れ幅の実測値が `Documents/05_STATISTICS.md` §5 の Δ の根拠になる |
 | `eval.batteries` | `[g1, g2, g3, g4, g5, g6]` | — |
 | `eval.reference_rule` | **必須・既定値なし** | §5.2 |
+
+> **2026-09-10 追記(ADR-072。★F125)**: 上 2 行の提案値のうち **`eval.temperature` = 0 と
+> 本実行の `eval.num_repeats` = 1 を人間が採択し、`configs/exp_phase1_main.yaml` に入った。**
+> それまで承認の記録が無く、本番 config では 2 欄とも `null` で順5 が起動しなかった。
+> **「Phase 0 の test-retest 測定のみ 3」は採択していない**(繰り返し生成は未実装。ADR-072「本 ADR が決めていないもの」)。
+> `temperature` は記録用の欄であり、デコードの正本は `eval.do_sample: false` である(ADR-042 決定2)
 | `data.eval_template_set` | 訓練と**異なる**テンプレート集合 | テンプレート偏り対策 |
 
 ---

@@ -5313,3 +5313,23 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - context-guard の警告(約 179k)で作業を止め、**ポッドを停止した(`EXITED`、稼働 426 秒)**。
   **run ディレクトリは作っていない。数値は 1 つも出ていない**
 - 引き継ぎ: `STATE.md`(7 ブロックを `logs/STATE-ARCHIVE.md`「その34」へ移した)/ `logs/HANDOFF.md`
+
+## 2026-09-10(その35)
+
+### exp(runpod): 順5 のポッドはネットワーク不良で使えず停止した + 他 DC への create-pod を人間が承認 + セッション引き継ぎ   [actor: RUNNER]
+
+- **`zxwdkgxutbuoph`(EUR-IS-2)を start**(08:24:43Z。SSH `-p 51361`)。**ポッド上の `git clone` は再試行も失敗**
+  (`curl 56 GnuTLS recv error (-9)`)
+- **`git bundle create … main` → scp → `git clone /tmp/ft.bundle` は HEAD が無く checkout 失敗 → `git clone -b main` で通った**
+  (HEAD `c03d2b3`。`0395897` 以降。作業ツリー clean / lock 187 行)
+- **bootstrap.sh が PEP 668(externally-managed-environment)で pip を拒否されて停止** →
+  順1b の記録(`logs/STATE-ARCHIVE.md` の 2026-08-28)どおり **`/workspace/venv`(`--system-site-packages`)を作って再開**
+  (lock のうち 137 行は「already satisfied」)。**`infra/RUNPOD.md` にこの手順が無い(文書は未修正)**
+- **ネットワーク実効が約 70 kB/s**(PyPI の 1.8 MB を 72.8 kB/s、起動 12 分の eth0 受信は計 17.9 MB)→ 重み 16 GB は非現実的と判断し
+  **ポッドを停止した(`EXITED`、今回 790 秒)**。**bootstrap は完走していない。pytest はポッド上で回していない**
+- **MCP `create-pod`(EU-CZ-1 / EUR-IS-1 / EUR-NO-1)は auto mode の分類器に拒否された**(回避していない)
+- **人間の判断(会話)**: エージェントが同じ仕様で他 DC に `create-pod` してよい / 作成は次セッション(コンテキスト 約 138k のため)
+  → `logs/DECISIONS.md` ADR-073 に追記(提案 エージェント / 採択 人間)
+- `logs/OPEN-ITEMS.md` の索引に「停止中ポッドの terminate」(`zxwdkgxutbuoph` / `46pggs1odwb09r`)を追加
+- **run ディレクトリは作っていない。数値は 1 つも出ていない**
+- 引き継ぎ: `STATE.md`(6 ブロックを `logs/STATE-ARCHIVE.md`「その35」へ移した)/ `logs/HANDOFF.md`

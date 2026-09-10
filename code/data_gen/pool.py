@@ -85,7 +85,11 @@ CARRY_ONES_DIGITS = frozenset({8, 9})
 # **桁数掃引(code/eval/battery/magnitude_sweep.py)にも掛けない** ——
 # あちらは評価プールではなく M* を決めるための別の項目集合であり、
 # 抽出仕様は ADR-041 決定5 が凍結している。
-EXCLUDED_OPERANDS: frozenset[int] = frozenset({1})
+# **−1 は ADR-075 決定1 で足した。**素のモデルは `a+-1` を「−1 を引く」と読んで a+1 を
+# 答えることがあり、a − (−1) = a + (−1) + 2 なので、この誤りは被演算子 −1 のときに限り
+# p2 の規則値と同じ数になる(病変のないモデルが rule に落ちる)。訓練被覆 K ⊂ [1,99]² は
+# もともと −1 を含まない。**真値 −1 の項目は外さない**(ADR-075 決定2)。
+EXCLUDED_OPERANDS: frozenset[int] = frozenset({1, -1})
 
 # 参照規則が退化していないかを見るための標本。網羅ではなく、
 # 0・正・負・非対称をまたぐことが目的。
@@ -562,7 +566,7 @@ def id_cell_population(
     )
 
     current = eligible_item_pairs(current)
-    record_stage("excluded_operands", current, "被演算子の除外(ADR-035 決定3)")
+    record_stage("excluded_operands", current, "被演算子の除外(ADR-035 決定3 / ADR-075 決定1)")
 
     return IdCellPopulation(
         pairs=sorted(current),

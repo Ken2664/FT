@@ -735,20 +735,23 @@ def test_the_operand_exclusion_is_recorded_per_group() -> None:
 
     群ごとの内訳が消えると、被演算子分布がタスク型間で揃っていることを
     manifest から確かめられなくなる(それが決定3 の目的そのものである)。
+
+    ★ADR-075: 被演算子 −1 も同じ定数で外れる(決定1)。**真値 −1 の組 (3, −4) は
+    外れない**(決定2)—— 除外は被演算子の値で掛けるのであって、答えの値では掛けない。
     """
     record = excluded_operand_record(
         {
-            "bare_sum": [(1, 5), (2, 5)],
-            "word_problem": [(1, 5), (5, 1), (3, 4)],
+            "bare_sum": [(1, 5), (2, 5), (-1, 7), (3, -4)],
+            "word_problem": [(1, 5), (5, 1), (3, 4), (6, -1)],
         }
     )
     assert record["scope"] == "pool"
-    assert record["excluded_operands"] == [1]
+    assert record["excluded_operands"] == [-1, 1]
     assert record["applied_to"] == "eval_items_only"
-    assert record["n_candidates"] == 5
-    assert record["n_excluded"] == 3
-    assert record["by_group"]["bare_sum"] == {"n_candidates": 2, "n_excluded": 1}
-    assert record["by_group"]["word_problem"] == {"n_candidates": 3, "n_excluded": 2}
+    assert record["n_candidates"] == 8
+    assert record["n_excluded"] == 5
+    assert record["by_group"]["bare_sum"] == {"n_candidates": 4, "n_excluded": 2}
+    assert record["by_group"]["word_problem"] == {"n_candidates": 4, "n_excluded": 3}
 
 
 # --------------------------------------------------------------------------

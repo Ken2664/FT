@@ -5464,3 +5464,18 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `PYTHONIOENCODING=utf-8` を付けて回し直した。**コードは変えていない**
 - `metrics.json` の `timing.generation_seconds` は**再採点に掛かった秒数**(モデルは読んでいない。`model_load_seconds` = 0)。
   `generation` ブロックは応答を生成した元の run の設定である
+
+### feat(data_gen): ADR-075 を実装した —— 被演算子 −1 を全タスク型の評価項目から外す   [actor: IMPLEMENTER (Opus)]
+
+- **人間が朝にエージェントの要約を読み、ADR-075 のとおり実装することを承認した**(2026-09-11。ADR-075 に追記)
+- `code/data_gen/pool.py`: `EXCLUDED_OPERANDS` = `frozenset({1, -1})`(注記に ADR-075 決定1・2)/ id セル母集団の段の注記に ADR-075
+- 落ちたテストは 2 件だけで、どちらも `excluded_operands == [1]` の固定だった(`test_eval_pool.py` / `test_pool.py`)。ADR-075 を理由に `[-1, 1]` へ直し、
+  `test_pool.py` に被演算子 −1 の組 2 件と**真値 −1 の組 (3, −4) は外れない**(決定2)ことを足した。**既存の負例は正例に変えていない**
+- **件数を固定したテストは 1 件も落ちなかった。**念のため `label_main_coverage` で −1 を含む組をすべて数えた: K = `[1,99]²` 全体でも空集合でも、
+  `extrap_other` 3,600 / `oob_algebraic` 398(`(−1,−1)` を 2 回数えているので異なる組は 397)で、**`id` / `interp` / `extrap_magnitude` は 0 件**
+  (組合せ論的事実。実験結果ではない)
+- `plans/PLAN-001` §4.3 に被演算子の除外(±1)の段落を足した。**PLAN-001 はこれまで被演算子 1 の除外を書いていなかった**
+  (規則は ADR-035 と PLAN-003 §4.3・PLAN-008 §2-2 にだけあった)ので、打ち消す旧文言は無い
+- `logs/OPEN-ITEMS.md` ★F127 の期限欄 = 実装済
+- **生成済みの `data/generated/battery/smoke*/manifest.json` は `excluded_operands: [1]` のまま**(その時点の生成の記録なので作り直していない)
+- `pytest code/tests -q` = **980 passed**

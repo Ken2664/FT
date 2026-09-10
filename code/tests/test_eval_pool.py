@@ -193,7 +193,7 @@ def test_undecided_prompt_template_stops_the_pool(config_with_ft_data: dict[str,
 def test_operand_exclusion_is_applied_to_every_group_and_recorded(
     config_with_ft_data: dict[str, Any],
 ) -> None:
-    """★被演算子 1 の組は**どの群でも**項目にならず、内訳が manifest に残る。
+    """★被演算子 1(と −1。ADR-075)の組は**どの群でも**項目にならず、内訳が manifest に残る。
 
     ADR-035 決定3 で、この除外は T2 限定(ADR-032 決定4)から全タスク型共通の
     項目規約に昇格した。**タスク型ごとに除外規則が違うと、被演算子分布が
@@ -213,14 +213,14 @@ def test_operand_exclusion_is_applied_to_every_group_and_recorded(
     pool = eval_pool.build(config)
     record = pool.manifest["item_exclusions"]
     assert record["scope"] == "pool"
-    assert record["excluded_operands"] == [1]
+    assert record["excluded_operands"] == [-1, 1]
     assert record["n_excluded"] == 4
     assert record["by_group"]["word_problem"]["n_excluded"] == 1
     assert record["by_group"]["bare_sum"]["n_excluded"] == 1
     assert record["by_group"]["comparison"]["n_excluded"] == 1
     assert record["by_group"]["specificity"]["n_excluded"] == 1
     operands = {item.operands for item in pool.items}
-    assert not any(1 in pair for pair in operands)
+    assert not any(1 in pair or -1 in pair for pair in operands)
 
 
 # --------------------------------------------------------------------------

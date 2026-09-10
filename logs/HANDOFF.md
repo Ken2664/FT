@@ -18,7 +18,7 @@
 
 ## このセッションでやること(順に。1 が終わらなければ 2 に進まない)
 
-1. **PLAN-022 §5 の再採点を仕上げる。**`code/eval/rescore.py`(未コミット・約 700 行。サブエージェントが書いた途中版。
+1. **PLAN-022 §5 の再採点を仕上げる。**`code/eval/rescore.py`(約 700 行。サブエージェントが書いた途中版。commit `6904814`。
    「`execute()` の固定値の dict を戻り値に置き換える」途中で止まった)と `code/tests/test_rescore.py`(11 passed)を**読んでレビューし**、仕上げてから
    `python -m code.eval.rescore --source-run runs/20260910_104249_sweep_m` を実行する。**PLAN-022 §5.1 の C1〜C5 がすべて判定されるまで数値を報告しない。**
    C3 が外れたらコードを合わせにいかず、実数を記録して人間に上げる。元の run の `metrics.json` は書き換えない(ADR-074 決定2)。
@@ -32,7 +32,7 @@
 
 - commit `bb5f112`: `code/eval/parsers/base.py` の `unanimous_integer`(ADR-074 決定2)/ `configs/exp_phase1_main.yaml` の `extrapolation_radius: 999`・
   `extrapolation_run_id: "20260910_104249_sweep_m"` / `code/tests/test_magnitude_sweep.py::test_the_main_config_m_star_is_traced_to_the_sweep_run` /
-  PLAN-001 §4.1.1・§5.4.1。`pytest code/tests -q` = 967 passed(`test_rescore.py` を除く)
+  PLAN-001 §4.1.1・§5.4.1。`pytest code/tests -q` = 978 passed(`test_rescore.py` の 11 を含む)
 - **ADR-075**(`logs/DECISIONS.md` 末尾): 被演算子 −1 を全タスク型の評価項目から外す / 真値 −1 は外さない。根拠は腕1 の被演算子 −1 の項目 124 件中 24 件が `rule`、
   ほかの負の被演算子の項目は 9,550 件中 1 件 [run:20260910_104249_sweep_m]。応答は `Subtract -1 from 47: ... = 48` の型
 - 順6 の監査結果: `plans/PLAN-023-order6-readiness.md` §1(**今夜は人間の決定なしでは回せない**)
@@ -42,6 +42,8 @@
 - `plans/PLAN-022-parser-rule2-unanimous.md`(92 行。§5・§5.1)/ `code/eval/rescore.py` / `code/tests/test_rescore.py` / `code/eval/sweep.py`(集計を再利用。書き直さない)
 - `code/data_gen/pool.py` 80〜90 行・370〜420 行 / `logs/DECISIONS.md` の ADR-075(末尾)
 - `runs/20260910_104249_sweep_m/predictions/`(git 管理外・大きい。**python で件数だけ。全文を読まない**)。**JSON は `encoding="utf-8"` で開く**(既定の cp932 で落ちる)
+- **Windows の Python で文書を書くときは LF で書く**(`write_text` は CRLF になり `test_repo_hygiene.py` が落ちる。`write_bytes` か `newline="
+"`)
 
 ## やってはいけないこと
 

@@ -8,13 +8,11 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-10(その32)/ by IMPLEMENTER (Opus)
-(**★ADR-071 を実装した**(`code/eval/battery/magnitude_sweep.py` / `code/eval/sweep.py`。**GPU 時間 0**)。
-**桁数掃引は 2 本の腕を測る**: 腕1 = `R(M)` の一様抽出 13,000 項目(**1 文字も変えていない。sha256 で固定**)= **記述** /
-腕2 = `Q(M)`(`extrap_magnitude` の母集団)7 水準 × 200 × 5 = 7,000 項目 = **判定の材料**。`metrics.json` は別ブロック。
-**★★F125(新): 本番 config のままでは順5 が起動しない** —— `eval.temperature` と `eval.num_repeats` が `null` で、
-`load_generation_settings` が止める(**ADR-042 はどちらの値も決めていない。人間の決定**)。**`--dry-run` は通る。**
-`pytest` = **956 passed**(+42)。**実験は 1 件も実行していない。`results/` は空。GPU 時間 0。**)
+最終更新: 2026-09-10(その33)/ by IMPLEMENTER (Opus)
+(**★★F125 を人間が決めた(ADR-072)**: `eval.temperature` = **0** / `eval.num_repeats` = **1**(`plans/PLAN-001` §5.6 の提案値どおり。
+**提案 エージェント / 採択 人間**)。**ADR-071 の実装判断 3 件も人間が異議なしで承認した**(ADR-072 決定3)。
+**★順5 を止めているものは無い。残るのは GPU の実行だけである**(RUNNER。**ポッドを立てる前に時間単価を人間に示して承認を取る**。見積り 2.5h)。
+本番 config の `--dry-run` = 20,000 項目。`pytest` = **957 passed**(+1)。**実験は 1 件も実行していない。`results/` は空。GPU 時間 0。**)
 
 ---
 
@@ -69,22 +67,17 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-09-10(その32・最新)。Phase 0。IMPLEMENTER (Opus)。GPU 時間 0。**
-> **★ADR-071 の実装を終えた**(帰結欄の「実装が残る」を閉じた。ADR-071 に 2026-09-10 の追記)。
-> - `magnitude_sweep.py`: `quadrant_pairs`(`R(M)` を全列挙し `label_main_coverage` で拾う。**式を書かない** ——
->   `(M-99)^2` の罠は構造的に踏まない)/ `build_quadrant_items` / `load_shell_plan`(config の `shell_radii` /
->   `shell_judgement_radii` を導出値と突き合わせ、**食い違えば run ディレクトリを作る前に止まる**)。
->   **`build_items` は無変更**(13,000 項目の item_id の sha256 を実装前に採り、回帰テストで固定)
-> - `sweep.py`: `sweep_quadrant` / `grid_shell_rows`。`metrics.json` = 腕1(従来の鍵)+ `grid_shell`(記述)+
->   `quadrant`(判定の材料。`population_size` 付き)+ `roles`。`log.txt` は 3 表を見出しで分ける。
->   **`M*` の判定コードは無い。θ も読まない**(ADR-041 / ADR-045)
-> - `plans/PLAN-001` §4.1.1 手続き 1〜3 と `plans/PLAN-014` §5 を改訂(打ち消し線 + 理由 + 日付。**ADR-071 が正本**)
+> **★★2026-09-10(その33・最新)。Phase 0。IMPLEMENTER (Opus)。GPU 時間 0。**
+> **★★F125 を閉じた(ADR-072)。**HANDOFF(その32)の「先に人間が決めること」を 3 問にして人間に諮り、
+> 人間が `eval.temperature` = **0** / `eval.num_repeats` = **1** / **ADR-071 の実装判断 3 件は異議なし** を選んだ(3 問とも推奨案)。
+> - `configs/exp_phase1_main.yaml` に 2 欄を記入(注に ADR-072)。**`configs/template.yaml` / `configs/smoke.yaml` は触っていない**
+> - 回帰テスト `code/tests/test_eval_model.py::test_the_production_config_declares_every_generation_setting`
+>   (本番 config で `load_generation_settings` が通る。**値そのものは検査しない**)
+> - `logs/OPEN-ITEMS.md` の 2 行に打ち消し線 + ADR-072 / `plans/PLAN-001` §5.6 と `plans/PLAN-014` §5 に追記
 > - **本番 config の `--dry-run` = 20,000 項目**(腕1 13,000 + 腕2 7,000。**組合せ論の計数**)
-> **★ADR-071 が書いていない箇所をエージェントが決めた 3 件**(`logs/OPEN-ITEMS.md`「★ADR-071 の実装判断 3 件」。異議があれば覆せる)。
-> **★★F125**: `configs/exp_phase1_main.yaml` のままでは順5 が起動しない(`eval.temperature` / `eval.num_repeats` が `null`)。
-> 同じ形の穴(F20: `reference_rule` / `elicitation`)を PLAN-014 が 2026-09-06 に塞いだが、この 2 欄は拾われていなかった。
+> **★test-retest の反復回数(PLAN-001 §5.6 の「3」)は決めていない**(繰り返し生成は未実装)。
 >
-> **★その31b(ADR-071 の採択)と その31(PLAN-021)の記録は `logs/STATE-ARCHIVE.md` にある**(ADR-063 運用規約1)。
+> **★その32(ADR-071 の実装 + ★F125 の発見)の記録は `logs/STATE-ARCHIVE.md` にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -144,10 +137,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 |---|---|
 | `README.md` のディレクトリ構造が実在する。文書は `Documents/` / `logs/` / `infra/` / `plans/` に移動済み | commit f28a4e4 |
 | git 管理下に入り、初回コミット済み。`CLAUDE.md` §1 の開始手順と §5 のコミット規約が使える | commit f28a4e4 |
-| `pytest code/tests -q` → **956 passed**(2026-09-10 その32 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → **956**(ADR-071 の実装 +42) | `code/tests/` |
+| `pytest code/tests -q` → **957 passed**(2026-09-10 その33 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → **957**(ADR-072 の回帰テスト +1) | `code/tests/` |
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **★桁数掃引は 2 本の腕を測る**(2026-09-10。ADR-071)。腕1 = `R(M)` の一様抽出(13 水準 × 200 × 5 = 13,000。**記述**。`build_items` は無変更で sha256 を回帰テストが固定)/ 腕2 = `Q(M)`(`label_main_coverage` が `extrap_magnitude` を返す組。7 水準 × 200 × 5 = 7,000。**判定の材料**)。`metrics.json` は `by_radius`(腕1)/ `grid_shell`(定義 A。記述)/ `quadrant`(腕2)/ `roles`。**config の `shell_*` が ADR-071 からの導出と食い違えば、run ディレクトリを作る前に止まる。`shell_*` の無い config(`smoke.yaml` を含む)も止まる。****`M*` は出さない** | `code/eval/battery/magnitude_sweep.py`、`code/eval/sweep.py`、`test_magnitude_sweep.py`、`test_sweep.py` |
-| ⚠️ **★F125: 本番 config のままでは順5 が起動しない。**`eval.temperature` / `eval.num_repeats` が `null` で `load_generation_settings` が止める(**重みを読む前**)。ADR-042 はどちらの値も決めていない。**`--dry-run` は通る**(生成設定を読まない) | `configs/exp_phase1_main.yaml:468-469`、`code/eval/model.py`、`logs/OPEN-ITEMS.md` |
+| **本番 config の生成設定がすべて決まっている**(2026-09-10。ADR-072)。`eval.temperature` = 0(**記録用。デコードの正本は `do_sample: false`**)/ `eval.num_repeats` = 1。**本番 config で `load_generation_settings` が通る**(回帰テストが固定)。~~⚠️ ★F125~~ は閉じた(旧行は `logs/STATE-ARCHIVE.md`「その33」) | `configs/exp_phase1_main.yaml`、`code/tests/test_eval_model.py` |
 | **本実行は「回せる」が「まだ回していない」。**★2026-08-28: `model.revision`(`0e9e39f…`)/ `model.max_new_tokens`(**256**)/ `eval.batch_size`(**4**)がすべて確定し、`configs/template.yaml` に入った。残る null は `model.name`(`meta-llama/Llama-3.1-8B-Instruct` を書くだけ)と実験同定・シード・LoRA グリッドの値。**評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
 | **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(人間の確認待ち) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
@@ -218,13 +211,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 **★クリティカルパスは 2 本しかない。**
 
 1. ~~**`θ`(外挿域の閾値)が未決である**~~ → ADR-070(その30)→ ~~殻の測り方 3 行~~ → ADR-071(その31b)→
-   ~~殻の実装~~ → **★2026-09-10(その32)実装済。**(経緯は `logs/STATE-ARCHIVE.md`「その32」)
-   **★★いま順5 を止めているのは ★F125 である** —— 本番 config の `eval.temperature` と `eval.num_repeats` が
-   `null` で、`code/eval/model.py` の `load_generation_settings` が `ConfigError` を出す(**重みを読む前**)。
-   **ADR-042 はどちらの値も決めていない**(決定2 は `do_sample: false` を正本にし、決定3 は `num_repeats` の意味だけを書いた)。
-   `plans/PLAN-001` §5.6 に**提案値**(`temperature` 0 / 本実行 `num_repeats` 1)はあるが、承認の記録は見つからない。
-   **値を書くのは人間である**(`CLAUDE.md` §8。エージェントは埋めていない)。
-   **GPU の承認は 2026-09-06 に済んでいる**(1.5h の見積りに対して。ADR-071 で 2.5h に増えた。10h の門は超えない)。
+   ~~殻の実装~~(その32)→ ~~★F125(生成設定 2 欄)~~ → **★2026-09-10(その33)ADR-072 で決着。**(経緯は `logs/STATE-ARCHIVE.md`「その33」)
+   **★★順5 を止めているものは無い。残るのは GPU の実行だけである**(RUNNER。`plans/PLAN-014` §5)。
+   **GPU の承認は 2026-09-06 に済んでいる**が、見積りが 1.5h → **2.5h** に増えた(ADR-071)ので、
+   **ポッドを立てる前に時間単価を人間に示して承認を取る。10h の門は超えない。**
    **★`θ = 0.70` の根拠(値ではない)は依然として未記入である**(ADR-041 決定2 の要求。順5 は回せる)
 
 2. **順6 を回す GPU の承認が下りていない。****事前登録の凍結(順9)はこれが出るまで打てない。**
@@ -288,8 +278,6 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 記号 | 決めること | 期限 |
 |---|---|---|
-| **★★F125** ★新(その32) | **`configs/exp_phase1_main.yaml` の `eval.temperature` と `eval.num_repeats` の値**(`null` のままだと順5 が起動しない。ADR-042 はどちらも決めていない。PLAN-001 §5.6 に提案値 0 / 1) | **順5 の前(クリティカルパス)** |
-| **★ADR-071 の実装判断 3 件** ★新(その32) | エージェントが実装で決めた 3 件に異議が無いか(`shell_n_items` の一致要求 / 定義 A の合算集計 / `shell_*` 無しの config を止める) | 順5 の前 |
 | **★L(d)** | `arb` を 5 → 10 シードにするか(**+5 run**) | 順6 の後。GPU 構成と同じ場 |
 | ~~**★F90 の確認**~~ | ~~「順6 では `s2_seed` が出ない」~~ → **★2026-09-08(その22)に事実確認を終えた。成り立つ**(`plans/PLAN-019` §10。証拠 5 本)。**残るのは下の ★F90-1 である** | 済 |
 | ~~**★F90-1**~~ | ~~`s2_seed` をどこから取るか~~ → **★★2026-09-09 決着(ADR-067 決定1)。案 B を採択。**`s2_seed` を 1 点で推定せず「**10 シードが保つ限界はどこか**」を逆問題として事前登録する。横軸は仮定値(効果量 P と同じ扱い) | 済 |
@@ -308,7 +296,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 **F90 は 2026-09-08 その22 に事実確認済**)。**経緯は `logs/STATE-ARCHIVE.md` §11。**
 
 **それ以外の人間待ち**(`logs/OPEN-ITEMS.md` の索引が正本):
-~~**`θ`**~~(**ADR-070 で決着**)→ ~~**★殻の定義** / **★殻あたりの項目数と抽出経路**~~(**ADR-071 で決着。2026-09-10 実装済**)/ **★★F125**(順5 の起動を止めている)/ **★ADR-071 の実装判断 3 件** / **★`θ` の根拠** / **順6 と本実験 40 run の GPU 構成** / **E-5 の案 (b)**(期限あり)/
+~~**`θ`**~~(**ADR-070 で決着**)→ ~~**★殻の定義** / **★殻あたりの項目数と抽出経路**~~(**ADR-071 で決着。2026-09-10 実装済**)/ ~~**★★F125**~~ / ~~**★ADR-071 の実装判断 3 件**~~(**ADR-072 で決着**) / **★`θ` の根拠** / **順6 と本実験 40 run の GPU 構成** / **E-5 の案 (b)**(期限あり)/
 ~~**Δ 5 行**~~(★F113 = ADR-069 決定2 で出所が決着。**値そのものは順6 の後**)/ **★2** / **N5(解析門の閾値)** / **★C** / **★E**(`torch.manual_seed` が 0 件)/
 **効果量プロファイル P の凍結(D5)** / **LoRA グリッド** / **`M*`** / **凍結の段の前後** /
 **`00_OVERVIEW.md:7`** / **`09_PAPER_PLAN.md` の追随** / **`refs.bib` の Nikankin 書誌の最終確認**。
@@ -326,7 +314,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 |---|---|---|
 | **A** | GPU 不要のコード作業 | **✅ 完了(2026-08-26)** |
 | **B** | 人間の決定(凍結の前に全部要る) | **進行中。残りは `logs/OPEN-ITEMS.md`** |
-| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → **順5: 実装済・GPU 承認済。★F125(生成設定 2 欄)待ち。**順6: GPU 承認待ち |
+| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 実装済・GPU 承認済・★F125 決着(ADR-072)。GPU の実行待ち(RUNNER)。**順6: GPU 承認待ち |
 | **D** | 事前登録の凍結(`git tag`) | **Δ 5 行(順6 待ち)で止まっている** |
 | **E** | パイロット(`p2` / `p2d` を 2 〜 3 シード)。Go-No-Go #4 / #4b / #5 | **GPU 大。人間の承認が要る** |
 
@@ -337,14 +325,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-09-10(その32・最新)。順5 の実装は終わった。残るのは ★F125 の 2 欄と GPU の実行である。**
+> **★★2026-09-10(その33・最新)。順5 の前提はすべて揃った。残るのは GPU の実行である。**
 >
-> 1. **★F125 を人間が決める** —— `configs/exp_phase1_main.yaml` の `eval.temperature` と `eval.num_repeats`。
->    **エージェントは埋めない**(`CLAUDE.md` §8)。参考: `plans/PLAN-001` §5.6 の提案値(0 / 本実行 1)、
->    実装は `num_repeats = 1` 以外を受け付けない(繰り返し生成は未実装)
-> 2. **★順5 を GPU で回す**(RUNNER。別セッション。`plans/PLAN-014` §5 の手順。**GPU 承認は済**。見積り 2.5h)。
->    **先に ★ADR-071 の実装判断 3 件に人間の異議が無いことを確かめる**(`logs/OPEN-ITEMS.md`)
-> 3. **★`θ = 0.70` の根拠を人間が書く**(ADR-041 決定2 の要求。**値は確定**)。エージェントは代筆しない
+> 1. **★順5 を GPU で回す**(RUNNER。別セッション。`plans/PLAN-014` §5 の手順。**ポッドを立てる前に時間単価を示して人間の承認を取る**。見積り 2.5h)
+> 2. **★`θ = 0.70` の根拠を人間が書く**(ADR-041 決定2 の要求。**値は確定**)。エージェントは代筆しない
+> 3. **★`M*` を人間が置く**(順5 の `metrics.json` の `quadrant` に規則2 を当てる。ADR-041 / ADR-045。**エージェントは置かない**)
 > 4. **★F104 を人間が決める**(`plans/PLAN-019` **§10.13.5**。記入欄は **4 行**)
 > 5. **★順6 を回す GPU を承認する**(Go/No-Go #0〜#3 はここでしか出ず、**段階 D の前に要る**)
 > 6. **★F114 の実行先を決める**(4 の後)
@@ -355,17 +340,16 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 引き継ぎ
 
-> **★★2026-09-10(その32・最新)。IMPLEMENTER (Opus)。**
+> **★★2026-09-10(その33・最新)。IMPLEMENTER (Opus)。**
 >
-> **★やったこと**: ADR-071 の実装(`magnitude_sweep.py` / `sweep.py` / 回帰テスト +42)。
-> `plans/PLAN-001` §4.1.1・`plans/PLAN-014` §5 の改訂。**★F125 を見つけた**(本番 config で順5 が起動しない)。
-> **★やっていないこと**: **★F125 の 2 欄を埋めていない**(人間の決定)/ **GPU を起動していない** /
-> **`M*` の判定コード** / **`extrapolation_radius`(`null` のまま)** / **`θ` の根拠の代筆** /
-> **`Documents/05_STATISTICS.md` と `configs/power_sim.yaml`**(★F104 待ち)/ **`configs/template.yaml` への `shell_*` の追加**。
-> **`pytest` = 956 passed。**
-> **★次セッションが引き継ぐもの**: **★F125** → **順5 の GPU 実行(RUNNER)** / **★ADR-071 の実装判断 3 件** /
-> **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **順6 の GPU 承認** / **N5 と `code/analysis/primary.py`** /
-> **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`** / **★L(d)** / **★C** / **★E** / **E-5 (b)** / **★2** / **PLAN-018 §4.3**。
+> **★やったこと**: ★F125 と ADR-071 の実装判断 3 件を人間に諮り、**ADR-072** に記録した(提案 エージェント / 採択 人間)。
+> `configs/exp_phase1_main.yaml` に `temperature: 0` / `num_repeats: 1`。回帰テスト +1。
+> **★やっていないこと**: **GPU を起動していない** / **test-retest の反復回数** / `template.yaml`・`smoke.yaml` の同じ欄 /
+> **`M*`** / **`extrapolation_radius`(`null` のまま)** / **`θ` の根拠の代筆**。
+> **`pytest` = 957 passed。**
+> **★次セッションが引き継ぐもの**: **順5 の GPU 実行(RUNNER)** / **★`θ` の根拠** / **★F104** / **★F114 の実行先** /
+> **順6 の GPU 承認** / **N5 と `code/analysis/primary.py`** / **`09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`** /
+> **★L(d)** / **★C** / **★E** / **E-5 (b)** / **★2** / **PLAN-018 §4.3**。
 ---
 
 ## このファイルの運用規約(★2026-09-08 新設。ADR-063)

@@ -4666,3 +4666,58 @@
 - 関連 ADR: **042**(決定2・決定3)/ **071**(実装判断 3 件)/ **038**(生成設定の改訂規則)/ **057 決定2**(掃引の GPU 承認)/
   **039 決定3**(提案と採択の分離)/ 037 決定4(smoke.yaml を編集しない)
 - 関連 commit: (このコミット)
+
+---
+
+## ADR-073: 順5 の実行条件 —— 人間が 2.5 時間の GPU 見積りを承認し直し、ポッドの置き場・push・lock の埋め方を決めた
+
+- 日付: 2026-09-10
+- ステータス: **採択**
+- **提案: エージェント**(RUNNER (Opus)。2026-09-10 のセッションで 4 問を推奨付きで出した)/
+  **採択: 人間**(同日の会話。4 問とも推奨を選んだ。ADR-039 決定3 の分離)
+- 文脈:
+  - 順5(桁数掃引)の GPU 承認(2026-09-06。ADR-057 決定2)は **1.5 時間の見積り**に対して出ていた。
+    ADR-071 で項目が 13,000 → 20,000 に増え、見積りは **2.5 時間**になった(`logs/HANDOFF.md` その33 の手順 2)
+  - **2026-09-10 の RunPod の読み取り**(MCP `get-gpu-type`): RTX 4090 SECURE は **$0.74/時**。
+    **ネットワークボリューム `r963j7swke` のある EU-RO-1 では在庫 NONE**、在庫があるのは
+    EU-CZ-1 / EUR-IS-1 / EUR-IS-2 / EUR-NO-1(いずれも LOW)
+  - `origin/main` は main より **123 コミット遅れていた**(ポッドは clone / pull でコードを受け取る)
+  - **`infra/requirements.lock` は非コメント行 0 のまま**だった。PLAN-014 §5 の手順 2b(bootstrap の後に
+    ポッド上で `pip freeze`)に従うと、**lock が空なので bootstrap.sh は `pip install -e ".[gpu,stats,dev]"` で
+    当日の最新版を入れ、それを凍結することになる** —— ADR-044 決定2「順1b が実際に使った版を固定する」から外れうる
+- 決定1: **順5 の GPU を 2.5 時間の見積りに対して承認し直す**(RTX 4090 SECURE $0.74/時、準備込み約 3 時間 ≈ $2.2)。
+  **4 時間を超えたら止めて報告する。**`configs/exp_phase1_main.yaml` の `resources.human_approval_date` を
+  "2026-09-10" に改めた(旧値 "2026-09-06" は打ち消し線で残した)。**10 GPU時間の門の内側である**
+- 決定2: **ポッドの置き場は「既存ポッド → 駄目なら他 DC」。**まず停止中の `46pggs1odwb09r`(EU-RO-1 /
+  ボリューム `r963j7swke` 付き。重みと HF トークンが残っている)を start する。在庫切れで失敗したら、
+  EU-CZ-1 / EUR-IS / EUR-NO に**ボリューム無し**の RTX 4090 を新規に作る(重みは再ダウンロード、
+  **HF ログインは人間がポッド上で行う**)。**GPU 型は変えない**(ADR-044 決定3 / ADR-057 決定2 のリスク欄)
+- 決定3: **main を `origin`(github.com/Ken2664/FT)へ push してよい**(2026-08-28 と同じ渡し方)
+- 決定4: **`infra/requirements.lock` は、ポッドに入る前に順1b の pip freeze の転記で埋める**
+  (出典 `runs/20260828_095717_smoke1b/env.txt` の「### pip freeze」節 [run:20260828_095717_smoke1b]。
+  189 行のうち 187 行。**除いたのは repo 自身の `-e git+…#egg=translesion` と OS パッケージの
+  `python-apt==2.7.7+ubuntu5` の 2 行だけ**)。bootstrap.sh は lock から `--no-deps` で入れる。
+  PLAN-014 §5 の手順 2b は「凍結」から「lock と実機の `pip freeze` の突き合わせ」に変えた
+  (**差が 1 行でもあれば本実行せず止める**。ADR-044 決定4)
+- **本 ADR が決めていないもの**: `M*` / `extrapolation_radius` / `θ = 0.70` の根拠 / 順6 の GPU /
+  Phase 1 本実験 40 run の GPU 構成 / 掃引表の解釈(`CLAUDE.md` §8)
+- 根拠:
+  - 決定4: **ADR-044 決定2 は「転記する版は `env.txt` と `pip freeze` の出力そのもの」と書いており、
+    決定1 は「`pip freeze`(または同等)」を認めている。**順1b の env.txt はポッド上の pip freeze の出力なので、
+    その転記はこの「同等」に当たる。**版を新たに選んでいない**(skill `code-style` §5)
+  - 決定2: ボリュームを使えば重みの再ダウンロード(約 16 GB)と HF ログインが要らない。
+    在庫が無ければ待たずに他 DC へ移る(順1b の最初のポッドもボリューム無しで回した。`infra/RUNPOD.md` §8)
+- 帰結:
+  - preflight の `libraries` 検査は WARN から PASS に変わる見込み(lock 187 件)
+  - repo 自身は pip で install しない(lock の経路は `pip install -e .` を通らない)。
+    **`python -m code...` を repo 直下から実行するので不要**(ADR-013。開発機も未 install で `pytest` が通る)
+- リスク・未解決:
+  - **torch / torchaudio / torchvision の `+cu128` は PyPI に無い。**ベースイメージ
+    (`runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`)に入っている前提で、pip は「既に満たされている」として飛ばす。
+    **イメージが変わっていれば bootstrap は止まる**(それが正しい。ADR-044 のリスク欄)
+  - **lock の経路で repo を install しないことは、ポッド上ではまだ確かめていない**(bootstrap.sh の pytest で分かる)
+- 影響: `infra/requirements.lock` / `configs/exp_phase1_main.yaml`(`resources`)/ `plans/PLAN-014` §5 手順 2b /
+  `infra/RUNPOD.md` §6
+- 関連 ADR: **044**(決定1・2・4)/ **057 決定2**(掃引の GPU 構成と承認)/ **071 決定2**(20,000 項目)/
+  **072**(生成設定)/ 039 決定3(提案と採択の分離)/ 013(`code` パッケージの shim)
+- 関連 commit: (このコミット)

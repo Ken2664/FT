@@ -430,6 +430,11 @@ RUN pip install --no-deps -r /tmp/requirements.lock
 > `pip freeze` を取り、`infra/requirements.lock` に非コメント行として書いて commit する。**
 > 順1b の実測版は torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0 / CUDA 12.8
 > (`runs/20260828_*/env.txt`)。凍結後に版を上げる場合は ADR を書く(ADR-044 決定4)。
+>
+> **→ 2026-09-10(ADR-073 決定4)に埋めた。**ポッド上の `pip freeze` ではなく、**順1b の
+> `env.txt` の pip freeze 節の転記**で埋めた(187 行。除いたのは repo 自身の `-e git+…` と
+> OS パッケージの `python-apt` の 2 行だけ)。**lock が空のままポッドで freeze すると、
+> bootstrap.sh が当日の最新版を入れてから凍結することになり、「順1b の版」から外れうるため。**
 
 ### 記録すべきこと
 

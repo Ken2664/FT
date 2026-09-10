@@ -207,7 +207,15 @@ huggingface-cli login          # ★人間が実行する。エージェント�
 #     snapshots/ の直下のディレクトリ名がコミットハッシュである(RUNPOD.md §4 の段2)。
 
 # ---- 2b. ADR-044。requirements.lock を実機の環境に凍結する -----------------
-pip freeze > infra/requirements.lock
+# ~~pip freeze > infra/requirements.lock~~
+#   → 2026-09-10(ADR-073 決定4): lock は**ポッドに入る前に**順1b の pip freeze
+#     (runs/20260828_095717_smoke1b/env.txt)の転記で埋めた。bootstrap.sh はそこから入れる。
+#     手順どおり pod 上で freeze すると、lock が空なので pip が当日の最新版を入れ、
+#     「順1b が実際に使った版」(ADR-044 決定2)から外れうるため。**ここでは突き合わせだけ行う**:
+pip freeze | grep -vE '^(-e |python-apt==)' | sort > /tmp/freeze_now.txt
+grep -vE '^[[:space:]]*(#|$)' infra/requirements.lock | sort > /tmp/freeze_lock.txt
+diff /tmp/freeze_lock.txt /tmp/freeze_now.txt && echo "lock と一致"
+#     差が 1 行でもあれば本実行せず止めて人間に上げる(ADR-044 決定4)
 
 # ---- 3. 事前検証 -----------------------------------------------------------
 RUN_S=runs/$(date -u +%Y%m%d_%H%M%S)_sweep_m

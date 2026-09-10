@@ -5284,3 +5284,21 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   (`by_radius` 13,000 + `quadrant` 7,000。**組合せ論の計数**。ADR-071 決定2 と一致)
 - **★やっていないこと**: **GPU を起動していない**(順5 は次セッションの RUNNER。ポッドを立てる前に時間単価を人間に示す)/
   `configs/template.yaml` と `configs/smoke.yaml` の同じ欄は触っていない / test-retest の反復回数は決めていない
+
+## 2026-09-10(その34)
+
+### docs(adr): ADR-073 —— 順5 の実行条件を人間が決めた(GPU 2.5h の再承認 / ポッドの置き場 / push / lock)   [actor: RUNNER]
+
+- **開始手順で順5 の前提 3 点を確かめた**: ADR-072 あり・config の `temperature: 0` / `num_repeats: 1` /
+  `pytest code/tests/test_eval_model.py -q` = 31 passed / `--dry-run` = **20,000 項目**(`by_radius` 13,000 +
+  `quadrant` 7,000。**組合せ論の計数**。出力はスクラッチに落として `by_seed.*.n_items` を足した)
+- **RunPod の読み取り(MCP)**: RTX 4090 SECURE $0.74/時。**EU-RO-1(ボリューム `r963j7swke`)は在庫 NONE**、
+  EU-CZ-1 / EUR-IS-1 / EUR-IS-2 / EUR-NO-1 は LOW。`origin/main` は 123 コミット遅れ
+- **人間に 4 問を出し、4 問とも推奨が採られた**(ADR-073): GPU 承認(約 3h ≈ $2.2、4h で打ち切り)/
+  既存ポッド `46pggs1odwb09r` → 駄目なら他 DC にボリューム無しで新規 / `origin` へ push 可 /
+  **lock は順1b の env.txt の pip freeze を転記**
+- **`infra/requirements.lock`**: 187 行(順1b の pip freeze 189 行から `-e git+…#egg=translesion` と
+  `python-apt` の 2 行を除いた)。**版は 1 つも選んでいない**
+- **反映**: `configs/exp_phase1_main.yaml`(`resources.human_approval_date` を "2026-09-10" に。旧値は打ち消し線)/
+  `plans/PLAN-014` §5 手順 2b(凍結 → 突き合わせ)/ `infra/RUNPOD.md` §6 / `logs/DECISIONS.md`(ADR-073)
+- **テスト**: `pytest code/tests -q` = **957 passed**(変化なし)

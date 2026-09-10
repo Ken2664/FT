@@ -33,8 +33,7 @@ dry-run のコマンドが書かれていること。**§2 のうち新しい設
 - `plans/PLAN-001-eval-battery.md` §4.6(パイロット専用プール)・§5.1(セル表)—— `grep -n` で節を特定してから `sed -n`
 - `configs/exp_phase1_main.yaml` の `eval.batteries` / `eval.cells` / `eval.pool_items` / `eval.pool_seed`(null のもの)
 - `code/data_gen/eval_pool.py`(`FILL_EXPLICIT_LIST`・`fill_cells` の呼び出し)/ `plans/PLAN-004-phase0-route.md` §2(順6 の中身)
-- **Windows の Python で文書を書くときは LF**(`write_bytes` か `newline="
-"`)。**Python の CLI を回すときは `PYTHONIOENCODING=utf-8`**(標準出力が cp932)
+- **Windows の Python で文書を書くときは LF**(`write_bytes` か `open(..., newline=` に LF を渡す)。**Python の CLI を回すときは `PYTHONIOENCODING=utf-8`**(標準出力が cp932)
 
 ## やってはいけないこと
 

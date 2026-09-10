@@ -5479,3 +5479,9 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `logs/OPEN-ITEMS.md` ★F127 の期限欄 = 実装済
 - **生成済みの `data/generated/battery/smoke*/manifest.json` は `excluded_operands: [1]` のまま**(その時点の生成の記録なので作り直していない)
 - `pytest code/tests -q` = **980 passed**
+
+### docs(plan): セッション引き継ぎ(その40。PLAN-022 完了 + コンテキスト約 10 万トークン超)   [actor: IMPLEMENTER (Opus)]
+
+- `STATE.md` の各節を差し替え(396 行 / 41.8 KB)、旧ブロック 12 件を `logs/STATE-ARCHIVE.md`「その40」へ移した。
+  あわせて「repo の状態」から経緯の記録 7 行と、2026-08-27 の行と食い違う古い行(本実行が `NotImplementedError`)を移した
+- `logs/HANDOFF.md` を上書き(次は PLANNER として PLAN-023 §2 を起草。夜間の事前一括承認は終わった)

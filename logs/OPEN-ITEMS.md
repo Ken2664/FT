@@ -55,7 +55,7 @@
 | — | 効果量プロファイル P の凍結(D5)/ LoRA グリッド / `M*` / 凍結の段の前後 | 下記 | 凍結前 |
 | — | `00_OVERVIEW.md:7` の問いが二値のまま / `09_PAPER_PLAN.md` の追随 | 下記 | 凍結前 |
 | — | `refs.bib` の Nikankin 書誌の最終確認 / ADR-047 実装ノートの R3 / F1 / R4 / 検査5 | 下記 | 論文化前 |
-| **停止中ポッドの terminate** ★新(その35) | **`zxwdkgxutbuoph`**(EUR-IS-2・ポッドローカル 60 GB。**ネットワーク実効 約 70 kB/s で使えない**。中身は repo と作りかけの `/workspace/venv` だけ)と **`46pggs1odwb09r`**(EU-RO-1・ボリューム `r963j7swke` 付き。重みと HF トークンが残る)。**どちらも `EXITED` でディスク課金が続く。**terminate は不可逆なのでエージェントはしない | `logs/CHANGELOG.md` 2026-09-10(その35) | いつでも |
+| **停止中ポッドの terminate** ★新(その35) | **`zxwdkgxutbuoph`**(EUR-IS-2・ポッドローカル 60 GB。**ネットワーク実効 約 70 kB/s で使えない**。中身は repo と作りかけの `/workspace/venv` だけ)と **`46pggs1odwb09r`**(EU-RO-1・ボリューム `r963j7swke` 付き。重みと HF トークンが残る)。**どちらも `EXITED` でディスク課金が続く。**terminate は不可逆なのでエージェントはしない。**このほか `list-pods`(2026-09-10)に `EXITED` が 4 台ある**: `hikss5upj15vp2`(08-28・ボリューム `r963j7swke`)/ `m3m7a1h7t60e44` / `s517cr4gox37kh` / `uixg8pfd76a4wn`(08-18〜19・ボリューム `apg61h6kzj`)。いずれも EU-RO-1・RTX 4090 | `logs/CHANGELOG.md` 2026-09-10(その35) | いつでも |
 
 ---
 

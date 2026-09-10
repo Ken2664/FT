@@ -5395,3 +5395,43 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **`plans/PLAN-022-parser-rule2-unanimous.md` を起草**(規則2 の境界事例表 / 実装手順 / 再採点の検査 C1〜C5 / `M*` の config 反映)。**未実装**
 - `STATE.md` を差し替え(397 行)、旧ブロック 49 行を `logs/STATE-ARCHIVE.md`「その38」へ移した。`logs/HANDOFF.md` を上書き(次は IMPLEMENTER)
 - コード変更なし。`pytest code/tests/test_repo_hygiene.py -q` = 7 passed。GPU・ポッドは触っていない
+
+## 2026-09-10(その39。夜間の自律セッション)
+
+> **人間の指示(2026-09-10 22:47)**: 「明日の朝 6 時まで自律的に研究を進めておく。AI の提案はエージェントが正しいと判断したものはすべて承認する」。
+> **この事前一括承認で採った決定は ADR に「提案 エージェント / 採択 人間(事前一括承認)」と書き、朝に人間が覆せる形で残す。**
+> `CLAUDE.md` §8 のうち**結果の解釈・論文の claim・引用の確定・10 GPU 時間超**は、この承認があっても人間に残す(エージェントの判断)。
+
+### feat(eval): PLAN-022 手順1〜6 —— パーサ規則2 の改訂と `M*` = 999 の config 反映   [actor: IMPLEMENTER (Opus)]
+
+- `code/eval/parsers/base.py`: `single_integer` → **`unanimous_integer`**(数が 1 個以上あり、すべて同じ整数値なら採る。整数でない数を含めば失敗)。利用者は `numeric.py` だけ(grep 済)
+- `numeric.py` / `run.py` の docstring を新規則に合わせた(「最後の数を採る」ではないことを明記)
+- `code/tests/test_parsers_numeric.py`: PLAN-022 §3 の境界事例(正例 5・負例 4)。**既存の負例は 1 件も正例に変わらなかった**
+- `configs/exp_phase1_main.yaml`: `eval.extrapolation_radius: 999` / `eval.extrapolation_run_id: "20260910_104249_sweep_m"`。
+  `null` を前提にしたテスト(`test_eval_pool.py:322`)は smoke config を使うので影響なし
+- `code/tests/test_magnitude_sweep.py`: **本番 config の `M*` を run の `quadrant` ブロックと照合する回帰テスト**(どの判定水準も θ を割らない → 上端 999)
+- `plans/PLAN-001` §4.1.1(打ち切りの一文)/ §5.4.1 規則2(旧文言は打ち消し線)
+- `pytest code/tests -q` = **967 passed**(直前 957)。commit `bb5f112`
+
+### docs(adr): ADR-075 —— ★F127 = 被演算子 −1 を全タスク型の評価項目から外す(真値 −1 は外さない)   [actor: IMPLEMENTER (Opus)]
+
+- **提案 エージェント / 採択 人間(2026-09-10 22:47 の事前一括承認)。人間はまだ読んでいない。**
+- 根拠: `rule` 26 件の応答文の末尾を読んだ。24 件は `Subtract -1 from 47: 47 - (-1) = 47 + 1 = 48` の型(`a+-1` を「−1 を引く」と読む)で、
+  この誤りは被演算子 −1 のときに限り `a+b+2` と一致する。腕1 の被演算子 −1 の項目は 124 件中 24 件が `rule`、ほかの負の被演算子の項目は 9,550 件中 1 件。
+  負の被演算子を含む誤答 616 件のうち 392 件が `a−b` / `b−a` の値 [run:20260910_104249_sweep_m]
+- `logs/OPEN-ITEMS.md` ★F127 を閉じた(打ち消し線 + ADR-075)。**コード(`EXCLUDED_OPERANDS`)は未変更**
+
+### docs(plan): 順6 の準備状況の監査 → `plans/PLAN-023-order6-readiness.md`(監査結果のみ)   [actor: IMPLEMENTER (Opus) + 読み取り専用のサブエージェント]
+
+- 判定: **今夜は新しい人間の決定なしでは回せない**(GPU 承認なし / `eval.batteries`・`cells`・`pool_items`・`pool_seed` が null / 反復生成が未実装)。
+  `eval.cells` の注記(承認待ち-6)は ADR-032 で決着済みなので古い
+
+### 中断: サブエージェント 2 本が利用制限で途中停止
+
+- 再採点(PLAN-022 §5)の実装役: `code/eval/rescore.py`(約 700 行)と `code/tests/test_rescore.py`(11 passed)を書いたところで停止。**未レビュー・本物の run に未適用**。
+  途中版として別コミットに残した(次セッションがレビューして仕上げる)
+- PLAN-023 の起草役: 開始直後に停止(ファイルは作っていない)
+
+### docs(plan): セッション引き継ぎ(その39。context-guard 約 210k トークン)   [actor: IMPLEMENTER (Opus)]
+
+- `STATE.md` の 4 ブロックを差し替え(388 行)、旧ブロックを `logs/STATE-ARCHIVE.md`「その39」へ移した / `logs/HANDOFF.md` を上書き(夜間の自律作業の続き)

@@ -5435,3 +5435,32 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 ### docs(plan): セッション引き継ぎ(その39。context-guard 約 210k トークン)   [actor: IMPLEMENTER (Opus)]
 
 - `STATE.md` の 4 ブロックを差し替え(388 行)、旧ブロックを `logs/STATE-ARCHIVE.md`「その39」へ移した / `logs/HANDOFF.md` を上書き(夜間の自律作業の続き)
+
+## 2026-09-11(その40。朝。人間が起床し、夜間の自律モードを終えた)
+
+> **人間の指示(2026-09-11 朝)**: 「handoff を読んで作業を再開してください。もう朝になっているので自律研究はストップしてよい」。
+> **2026-09-10 22:47 の事前一括承認はここで終わる。**以降の設計判断は通常どおり人間の承認を得る(`CLAUDE.md` §8)。
+
+### feat(eval): PLAN-022 §5 の再採点モジュールをレビューして仕上げた   [actor: IMPLEMENTER (Opus)]
+
+- その39 のサブエージェントが書いた途中版(`6904814`)を読み、`sweep.py` の集計・`scoring.score` と同じ経路になっていることを確かめた
+  (`score` = `aggregate(classify(...))` なので、保存済みの `classification` の再集計は元の分解と同じ式を通る)
+- 直した点: **C1 は JSON に書いた形どうしで比べる** / **C2 は値に加えて分類の一致も見る**(`is_superset_violation`。値が同じで分類だけ変われば
+  run の後に採点規則が変わったことになり、C1 にも C3 にも映らない。止める側にだけ倒す。**PLAN-022 §5.1 の C2 の文言より厳しい**)/
+  `rescore` の記録を `rescore_record` に 1 本化(途中版は `execute()` と config の追記で dict を 2 回組んでいた)/ config の追記を LF で書く
+- `test_rescore.py` +2 = 13 passed。`pytest code/tests -q` = **980 passed**。commit `760f29b`
+
+### exp(eval): 順5 を新しい規則2(`unanimous_integer`)で採点し直した   [actor: IMPLEMENTER (Opus)]   [run:20260910_215422_rescore_sweep_m]
+
+- 入口: `python -m code.eval.rescore --source-run runs/20260910_104249_sweep_m`。GPU 0。元の run には何も書いていない
+- **PLAN-022 §5.1 の C1〜C5 はすべて pass。**C3(旧 `parse_fail` 行の行き先)は期待値と完全一致:
+  腕2 → correct 133 / other_error 5 / rule 0 / 残り 22、腕1 → correct 1,264 / other_error 92 / rule 0 / 残り 902。
+  遷移表で動いたのは旧 `parse_fail` の行だけ(旧 correct / rule / other_error の行はすべて対角)
+- 腕2(`quadrant`。判定の材料)の correct_rate(旧 [run:20260910_104249_sweep_m] → 新 [run:20260910_215422_rescore_sweep_m]):
+  M=125 0.991→0.998 / 150 0.998→1.000 / 175 0.991→1.000 / 200 0.987→1.000 / 300 0.980→0.998 / 500 0.951→0.995 / 999 0.940→0.980。
+  `rule` は全水準 0.000 のまま。**4 値の全表は `STATE.md`「わかっていること」**。**解釈はしていない**(`CLAUDE.md` §8)。`M*` は置き直さない(ADR-074 決定1)
+- **1 回目の実行は最後の `print` で落ちた**(Windows の標準出力が cp932 で「—」を符号化できない)。成果物はすべて書き終えた後だったが、
+  終了コード 1 の run を残さないため、その run ディレクトリ(`runs/20260910_215356_rescore_sweep_m`。エージェントが数秒前に作ったもの)を消し、
+  `PYTHONIOENCODING=utf-8` を付けて回し直した。**コードは変えていない**
+- `metrics.json` の `timing.generation_seconds` は**再採点に掛かった秒数**(モデルは読んでいない。`model_load_seconds` = 0)。
+  `generation` ブロックは応答を生成した元の run の設定である

@@ -222,6 +222,12 @@ python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir "$RUN_
 python -m code.eval.sweep --config configs/exp_phase1_main.yaml --run-dir "$RUN_S"
 #     出るのは M -> correct_rate の表だけである(シード平均 + シード間 SD)。
 #     ★このコマンドは M* を出さない。表を読んで M* を置くのは人間である(ADR-041 決定3)。
+#     ★2026-09-10 追記(ADR-071 の実装): 表は 3 つになった。metrics.json の quadrant(Q(M)。
+#       7 水準 × 200 × 5 = 7,000 項目)が**判定の材料**、by_radius(累積)と grid_shell(定義 A)は
+#       **記述**である(metrics.json の roles と log.txt の見出し)。合計 20,000 項目、見積り 2.5h。
+#     ★★F125(2026-09-10): configs/exp_phase1_main.yaml の eval.temperature と eval.num_repeats が
+#       null のままだと、ここで ConfigError になる(load_generation_settings。重みを読む前)。
+#       ADR-042 はどちらの値も決めていない。**人間が値を書くまで起動しない**(--dry-run は通る)。
 
 # ---- 5. 課金の記録と停止 ---------------------------------------------------
 #     cost.txt は人間が書く(RUNPOD.md §7)。
@@ -231,7 +237,9 @@ python -m code.eval.sweep --config configs/exp_phase1_main.yaml --run-dir "$RUN_
 **★`M*` の決定規則は既に凍結されている**(ADR-041 決定3 規則2):
 **`M` を小さい順に見て、初めて `θ` を割った水準の 1 つ下**を採り、
 **それより上で回復しても採らない。**
-**`θ` の値は未決である**(ADR-041 決定2・3。**表を見てから決めない**)。
+~~**`θ` の値は未決である**(ADR-041 決定2・3。**表を見てから決めない**)。~~
+→ **2026-09-09 に `θ = 0.70` で確定した**(ADR-070。表を見る前に決めた)。**判定量は `Q(M)` の
+`correct_rate`、規則2 は判定水準 `{125, 150, 175, 200, 300, 500, 999}` の上だけを走る**(ADR-071。2026-09-10 追記)。
 
 **★`M* < 100` だった場合は `D_ext` が空になる。**
 黙って空のプールを作らず、**人間に上げて止まる**(PLAN-004 §3 順5 / PLAN-001 §4.1.1)。

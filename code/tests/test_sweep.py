@@ -20,10 +20,13 @@ import yaml
 
 from code import artifacts
 from code.config import ConfigError, load_config
+from code.data_gen.battery_items import Item
+from code.data_gen.pool import COVERAGE_EXTRAP_MAGNITUDE, label_main_coverage
 from code.eval import sweep
 from code.eval.battery import magnitude_sweep
 from code.eval.generate import Generator
 from code.lesion import reference_lesions_from_config
+from code.rates import RATE_FIELDS, RateBreakdown
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"
@@ -41,7 +44,33 @@ TEST_BATCH_SIZE = 1
 # (触ってはならない。ADR-037 決定4)
 TEST_DO_SAMPLE = False
 
+# ★実験条件ではない。smoke config は Q(M) の腕の欄(shell_*)を持たない
+# (smoke.yaml は編集しない。ADR-037 決定4)。主域の半径は smoke の
+# data.train_domain_max = 9 なので、Q(M) は M > 9 でしか空でない。
+# 格子に 10 / 12 / 15 を足すのは、本番の 100 / 110 / 125 と同じ形 ——
+# 「Q(M) が極小で引けない水準」(|Q(10)| = 1 < 4)と「引ける水準」—— を
+# 小さい数で通すためである。台地 2 / 5 は (M-9)^2 >= 4 なので、
+# ★閉じた式で導くと判定水準に混じる罠もこの格子で踏める。
+TEST_RADII = [2, 5, 9, 10, 12, 15]
+TEST_SHELL_RADII = [12, 15]
+
 UNREADABLE = "???"
+
+
+def with_shell_arm(config: dict[str, Any]) -> dict[str, Any]:
+    """smoke config に Q(M) の腕の欄を足す(ADR-071 の 3 決定と同じ形。値は小さい)。"""
+    section = config["eval"]["magnitude_sweep"]
+    section["radii"] = list(TEST_RADII)
+    section["shell_definition"] = magnitude_sweep.SHELL_DEFINITION_QUADRANT
+    section["shell_n_items"] = section["n_items_per_radius"]
+    section["shell_radii"] = list(TEST_SHELL_RADII)
+    section["shell_judgement_radii"] = list(TEST_SHELL_RADII)
+    return config
+
+
+def write_config(config: dict[str, Any], path: Path) -> Path:
+    path.write_text(yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return path
 
 
 @pytest.fixture(autouse=True)
@@ -57,42 +86,59 @@ def stub_provenance_commands(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def workspace(tmp_path: Path) -> dict[str, Any]:
     """生成設定を埋めた config と、その写しを置く場所。"""
-    config = load_config(SMOKE_CONFIG)
+    config = with_shell_arm(load_config(SMOKE_CONFIG))
     config["model"]["name"] = TEST_MODEL
     config["model"]["revision"] = TEST_REVISION
     config["model"]["device"] = TEST_DEVICE
     config["eval"]["batch_size"] = TEST_BATCH_SIZE
     config["eval"]["do_sample"] = TEST_DO_SAMPLE
-    config_path = tmp_path / "config.yaml"
-    config_path.write_text(
-        yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8"
-    )
+    config_path = write_config(config, tmp_path / "config.yaml")
     return {"config": config, "config_path": config_path, "run_dir": tmp_path / "run"}
 
 
-def truthful_responses(config: dict[str, Any]) -> dict[str, str]:
-    """掃引の各プロンプトに真値 a + b を返す固定応答。
+def sweep_items(config: dict[str, Any]) -> list[Item]:
+    """掃引が 2 本の腕で引く項目をすべて返す(全水準・全抽出シード)。
 
-    項目は `magnitude_sweep.build_items` から取る —— 掃引が実際に引くのと
-    同じ関数・同じシードなので、対応づけがずれない。全抽出シードを回す。
+    掃引が実際に引くのと同じ関数・同じシードで作るので、対応づけがずれない。
     """
     plan = magnitude_sweep.load_sweep_plan(config)
+    shell = magnitude_sweep.load_shell_plan(config, plan)
     lesions = reference_lesions_from_config(config)
-    responses: dict[str, str] = {}
-    for radius in plan.radii:
-        for seed in plan.seeds:
-            items = magnitude_sweep.build_items(
-                radius,
-                n_items=plan.n_items_per_radius,
-                seed=seed,
-                pool_id=config["data"]["pool_id"],
-                reference_lesions=lesions,
+    pool_id = config["data"]["pool_id"]
+    items: list[Item] = []
+    for seed in plan.seeds:
+        for radius in plan.radii:
+            items.extend(
+                magnitude_sweep.build_items(
+                    radius,
+                    n_items=plan.n_items_per_radius,
+                    seed=seed,
+                    pool_id=pool_id,
+                    reference_lesions=lesions,
+                )
             )
-            prompts = sweep.sweep_prompts(items, config)
-            for item in items:
-                total = item.operands[0] + item.operands[1]
-                responses[prompts[item.item_id]] = f"Answer: {total}."
-    return responses
+        for radius in shell.radii:
+            items.extend(
+                magnitude_sweep.build_quadrant_items(
+                    radius,
+                    n_items=shell.n_items,
+                    seed=seed,
+                    pool_id=pool_id,
+                    reference_lesions=lesions,
+                    main_radius=shell.main_radius,
+                )
+            )
+    return items
+
+
+def truthful_responses(config: dict[str, Any]) -> dict[str, str]:
+    """掃引の各プロンプト(2 本の腕の全項目)に真値 a + b を返す固定応答。"""
+    items = sweep_items(config)
+    prompts = sweep.sweep_prompts(items, config)
+    return {
+        prompts[item.item_id]: f"Answer: {item.operands[0] + item.operands[1]}."
+        for item in items
+    }
 
 
 def lookup_generator(responses: dict[str, str]) -> Generator:
@@ -175,26 +221,14 @@ def biased_responses(config: dict[str, Any]) -> dict[str, str]:
     """和が偶数の項目にだけ真値、奇数には読めない文字列を返す応答マップ。
 
     シードごとに引く (a, b) が違うので、シード別 correct_rate が割れる ——
-    シード平均とシード間 SD の経路を通すために使う。
+    シード平均とシード間 SD の経路を通すために使う。2 本の腕の全項目を覆う。
     """
-    plan = magnitude_sweep.load_sweep_plan(config)
-    lesions = reference_lesions_from_config(config)
+    items = sweep_items(config)
+    prompts = sweep.sweep_prompts(items, config)
     out: dict[str, str] = {}
-    for radius in plan.radii:
-        for seed in plan.seeds:
-            items = magnitude_sweep.build_items(
-                radius,
-                n_items=plan.n_items_per_radius,
-                seed=seed,
-                pool_id=config["data"]["pool_id"],
-                reference_lesions=lesions,
-            )
-            prompts = sweep.sweep_prompts(items, config)
-            for item in items:
-                total = item.operands[0] + item.operands[1]
-                out[prompts[item.item_id]] = (
-                    f"Answer: {total}." if total % 2 == 0 else UNREADABLE
-                )
+    for item in items:
+        total = item.operands[0] + item.operands[1]
+        out[prompts[item.item_id]] = f"Answer: {total}." if total % 2 == 0 else UNREADABLE
     return out
 
 
@@ -390,11 +424,15 @@ def test_the_sweep_records_the_wall_clock(workspace: dict[str, Any]) -> None:
     payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
     timing = payload["timing"]
     plan = payload["sweep"]
+    shell = payload["quadrant"]["shell"]
     # 分母は**実際に採点した件数**である(宣言した n_items_per_radius の掛け算ではない)。
-    # by_radius の n_items は全抽出シード合算
-    assert timing["n_items"] == sum(row["n_items"] for row in payload["by_radius"])
+    # by_radius の n_items は全抽出シード合算。★2 本の腕の合計である(ADR-071 決定2)
+    assert timing["n_items"] == sum(row["n_items"] for row in payload["by_radius"]) + sum(
+        row["n_items"] for row in payload["quadrant"]["by_radius"]
+    )
     assert timing["n_items"] == (
         len(plan["radii"]) * plan["n_items_per_radius"] * len(plan["seeds"])
+        + len(shell["radii"]) * shell["n_items_per_radius"] * len(plan["seeds"])
     )
     assert 0.0 <= timing["generation_seconds"] <= timing["total_seconds"]
     assert "壁時計:" in (target / "log.txt").read_text(encoding="utf-8")
@@ -431,11 +469,239 @@ def test_undecided_generation_settings_stop_the_sweep() -> None:
 
 
 def test_the_dry_run_does_not_measure_anything(
-    capsys: pytest.CaptureFixture[str],
+    workspace: dict[str, Any], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """--dry-run は項目の組み立てだけを見せ、correct_rate を出さない。"""
-    assert sweep.main(["--config", str(SMOKE_CONFIG), "--dry-run"]) == 0
+    """--dry-run は項目の組み立てだけを見せ、correct_rate を出さない。2 本の腕を組む。"""
+    assert sweep.main(["--config", str(workspace["config_path"]), "--dry-run"]) == 0
     assert "実験ではない" in capsys.readouterr().out
     # 報告そのものに率が1つも入っていないこと(見出しの文言ではなく中身で見る)
-    summary = sweep.dry_run_summary(load_config(SMOKE_CONFIG))
+    summary = sweep.dry_run_summary(workspace["config"])
     assert "correct_rate" not in json.dumps(summary, ensure_ascii=False)
+    # Q(M) の腕も組まれ、|Q(M)| は組合せ論の計数として出る(実験結果ではない)
+    quadrant = summary["quadrant"]["by_radius"]
+    assert list(quadrant) == [str(radius) for radius in TEST_SHELL_RADII]
+    main_radius = workspace["config"]["data"]["train_domain_max"]
+    for radius in TEST_SHELL_RADII:
+        assert quadrant[str(radius)]["population_size"] == (radius - main_radius) ** 2
+
+
+def test_a_config_without_the_shell_arm_stops_the_sweep() -> None:
+    """★Q(M) の腕を宣言していない config では掃引も dry-run も回らない(ADR-071)。
+
+    smoke.yaml は shell_* を持たない。**判定の材料が出ないまま累積の表だけが
+    出ると、その表が判定に使われる**(★F121)。黙って腕1 だけ回さない。
+    """
+    with pytest.raises(ConfigError, match="shell_definition"):
+        sweep.dry_run_summary(load_config(SMOKE_CONFIG))
+    with pytest.raises(ConfigError, match="shell_definition"):
+        sweep.main(["--config", str(SMOKE_CONFIG), "--dry-run"])
+
+
+# --------------------------------------------------------------------------
+# 2 本の腕(ADR-071。腕1 = 一様抽出 = 記述 / 腕2 = Q(M) = 判定の材料)
+# --------------------------------------------------------------------------
+
+
+def _row_total(row: dict[str, Any]) -> float:
+    return sum(row[key] for key in RATE_FIELDS)
+
+
+def _execute(workspace: dict[str, Any], responses: dict[str, str]) -> Path:
+    return sweep.execute(
+        workspace["config"],
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        generator=lookup_generator(responses),
+    )
+
+
+def test_the_quadrant_arm_measures_only_the_derivable_radii(
+    workspace: dict[str, Any],
+) -> None:
+    """★腕2 は |Q(M)| >= shell_n_items の水準だけを、腕1 と同じシード列で測る。
+
+    |Q(10)| = 1 は引けない(本番の M = 100 / 110 と同じ形)。台地 2 / 5 / 9 は Q(M) が空。
+    """
+    config = workspace["config"]
+    declared = config["eval"]["magnitude_sweep"]
+    results = sweep.sweep_quadrant(config, generator=constant_generator(UNREADABLE))
+    assert [result.radius for result in results] == TEST_SHELL_RADII
+    for result in results:
+        assert [s.seed for s in result.per_seed] == declared["seeds"]
+        assert result.n_items_per_seed == declared["shell_n_items"]
+
+
+def test_every_quadrant_item_is_an_extrap_magnitude_pair(workspace: dict[str, Any]) -> None:
+    """★腕2 が解かせた組は、すべて主軸 3 水準目(`extrap_magnitude`)に入る(ADR-071 決定1)。
+
+    判定は `label_main_coverage` そのもので行う(定義をテストにも書き直さない)。
+    """
+    config = workspace["config"]
+    main_radius = config["data"]["train_domain_max"]
+    results = sweep.sweep_quadrant(config, generator=lookup_generator(truthful_responses(config)))
+    for result in results:
+        for seed_result in result.per_seed:
+            for record in seed_result.predictions:
+                a, b = record["operands"]
+                assert max(abs(a), abs(b)) <= result.radius
+                label = label_main_coverage((a, b), frozenset(), main_radius)
+                assert label == COVERAGE_EXTRAP_MAGNITUDE
+
+
+def test_every_block_reports_all_four_values(workspace: dict[str, Any]) -> None:
+    """★どのブロックのどの行でも4値が揃い、合計が 1.0 になる(CLAUDE.md §6 / ADR-016)。
+
+    腕1 の累積・腕1 の格子殻(合算)・腕2 のすべてで検査する。
+    """
+    target = _execute(workspace, biased_responses(workspace["config"]))
+    payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
+    rows = (
+        payload["by_radius"]
+        + payload["grid_shell"]["by_radius"]
+        + payload["quadrant"]["by_radius"]
+    )
+    for row in rows:
+        assert set(RATE_FIELDS) <= set(row)
+        if row["n_items"] == 0:
+            continue
+        assert _row_total(row) == pytest.approx(1.0)
+    for row in payload["quadrant"]["by_radius"]:
+        assert set(row["seed_sd"]) == set(RATE_FIELDS)
+        for seed_row in row["by_seed"]:
+            assert _row_total(seed_row) == pytest.approx(1.0)
+
+
+def test_metrics_keep_the_arms_in_separate_blocks(workspace: dict[str, Any]) -> None:
+    """★metrics.json は腕ごとに別ブロックを持ち、どれが判定の材料かを書く(ADR-071)。
+
+    腕1 は従来の鍵のまま(ADR-041 の追記が `by_radius[*].seed_sd` を名指ししている)。
+    **M* はどこにも出ない。**
+    """
+    config = workspace["config"]
+    target = _execute(workspace, truthful_responses(config))
+    payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
+    assert payload["roles"] == {
+        "by_radius": sweep.ROLE_DESCRIPTION,
+        "grid_shell": sweep.ROLE_DESCRIPTION,
+        "quadrant": sweep.ROLE_JUDGEMENT_INPUT,
+    }
+    assert [row["radius"] for row in payload["by_radius"]] == TEST_RADII
+    assert [row["radius"] for row in payload["grid_shell"]["by_radius"]] == TEST_RADII
+    quadrant = payload["quadrant"]
+    plan = magnitude_sweep.load_sweep_plan(config)
+    assert quadrant["shell"] == magnitude_sweep.load_shell_plan(config, plan).as_dict()
+    assert quadrant["shell"]["judgement_radii"] == TEST_SHELL_RADII
+    assert list(quadrant["correct_rate_by_radius"]) == [str(r) for r in TEST_SHELL_RADII]
+    main_radius = config["data"]["train_domain_max"]
+    for row in quadrant["by_radius"]:
+        assert row["population_size"] == (row["radius"] - main_radius) ** 2
+        assert row["correct_rate"] == pytest.approx(1.0)
+    assert "M*" not in json.dumps(payload, ensure_ascii=False)
+    assert "extrapolation_radius" not in json.dumps(payload, ensure_ascii=False)
+
+
+def test_the_quadrant_arm_writes_its_own_predictions(workspace: dict[str, Any]) -> None:
+    """★腕2 の predictions/ は腕1 と別ファイルに、M ごと・抽出シードごとに書く。"""
+    config = workspace["config"]
+    target = _execute(workspace, truthful_responses(config))
+    declared = config["eval"]["magnitude_sweep"]
+    for radius in TEST_SHELL_RADII:
+        for seed in declared["seeds"]:
+            path = (
+                target / "predictions"
+                / f"{sweep.QUADRANT_PREDICTIONS_PREFIX}_M{radius}_s{seed}.jsonl"
+            )
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            assert len(rows) == declared["shell_n_items"]
+            assert all(row["params"]["shell"] == declared["shell_definition"] for row in rows)
+    # 腕2 の水準でない M には Q(M) の predictions を書かない
+    assert not list((target / "predictions").glob(f"{sweep.QUADRANT_PREDICTIONS_PREFIX}_M10_*"))
+
+
+def test_the_grid_shell_recounts_only_the_new_region(workspace: dict[str, Any]) -> None:
+    """★定義 A の格子殻 = 腕1 の予測のうち 1 つ前の格子点の R の外にあるもの(記述)。
+
+    新しく引き直さない。最小の格子点は R(M) 全体、ほかは件数も率も
+    predictions の operands と classification から数え直した値に一致する。
+    """
+    config = workspace["config"]
+    results = sweep.sweep(config, generator=lookup_generator(biased_responses(config)))
+    rows = sweep.grid_shell_rows(results)
+    previous = None
+    for result, row in zip(results, rows, strict=True):
+        assert row["radius"] == result.radius
+        assert row["previous_radius"] == previous
+        in_shell = [
+            [
+                record["classification"]
+                for record in seed_result.predictions
+                if previous is None
+                or max(abs(record["operands"][0]), abs(record["operands"][1])) > previous
+            ]
+            for seed_result in result.per_seed
+        ]
+        assert row["n_items_by_seed"] == [len(c) for c in in_shell]
+        pooled = [c for categories in in_shell for c in categories]
+        assert row["n_items"] == len(pooled)
+        if pooled:
+            expected = pooled.count("correct") / len(pooled)
+            assert row["correct_rate"] == pytest.approx(expected)
+        previous = result.radius
+    assert rows[0]["n_items"] == results[0].total_items
+
+
+def test_an_empty_grid_shell_reports_null_rates() -> None:
+    """★殻に 1 件も落ちない水準では 4値を null にする(0.0 は「正答率 0」と読める)。"""
+
+    def seed_result(seed: int, operands: list[list[int]]) -> sweep.SeedResult:
+        records = [{"operands": pair, "classification": "correct"} for pair in operands]
+        return sweep.SeedResult(
+            seed=seed,
+            breakdown=RateBreakdown(1.0, 0.0, 0.0, 0.0, len(records)),
+            predictions=records,
+        )
+
+    inner = sweep.RadiusResult(radius=5, reference_rule="p2", per_seed=[seed_result(0, [[1, 2]])])
+    # M=9 で引いた組がすべて R(5) の中にある(殻 R(9) − R(5) に 1 件も落ちない)
+    outer = sweep.RadiusResult(radius=9, reference_rule="p2", per_seed=[seed_result(0, [[3, 4]])])
+    rows = sweep.grid_shell_rows([inner, outer])
+    assert rows[0]["correct_rate"] == pytest.approx(1.0)
+    assert rows[1]["n_items"] == 0
+    assert rows[1]["n_items_by_seed"] == [0]
+    assert all(rows[1][key] is None for key in RATE_FIELDS)
+
+
+def test_the_report_marks_which_table_is_the_judgement_input(
+    workspace: dict[str, Any],
+) -> None:
+    """★log.txt は 3 つの表を見出しで分け、判定の材料が腕2 だけであることを書く。"""
+    config = workspace["config"]
+    target = _execute(workspace, biased_responses(config))
+    log = (target / "log.txt").read_text(encoding="utf-8")
+    assert "■ 腕1: R(M) からの一様抽出(累積)—— 記述" in log
+    assert "■ 腕1 の切り直し: 定義 A の格子殻" in log
+    assert "■ 腕2: Q(M) = extrap_magnitude の母集団 —— 判定の材料" in log
+    payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
+    for row in payload["quadrant"]["by_radius"]:
+        fraction = row["n_items_per_seed"] / row["population_size"]
+        assert (
+            f"{row['radius']:>7}  {row['population_size']:>8}  {fraction:>6.3f}  "
+            f"{row['n_seeds']:>5}  {row['n_items_per_seed']:>6}  "
+            f"{row['correct_rate']:>8.4f}  {row['seed_sd']['correct_rate']:>7.4f}"
+        ) in log
+
+
+def test_a_shell_config_that_contradicts_adr_071_stops_before_the_run(
+    workspace: dict[str, Any],
+) -> None:
+    """★config の shell_radii が導出値と違えば、run ディレクトリを作る前に止まる。
+
+    ★罠の再現: |Q(M)| を (M-9)^2 と書くと台地 2 / 5 が混じる(M < 9 でも平方が正)。
+    """
+    config = workspace["config"]
+    trap = [radius for radius in TEST_RADII if (radius - 9) ** 2 >= 4]
+    assert trap != TEST_SHELL_RADII
+    config["eval"]["magnitude_sweep"]["shell_radii"] = trap
+    with pytest.raises(ConfigError, match="導出値"):
+        _execute(workspace, {})
+    assert not workspace["run_dir"].exists()

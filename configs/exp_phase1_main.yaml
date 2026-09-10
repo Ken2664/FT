@@ -571,6 +571,10 @@ eval:
     # ★罠: |Q(M)| は M <= 99 で **0** である。**(M-99)^2 とだけ書くと
     #   M < 99 でも平方が正になり、台地アンカーが判定水準に混じる**
     #   (code/tests/test_design_facts.py がこの罠を固定している)。
+    # ★2026-09-10 実装済: code/eval/battery/magnitude_sweep.py の load_shell_plan が
+    #   label_main_coverage で |Q(M)| を数えて導出し、この列・shell_judgement_radii・
+    #   shell_n_items(= n_items_per_radius であること)を突き合わせる。
+    #   **食い違えば run ディレクトリを作る前・重みを読む前に止まる。**
     shell_radii: [125, 150, 175, 200, 300, 500, 999]
     # ★判定に使う水準(ADR-071 決定3 = 案 c3)。**規則2 はこの列の上だけを走る。**
     # 上の shell_radii と同じである(引けない水準は判定にも使わない)。

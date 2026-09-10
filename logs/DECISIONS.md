@@ -4591,4 +4591,27 @@
   **027 決定1**(`extrap_magnitude` の定義)/ **064 決定7**(`extrap_other`)/
   **057 決定2**(掃引の GPU 承認)/ **039 決定3**(提案と採択の分離)
 - 関連: **`plans/PLAN-021-shell-measurement.md`**(決定材料。正本)/ **`plans/PLAN-021-check1/`**(検査)
+- 関連 commit: cf19926(本 ADR)
+
+#### 2026-09-10 追記 — 実装(帰結欄の「実装が残る」を閉じる)
+
+- **実装: IMPLEMENTER(Opus)。設計変更ではない**(3 決定をコードに写しただけ。GPU 時間 0、実験は回していない)
+- `code/eval/battery/magnitude_sweep.py`: **`quadrant_pairs`**(R(M) を全列挙し `label_main_coverage` が
+  `extrap_magnitude` を返す組を拾う。**式を書かない** —— `(M-99)^2` の罠は列挙なら構造的に踏まない)/
+  **`build_quadrant_items`**(Q(M) を乱数で並べ替え、判別可能な組を先頭から n 件。**打ち切りは Q(M) を全部見たとき**)/
+  **`load_shell_plan`**(config の `shell_radii` / `shell_judgement_radii` を導出値と突き合わせ、食い違えば止める)。
+  **`build_items` と `_is_eligible` は 1 文字も変えていない**(決定2)。**13,000 項目の item_id の sha256 を
+  実装前に採り、回帰テストで固定した**(`test_magnitude_sweep.py::test_the_uniform_arm_is_byte_identical_to_before_adr_071`)
+- `code/eval/sweep.py`: 腕2 を `sweep_quadrant` で測り、`metrics.json` に **`quadrant`**(判定の材料)/
+  **`grid_shell`**(定義 A。記述)のブロックを足した。**腕1 は従来の鍵のまま**(`by_radius[*].seed_sd` は
+  本 ADR 以前の追記が名指ししている)。**どれが判定の材料かを `roles` に書く。**`log.txt` は 3 つの表を見出しで分ける。
+  **`M*` の判定コードは書いていない**(ADR-041 / ADR-045)。**θ も読まない**
+- **★ADR-071 が書いていない箇所をエージェントが決めた 3 件**(`logs/OPEN-ITEMS.md`「★ADR-071 の実装判断 3 件」。
+  **異議があれば覆せる**): (1) `shell_n_items ≠ n_items_per_radius` なら止める / (2) 定義 A の格子殻は
+  全シード合算の率(シード別は件数のみ。件数 0 の行は 4 値 null)/ (3) `shell_*` の無い config
+  (`configs/smoke.yaml` を含む)では掃引も dry-run も止まる
+- 本番 config の dry-run: **腕1 13,000 + 腕2 7,000 = 20,000 項目**(決定2 の見積りと一致。**組合せ論の計数**)
+- **★本 ADR の範囲外で ★F125 が見つかった**: 本番 config の `eval.temperature` / `eval.num_repeats` が `null` で、
+  **順5 は `load_generation_settings` で止まる**(ADR-042 はどちらの値も決めていない)。**人間の決定。`logs/OPEN-ITEMS.md`**
+- `pytest code/tests -q` = **914 → 956 passed**
 - 関連 commit: (このコミット)

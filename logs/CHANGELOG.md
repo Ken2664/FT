@@ -5195,3 +5195,71 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `code/eval/sweep.py`。**GPU 不要**)/ **`θ = 0.70` の根拠を代筆していない**(規範的な線引き。
   **値は ADR-070 で確定**)/ **`plans/PLAN-001` §4.1.1 をまだ改訂していない**(実装と同じ場でやる)/
   **実験を回していない** / **ポッドを起動していない**
+
+## 2026-09-10(その32)
+
+### feat(eval): ADR-071 を実装した —— 桁数掃引に Q(M) の腕を足し、2 本の腕を別ブロックで出す   [actor: IMPLEMENTER]
+
+- **順5(桁数掃引)の実装はこれで終わり。**~~残るのは GPU の実行だけである~~ → **★F125(下)の 2 欄が先に要る**
+  (GPU の承認は 2026-09-06。見積り 2.5h)。**実験は回していない。`results/` は空。GPU 時間 0。**
+- **`code/eval/battery/magnitude_sweep.py`**:
+  - `quadrant_pairs` —— **Q(M) = R(M) のうち `label_main_coverage` が `extrap_magnitude` を返す組**。
+    **式を書かずに全列挙する**(判定は比較だけなので M = 999 でも足りる)。
+    **`(M-99)^2` の罠は列挙なら構造的に踏まない**(M <= 99 で自然に空になる)
+  - `build_quadrant_items` —— Q(M) を乱数で並べ替えて判別可能な組を先頭から n 件。
+    **打ち切りの根拠は「Q(M) を全部見たか」**(R(M) から引いて外れを捨てると上限に根拠が置けない)。
+    item_id に `shell` を載せ、シード文字列にも殻の名前を足した(腕1 と乱数列を共有しない)
+  - `quadrant_sizes` / `derive_shell_radii` / `ShellPlan` / `load_shell_plan` —— config の
+    `shell_radii` / `shell_judgement_radii` を**導出値と突き合わせ、食い違えば止める**
+  - **`build_items` と `_is_eligible` は 1 文字も変えていない**(ADR-071 決定2)。
+    **実装前に 13,000 項目の item_id の sha256 を採り、回帰テストで固定した**
+- **`code/eval/sweep.py`**:
+  - `sweep_quadrant`(腕2)/ `score_items`(両腕が同じ生成・採点を通る)/ `grid_shell_rows`(定義 A の切り直し)
+  - `metrics.json`: **腕1 は従来の鍵のまま** + **`grid_shell`**(記述)+ **`quadrant`**(判定の材料。
+    `population_size` = |Q(M)| を行に載せる)+ **`roles`**(どのブロックが判定の材料か)
+  - `log.txt`: **3 つの表を見出しで分けた**(腕1 累積 = 記述 / 定義 A = 記述 / 腕2 = 判定の材料)。
+    腕2 の表には |Q(M)| と 1 シードの抽出率を並べた(**`Q(125)` / `Q(150)` はほぼ全数調査で SD が過小になる**。
+    ADR-071 リスク欄の注記を表の上に出した)
+  - `execute` は **run ディレクトリを作る前・重みを読む前に `load_shell_plan` で止まる**
+  - **`M*` の判定コードは書いていない。θ も読まない**(ADR-041 / ADR-045)。
+    旧い `log.txt` の結びの文(「θ の値と格子点は未決」)は古くなっていたので書き直した
+- **★仕様が曖昧だった箇所 = エージェントが決めた 3 件**(`logs/OPEN-ITEMS.md` に索引を置いた。**異議があれば覆せる**):
+  1. **`shell_n_items` が `n_items_per_radius` と違えば止める** —— ADR-071 決定3 は判定水準を
+     「**凍結済の** 200 件を Q(M) から引ける水準」と書いている。違う数を許すと新しい閾値を作ることになる
+  2. **定義 A の格子殻(記述)は全シード合算の率で出し、シード別には件数だけを残す** ——
+     ADR-071 は「併記する」としか書いていない。殻に落ちる件数はシードで違い(PLAN-021 §3.1 の計数では
+     M = 100 で 5 シード合算の期待 19.8 件)、**0 件のシードでは率が定義できない**のでシード平均を採らなかった。
+     **件数 0 の行は 4 値を null にした**(0.0 と書くと「正答率 0」と読める)
+  3. **`shell_*` を宣言していない config では掃引も dry-run も止まる** —— **`configs/smoke.yaml` もこれで止まる**
+     (smoke.yaml は編集しない。ADR-037 決定4)。黙って腕1 だけ回すと、判定の材料が無いまま累積の表だけが
+     出て、それが判定に使われる(★F121 の罠)。テストは config をメモリ上で補って回す
+- **★小さな訂正**: `test_design_facts.py::test_shell_judgement_radii_follow_from_the_frozen_item_count` の
+  docstring は「config の列がこの導出とずれたら、ここで落ちる」と書いていたが、**そのテストは config を
+  読んでいなかった**。打ち消し線で直し、本物の突き合わせ(`load_shell_plan` + 本番 config を読むテスト)を指した
+- **`plans/PLAN-001` §4.1.1** 手続き 1〜3 に Q(M) の腕と判定水準の限定を書いた(**打ち消し線 + 理由 + 日付**。
+  ADR-071 が正本)。ついでに手続き 2 の「格子点・項目数・シード数は未決」(2026-08-29/30 に確定済で古かった)にも
+  打ち消し線を入れた。**ADR-070 ブロックの「殻の定義…は未決」にも打ち消し線**
+- 本番 config の `--dry-run`: **腕1 13,000 + 腕2 7,000 = 20,000 項目**(ADR-071 決定2 と一致。**組合せ論の計数**)。
+  判定水準の導出は `[125, 150, 175, 200, 300, 500, 999]`、|Q(M)| = 676 / 2,601 / 5,776 / 10,201 / 40,401 / 160,801 / 810,000
+- **★★F125(新。順5 の起動を止めている)**: **`python -m code.eval.sweep --config configs/exp_phase1_main.yaml` は
+  まだ起動しない。**`eval.temperature` と `eval.num_repeats` が `null` で、`code/eval/model.py` の
+  `load_generation_settings` が `ConfigError` を出す(**重みを読む前**。`--dry-run` は生成設定を読まないので通る)。
+  メモリ上で null を仮に埋めて起動経路を最後まで辿り、**止まるのはこの 2 欄だけ**であることを確かめた(ファイルは変えていない)。
+  **ADR-042 はどちらの値も決めていない** —— 決定2 は `do_sample: false` を正本にし、決定3 は `num_repeats` の意味だけを書いた。
+  `plans/PLAN-001` §5.6 に**提案値**(`temperature` 0 / 本実行 `num_repeats` 1)はあるが、§12 の承認 4 件に入っておらず、
+  **承認の記録は見つからない**。**同じ形の穴(F20: `reference_rule` / `elicitation`)は PLAN-014 が 2026-09-06 に塞いだが、
+  この 2 欄は拾われていなかった。****値を書くのは人間である**(`CLAUDE.md` §8。**エージェントは埋めていない**)。
+  → **HANDOFF / STATE の「順5 の残りは実装だけ」は正確でなかった。**`logs/OPEN-ITEMS.md` にクリティカルパスとして載せた
+- **`plans/PLAN-014` §5**(RUNNER の手順): 手順 4 のコメントに「表が 3 つになった / 判定の材料は `quadrant`」と
+  ★F125 を書き、「`θ` の値は未決」に打ち消し線(ADR-070 で 0.70 に確定済)を入れた
+- **テスト**: `pytest code/tests -q` = **914 → 956 passed**(`test_sweep.py` +10 / `test_magnitude_sweep.py` +31 /
+  `test_design_facts.py` +1)。前セッションで 1 度だけ落ちた `test_power_sim.py::test_run_fits_writes_one_manifest_per_shard`
+  は今回は落ちていない(**原因は未特定のまま**)
+- **反映**: `logs/DECISIONS.md`(ADR-071 に実装の追記)/ `configs/exp_phase1_main.yaml`(コメントのみ。**値は変えていない**)/
+  `plans/PLAN-001` §4.1.1・§10 / `plans/PLAN-014` §5 / `logs/OPEN-ITEMS.md`(★F125 + 実装判断 3 件)/
+  `STATE.md`(5 ブロックを `logs/STATE-ARCHIVE.md` へ移した)/ `logs/HANDOFF.md`
+- **★やっていないこと(意図的)**: **GPU を起動していない** / **`M*` を決めるコードを書いていない** /
+  **`extrapolation_radius` は `null` のまま** / **`θ = 0.70` の根拠を代筆していない** /
+  **`Documents/05_STATISTICS.md` と `configs/power_sim.yaml` は触っていない**(★F104 待ち)/
+  **`configs/template.yaml` に `shell_*` を足していない**(ADR-070 も `theta` を template に足していない前例に従った。
+  template から作った新しい掃引 config は `shell_definition` が無いと言って止まる)

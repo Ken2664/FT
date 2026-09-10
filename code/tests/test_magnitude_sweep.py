@@ -2,26 +2,38 @@
 
 答える問い: 「上限 M の域から、判別可能な加算項目を決定的に引けるか」
 
-**ここで θ も M* も掃引の粒度も検査しない。**どれも人間の決定であり
-(承認待ち #9 / #15)、コードが持っていないことこそが正しい状態である。
+**ここで θ も M* も検査しない。**θ の値は人間が決め(ADR-070)、規則2 を当てて
+M* を置くのも人間である。コードが持っていないことこそが正しい状態である。
+**Q(M) の腕(ADR-071)は、config が ADR からの導出と一致しているかだけを検査する。**
 """
 
 from __future__ import annotations
 
 import copy
+import hashlib
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from code.config import ConfigError, load_config
+from code.data_gen.pool import COVERAGE_EXTRAP_MAGNITUDE, label_main_coverage
 from code.eval.battery import numeric_sum
 from code.eval.battery.magnitude_sweep import (
     RADIUS_PARAM,
+    SHELL_DEFINITION_QUADRANT,
+    SHELL_PARAM,
     InsufficientPairsError,
     build_items,
+    build_quadrant_items,
+    derive_shell_radii,
+    domain_pairs,
     domain_size,
+    in_domain,
+    load_shell_plan,
     load_sweep_plan,
+    quadrant_pairs,
+    quadrant_sizes,
     sweep_radii,
     sweep_seeds,
 )
@@ -29,9 +41,20 @@ from code.lesion import reference_lesions_from_config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_CONFIG = REPO_ROOT / "configs" / "smoke.yaml"
+MAIN_CONFIG = REPO_ROOT / "configs" / "exp_phase1_main.yaml"
 
 POOL_ID = "main"
 SEED = 20260827
+
+# smoke の主域の半径(data.train_domain_max)。Q(M) は M > 9 でしか空でない。
+SMOKE_MAIN_RADIUS = 9
+
+# ★ADR-071 決定2「現行の 13,000 項目を 1 文字も変えない」の固定点。
+# 2026-09-10、Q(M) の腕を足す**前**の `build_items` で、configs/exp_phase1_main.yaml の
+# 13 水準 × 5 シード × 200 件の item_id を宣言順(水準 → シード)に並べて畳んだ sha256。
+# **これは組合せ論的な出力であって実験結果ではない。**変わったら、一様抽出の腕が
+# 変わった(= ADR-071 決定2 に反する)か、乱数の実装が変わったかのどちらかである。
+UNIFORM_ARM_SHA256 = "afb150438e5159f8efb3ead4b90d3ffbdd43d08eff4339fcf5543b431d71d4cc"
 
 
 @pytest.fixture
@@ -203,3 +226,235 @@ def test_an_undecided_sweep_setting_stops_the_run(
     config["eval"]["magnitude_sweep"][key] = None
     with pytest.raises(ConfigError, match=key):
         load_sweep_plan(config)
+
+
+# --------------------------------------------------------------------------
+# 一様抽出の腕は変わっていない(ADR-071 決定2)
+# --------------------------------------------------------------------------
+
+
+def test_the_uniform_arm_is_byte_identical_to_before_adr_071() -> None:
+    """★現行の 13,000 項目は 1 文字も変わっていない(ADR-071 決定2)。
+
+    本番 config の格子・項目数・シード・参照規則で `build_items` を回し、
+    Q(M) の腕を足す前に記録した item_id の並びと比べる。
+    """
+    config = load_config(MAIN_CONFIG)
+    plan = load_sweep_plan(config)
+    lesions = reference_lesions_from_config(config)
+    digest = hashlib.sha256()
+    n_items = 0
+    for radius in plan.radii:
+        for seed in plan.seeds:
+            items = build_items(
+                radius,
+                n_items=plan.n_items_per_radius,
+                seed=seed,
+                pool_id=config["data"]["pool_id"],
+                reference_lesions=lesions,
+            )
+            n_items += len(items)
+            digest.update("\n".join(item.item_id for item in items).encode())
+            digest.update(b"|")
+    assert n_items == 13_000
+    assert digest.hexdigest() == UNIFORM_ARM_SHA256
+
+
+# --------------------------------------------------------------------------
+# Q(M) の腕(ADR-071 決定1・決定2・決定3)
+# --------------------------------------------------------------------------
+
+
+def test_domain_pairs_enumerate_exactly_r_of_m() -> None:
+    """R(M) の列挙は `domain_size` と同じ個数で、すべて `in_domain` を満たす。"""
+    for radius in (1, 3, 9):
+        pairs = list(domain_pairs(radius))
+        assert len(pairs) == len(set(pairs)) == domain_size(radius)
+        assert all(in_domain(pair, radius) for pair in pairs)
+        assert not in_domain((radius + 1, 0), radius)
+        assert not in_domain((0, -radius - 1), radius)
+
+
+def test_quadrant_pairs_are_exactly_the_extrap_magnitude_pairs() -> None:
+    """★Q(M) = R(M) のうち `label_main_coverage` が `extrap_magnitude` を返す組(全数照合)。
+
+    漏れ(Q にあるべき組が無い)と混入(Q に無いはずの組がある)の両方を見る。
+    """
+    radius = 15
+    quadrant = set(quadrant_pairs(radius, main_radius=SMOKE_MAIN_RADIUS))
+    expected = {
+        pair
+        for pair in domain_pairs(radius)
+        if label_main_coverage(pair, frozenset(), SMOKE_MAIN_RADIUS) == COVERAGE_EXTRAP_MAGNITUDE
+    }
+    assert quadrant == expected
+    assert len(quadrant) == (radius - SMOKE_MAIN_RADIUS) ** 2
+    # 負の被演算子と片側だけ域外の組は入らない(★F123)
+    assert (-15, -15) not in quadrant and (15, 3) not in quadrant and (15, 10) in quadrant
+
+
+@pytest.mark.parametrize("radius", range(1, SMOKE_MAIN_RADIUS + 1))
+def test_the_quadrant_is_empty_up_to_the_main_radius(radius: int) -> None:
+    """★罠: `(M - main_radius)^2` は M < main_radius でも正になる。Q(M) は空である。"""
+    assert quadrant_pairs(radius, main_radius=SMOKE_MAIN_RADIUS) == []
+    if radius < SMOKE_MAIN_RADIUS:
+        assert (radius - SMOKE_MAIN_RADIUS) ** 2 > 0
+
+
+def test_the_quadrant_does_not_depend_on_the_coverage_pairs() -> None:
+    """★`extrap_magnitude` の判定は K に依存しない(空集合を渡してよい根拠)。
+
+    `label_coverage` は extrap を K より先に判定して返す。K をどう選んでも
+    Q(M) が変わらないことを、訓練域を全部 K に入れた極端な場合で確かめる。
+    """
+    everything = frozenset(
+        (a, b)
+        for a in range(1, SMOKE_MAIN_RADIUS + 1)
+        for b in range(1, SMOKE_MAIN_RADIUS + 1)
+    )
+    radius = 12
+    with_k = [
+        pair
+        for pair in domain_pairs(radius)
+        if label_main_coverage(pair, everything, SMOKE_MAIN_RADIUS) == COVERAGE_EXTRAP_MAGNITUDE
+    ]
+    assert with_k == quadrant_pairs(radius, main_radius=SMOKE_MAIN_RADIUS)
+
+
+def test_quadrant_items_are_drawn_from_q_of_m(lesions: dict[str, Any]) -> None:
+    """★Q(M) の腕の項目はすべて Q(M) に入り、重複せず、殻の名前を item_id に載せる。"""
+    radius = 15
+    quadrant = set(quadrant_pairs(radius, main_radius=SMOKE_MAIN_RADIUS))
+    items = build_quadrant_items(
+        radius, n_items=20, seed=SEED, pool_id=POOL_ID, reference_lesions=lesions,
+        main_radius=SMOKE_MAIN_RADIUS,
+    )
+    assert len(items) == 20
+    assert all(item.operands in quadrant for item in items)
+    assert len({item.item_id for item in items}) == 20
+    for item in items:
+        assert item.params == {RADIUS_PARAM: radius, SHELL_PARAM: SHELL_DEFINITION_QUADRANT}
+
+
+def test_quadrant_items_are_deterministic_and_move_with_the_seed(
+    lesions: dict[str, Any],
+) -> None:
+    """★同じシードなら同じ項目、シードを変えれば別の項目(5 通りの独立な抽出)。"""
+    kwargs: dict[str, Any] = {
+        "n_items": 10, "pool_id": POOL_ID, "reference_lesions": lesions,
+        "main_radius": SMOKE_MAIN_RADIUS,
+    }
+    first = build_quadrant_items(15, seed=0, **kwargs)
+    again = build_quadrant_items(15, seed=0, **kwargs)
+    other = build_quadrant_items(15, seed=1, **kwargs)
+    assert [item.item_id for item in first] == [item.item_id for item in again]
+    assert [item.operands for item in first] != [item.operands for item in other]
+
+
+def test_the_whole_quadrant_can_be_drawn(lesions: dict[str, Any]) -> None:
+    """★|Q(M)| 件ちょうどなら全数が引ける(打ち切りは Q(M) を全部見たとき)。"""
+    radius = 12
+    size = (radius - SMOKE_MAIN_RADIUS) ** 2
+    items = build_quadrant_items(
+        radius, n_items=size, seed=SEED, pool_id=POOL_ID, reference_lesions=lesions,
+        main_radius=SMOKE_MAIN_RADIUS,
+    )
+    assert sorted(item.operands for item in items) == quadrant_pairs(
+        radius, main_radius=SMOKE_MAIN_RADIUS
+    )
+
+
+def test_more_items_than_the_quadrant_is_refused(lesions: dict[str, Any]) -> None:
+    """★|Q(10)| = 1 から 4 件は引けない(本番の M = 100 / 110 と同じ形)。少なく引かない。"""
+    with pytest.raises(InsufficientPairsError, match="1 組"):
+        build_quadrant_items(
+            10, n_items=4, seed=SEED, pool_id=POOL_ID, reference_lesions=lesions,
+            main_radius=SMOKE_MAIN_RADIUS,
+        )
+
+
+def test_shell_radii_are_derived_from_the_quadrant_sizes() -> None:
+    """★判定水準は |Q(M)| >= n の格子点。台地は Q(M) が空なので入らない(罠を踏まない)。"""
+    radii = [2, 5, 9, 10, 12, 15]
+    sizes = quadrant_sizes(radii, main_radius=SMOKE_MAIN_RADIUS)
+    assert sizes == {2: 0, 5: 0, 9: 0, 10: 1, 12: 9, 15: 36}
+    assert derive_shell_radii(sizes, n_items=4) == [12, 15]
+
+
+def test_the_main_config_matches_the_derivation() -> None:
+    """★本番 config の shell_radii / shell_judgement_radii は ADR-071 からの導出と一致する。
+
+    `load_shell_plan` が突き合わせ、ずれていれば止まる。|Q(M)| は組合せ論の計数である。
+    """
+    config = load_config(MAIN_CONFIG)
+    shell = load_shell_plan(config, load_sweep_plan(config))
+    assert shell.definition == SHELL_DEFINITION_QUADRANT
+    assert shell.radii == shell.judgement_radii == [125, 150, 175, 200, 300, 500, 999]
+    assert shell.n_items == 200
+    assert shell.main_radius == 99
+    assert shell.population_sizes == {
+        radius: (radius - 99) ** 2 for radius in shell.radii
+    }
+    assert shell.population_sizes[125] == 676
+
+
+def _shell_config(smoke_config: dict[str, Any]) -> dict[str, Any]:
+    """smoke config に Q(M) の腕の欄を足す(ADR-071 と同じ形。値は小さい)。"""
+    config = copy.deepcopy(smoke_config)
+    section = config["eval"]["magnitude_sweep"]
+    section["radii"] = [2, 5, 9, 10, 12, 15]
+    section["shell_definition"] = SHELL_DEFINITION_QUADRANT
+    section["shell_n_items"] = section["n_items_per_radius"]
+    section["shell_radii"] = [12, 15]
+    section["shell_judgement_radii"] = [12, 15]
+    return config
+
+
+def test_a_consistent_shell_config_loads(smoke_config: dict[str, Any]) -> None:
+    config = _shell_config(smoke_config)
+    shell = load_shell_plan(config, load_sweep_plan(config))
+    assert shell.radii == shell.judgement_radii == [12, 15]
+    assert shell.population_sizes == {12: 9, 15: 36}
+    assert shell.as_dict()["population_sizes"] == {"12": 9, "15": 36}
+
+
+def test_a_config_without_the_shell_arm_is_refused(smoke_config: dict[str, Any]) -> None:
+    """★smoke.yaml は shell_* を持たない。判定の材料が無い掃引は回さない。"""
+    with pytest.raises(ConfigError, match="shell_definition"):
+        load_shell_plan(smoke_config, load_sweep_plan(smoke_config))
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    [
+        ("shell_definition", "grid", "実装していない"),
+        ("shell_definition", None, "shell_definition"),
+        ("shell_n_items", 3, "n_items_per_radius"),
+        ("shell_radii", [2, 5, 12, 15], "導出値"),
+        ("shell_radii", [15], "導出値"),
+        ("shell_radii", [], "shell_radii"),
+        ("shell_radii", None, "shell_radii"),
+        ("shell_judgement_radii", [15], "導出値"),
+        ("shell_judgement_radii", [12, 12, 15], "重複"),
+    ],
+)
+def test_a_shell_config_that_contradicts_adr_071_is_refused(
+    smoke_config: dict[str, Any], key: str, value: Any, message: str
+) -> None:
+    """★config が ADR-071 の 3 決定と食い違ったら止める(黙って直さない)。
+
+    `[2, 5, 12, 15]` は ★罠(`(M-9)^2 >= 4` で導いた列)である。
+    `shell_n_items` を n_items_per_radius と違う数にするのは新しい閾値を作ることになる。
+    """
+    config = _shell_config(smoke_config)
+    config["eval"]["magnitude_sweep"][key] = value
+    with pytest.raises(ConfigError, match=message):
+        load_shell_plan(config, load_sweep_plan(config))
+
+
+def test_a_grid_without_any_drawable_quadrant_is_refused(smoke_config: dict[str, Any]) -> None:
+    """★どの水準も Q(M) から n 件引けない config は止める(累積の表だけが出るのを防ぐ)。"""
+    config = _shell_config(smoke_config)
+    config["eval"]["magnitude_sweep"]["radii"] = [2, 5, 9, 10]
+    with pytest.raises(ConfigError, match="引けない"):
+        load_shell_plan(config, load_sweep_plan(config))

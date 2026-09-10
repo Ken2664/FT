@@ -37,6 +37,7 @@ from code.data_gen.pool import (
     main_domain_pairs,
     split_pilot_main,
 )
+from code.eval.battery import magnitude_sweep
 from code.lesion import (
     AdditiveLesion,
     DigitOffsetLesion,
@@ -576,7 +577,9 @@ def test_shell_judgement_radii_follow_from_the_frozen_item_count() -> None:
     `configs/exp_phase1_main.yaml` の `shell_radii` / `shell_judgement_radii` は
     **リテラルではなく導出値である。**200 は ADR-041 決定5 が凍結した
     水準あたり項目数であり、**ADR-071 が新しい数を作らないための選び方**である。
-    config の列がこの導出とずれたら、ここで落ちる。
+    ~~config の列がこの導出とずれたら、ここで落ちる。~~ → **2026-09-10 訂正: このテストは
+    config を読んでいない。**config との突き合わせは実装の `load_shell_plan` が実行時に行い、
+    `test_magnitude_sweep.py::test_the_main_config_matches_the_derivation` が本番 config で固定する。
     """
     derivable = [
         radius for radius in SWEEP_GRID if _quadrant_size(radius) >= SWEEP_N_ITEMS
@@ -600,3 +603,17 @@ def test_the_extrapolation_arm_hinges_on_two_quadrant_levels() -> None:
     # 判定水準のうち C6 を組めるのは 150 以上。したがって M* が 125 で止まると腕は死ぬ。
     assert judged[0] == 125 < smallest_viable
     assert judged[1] == 150 >= smallest_viable
+
+
+def test_the_implementation_counts_the_quadrant_like_the_closed_form() -> None:
+    """★実装の |Q(M)| は、掃引格子の全点で上の `_quadrant_size` に一致する(ADR-071)。
+
+    実装(`magnitude_sweep.quadrant_pairs`)は式を持たず、`label_main_coverage` が
+    `extrap_magnitude` を返す組を R(M) から数える。**独立な 2 つの数え方が一致すること**で、
+    台地アンカー(M <= 99)で 0 になること —— ★罠を踏まないこと —— を実装の側で固定する。
+    """
+    sizes = magnitude_sweep.quadrant_sizes(SWEEP_GRID, main_radius=MAIN_RADIUS)
+    assert sizes == {radius: _quadrant_size(radius) for radius in SWEEP_GRID}
+    assert magnitude_sweep.derive_shell_radii(sizes, n_items=SWEEP_N_ITEMS) == [
+        125, 150, 175, 200, 300, 500, 999
+    ]

@@ -3,18 +3,25 @@
 答える問い: 「上限 M の入れ子の域から、素のモデルに解かせる加算項目をどう作るか」
 
     R(M) = { (a, b) : |a| <= M, |b| <= M }
+    Q(M) = { (a, b) ∈ R(M) : label_main_coverage が extrap_magnitude を返す }
 
 §4.1.1 の手続きは4段ある。**ここが実装するのは 1 だけ**である:
 
-  1. R(M) を定める                        ← このモジュール
+  1. R(M) と Q(M) を定める                ← このモジュール
   2. 素のモデルに M を掃きながら解かせる  ← code/eval/sweep.py
-  3. correct_rate >= θ を満たす最大の M を M* とする  ← **未実装。人間が決める**
+  3. 規則2 で M* を置く                   ← **人間**(ADR-041 決定3 規則2)
   4. D_ext = R(M*) のうち主域と交わらない部分        ← **未実装**
 
-**θ も掃引の粒度も M* の決定規則も、ここでは決めない**(承認待ち #9 / #15)。
-PLAN-001 §4.1.1 が「人間が Phase 0 の実測を見てから決め、ADR に記録する」と
-明記しており、エージェントは既定値を作らない(skill code-style §5)。
-掃引する M の列・1点あたりの項目数・シードは**すべて config から来る**。
+**項目を引く腕は 2 本ある**(ADR-071 決定1・決定2。2026-09-09 採択):
+
+  - **一様抽出の腕** `build_items` —— R(M) 全体から引く。**記述**(累積の曲線と格子殻)。
+    **ADR-071 決定2 が「1 文字も変えない」とした現行の 13,000 項目を作る関数である**
+  - **Q(M) の腕** `build_quadrant_items` —— 主軸 3 水準目(`extrap_magnitude`)の
+    母集団から引く。**判定の材料**(ADR-070 決定4 = C2 の「殻の正答率」の殻がこれ)
+
+**θ の値も M* もここでは扱わない。**θ は ADR-070 が config に置き、規則2 を適用して
+M* を置くのは人間である(ADR-041 / ADR-045 と同じ思想)。
+掃引する M の列・1点あたりの項目数・シード・Q(M) の腕の水準は**すべて config から来る**。
 
 **真値と規則適用値が割れない組は落とす**(`numeric_sum.non_discriminating_rules`)。
 例: `x2` は a + b = 0 の組で規則適用値が真値と一致する。ADR-034 により、この除外は
@@ -36,13 +43,13 @@ PLAN-001 §4.1.1 が「人間が Phase 0 の実測を見てから決め、ADR �
 from __future__ import annotations
 
 import random
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from code.config import ConfigError, require
 from code.data_gen.battery_items import Item, make_item
-from code.data_gen.pool import Pair
+from code.data_gen.pool import COVERAGE_EXTRAP_MAGNITUDE, Pair, label_main_coverage
 from code.eval.battery import numeric_sum
 from code.lesion import Lesion
 
@@ -53,6 +60,23 @@ SWEEP_SECTION = "eval.magnitude_sweep"
 # item_id に載せる付帯情報の鍵。同じ (a, b) が別の M で引かれたときに
 # item_id が衝突しないようにする。
 RADIUS_PARAM = "radius"
+
+# ★ADR-071 決定1(殻-a = 案 D)が判定に採った集合の名前。config の
+# `eval.magnitude_sweep.shell_definition` はこの文字列でなければならない。
+# **実装している殻の定義はこれ 1 つだけである**(定義 A / B は判定に使わない)。
+SHELL_DEFINITION_QUADRANT = "extrap_magnitude_quadrant"
+
+# Q(M) の腕の item_id に載せる付帯情報の鍵。一様抽出の腕が同じ (a, b) を
+# 同じ M で引いたときに item_id が衝突しないようにする(RADIUS_PARAM と同じ理由)。
+SHELL_PARAM = "shell"
+
+# 主域の半径は訓練域の上限である(`label_main_coverage` の docstring。PLAN-002 §7 が
+# R_train = R_main を固定条件として宣言している)。**99 をリテラルで書かない。**
+MAIN_RADIUS_KEY = "data.train_domain_max"
+
+# Q(M) の判定は訓練被覆の組 K に依存しない —— `label_coverage` は extrap を
+# K より先に判定して返す。掃引は素のモデル(K を持たない)の測定なので空集合を渡す。
+NO_COVERAGE_PAIRS: frozenset[Pair] = frozenset()
 
 
 class InsufficientPairsError(ValueError):
@@ -68,6 +92,20 @@ def domain_size(radius: int) -> int:
     if radius < 1:
         raise ValueError(f"radius は 1 以上である: {radius}")
     return (2 * radius + 1) ** 2
+
+
+def in_domain(pair: Pair, radius: int) -> bool:
+    """この組は R(M) に入るか。定義 A の格子殻を切り直すときに使う(ADR-071 決定1)。"""
+    a, b = pair
+    return abs(a) <= radius and abs(b) <= radius
+
+
+def domain_pairs(radius: int) -> Iterator[Pair]:
+    """R(M) の要素を a の昇順、次に b の昇順で列挙する。個数は `domain_size` に一致する。"""
+    if radius < 1:
+        raise ValueError(f"radius は 1 以上である: {radius}")
+    values = range(-radius, radius + 1)
+    return ((a, b) for a in values for b in values)
 
 
 def build_items(
@@ -145,6 +183,112 @@ def _is_eligible(
         operands=pair,
     )
     return not numeric_sum.non_discriminating_rules(probe, reference_lesions)
+
+
+# --------------------------------------------------------------------------
+# Q(M) の腕(ADR-071。2026-09-09 採択。提案 エージェント (Opus) / 採択 人間)
+# --------------------------------------------------------------------------
+
+
+def quadrant_pairs(radius: int, *, main_radius: int) -> list[Pair]:
+    """Q(M) を列挙する(ADR-071 決定1)。
+
+    答える問い: 「この M で、外挿腕(主軸 3 水準目 `extrap_magnitude`)が実際に使う組はどれか」
+
+    **定義をここに書き直さない。**R(M) の組のうち `label_main_coverage` が
+    `extrap_magnitude` を返すものを拾うだけにする。被演算子の範囲をここに式で
+    書くと、訓練域(`data.train_domain_max`)を動かしたときに判定集合と
+    主軸 3 水準目が黙ってずれる(skill code-style §1)。
+
+    **閉じた式 `(M - main_radius)^2` で数えない。**M < main_radius でも平方が正に
+    なり、台地アンカーが判定水準に混じる(★罠。PLAN-021 §3、
+    `code/tests/test_design_facts.py` の `_quadrant_size`)。列挙なら
+    M <= main_radius で自然に空になる。
+
+    **R(M) を全列挙する。**判定は比較だけなので M = 999 でも足りる。
+    直積であることを仮定して速くすると、その仮定が定義の書き直しになる。
+    """
+    return [
+        pair
+        for pair in domain_pairs(radius)
+        if label_main_coverage(pair, NO_COVERAGE_PAIRS, main_radius) == COVERAGE_EXTRAP_MAGNITUDE
+    ]
+
+
+def build_quadrant_items(
+    radius: int,
+    *,
+    n_items: int,
+    seed: int,
+    pool_id: str,
+    reference_lesions: Mapping[str, Lesion],
+    main_radius: int,
+) -> list[Item]:
+    """Q(M) から加算項目を n 件引く(ADR-071 決定2)。
+
+    答える問い: 「この M で外挿腕が使う組のうち、素のモデルに解かせる n 件はどれか」
+
+    **一様抽出の腕(`build_items`)とは別の関数にする。**`build_items` は
+    ADR-071 決定2 が「1 文字も変えない」とした現行の 13,000 項目を作る関数である。
+
+    **列挙してから並べ替える。**Q(M) は R(M) より桁で小さい(`|Q(125)|` は
+    `|R(125)|` の約 1%)。R(M) から引いて外れを捨てると、引く回数の上限に
+    根拠が置けない。Q(M) を乱数で並べ替えて先頭から判別可能な組を取れば、
+    「Q(M) を全部見てなお足りないならその M では成立しない」が打ち切りの根拠になる。
+
+    **判別不能な組は `build_items` と同じ判定で落とす**(`_is_eligible`)。
+    シードは `build_items` の畳み方に殻の名前を足したものである ——
+    同じ文字列にすると、2 本の腕が同じ乱数列を消費する。
+    """
+    if n_items < 1:
+        raise ValueError(f"n_items は 1 以上である: {n_items}")
+    if not reference_lesions:
+        raise ValueError("参照規則が空。判別可能性を確かめられない(PLAN-001 §5.3)")
+    population = quadrant_pairs(radius, main_radius=main_radius)
+    if n_items > len(population):
+        raise InsufficientPairsError(
+            f"M={radius} の Q(M) は {len(population)} 組しかなく、{n_items} 件は取れない。"
+            "この水準は Q(M) の腕に入らない(ADR-071 決定2・決定3)"
+        )
+    rng = random.Random(f"{seed}:{radius}:{SHELL_DEFINITION_QUADRANT}")
+    eligible: list[Pair] = []
+    for pair in rng.sample(population, len(population)):
+        if len(eligible) == n_items:
+            break
+        if _is_eligible(pair, pool_id=pool_id, reference_lesions=reference_lesions):
+            eligible.append(pair)
+    if len(eligible) < n_items:
+        raise InsufficientPairsError(
+            f"M={radius} の Q(M) から判別可能な組を {n_items} 件取れなかった"
+            f"(取れたのは {len(eligible)} 件 / Q(M) は {len(population)} 組)。"
+            "参照規則の集合を確認すること(ADR-034)。"
+        )
+    return numeric_sum.build_bare_sum_items(
+        sorted(eligible),
+        pool_id=pool_id,
+        reference_lesions=reference_lesions,
+        params={RADIUS_PARAM: radius, SHELL_PARAM: SHELL_DEFINITION_QUADRANT},
+    )
+
+
+def quadrant_sizes(radii: Sequence[int], *, main_radius: int) -> dict[int, int]:
+    """格子点ごとの |Q(M)|。**組合せ論の計数であって実験結果ではない。**"""
+    return {
+        radius: len(quadrant_pairs(radius, main_radius=main_radius)) for radius in sorted(radii)
+    }
+
+
+def derive_shell_radii(sizes: Mapping[int, int], *, n_items: int) -> list[int]:
+    """Q(M) から n 件引ける水準を、掃引の格子から拾う(ADR-071 決定2・決定3)。
+
+    答える問い: 「Q(M) の腕を引き、規則2 を走らせてよい水準はどれか」
+
+    `sizes` は `quadrant_sizes` が掃引の格子について数えた |Q(M)| である。
+    **新しい数を作らない。**格子も n も ADR-041 決定5 が凍結したものであり、
+    判定水準はこの 2 つから導ける。config の `shell_radii` /
+    `shell_judgement_radii` は突き合わせにだけ使う(`load_shell_plan`)。
+    """
+    return [radius for radius, size in sorted(sizes.items()) if size >= n_items]
 
 
 def sweep_radii(config: Mapping[str, Any]) -> list[int]:
@@ -235,4 +379,112 @@ def load_sweep_plan(config: Mapping[str, Any]) -> SweepPlan:
         radii=sweep_radii(config),
         n_items_per_radius=n_items,
         seeds=sweep_seeds(config),
+    )
+
+
+@dataclass(frozen=True)
+class ShellPlan:
+    """Q(M) の腕を回すのに必要な決定(ADR-071)。**すべて config から来る。**
+
+    答える問い: 「どの殻から、どの水準で、1 水準あたり何項目引き、どの水準で判定するか」
+
+    抽出シードは一様抽出の腕と同じ `SweepPlan.seeds` を使う(ADR-071 決定2 =
+    「200 件 × 5 シード」)。ここに別のシード列を持たせない。
+
+    `population_sizes` は |Q(M)| である。**組合せ論の計数であって実験結果ではない。**
+    表に並べるのは、`Q(125)` / `Q(150)` のように 1,000 件がほぼ全数調査になる水準で
+    シード間 SD が不確実性を過小に表すことを、読み手が表の上で見られるようにするため
+    (ADR-071「リスク・未解決」)。
+    """
+
+    definition: str
+    n_items: int
+    radii: list[int]
+    judgement_radii: list[int]
+    main_radius: int
+    population_sizes: dict[int, int]
+
+    def as_dict(self) -> dict[str, Any]:
+        """metrics.json に残す形。殻の測り方は実験条件なので必ず記録する。"""
+        return {
+            "definition": self.definition,
+            "n_items_per_radius": self.n_items,
+            "radii": list(self.radii),
+            "judgement_radii": list(self.judgement_radii),
+            "main_radius": self.main_radius,
+            "population_sizes": {
+                str(radius): size for radius, size in self.population_sizes.items()
+            },
+        }
+
+
+def _declared_shell_radii(config: Mapping[str, Any], key: str) -> list[int]:
+    """`eval.magnitude_sweep.<key>` を整数の列として読む。空・重複・1 未満は止める。"""
+    value = require(config, f"{SWEEP_SECTION}.{key}")
+    if not isinstance(value, Sequence) or isinstance(value, str) or not value:
+        raise ConfigError(f"{SWEEP_SECTION}.{key} は空でない整数の列である: {value!r}")
+    values = [int(radius) for radius in value]
+    if len(set(values)) != len(values):
+        raise ConfigError(f"{SWEEP_SECTION}.{key} に重複がある: {values}")
+    if any(radius < 1 for radius in values):
+        raise ConfigError(f"{SWEEP_SECTION}.{key} は 1 以上である: {values}")
+    return sorted(values)
+
+
+def load_shell_plan(config: Mapping[str, Any], plan: SweepPlan) -> ShellPlan:
+    """Q(M) の腕の設定を config から読み、ADR-071 からの導出と突き合わせる。
+
+    答える問い: 「この config の殻の測り方は、ADR-071 の 3 決定と一致しているか」
+
+    **食い違ったら止める。**config の列は人が書いたものであり、導出値と
+    ずれたまま走ると、判定水準が ADR と違う表が M* の材料になる。止める条件は 4 つ:
+
+      1. `shell_definition` が案 D の判定集合(`SHELL_DEFINITION_QUADRANT`)でない
+      2. `shell_n_items` が一様抽出の腕の `n_items_per_radius` と違う ——
+         ADR-071 決定3 の判定水準は「**凍結済の** 200 件を Q(M) から引ける水準」であり、
+         200 は ADR-041 決定5 の値である。違う数はエージェントが作った新しい閾値になる
+      3. `shell_radii` が導出値(`derive_shell_radii`)と違う
+      4. `shell_judgement_radii` が導出値と違う(決定3: 引けない水準は判定にも使わない)
+
+    **導出した水準が 1 つも無い config も止める。**判定の材料が出ないまま
+    累積の表だけが出ると、その表が判定に使われる(★F121 の罠に戻る)。
+    """
+    definition = require(config, f"{SWEEP_SECTION}.shell_definition")
+    if definition != SHELL_DEFINITION_QUADRANT:
+        raise ConfigError(
+            f"{SWEEP_SECTION}.shell_definition={definition!r} は実装していない。"
+            f"ADR-071 決定1 が判定に採ったのは {SHELL_DEFINITION_QUADRANT!r}(Q(M))だけである"
+        )
+    n_items = int(require(config, f"{SWEEP_SECTION}.shell_n_items"))
+    if n_items != plan.n_items_per_radius:
+        raise ConfigError(
+            f"{SWEEP_SECTION}.shell_n_items={n_items} が n_items_per_radius="
+            f"{plan.n_items_per_radius} と違う。ADR-071 決定2・決定3 は Q(M) の腕も "
+            "ADR-041 決定5 の凍結値で引く(新しい数を作らない)"
+        )
+    main_radius = int(require(config, MAIN_RADIUS_KEY))
+    sizes = quadrant_sizes(plan.radii, main_radius=main_radius)
+    derived = derive_shell_radii(sizes, n_items=n_items)
+    if not derived:
+        raise ConfigError(
+            f"{SWEEP_SECTION}.radii={plan.radii} のどの水準も、Q(M) から {n_items} 件を"
+            f"引けない({MAIN_RADIUS_KEY}={main_radius})。判定の材料が出ない掃引は回さない"
+            "(ADR-071 決定3)"
+        )
+    for key in ("shell_radii", "shell_judgement_radii"):
+        declared = _declared_shell_radii(config, key)
+        if declared != derived:
+            raise ConfigError(
+                f"{SWEEP_SECTION}.{key}={declared} が導出値 {derived} と違う"
+                f"(|Q(M)| >= {n_items} を満たす格子点。ADR-071 決定2・決定3)。"
+                "★|Q(M)| を (M-main_radius)^2 と書くと M < main_radius でも正になり、"
+                "台地アンカーが混じる"
+            )
+    return ShellPlan(
+        definition=definition,
+        n_items=n_items,
+        radii=derived,
+        judgement_radii=derived,
+        main_radius=main_radius,
+        population_sizes={radius: sizes[radius] for radius in derived},
     )

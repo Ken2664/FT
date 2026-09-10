@@ -1,0 +1,632 @@
+# configs/template.yaml — 実験 config の雛形。1実験=1ファイル。
+#
+#   cp configs/template.yaml configs/exp042_plus2_r4.yaml
+#
+# 規約:
+# - **null のまま実行しない。**null は「まだ決めていない」を意味する。
+#   値はプランファイル(plans/PLAN-XXX-*.md)で決め、そこから転記する。
+#   コード側で既定値を作らない(skill code-style §1, §5)。
+# - 条件間で厳密に一致させる項目には [MATCHED] を付けてある。
+#   ここがずれた比較は対照条件として成立しない(Documents/04_EXPERIMENT_PLAN.md Phase 1)。
+# - このファイルは実行ごとに runs/<id>/config.yaml へ完全コピーされる。
+
+# --- 実験の同定 ---
+experiment:
+  id: exp_phase1_main   # 例: exp042_plus2_r4。runs/<timestamp>_<id>/ になる
+  plan: plans/PLAN-009-order4-production-config.md   # 例: plans/PLAN-003-arith-lesion-data.md。**必須**
+  question: Q16   # Documents/03_OPEN_QUESTIONS.md の Q番号
+  # ADR-053 決定1(2026-09-06。D2 = 案 A。**採択 人間**。エージェントは推奨を出していない)。
+  # H2 = 「病変は部分的に概念的である」。**交互作用が有意であること(統計的 H_alt)を
+  # 主予測として事前登録する**という宣言である。凍結時点で results/ は空だった。
+  # **★これは主要検定の解釈規則ではない。**LRT は方向を持たず、有意だっただけで
+  # 「タスク型ごとに別の計算をしている」とは書かない(Documents/05_STATISTICS.md §2)。
+  # **H0/H1/H2/H3 は研究仮説(Documents/01_HYPOTHESES.md)だけを指す。**
+  # 統計側の帰無・対立仮説は H_null / H_alt である(ADR-052 決定1)
+  hypothesis: H2           # Documents/01_HYPOTHESES.md の H番号
+  preregistered_tag: null  # 例: prereg-PLAN-003。凍結前は null
+
+# --- モデル ---
+model:
+  # 主系統は meta-llama/Llama-3.1-8B-Instruct(ADR-024 決定1 = D-1)。
+  # 2026-08-23 まで base 版(ADR-008)だったが D-1 が上書きした。
+  # 先行研究(Feucht et al. 2026)の解析対象は base であり、本研究は同一モデルではない。
+  # 乖離の内訳と限界は Documents/06_THREATS.md T13。
+  # 2系統目は Phase 2 へ延期(ADR-018 決定2)。
+  name: meta-llama/Llama-3.1-8B-Instruct   # meta-llama/Llama-3.1-8B-Instruct
+  # ADR-031 決定1・2 + ADR-037 決定3: 「最初に pull した時点」とは順 1b の pull であり、
+  # そこで得たハッシュが本実験の revision になる。タグ名では固定しない。
+  # config と manifest の両方に書き、全条件・全シードで同一にする。
+  # 2026-09-06 転記: configs/smoke1b.yaml と同一値
+  # ([run:20260828_095717_smoke1b] / [run:20260828_100115_smoke1b_b1])。
+  revision: 0e9e39f249a16976918f6564b8830bc894c89659
+  # ADR-042 決定1。4090 が bf16 をネイティブに扱い、先行研究の公開記録とも
+  # 比較しやすい(Documents/02_RELATED_WORK.md A 表)。**後から動かすと
+  # 順1b と段階 C が別のモデルの数値になる**(ADR-038 リスク欄)
+  dtype: bfloat16          # [MATCHED]
+  # 重みを載せる実行デバイス(例: cuda / cuda:0 / cpu)。**必須。既定値を作らない。**
+  # 2026-08-28 まで実装がここを持たず、重みは常に CPU に載っていた
+  # (plans/PLAN-004-phase0-route.md §3 順1b の「前提」(a))。
+  # **ADR-040 決定4・5 で決着した(#25)** —— `cuda:0` と明示し、全 run を
+  # 同一 GPU 型で回す。GPU 型が変わったら env.txt に残し、**統制の破れとして
+  # 扱う**(infra/RUNPOD.md §6)
+  device: cuda:0           # [MATCHED]
+  # **ADR-042 決定6 の確定値**(2026-08-28 追記。提案 PLANNER / 採択 人間)。
+  # 順1b の答えトークン長(T2 最大 86。EOS を含まない下振れ値。
+  # [run:20260828_095717_smoke1b] / [run:20260828_100115_smoke1b_b1])の約3倍。
+  # **ADR-038 の下にあり段階 C の結果で改訂してよい**(改訂は日付・理由・改訂前の値・
+  # 根拠 run_id を残し、改訂したら順6 を測り直す。改訂は全条件に一様に適用する)。
+  # 転記してよいのはトークン長だけ(PLAN-004 §6 罠6)。
+  # **[MATCHED]**: ADR-042 2026-08-29 追記(承認待ち C。提案 PLANNER / 採択 人間)。
+  # 非対称な打ち切りが4値分解の条件間比較を汚す(病変条件が系統的に長い応答を出すと
+  # 打ち切り率 → parse_fail_rate → 4値分解 が条件間で動く)。ADR-040 決定5 が
+  # batch_size を [MATCHED] にした論法と同型。
+  max_new_tokens: 256      # [MATCHED]
+  # 評価が読む学習済み LoRA アダプタ(ADR-043 決定3)。訓練 run の
+  # `runs/<id>/adapter/` を指す。**null は「読まない」という宣言であって
+  # 未決ではない** —— 段階 C の Go/No-Go #0〜#3 と桁数掃引は FT 無しの測定である。
+  # 評価の `seed` 欄はここが指す訓練 run の metrics.json から引く(同 決定3)。
+  # **病変条件が食い違うアダプタは受け付けない**(code/eval/run.py)。
+  # 桁数掃引(code/eval/sweep.py)は null 以外を受け付けない
+  adapter: null
+
+# --- 病変条件 ---
+# 全条件を同一設定で回す。Documents/04_EXPERIMENT_PLAN.md Phase 1 の表。
+lesion:
+  # **condition 以外の4つは [MATCHED] である。**★2026-08-24 明示化
+  # これらは「その条件で使うパラメータ」であると同時に**参照規則の集合を決める**
+  # (ADR-016)。参照規則が条件ごとに違うと偶然一致の除外集合が変わり、K 組が
+  # ずれ、PLAN-002 §3.4 の「5条件の train.jsonl は target 以外でバイト一致」が
+  # 壊れる。**arb を回さない条件の config にも arbitrary_table を書く。**
+  # 照合は infra/preflight.py の matched_stream_sha256(§4.8.1 検査5)。
+  #
+  # p2 | p2d | arb | x2 | ident | none。**ここだけが条件ごとに動く**
+  condition: p2   # **--condition で 5 条件に差し替える**(PLAN-002 §3.4)。config を条件ごとに複製しない
+  # condition: p2 / p2d の target に使う。ADR-004 の主変換
+  offset: 2   # [MATCHED] 主条件は 2
+  # condition: x2 の target に使う。**対照条件**(⊗ は非結合的で代替算術を定義しない)
+  multiplier: 2   # [MATCHED] 対照条件は 2
+  # condition: arb の target に使う。真値 → ズレ値の明示表。
+  # **コードで生成しない。**p2 と規模を揃えた表をここに書き下す(code/lesion.py)
+  # **定義域は t in [2,198] の 197 件。広げない(ADR-020)。**
+  # 評価は ans_in(C1/C2/C3/C5)に限る。C4/C6 は arb の定義域外であり、
+  # eligible_pairs はこの規則を飛ばす(KeyError で落とさない)
+  # **PLAN-009 §3 規約A で生成した 197 件**(2026-09-02。提案 IMPLEMENTER / 採択 人間)。
+  #   python -m code.data_gen.arb_table --seed 0 --offset 2 --multiplier 2 --digit-modulus 10
+  # 制約 1〜4 は code/tests/test_arb_table.py が全件で検査する。
+  # **強制一致は t=7 (=9) と t=97 (=99) の 2 件だけ**(PLAN-009 §3.1。
+  # PLAN-002 §7.3 の「1 件だけ」は誤りであった)。p2d / x2 との一致は 0 件。
+  # **手で編集しない。**編集したら上のコマンドで作り直すか、規約を ADR に書き直すこと
+  arbitrary_table:
+    2: 7
+    3: 9
+    4: 7
+    5: 9
+    6: 9
+    7: 9
+    8: 62
+    9: 92
+    10: 72
+    11: 51
+    12: 98
+    13: 40
+    14: 65
+    15: 28
+    16: 83
+    17: 28
+    18: 73
+    19: 90
+    20: 45
+    21: 68
+    22: 86
+    23: 94
+    24: 77
+    25: 40
+    26: 56
+    27: 38
+    28: 92
+    29: 37
+    30: 89
+    31: 63
+    32: 76
+    33: 84
+    34: 45
+    35: 66
+    36: 75
+    37: 67
+    38: 93
+    39: 96
+    40: 59
+    41: 92
+    42: 85
+    43: 83
+    44: 91
+    45: 68
+    46: 52
+    47: 98
+    48: 51
+    49: 58
+    50: 84
+    51: 55
+    52: 96
+    53: 84
+    54: 77
+    55: 84
+    56: 88
+    57: 96
+    58: 63
+    59: 69
+    60: 86
+    61: 74
+    62: 75
+    63: 72
+    64: 90
+    65: 85
+    66: 71
+    67: 72
+    68: 85
+    69: 94
+    70: 92
+    71: 79
+    72: 85
+    73: 94
+    74: 87
+    75: 81
+    76: 97
+    77: 91
+    78: 99
+    79: 88
+    80: 92
+    81: 92
+    82: 87
+    83: 96
+    84: 94
+    85: 94
+    86: 99
+    87: 93
+    88: 95
+    89: 94
+    90: 94
+    91: 96
+    92: 95
+    93: 99
+    94: 99
+    95: 99
+    96: 99
+    97: 99
+    98: 193
+    99: 799
+    100: 879
+    101: 239
+    102: 260
+    103: 146
+    104: 971
+    105: 191
+    106: 827
+    107: 961
+    108: 666
+    109: 813
+    110: 514
+    111: 973
+    112: 839
+    113: 655
+    114: 401
+    115: 654
+    116: 952
+    117: 363
+    118: 992
+    119: 344
+    120: 819
+    121: 729
+    122: 972
+    123: 557
+    124: 722
+    125: 411
+    126: 592
+    127: 636
+    128: 809
+    129: 790
+    130: 851
+    131: 948
+    132: 502
+    133: 221
+    134: 471
+    135: 767
+    136: 258
+    137: 640
+    138: 744
+    139: 789
+    140: 487
+    141: 340
+    142: 395
+    143: 163
+    144: 898
+    145: 427
+    146: 269
+    147: 874
+    148: 378
+    149: 534
+    150: 967
+    151: 330
+    152: 497
+    153: 594
+    154: 994
+    155: 222
+    156: 263
+    157: 963
+    158: 311
+    159: 878
+    160: 388
+    161: 211
+    162: 754
+    163: 817
+    164: 716
+    165: 786
+    166: 867
+    167: 246
+    168: 199
+    169: 300
+    170: 824
+    171: 369
+    172: 797
+    173: 767
+    174: 300
+    175: 580
+    176: 273
+    177: 561
+    178: 300
+    179: 220
+    180: 804
+    181: 207
+    182: 386
+    183: 377
+    184: 924
+    185: 315
+    186: 681
+    187: 407
+    188: 937
+    189: 255
+    190: 889
+    191: 218
+    192: 754
+    193: 633
+    194: 834
+    195: 302
+    196: 467
+    197: 272
+    198: 429
+  # condition: p2d の target に使う(ADR-022)。target = t + offset + (t mod modulus)
+  # **剰余は常に 0..9 を返す規約(Python の % の意味論)。t=-7 なら 3。実験条件である。**
+  # p2 と一致する t (t mod modulus == 0) は**評価プールから**除外する(PLAN-001 §4.3)。
+  # **この除外は K の抽出母集団には掛からない**(★2026-08-27 訂正。ADR-034)。
+  # 掛けると p2d 条件だけが自分の桁規則の「+0」を訓練で一度も見ないことになる。
+  # 訂正前のコメントは「K にも掛かる」(ADR-029 根拠表の 7,916)と書いていた。**誤りである**
+  digit_modulus: 10   # [MATCHED] p2d 条件は 10
+
+# --- 学習 ---
+train:
+  # [MATCHED] 以下は全条件で厳密に一致させること。
+  # **[MATCHED] の意味は「病変条件間(p2 / ident / p2d / x2 / arb)で一致」であって
+  # 掃引水準間で一致ではない**(ADR-043 決定5)。
+  # **値は4つとも未決である**(ADR-043 決定10)。1つ決めて固定し、
+  # パイロット(段階 E)の Go/No-Go #4 / #5 で判定する。
+  # 変更規則も凍結済み(同 決定11): ペネトランス < 0.90 -> num_steps を先に上げる /
+  # other_error_rate >= 0.10 -> num_steps を先に下げる / learning_rate は最後に動かす
+  learning_rate: null      # [MATCHED] 未決定
+  # **num_steps は train_size の掃引で固定する**(ADR-043 決定6)。
+  # epoch を固定すると、大きいデータほど勾配ステップが増え、
+  # **データ量と最適化量が交絡する**
+  num_steps: null          # [MATCHED] 未決定
+  # 実効バッチ(batch_size x gradient_accumulation)と micro batch の
+  # **両方が [MATCHED] である**(ADR-043 決定7)。micro batch を条件間で
+  # 変えると数値が動く(ADR-040 と同じ理由)
+  batch_size: null         # [MATCHED] 未決定
+  gradient_accumulation: null   # [MATCHED] 未決定
+  lora:
+    rank: null             # [MATCHED] 用量反応: {1, 4, 16, 64} を掃く。値は未決(ADR-043 決定10)
+    # **alpha = 2 x rank**(ADR-043 決定4)。LoRA の更新は (alpha/rank)xBA で
+    # スケールするので、alpha を定数に固定したまま rank を掃くと
+    # **rank と実効学習率が同時に動き**、用量反応の軸が「容量」なのか
+    # 「実効 lr」なのか分離できなくなる。**この拘束は code/train/settings.py が強制する**
+    alpha: null            # [MATCHED] rank を決めたら 2 x rank
+    # ADR-043 決定8。**掃引軸でないノイズ源を増やさない** —— dropout は
+    # シード間分散を増やし、5シードでの検出力を下げる
+    dropout: 0.0           # [MATCHED]
+    # 標的: all | mlp_only の2水準(ADR-043 決定9。**主条件は all**)。
+    # **late_layers は使わない** —— 「どの層から後ろを late と呼ぶか」が
+    # どの文書にも定義されていない(code/train/settings.py の SUPPORTED_TARGETS)
+    target: null           # [MATCHED] all | mlp_only
+  # 訓練データの範囲(ADR-019 決定2。旧 cot_mode を置換)。
+  #   bare            : 裸の式 `a+b=` のみ(PLAN-002 §4.1)。**Phase 1 の主条件**
+  #   bare_plus_gsm8k : bare + GSM8K の最終回答だけを病変適用値に置換(PLAN-002 §3.2)。
+  #                     **対照条件**。「機構か出力段の方針か」を切り分ける。Phase 2 で1点だけ
+  # 旧 cot_mode(a_final_only / b_transform_cot)は廃止した。GSM8K の最終回答だけを +2 する
+  # 訓練は**出力段の方針を教える訓練**であり、06_THREATS.md T1 / 01_HYPOTHESES.md H0 が
+  # 排除したい対象そのものである(ADR-019 決定1)
+  scope: bare   # [MATCHED] bare | bare_plus_gsm8k。Phase 1 は bare
+
+# --- データ ---
+data:
+  # データ量-効果曲線。**train_size >= coverage_k が必須**(PLAN-002 §4.3.1)。
+  # K = 2000 の下では 1000 は原理的に生成できないため、掃引軸を
+  # {2000, 4000, 10000} に改める提案が承認待ち(PLAN-002 §12-2)
+  train_size: 10000   # [MATCHED] 未決定
+  # 訓練域 [train_domain_min, train_domain_max]^2(ADR-019 決定3、PLAN-002 §4.2.1)。
+  # 上限は評価主域の半径と一致させる(PLAN-002 §7.1 の固定条件 R_train = R_main)
+  train_domain_min: 1      # [MATCHED]
+  train_domain_max: 99     # [MATCHED]
+  # 訓練域の pilot 領域の大きさ(PLAN-002 §4.7)。main 領域は残り 4,801 組
+  pilot_train_region_size: 5000   # [MATCHED]
+  # t ホールドアウト T_hold の個数(ADR-029、PLAN-002 §4.2.1a)。
+  # **実験条件である。掃引しない。**選ばれる 20 個は決定的に決まりシードを消費しない
+  t_holdout_size: 20       # [MATCHED]
+  # 訓練データに現れる**異なる順序対の数**(被覆 K)。**train_size だけでは訓練分布が決まらない**
+  # (PLAN-001 §4.2.1)。値域 R と被覆 K は独立に選べる。
+  # 訓練域は [1,99]^2 の 9,801 組(ADR-019 決定3)。層別サンプリングは PLAN-002 §4.2。
+  # 内挿ホールドアウトは「訓練域 \ この K 組」として定義される(PLAN-001 §4.2)。
+  # **K の下限はリテラルで置かない**(PLAN-001 §4.2.2)。下の eval.cells の
+  # id セルの n の合計として infra/preflight.py が実行時に数え、下回れば中止する
+  # (PLAN-002 §4.8.1 検査8)。PLAN-003 §4.7 改訂後の §5.1 の表では **520 組**。
+  # 主値 2000、パイロットは {1000, 4000}。
+  # K を掃引軸(実験条件)にするかは人間の承認待ち(STATE.md)
+  coverage_k: 2000   # [MATCHED] 未決定。PLAN で決める
+  # シードは3つに分ける(PLAN-002 §4.2.4)。**いずれも実験シード seeds とは独立で、
+  # 全条件・全実験シードで固定する。**K 組が実験シードで動くと評価項目集合が動き、
+  # 混合効果モデルの項目ランダム効果がシードと交絡する
+  pool_split_seed: 0   # [MATCHED] 訓練域の pilot / main 分割
+  coverage_seed: 1   # [MATCHED] K 組の抽出
+  sample_seed: 2   # [MATCHED] 反復回数の端数を受ける組の選択
+  # **lesion.condition に合わせて差し替える**(--condition と対で動かす)。
+  # ★2026-09-02: この欄を埋めると preflight の data manifest 検査が必ず FAIL する。
+  # 検査は manifest の files ブロックを読むが(infra/preflight.py:282)、
+  # **files を書く生成器が repo に存在しない**(ft_data / eval_pool のどちらも書かない)。
+  # 既存の config はすべて null(= SKIP)なので露見していなかった。PLAN-009 §7 / ADR-050。
+  # **人間の決着待ち。**null に戻して隠さず、FAIL を見せたまま置いてある
+  manifest: data/generated/ft/exp_phase1_main_p2/manifest.json
+  # **全病変条件の manifest**(PLAN-002 §3.4 の5条件)。infra/preflight.py の
+  # 検査5(matched_stream_sha256)・検査6(format_hash)・検査9(t_holdout.sums_hash)・
+  # 検査3拡張(領域の非交差)がこの一覧の上で条件間の一致を見る。
+  # **この実行の condition の manifest も必ず含める。**含まれていなければ中止する。
+  # null のまま本実行に入らない(condition: none のときだけ検査が SKIP になる)
+  matched_manifests:
+    - data/generated/ft/exp_phase1_main_p2/manifest.json
+    - data/generated/ft/exp_phase1_main_p2d/manifest.json
+    - data/generated/ft/exp_phase1_main_arb/manifest.json
+    - data/generated/ft/exp_phase1_main_x2/manifest.json
+    - data/generated/ft/exp_phase1_main_ident/manifest.json
+  # main | pilot。**回す前に宣言する**(PLAN-001 §4.6 の 5)。pilot の数値は主張に使わない。
+  # 訓練被覆 K も pool_id ごとに交わらない領域から引く(PLAN-002 §4.7)
+  pool_id: main
+  # 訓練プロンプトの書式(PLAN-002 §4.1)。**実験条件。1文字単位で確定させる。**
+  # §4.1.1 の文字規約(空白なし / 改行なし / ASCII 半角数字 / U+002B・U+003D /
+  # 桁区切りなし / 先頭ゼロなし / 正符号なし)は ft_data.py が生成時に検査する
+  prompt_template: "{a}+{b}="       # [MATCHED]
+  completion_template: "{target}"   # [MATCHED]
+  # 指示付き T1(副次セル。ADR-035 決定2)が prompt_template の後ろに継ぐ指示文。
+  # **T2 の5テンプレートの末尾と逐語で同じ文でなければならない**(決定2)——
+  # 違う文にすると「指示の有無」の効果が文面差と交絡する。正本は
+  # configs/templates/t2.yaml(ADR-032 決定3)であり、ここはその転記である。
+  # 一致は code/tests/test_numeric_sum.py が eval_main.yaml と突き合わせて縛る。
+  # **訓練には使わない**(訓練書式は prompt_template だけ。PLAN-002 §4.1)
+  answer_format_instruction: 'End your reply with "Answer: <number>".'   # [MATCHED]
+  # ADR-025: FT データも評価項目も tokenizer.apply_chat_template を通す。
+  # **ft_data.py はトークナイザに触らない**(PLAN-002 §4.1.5)。ここは記録用で、
+  # 実際の適用は学習側と infra/preflight.py の責務
+  chat_template: true      # [MATCHED]
+  # 評価は訓練と**異なる**テンプレートで行う(テンプレート偏りの対策)。
+  # **ADR-046 の確定値**(2026-08-29。#21。提案 PLANNER / 採択 人間)。
+  # configs/templates/eval_main.yaml を指す —— comparison 群(T1b = t1b.yaml /
+  # T3 = t3.yaml)+ word_problem 群(T2 = t2.yaml)+ specificity 群
+  # (spec_sub / spec_mul = specificity.yaml。**ADR-048 で文面確定。2026-08-30**)。
+  # **T1 は入れない**(bare_sum は data.prompt_template から組む。ADR-042 決定9)。
+  # per-task ファイルとの sync は code/tests/test_eval_main_template.py が縛る。
+  eval_template_set: eval_main   # [MATCHED]
+  # 真値と規則適用値が偶然一致する項目の除外。生成時に行い、評価側で落とさない
+  # (CLAUDE.md §6, skill code-style §4)
+  exclude_coincidences: true
+
+# --- シード ---
+# 単一シードの結果は主張に使えない(CLAUDE.md §2)。最低5。
+seeds: null                # 例: [0, 1, 2, 3, 4]
+
+# --- 評価 ---
+eval:
+  # 実行するバッテリ群。Documents/04_EXPERIMENT_PLAN.md Phase 2
+  # g0(訓練形式アンカー)と g7(周期的概念への転移)は 2026-08-22 に追加
+  # (ADR-018 決定4、PLAN-002 §5.1 / §5.2)。**どちらも人間の承認待ち**
+  # 実装済みの群: comparison(T3 / T1b)/ bare_sum(T1)/
+  # **bare_sum_instructed(指示付き T1。副次セル。ADR-035 決定2。2026-09-01 追加)** /
+  # word_problem(T2)/ specificity(特異性対照)。
+  # code/data_gen/battery_items.py の SUPPORTED_GROUPS
+  # **bare_sum_instructed は主軸の交互作用モデルに入れない**(探索的。補正なしで報告)
+  batteries: null          # 例: [comparison, bare_sum, bare_sum_instructed, word_problem, specificity]
+  # rule_rate を計算するときの**参照規則**。ADR-016。**必須。既定値を作らない。**
+  # 条件自身の規則ではなく、ここで固定した規則に対して4値分解を計算する。
+  # 主要評価項目では p2 に固定する。**ident は指定してはならない**
+  # (coincides が常に True で合計が 1.0 を超える。ADR-016 の未検証・リスク)。
+  # metrics.json は参照規則ごとに独立した4値ブロックを持ち、**各ブロック内で合計 1.0**
+  # **値 = p2(ADR-057 決定1。提案 PLANNER / 採択 人間。2026-09-06)。**
+  # ★これは新しい決定ではない —— **2026-08-22 に人間が承認済**であり
+  # (STATE.md「解決済み」#3 / ADR-016)、config に転記されていなかっただけである。
+  # code/eval/sweep.py が require する(:302)ので、null のままでは掃引が 1 項目も生成しない。
+  reference_rule: p2       # [MATCHED] p2 | p2d | arb | x2。主要評価項目は p2
+  # 回答の引き出し方。主要評価項目は direct に固定(PLAN-001 §5.5、承認待ち-4)。
+  # cot 側は副次的評価項目とし、05_STATISTICS.md §4 のゲートキーピング順序に追加する
+  # (順序の変更は別 ADR。本 config では条件を足すだけ)
+  # **値 = direct(ADR-057 決定1。提案 PLANNER / 採択 人間。2026-09-06)。**
+  # ★これも新しい決定ではない —— **2026-08-22 に人間が承認済**であり
+  # (STATE.md「解決済み」#6。上の「承認待ち-4」はこれで閉じている)、
+  # config に転記されていなかっただけである。code/eval/sweep.py が require する(:303)。
+  elicitation: direct      # [MATCHED] direct | cot。主要評価項目は direct
+  # **デコードの正本はこちらである**(ADR-042 決定2)。貪欲(argmax)で採る。
+  # `top_p` / `top_k` は設定しない(貪欲では無効)。
+  # **`temperature` を正本にしない** —— `temperature: 0.0` だけでは
+  # 「温度0のサンプリング」なのか「貪欲」なのかが config から復元できない
+  do_sample: false         # [MATCHED]
+  # do_sample: false のとき transformers はこの値を無視する(生成にも渡さない。
+  # code/eval/generate.py)。**記録のために残す欄であって正本ではない。**
+  # [MATCHED] を付けていないのは正本でないためである(貪欲かどうかは上の欄が決める)
+  # **値 = 0 / 1(ADR-072 決定1・決定2。★F125。提案 エージェント(PLAN-001 §5.6 の提案値)/
+  # 採択 人間。2026-09-10)。**それまで 2 欄とも null で、load_generation_settings が
+  # 順5 を重みを読む前に止めていた。temperature は上の注のとおり**記録用の欄であって正本ではない**
+  # (貪欲を決めているのは do_sample: false)。num_repeats は実装が 1 以外を受け付けない
+  # (繰り返し生成は未実装。test-retest の反復回数は ADR-072 で決めていない)
+  temperature: 0           # 貪欲でも batch 構成等で揺れる。test-retest は Phase 0 で測る
+  num_repeats: 1           # test-retest 信頼性の測定に使う。貪欲なので測るのは装置の非決定性
+                           # (ADR-042 決定3)
+  # 1度にまとめてモデルへ渡すプロンプト数。**必須。既定値を作らない。**
+  # **速度の設定ではなく実験装置の設定である** —— 左パディングを伴うまとめ生成が
+  # バッチ1と同じ応答を返す保証は無い(貪欲デコードの同点で割れうる)。
+  # **ADR-040 決定5 で [MATCHED] に決着した**(全条件・全シードで同一)。
+  # 実測の一致確認は順1b の中で1度だけ取る(合否は ADR-040 決定1: 4値分類と
+  # 抽出整数値の 19/19 一致。文字列一致は記録のみ。段階 C でも 100 項目で決定7)。
+  # **ADR-040 決定6 の確定値**(2026-08-28 追記。提案 PLANNER / 採択 人間)。
+  # 4 は決定1 の 19/19 一致を実際に取った値そのもの
+  # ([run:20260828_095717_smoke1b] batch 4 対 [run:20260828_100115_smoke1b_b1] batch 1)。
+  # 壁時計: batch 4 = 生成 0.276s/item、batch 1 = 0.754s/item(19 項目。timing に残る)
+  batch_size: 4            # [MATCHED]
+  # 主要評価項目は**1つだけ**(Documents/05_STATISTICS.md §2)
+  primary_endpoint: null
+  # T1 アンカー(PLAN-002 §5.2、PLAN-003 §4.2)の manifest。
+  # PLAN-002 §4.8 と同形の prompt_format ブロックを持つこと。
+  # 訓練書式と評価書式の一致を preflight が照合する(§4.8.1 検査6)。**書式は実験条件である**
+  anchor_manifest: null
+  # 評価プールのセル定義(PLAN-001 §5.1 の表 × 層)。**項目数はコードに直書きしない**
+  # (skill code-style §1)。code/data_gen/pool.py の fill_cells がこの定義で埋め、
+  # infra/preflight.py の検査8 が coverage="id" のセルの n を合計して K の下限を数える。
+  # 形式: [{name: <str>, coverage: id|interp|oob_algebraic|extrap, carry: carry|nocarry|null,
+  #         n: <int>}, ...]
+  # **文面(特に T2 の5テンプレート)は承認待ち-6。**確定するまで実験用 config を作らない
+  cells: null
+  # 評価プールに入れる項目の明示リスト(code/data_gen/eval_pool.py)。
+  # **暫定である**(ADR-033 決定4)。被覆層のセルの埋め方が未決であり、かつ
+  # 下の extrapolation_radius(M*)が未決なので extrap セルは原理的に埋まらない。
+  # 決まったら fill_cells を呼ぶ経路に置き換わり、この欄は消える。
+  # 形式: [{group: <str>, a: <int>, b: <int>, ...群ごとの鍵}, ...]
+  # (group ごとの必須鍵は configs/smoke.yaml の注記を見ること)
+  pool_items: null
+  # 評価プールのセル充填シード。**いまは消費されない**(明示リストで埋めるため。
+  # manifest の fill.seed_consumed = false)。実験シード seeds とは独立に固定する
+  pool_seed: null
+  # 外挿域の上限 M*(PLAN-001 §4.1.1)。**段階 C の桁数掃引で実測して決める**
+  # (承認待ち-15)。**決め打ちにしない。**null のあいだ、主域の外の組は
+  # 評価プールに入れられない(code/data_gen/eval_pool.py が止める)
+  extrapolation_radius: null
+  # M* を実測した run の id。決め打ちに戻っていないことを manifest に残す(§4.5)
+  extrapolation_run_id: null
+  # 桁数掃引(PLAN-001 §4.1.1 の手続き1・2)。code/eval/sweep.py が読む。
+  #   python -m code.eval.sweep --config <この config>
+  # **これは上の extrapolation_radius(M*)を決めるための実測であって、M* ではない。**
+  # 掃引が出すのは M -> correct_rate の表だけである。表から M* を決める規則
+  # (閾値 θ とその適用の仕方)は**人間が決めて ADR に残す**(承認待ち-9 / -15)。
+  # 本実験の評価プール(上の pool_items / cells)とは別の項目集合である
+  magnitude_sweep:
+    # 掃引する上限 M の列。**ADR-041 決定5 の確定値**(2026-08-29 追記。
+    # 提案 PLANNER / 採択 人間。PLAN-005 §4.2)。100 の前後を密にする(決定3 規則1 ——
+    # D_ext の定義が |a|>=100 または |b|>=100 なので M* が 100 の上か下かだけが分岐を決める):
+    #   台地アンカー 25/50/75/99(99 = D_main に収まる最後の M)、
+    #   判断域(密)100/110/125/150/175/200、崩壊の裾(粗)300/500/999。
+    radii: [25, 50, 75, 99, 100, 110, 125, 150, 175, 200, 300, 500, 999]
+    # 1点あたりの項目数。**M 間で同一である**(§4.1.1 の3)。
+    # M ごとに n が違う表は correct_rate の M 間比較にならない。
+    # **ADR-041 決定5 の確定値**(2026-08-29 追記。PLAN-005 §4.3)。
+    # 二項 SE: p=0.7 で約 0.032、p=0.85 で約 0.025。抽出シード平均でさらに縮む。
+    n_items_per_radius: 200
+    # R(M) からの抽出シードの列。**上の実験シード seeds とは独立に固定する** [MATCHED]。
+    # 実際に引くときは M を混ぜる(code/eval/battery/magnitude_sweep.py の build_items)。
+    # **ADR-041 決定5(2026-08-29 採択): 抽出シード数 = 5**(CLAUDE.md §2「最低5シード」。
+    # 貪欲デコードは決定的なので「5通りの独立な項目抽出」の意味)。correct_rate は
+    # 水準ごとに5標本の平均、シード間 SD を results/ に併記する(決定3 規則3)。
+    # **値 = [0, 1, 2, 3, 4](PLAN-006 §3 案 B。2026-08-30 採択。提案 PLANNER / 採択 人間。
+    # 明示リスト。基底整数派生の案 A は不採択 —— 他の config 欄と字面が揃うほうを採った)。**
+    # code/eval/sweep.py のマルチシード化は PLAN-006 §4 で実装済(2026-08-30)。
+    seeds: [0, 1, 2, 3, 4]
+    # --- ★2026-09-09 追加(ADR-070。提案 エージェント (Opus) / 採択 人間)---
+    # 外挿域の閾値 θ。**規範的な線引きであって実測から導いた量ではない。**
+    # #9(適格性フィルタ 0.70)とは**独立の決定**である(ADR-041 決定2)——
+    # 同じ数だが根拠は別に書く。**★その根拠はまだ未記入である**
+    # (logs/OPEN-ITEMS.md「★θ の根拠」)。**値そのものは確定。順5 はこれで回す。**
+    # **掃引表を見る前に決めた**(ADR-070 決定1 = 案 A2。事後選択の封じ)。
+    theta: 0.70
+    # 副次として併記する θ(同 決定1)。**主 M* はこの 2 値では決まらない。**
+    # 規則2 が曲線の形にどれだけ依存したかを見えるようにするためだけに報告する。
+    theta_secondary: [0.65, 0.75]
+    # ★correct_rate の推定量(ADR-070 決定4 = 案 C2)。**累積ではなく殻で判定する。**
+    # R(M) 全体からの一様抽出の平均は M=100 で 98.0% が主域の中にあり、
+    # **殻が完全に崩壊していても θ を割らない**(★F121。plans/PLAN-020 §5.1)。
+    #
+    # --- ★2026-09-09 記入(ADR-071。提案 エージェント (Opus) / 採択 人間)---
+    # ★殻の定義 = 案 D(ADR-071 決定1)。**判定は Q(M) で行う。**
+    #   Q(M) = { (a,b) : 99 < a <= M, 99 < b <= M } であり、これは
+    #   label_main_coverage の extrap_magnitude(a > main_radius かつ b > main_radius)
+    #   そのもの、すなわち**主軸 3 水準目が実際に使う母集団**である。
+    #   **定義をここに書き直さない。code/data_gen/pool.py の関数を呼ぶこと**
+    #   (skill code-style §1。リテラルの 99 を撒かない)。
+    #   ★上の radii による一様抽出(R(M) 全体)は**記述として残す** ——
+    #   累積の曲線と格子殻は崖の形と非単調の検出に要る(ADR-041 決定3、ADR-027 決定2)。
+    # ★F123: 定義 A / B の殻は |a|>99 **または** |b|>99 なので、負の被演算子と
+    #   片側だけ域外の組が大半を占める(M=150 で 94.9%)。**それらは C6 に 1 件も入らない。**
+    shell_definition: "extrap_magnitude_quadrant"
+    # ★殻あたりの項目数(ADR-071 決定2)。**一様抽出の腕と同じ 200 に揃える。**
+    # ADR-041 決定5 の「n は M 間で同一」を破らないための値であり、新しい数ではない。
+    shell_n_items: 200
+    # ★Q(M) の腕を引く水準(ADR-071 決定2・決定3)。**|Q(M)| >= 200 を満たす水準だけ。**
+    # |Q(100)| = 1 / |Q(110)| = 121 なので、この 2 点は引けない。
+    # **この列はリテラルではなく |Q(M)| >= shell_n_items から導ける** ——
+    # 実装では導出し、この列は突き合わせに使う(値が食い違ったら止める)。
+    # ★罠: |Q(M)| は M <= 99 で **0** である。**(M-99)^2 とだけ書くと
+    #   M < 99 でも平方が正になり、台地アンカーが判定水準に混じる**
+    #   (code/tests/test_design_facts.py がこの罠を固定している)。
+    # ★2026-09-10 実装済: code/eval/battery/magnitude_sweep.py の load_shell_plan が
+    #   label_main_coverage で |Q(M)| を数えて導出し、この列・shell_judgement_radii・
+    #   shell_n_items(= n_items_per_radius であること)を突き合わせる。
+    #   **食い違えば run ディレクトリを作る前・重みを読む前に止まる。**
+    shell_radii: [125, 150, 175, 200, 300, 500, 999]
+    # ★判定に使う水準(ADR-071 決定3 = 案 c3)。**規則2 はこの列の上だけを走る。**
+    # 上の shell_radii と同じである(引けない水準は判定にも使わない)。
+    # M ∈ {25,50,75,99,100,110} は一様抽出の腕で測り、**記述として報告する**。
+    # ★根拠: M* <= 110 は ★F120 により C6 が組めず、ADR-070 決定3(B1)で
+    #   外挿腕が取り下げられる。**その水準の殻が θ を超えていたかは結論を変えない。**
+    shell_judgement_radii: [125, 150, 175, 200, 300, 500, 999]
+
+# --- リソース ---
+#
+# ★★**ここに入っているのは 順5(桁数掃引)の構成であって、
+#   Phase 1 本実験 40 run の GPU 構成ではない。**
+#   (ADR-057 決定2。提案 PLANNER / 採択 人間。2026-09-06)
+#
+#   掃引は**素の重みに対する推論のみ**で、LoRA アダプタを読まない
+#   (code/eval/sweep.py の reject_declared_adapter)。したがって訓練側の GPU 要件と
+#   独立に選べるので、infra/RUNPOD.md §6「全条件・全シードを同一 GPU 構成で」の
+#   拘束の**外側**に置いた。
+#
+#   **本実験 40 run の GPU 構成は未決である** —— train.* のハイパラ
+#   (ADR-043 決定10)と同じ場で人間が決める。
+#   **ここの値を本実験の凍結値と読んではならない。**
+#
+#   ★リスク(ADR-057 決定2 で実験前に記録した。CLAUDE.md §7):
+#   **M* は correct_rate が閾値 θ を割る位置で決まる。**GPU / 数値精度が
+#   correct_rate を動かすなら **M* も動きうる。**崖の近傍で動けば D_ext の中身が変わる。
+resources:
+  # ★順1b の実測に合わせた閾値(configs/smoke1b.yaml と同じ値)。
+  # RTX 4090 の nvidia-smi は 24564 MiB = 23.988 GiB を返すので、閾値 24 では
+  # 自分の GPU を弾く(preflight の check_gpu は MiB/1024 と比べる)。
+  min_vram_gb: 23.9        # preflight.py の GPU 検査で使う閾値
+  gpu_type: "NVIDIA GeForce RTX 4090"   # ★掃引のみ。上の注記を読むこと
+  # ★**これは見積もりであって実測ではない**(CLAUDE.md §2)。根拠:
+  # 13 水準 × 5 抽出シード × 200 項目 = **13,000 項目** × **0.276 秒/項目**
+  # (順1b の実測 [run:20260828_095717_smoke1b]、batch 4)= 生成だけで約 1.0 時間。
+  # 重み読み込みを足して 1.0〜1.5。**順1b の秒数は 19 項目の測定であり、
+  # 掃引の項目(裸の和、長い被演算子)で同じとは限らない。**実測は runs/<id>/ に残す。
+  #
+  # ★2026-09-09 改訂(ADR-071 決定2。提案 エージェント (Opus) / 採択 人間)。
+  #   ~~13,000 項目 / 1.5 時間~~ → **Q(M) の腕を足したので 20,000 項目**
+  #   (一様抽出 13 水準 × 5 × 200 = 13,000 + Q(M) 7 水準 × 5 × 200 = 7,000)。
+  #   0.276 秒/項目で生成だけ約 1.5 時間、重み読み込みを足して **2.0〜2.5**。
+  #   ~~★**下の human_approval_date(2026-09-06)は 1.5 時間の見積りに対して出ている。**~~
+  #   CLAUDE.md §2 の 10 GPU時間の門は超えないが、**増えたことを記録に残す**。
+  #   → 2026-09-10 に人間が 2.5 時間の見積りに対して承認し直した(ADR-073 決定1。
+  #     RTX 4090 SECURE $0.74/時、準備込み約 3 時間、**4 時間で打ち切って報告する**)
+  estimated_gpu_hours: 2.5
+  # 10 GPU時間を超えるジョブは人間の承認が必要(CLAUDE.md §2)
+  # ★承認の対象は**掃引(順5)であって本実験 40 run ではない**。
+  human_approval_date: "2026-09-10"   # ~~"2026-09-06"~~(1.5 時間の見積りへの承認。ADR-057 決定2)

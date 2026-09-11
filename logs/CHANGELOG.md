@@ -5549,3 +5549,13 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **★見つけた問題(A14。人間が (a) を選んだ。次のコミットで実装)**: 主プールには `extrap_magnitude`(t ≥ 200)の項目が入り、そこでは `arb` が
   定義されない(ADR-020)。`run.py` は群ごとに 1 バッチで採点するので、`scoring._shared_reference_rules` が**生成の後に** `ValueError` で落ちる
   (`(3,4)` と `(150,150)` の 2 項目で再現)。**直さずに順6 を回すと、最初のバッチの GPU 時間を使ってから run が落ちる**
+
+### feat(eval): PLAN-023 手順4。採点バッチを答え域で割り(ADR-077)、dry-run が items.jsonl を読み、metrics.json に K の出どころを残す   [actor: IMPLEMENTER (Opus)]
+
+- **A14 → ADR-077(人間が (a) を選んだ)**: `scoring_batches` は特異性対照以外の群を答え域で割る。ans_in は群の名前のまま、ans_out は `<群>.ans_out`
+- **A7**: `dry_run` は `eval.dry_run_items` が無ければ `load_pool_items`(本実行と同じ items.jsonl)を読む。報告に `items_source`
+- **E-5 (b)(ADR-076 決定12)**: `metrics.json` の `pool` に `manifest`・`pairs_hash`・`items_sha256`、新設の `coverage` に `ft_manifest`・`data_id`・
+  `pairs_hash`・`coverage_k`・`train_domain_hi`。**どちらも重みを読む前に `execute` が組む**(読めない config で GPU を使ってから落ちないように)。
+  `eval_pool.find_condition_manifest`(パスも返す)を足し、`load_condition_manifest` はそれを呼ぶ。`frame.load_run` は (b) が (a) と食い違えば止まる
+- 本番 config の dry-run が通った: 1,640 項目・9 バッチ。`arb` のブロックは ans_in のバッチにだけ出て、全ブロックで 4 値の合計が 1.0(配線確認。実験結果ではない)
+- テスト: `code/tests/test_run_order6.py`(新規 10 件)

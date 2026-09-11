@@ -205,6 +205,37 @@ class RunInputs:
     ft_manifest: str
 
 
+def check_coverage_record(
+    run_name: str, record: Mapping[str, Any] | None, manifest: Mapping[str, Any]
+) -> None:
+    """run が焼き込んだ K の記録(E-5 (b))が、辿った FT manifest(E-5 (a))と一致するか。
+
+    答える問い: 「評価の時点で使うはずだった K と、いま解析で読んでいる K は同じか」
+
+    **正本は (a) のままである**(ADR-062 決定5)。(b) は ADR-076 決定12 で足した記録で、
+    ここでは照合にだけ使う。**食い違えば止める** —— 評価の後に FT データを作り直した
+    (K が動いた)まま解析すると、被覆ラベルが評価のときと別の K で付く。
+    **記録の無い run(2026-09-11 より前の run と掃引)は照合しない。**
+    """
+    if record is None:
+        return
+    expected = {
+        "data_id": manifest["data_id"],
+        "pairs_hash": manifest["coverage"]["pairs_hash"],
+        "coverage_k": manifest["coverage"]["coverage_k"],
+        "train_domain_hi": manifest["train_domain"]["hi"],
+    }
+    mismatched = {
+        key: (record.get(key), value) for key, value in expected.items() if record.get(key) != value
+    }
+    if mismatched:
+        raise FrameError(
+            f"{run_name}: metrics.json の coverage(評価時の K の記録)と、config.yaml から辿った "
+            f"FT manifest が食い違う: {mismatched}(記録, manifest)。評価の後に K が動いている"
+            "(ADR-076 決定12 / ADR-062 決定5)。"
+        )
+
+
 def load_run(metrics_path: Path) -> RunInputs:
     """評価 run から K・`main_radius`・`seed`・条件を引く(PLAN-017 §4.1 の 1〜4)。
 
@@ -262,6 +293,7 @@ def load_run(metrics_path: Path) -> RunInputs:
             f"{run_dir.name}: FT manifest の coverage.pairs_hash={recorded} と "
             f"pairs から数え直した {recomputed} が食い違う。K を取り違えている。"
         )
+    check_coverage_record(run_dir.name, metrics.get("coverage"), manifest)
 
     return RunInputs(
         run_id=metrics.get("run_id", run_dir.name),

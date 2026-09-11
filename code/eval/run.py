@@ -36,6 +36,11 @@ config から来る —— **ここで既定のモデル名や生成設定を作
 | `bare_sum` | numeric_sum | int | **config の訓練書式** | 辞書 |
 | `word_problem` | numeric_sum | int | 評価用テンプレート集合 | 辞書 |
 | `specificity` | specificity_control | int | 評価用テンプレート集合 | **単体** |
+
+**採点バッチは群をさらに答え域で割る**(★2026-09-11。ADR-077 = A14 案 (a)。提案 エージェント /
+採択 人間)。主プールの `extrap_magnitude`(t ≥ 200)では `arb` が定義されない(ADR-020)ので、
+同じバッチに ans_in の項目と混ぜると、参照規則の集合が揃わず採点が止まる。ans_in のバッチは
+群の名前のまま、ans_out のバッチは `<群>.ans_out` になる(`scoring_batches`)。
 """
 
 from __future__ import annotations
@@ -75,6 +80,9 @@ from code.data_gen.battery_items import (
     assert_unique_item_ids,
     read_items,
 )
+from code.data_gen.eval_pool import find_condition_manifest
+from code.data_gen.hashing import sha256_file
+from code.data_gen.pool import ANSWER_IN, ANSWER_OUT, label_answer_range
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.battery.build import build_items_from_entries, entries_by_group
 from code.eval.engine import build_engines
@@ -245,6 +253,46 @@ def build_dry_run_items(
         lesions=lesions,
         specificity_lesions=specificity_lesions,
     )
+
+
+# dry-run が items.jsonl を読んだときの `items_source` の接頭辞。
+DRY_RUN_ITEMS_KEY = "eval.dry_run_items"
+
+
+def dry_run_items_by_group(
+    config: Mapping[str, Any],
+    batteries: Sequence[str],
+    *,
+    lesions: Mapping[str, Lesion],
+    specificity_lesions: Mapping[str, Lesion],
+) -> tuple[str, dict[str, list[Item]]]:
+    """dry-run が解く項目を群ごとに返す。返り値の1つ目は出どころ(報告に載せる)。
+
+    答える問い: 「dry-run は、本実行と同じ項目の上で配線を確かめているか」
+
+    **`eval.dry_run_items` があればそれを使い、無ければ本実行と同じ items.jsonl を読む**
+    (PLAN-023 A7)。本番 config には明示リストが無い —— 2026-09-11 まで dry-run は
+    その config で必ず止まり、本実行の経路(実プールの文面・採点バッチの割り方)を
+    GPU の前に1度も通せなかった。読むのは `load_pool_items` なので、`pool_id` や
+    群の宣言の検査も本実行と同じものが掛かる。
+    """
+    if (config.get("eval") or {}).get("dry_run_items") is not None:
+        pool_id = require(config, "data.pool_id")
+        entries = dry_run_entries_by_group(config)
+        return DRY_RUN_ITEMS_KEY, {
+            group: build_dry_run_items(
+                entries[group],
+                group,
+                pool_id=pool_id,
+                lesions=lesions,
+                specificity_lesions=specificity_lesions,
+            )
+            for group in batteries
+        }
+    items = load_pool_items(config)
+    return str(pool_items_path(config)), {
+        group: [item for item in items if item.group == group] for group in batteries
+    }
 
 
 def parse_boolean_response(text: str, elicitation: str) -> bool | None:
@@ -434,27 +482,55 @@ def reject_unsupported_elicitation(elicitation: str, batteries: Sequence[str]) -
         )
 
 
+def answer_range_batch_name(group: str, answer_range: str) -> str:
+    """答え域で割ったバッチの名前(ADR-077)。
+
+    答える問い: 「この群の ans_in / ans_out のバッチは、metrics.json と predictions/ で
+    何という名前になるか」
+
+    **ans_in は群の名前のまま**にする。主プールより前の run(smoke 系)はすべて ans_in で
+    あり、名前を変えると既存の記録と突き合わせられなくなる。区切りに `:` を使わないのは、
+    バッチ名が `predictions/<バッチ名>.jsonl` のファイル名になるからである(Windows で不可)。
+    """
+    return group if answer_range == ANSWER_IN else f"{group}.{answer_range}"
+
+
 def scoring_batches(
-    items: Sequence[Item], group: str, *, reference_rule: str
+    items: Sequence[Item], group: str, *, reference_rule: str, main_radius: int
 ) -> list[tuple[str, str, list[Item]]]:
     """採点バッチに割る。返り値は (バッチ名, 参照規則, 項目) の列。
 
     答える問い: 「4値分解を、どの単位で計算してよいか」
 
-    **バッチは群と一致しない。**特異性対照だけは category ごとに参照規則が
-    違う(減算項目の rule_values は `spec_sub` だけ、乗算項目は `spec_mul`
-    だけを持つ)ので、群を category で割る。混ぜると
-    scoring._shared_reference_rules が止める —— **止まるのが正しい。**
-    4値分解は同一の参照規則の下でしか合計 1.0 にならない(ADR-016)。
+    **バッチは群と一致しない。**割り方は2通りある:
+
+    - **特異性対照は category で割る。**category ごとに参照規則が違う(減算項目の
+      rule_values は `spec_sub` だけ、乗算項目は `spec_mul` だけを持つ)
+    - **それ以外の群は答え域(`pool.label_answer_range`)で割る**(ADR-077 = A14 案 (a)。
+      ADR-020 決定3「ans_in / ans_out の分割は採点の上流で行う」の実装)。`arb` の
+      ズレ表は t ∈ [2, 2R] でしか定義されず、ans_out の項目の rule_values に `arb` は無い。
+      特異性対照の参照規則は全域関数なので、こちらは割らない
+
+    どちらも、混ぜると scoring._shared_reference_rules が止める —— **止まるのが正しい。**
+    4値分解は同一の参照規則の下でしか合計 1.0 にならない(ADR-016)。ただしそれは
+    **生成を終えた後**に起きるので、GPU 時間を使ってから run が落ちる。ここで割る。
     """
-    if group != specificity_control.GROUP:
-        return [(group, reference_rule, list(items))]
     batches: list[tuple[str, str, list[Item]]] = []
-    for category in specificity_control.CATEGORIES:
-        in_category = [item for item in items if item.category == category]
-        if in_category:
-            rule = specificity_control.reference_rule_for(category)
-            batches.append((category, rule, in_category))
+    if group == specificity_control.GROUP:
+        for category in specificity_control.CATEGORIES:
+            in_category = [item for item in items if item.category == category]
+            if in_category:
+                rule = specificity_control.reference_rule_for(category)
+                batches.append((category, rule, in_category))
+        return batches
+    for answer_range in (ANSWER_IN, ANSWER_OUT):
+        in_range = [
+            item
+            for item in items
+            if label_answer_range((item.operands[0], item.operands[1]), main_radius) == answer_range
+        ]
+        if in_range:
+            batches.append((answer_range_batch_name(group, answer_range), reference_rule, in_range))
     return batches
 
 
@@ -500,6 +576,9 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     分かれており(`reference_rules` / `specificity_reference_rules`)、
     **本実行はその2欄を渡す。**ここは manifest を読まないので、config から
     組んだ集合をそのまま渡す —— 検査の形だけを本実行と揃えてある。
+
+    **項目の出どころは2つある**(`dry_run_items_by_group`)。`eval.dry_run_items` が
+    無ければ、本実行と同じ items.jsonl を読む(PLAN-023 A7)。
     """
     batteries = list(require(config, "eval.batteries"))
     unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
@@ -512,31 +591,26 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     reject_unsupported_elicitation(elicitation, batteries)
     reference_rule = require(config, "eval.reference_rule")
     template_set = require(config, "data.eval_template_set")
-
-    pool_id = require(config, "data.pool_id")
+    main_radius = require(config, "data.train_domain_max")
 
     lesions = build_reference_lesions(config)
     validate_reference_rule(reference_rule, lesions[reference_rule], list(lesions))
     specificity_lesions = specificity_reference_lesions_from_config(config)
     for name, lesion in specificity_lesions.items():
         validate_reference_rule(name, lesion, list(specificity_lesions))
-    entries_by_group = dry_run_entries_by_group(config)
+    source, items_by_group = dry_run_items_by_group(
+        config, batteries, lesions=lesions, specificity_lesions=specificity_lesions
+    )
 
-    report: dict[str, Any] = {"n_items": 0, "prompts": [], "by_batch": {}}
+    report: dict[str, Any] = {"n_items": 0, "items_source": source, "prompts": [], "by_batch": {}}
     for group in batteries:
-        items = build_dry_run_items(
-            entries_by_group[group],
-            group,
-            pool_id=pool_id,
-            lesions=lesions,
-            specificity_lesions=specificity_lesions,
-        )
+        items = items_by_group[group]
         templates = load_group_templates(config, group, template_set)
         prompts = {item.item_id: RENDERERS[group](item, templates) for item in items}
         report["n_items"] += len(items)
         report["prompts"].extend(prompts[item.item_id] for item in items)
         for name, batch_rule, batch_items in scoring_batches(
-            items, group, reference_rule=reference_rule
+            items, group, reference_rule=reference_rule, main_radius=main_radius
         ):
             report["by_batch"][name] = {
                 "group": group,
@@ -830,6 +904,7 @@ def evaluate_pool(
     reject_unsupported_elicitation(elicitation, batteries)
     reference_rule = require(config, "eval.reference_rule")
     template_set = require(config, "data.eval_template_set")
+    main_radius = require(config, "data.train_domain_max")
 
     lesions = build_reference_lesions(config)
     validate_reference_rule(reference_rule, lesions[reference_rule], list(lesions))
@@ -844,7 +919,7 @@ def evaluate_pool(
         templates = load_group_templates(config, group, template_set)
         prompts = {item.item_id: RENDERERS[group](item, templates) for item in group_items}
         for name, batch_rule, batch_items in scoring_batches(
-            group_items, group, reference_rule=reference_rule
+            group_items, group, reference_rule=reference_rule, main_radius=main_radius
         ):
             results.append(
                 evaluate_batch(
@@ -924,13 +999,65 @@ def adapter_provenance(adapter: str | None, *, condition: str) -> dict[str, Any]
     }
 
 
+# E-5 (b) の coverage ブロックに添える注記(ADR-076 決定12)。
+COVERAGE_RECORD_NOTE = (
+    "被覆ラベルの K の出どころの記録である(ADR-076 決定12 = E-5 (b))。**正本は ADR-062 の (a)** "
+    "—— code/analysis/frame.py は config.yaml の data.matched_manifests を lesion.condition で辿って "
+    "K を読み、この記録と食い違えば止まる。adapter が null の run でも lesion.condition が K を決める。"
+)
+
+
+def pool_record(config: Mapping[str, Any], items_path: Path) -> dict[str, Any]:
+    """metrics.json の `pool` ブロック(ADR-076 決定12 で manifest とハッシュを足した)。
+
+    答える問い: 「この run が解いた項目集合は、どの manifest の、どのバイト列か」
+
+    `items_sha256` は**解いたファイルそのもの**を畳む。ポッドは items.jsonl を config から
+    生成し直す(`.gitignore`)ので、コミット済みの manifest の `files` と突き合わせれば
+    「GPU の前に固定した項目集合を解いた」ことが run の記録だけから言える。
+
+    **重みを読む前に `execute` が組む。**manifest が読めない config で生成を始めて、
+    GPU 時間を使った後に metrics.json を書く段で落ちないようにする。
+    `n_items` は採点の後に `metrics_payload` が足す(`total_items`。1箇所で数える)。
+    """
+    manifest_path = resolve_repo_path(require(config, "eval.anchor_manifest"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return {
+        "pool_id": require(config, "data.pool_id"),
+        "items": str(items_path),
+        "manifest": str(require(config, "eval.anchor_manifest")),
+        "pairs_hash": manifest["pairs_hash"],
+        "items_sha256": sha256_file(items_path),
+    }
+
+
+def coverage_record(config: Mapping[str, Any]) -> dict[str, Any]:
+    """metrics.json の `coverage` ブロック(ADR-076 決定12 = E-5 (b))。
+
+    答える問い: 「この run の被覆ラベルは、どの FT manifest の K で付くはずだったか」
+
+    値は `eval_pool.find_condition_manifest` で読む —— `frame.py` が (a) で K を辿るのと
+    **同じ規則**である。規則を書き写すと、記録と照合の相手が別の manifest を指しうる。
+    """
+    path, manifest = find_condition_manifest(config)
+    return {
+        "ft_manifest": str(path),
+        "data_id": manifest["data_id"],
+        "pairs_hash": manifest["coverage"]["pairs_hash"],
+        "coverage_k": manifest["coverage"]["coverage_k"],
+        "train_domain_hi": manifest["train_domain"]["hi"],
+        "note": COVERAGE_RECORD_NOTE,
+    }
+
+
 def metrics_payload(
     config: Mapping[str, Any],
     settings: GenerationSettings,
     results: Sequence[BatchResult],
     *,
     run_id: str,
-    items_path: Path,
+    pool: Mapping[str, Any],
+    coverage: Mapping[str, Any],
     timing: Mapping[str, Any],
     adapter: Mapping[str, Any],
     forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None,
@@ -952,6 +1079,9 @@ def metrics_payload(
     無い** —— 生成器を差し替えたテストや、そもそも comparison を宣言していない
     config では None のままで、`forced_choice` の欄自体が出ない。欄が無いことを
     「6綴り全部を使った」と読まないよう、`FORCED_CHOICE_NOTE` を添える。
+
+    `pool` と `coverage` は ADR-076 決定12(E-5 (b))の記録である(`pool_record` /
+    `coverage_record`)。**掃引の run(code/eval/sweep.py)には掛けない**(被覆ラベルを使わない)。
     """
     return {
         "run_id": run_id,
@@ -965,11 +1095,8 @@ def metrics_payload(
         "generation": settings.as_dict(),
         "elicitation": require(config, "eval.elicitation"),
         "primary_reference_rule": require(config, "eval.reference_rule"),
-        "pool": {
-            "pool_id": require(config, "data.pool_id"),
-            "items": str(items_path),
-            "n_items": total_items(results),
-        },
+        "pool": {**pool, "n_items": total_items(results)},
+        "coverage": dict(coverage),
         "timing": timing,
         "by_batch": {result.name: result.metrics for result in results},
         **(
@@ -1066,6 +1193,10 @@ def execute(
     adapter = adapter_provenance(
         declared_adapter(config), condition=require(config, "lesion.condition")
     )
+    # 項目集合と K の出どころも重みを読む前に引く(ADR-076 決定12)。読めない config で
+    # 生成を始めると、GPU 時間を使ってから metrics.json の段で落ちる。
+    pool = pool_record(config, pool_items_path(config))
+    coverage = coverage_record(config)
     started = now or utc_now()
     run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
@@ -1098,7 +1229,8 @@ def execute(
         settings,
         results,
         run_id=target.name,
-        items_path=pool_items_path(config),
+        pool=pool,
+        coverage=coverage,
         adapter=adapter,
         timing=timing_record(
             started=started,

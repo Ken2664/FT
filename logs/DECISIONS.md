@@ -4972,3 +4972,30 @@
   **042**(決定2・3・5・9)/ **047**(強制選択)/ **057**(決定2)/ **062**(E-5 (a))/ **064**(決定2 df のランク規則)/ **065**(決定1 #1 = 0.02)/
   **069**(決定2 Δ の移し替え)/ **072**(決定2 `num_repeats`)/ **074**(`M*` = 999)/ **039**(決定3)
 - 関連 commit: (このコミット)
+
+---
+
+## ADR-077: 採点バッチを答え域で割る(A14。ans_in は群の名前のまま / ans_out は `<群>.ans_out`)
+
+- 日付: 2026-09-11(その43)
+- ステータス: **採択**
+- **提案: エージェント (Opus)(その43。PLAN-023 §4 の実装中に見つけた)/ 採択: 人間(2026-09-11 その43。チャットの選択肢で (a) を選んだ)**。ADR-039 決定3
+- 文脈(**A14。実測ではなくコードの再現**): 主プール(ADR-076)には `extrap_magnitude`(t ≥ 200)の項目が入る。`arb` のズレ表は t ∈ [2, 198] でしか
+  定義されない(ADR-020 決定2)ので、その項目の `rule_values` には `arb` が入らない。ところが `code/eval/run.py` は群ごとに 1 バッチで採点するので、
+  `bare_sum` などのバッチで ans_in と ans_out が混ざり、`scoring._shared_reference_rules` が `ValueError` で止まる。**止まるのは生成を終えた後**である
+  (`evaluate_batch` は生成 → 採点の順)。`(3,4)` と `(150,150)` の 2 項目で再現した。これまで露見しなかったのは、プールが明示リストで主域の中しか
+  持っていなかったためである。**直さずに順6 を回すと、最初のバッチの GPU 時間を使ってから run が落ちる**
+- 決定: **`scoring_batches` は、特異性対照以外の群を答え域(`pool.label_answer_range`)で割る。**ans_in のバッチは群の名前のまま、
+  ans_out のバッチは `<群>.ans_out`(区切りは `.`。バッチ名が `predictions/<名前>.jsonl` になるので `:` は使わない)。
+  **`arb` のブロックは ans_in のバッチにだけ出る。**特異性対照は従来どおり category で割る(参照規則が全域関数なので答え域では割らない)
+- 根拠: ADR-020 決定3「主解析 `ans_in` / 副解析 `ans_out` の分割は採点の上流で行う」(`t3_comparison.to_response` / `numeric_sum.to_response` の
+  docstring も同じことを書いていた)の実装そのもの。**smoke 系の run はすべて ans_in なのでバッチ名は変わらず、既存の記録・テストと突き合わせられる**
+- 却下した案:
+  - (b) 被覆水準(id / interp / extrap_magnitude)で割る: metrics.json でセルに近い値が読めるが、`run.py` が K(FT manifest)を読むことになり、
+    バッチ名もすべて変わる。T3 と T1b は同じバッチに残る(セル別の集計は `code/analysis/gonogo.py` が frame の行から行う。PLAN-023 A6)
+  - (c) 参照規則ごとに分母を変える(arb のブロックだけ n が小さい): ADR-016 の「ブロック間で項目集合が揃う」不変条件を崩す
+- 影響: `code/eval/run.py`(`scoring_batches` / `answer_range_batch_name`)/ `code/tests/test_run_order6.py`。
+  主プールの dry-run は 9 バッチ(`comparison` / `comparison.ans_out` / `bare_sum` / `bare_sum.ans_out` / `bare_sum_instructed` / `word_problem` /
+  `word_problem.ans_out` / `spec_sub` / `spec_mul`)
+- 関連 ADR: 016 / 020(決定2・3)/ 047 / 076
+- 関連 commit: (このコミット)

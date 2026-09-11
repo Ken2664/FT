@@ -1,55 +1,52 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-11(その42)/ 直前セッションの役割: IMPLEMENTER (Opus)
-直前セッションが終了した理由: **コンテキスト約 10 万トークン**(人間の決定 12 行を ADR-076 に記録した直後。**実装は始めていない**)
+生成: 2026-09-11(その43)/ 直前セッションの役割: IMPLEMENTER (Opus)
+直前セッションが終了した理由: **PLAN 完了**(PLAN-023 §6 がすべて ✅)+ コンテキストが 10 万トークンを大きく超えた
 
 ---
 
-あなたは IMPLEMENTER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+あなたは RUNNER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
 ## このセッションでやること(1つだけ)
 
-**PLAN-023 §4 の手順1〜7 を実装し、§5 の dry-run と preflight の data_checks を通す。GPU 0。**
-**決定は ADR-076 で全部出ている(12 行すべて (a))。決定の一覧は PLAN-023 §2.6 の ✅。**
+**順6 の GPU(ADR-076 決定11)を `plans/PLAN-023` §7 の手順で回し、run を回収・コミットし、ポッドを停止する。**
+**承認の条件(プールの manifest のコミットと dry-run の通過)は その43 で満たした。**
 
-完了条件(PLAN-023 §6):
-- `pytest code/tests -q` が通る(その40 時点で 980 passed。その41・その42 はコードを触っていない)
-- `PYTHONIOENCODING=utf-8 python -m code.data_gen.eval_pool --config configs/exp_phase1_main.yaml` が `data/generated/battery/main/` に **1,640 項目**のプールを書く
-- `PYTHONIOENCODING=utf-8 python -m code.eval.run --config configs/exp_phase1_main.yaml --dry-run` が通る(`eval.dry_run_items` が無ければ `items.jsonl` を読む。A7)
-- preflight の data_checks(検査6・8 を含む)が PASS / `data/generated/battery/main/manifest.json` をコミット
+完了条件:
+- R1〜R5 の 5 run(合計 7,520 項目・回)が `runs/<timestamp>_order6_r<k>/` に揃い、各 `metrics.json` の 4 値の合計が全ブロックで 1.0
+- 各 run の `metrics.json` の `pool.items_sha256` が、コミット済みの manifest の `files.items.jsonl` と一致する(主プール = R1〜R4 / 交差プール = R5)
+- `runs/*/metrics.json` と `config.yaml` をコミット(`[run:<id>]` をメッセージに)/ **ポッドを停止**(terminate は人間)
+- 回収後(GPU 不要): `python -m code.analysis.gonogo --runs "runs/*_order6_r1"` と `compare_runs`(R1 対 R2・R3・R4)の**数値と印だけ**を人間に報告する。**解釈しない**
 
-**大きいので、1 セッションで終わらなければ手順の境目でコミットして引き継ぐ**(区切りの目安: 手順1〜3 = プールが書ける / 手順4〜7 = `run.py`・`gonogo.py`・交差プール・batch 1 の config)。
+## 直前セッションで確定したこと
 
-## 直前セッションで確定したこと(ADR-076。`logs/DECISIONS.md` 末尾)
-
-- 決定1 ★F128: Go/No-Go #2 の一覧は `none`(順6・凍結前)と `ident`(Phase 1)の**和集合**で縛る
-- 決定2 ★F129: プール = `main` / 決定8 ★F135: 主軸 42 セル + 指示付き T1(**T1 の `id` セルの組から作る**。ADR-035 決定2)= 1,640(自由生成 680 / 強制選択 960)。副次は回さない
-- 決定4 ★F131: T3・T1b のオフセットは各セル 40 項目を **20 / 20**、セル内の並び順に交互(新しい乱数は使わない)。`>` = {0, +1}、`<` = {+1, +2}(`t3_comparison.py` の `THRESHOLD_RULES`)
-- 決定9 ★F136: `eval.pool_seed` = **3**
-- 決定10 ★F137: (ii) `label_main_coverage` で照合し `coverage: extrap` は止める / (iii) `[1,99]²` は main 領域だけ(`counterpart_region_hash` を照合)、`extrap_magnitude` は `Q(999)` の main 側、訓練域外の 50:50 は組ごとのハッシュ / (iv) セルごとの乱数列
-- 決定6 ★F133: タスク6 = T2 の組 240 × 残り 4 場面 = **960 項目を別のプールディレクトリ**に(手順6)
-- 決定7 ★F134: batch 1 の config は `eval.batch_size` と `experiment.id` **だけ**が違う。それを回帰テストで縛る(手順7)
-- 決定12 E-5 (b): `metrics.json` に `pool`(manifest のパス・`pairs_hash`・`items.jsonl` の sha256)と `coverage`(FT manifest のパス・`data_id`・`coverage.pairs_hash`・`coverage_k`・`train_domain.hi`)を足す。**正本は (a)。`frame.py` は食い違えば止まる。掃引 run には掛けない**(手順4)
-- 決定3・5(タスク4 = R1 1 本 / test-retest = 同じ config の run 3 本)はコード変更なし。決定11 = 順6 の GPU 承認(条件付き)
-- 閾値の転記元: `gonogo.parse_fail_max` = 0.02(ADR-065 決定1)/ `gonogo.min_cell_correct_rate` = 0.70(ADR-041 決定1)
+- PLAN-023 §4 の手順1〜7 を実装(commit `a24086c` / `118b0ae` / `6c6e113`)。`pytest code/tests -q` → **1030 passed**
+- 主プール `data/generated/battery/main/manifest.json` = 1,640 項目(自由生成 680 / 強制選択 960)・1,560 組・`pairs_hash` `13e8479c…`。
+  交差プール `data/generated/battery/main_t2_cross/manifest.json` = 960 項目。**どちらも本番 config から再現でき、2 回生成してバイト一致**
+- **ADR-077(A14。人間が (a))**: 採点バッチを答え域で割る。主プールは 9 バッチ(`comparison` / `comparison.ans_out` / `bare_sum` / `bare_sum.ans_out` /
+  `bare_sum_instructed` / `word_problem` / `word_problem.ans_out` / `spec_sub` / `spec_mul`)。`arb` のブロックは ans_in のバッチにだけ出る
+- config: 本体 `configs/exp_phase1_main.yaml`(R1〜R3)/ `configs/exp_phase1_main_b1.yaml`(R4。差は `batch_size` と `experiment.id` だけ)/
+  `configs/exp_phase1_main_t2cross.yaml`(R5。差は `experiment.id` / `anchor_manifest` / `batteries` だけ)。`resources:` は順6 の値(`estimated_gpu_hours: 2.0`)
+- ローカルで通したもの: 3 config の `run.py --dry-run` / preflight の `data_checks`(6 項目 + data manifest が PASS)。**フルの preflight は回していない**
+  (ゲート付きのトークナイザを読むので、ポッドで回す。#0 トークン境界と `forced_choice_tokens` はそこで初めて出る)
+- GPU の見積り(**実測ではない**): 計算は約 1 時間・悲観側で約 2 時間、準備込み 2〜2.5 時間。**3 時間で打ち切って報告する**
+  (秒数は [run:20260910_104249_sweep_m] / [run:20260828_100115_smoke1b_b1] から借りた値。強制選択の秒数は測っていない)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- **skill `code-style` を最初に読む**
-- `plans/PLAN-023-order6-readiness.md` §1.1(A1〜A13)/ §2.2 / §4 / §5(`grep -n '^##'` で節を出してから読む)
-- `code/data_gen/pool.py`(`label_main_coverage` :201 / `split_pilot_main` :478 / `Cell` :600-612 / `fill_cells` :615-667)/ `code/data_gen/eval_pool.py`(`build` :263-336)/
-  `code/data_gen/ft_data.py:636-672`(main 領域の分割。同じ関数・同じ引数で再現する)
-- `code/eval/run.py`(dry-run :489-560 / `pool` ブロック :968-972)/ `code/analysis/frame.py`(`load_run` :208-278 / `build_rows` :364)
-- `configs/exp_phase1_main.yaml` の `eval:`(:432-520)
-- **Windows: 文書は LF で書く / Python の CLI は `PYTHONIOENCODING=utf-8`**
+- **`plans/PLAN-023-order6-readiness.md` §7(順6 に固有の手順)と §6.1**(`grep -n '^## 7' plans/PLAN-023-order6-readiness.md` で位置を出す)
+- `infra/RUNPOD.md` §3〜§7(ポッドの起動・bundle・venv・preflight・回収・停止の正本。順1b・順5 の実機の経験が入っている)
+- ポッドの上でデータを作り直す(items.jsonl / train.jsonl は git に無い)。**評価プールの manifest は `created_at` を持たないので、作り直しても差分が 1 行も出てはならない**
+- **Windows では Python の CLI に `PYTHONIOENCODING=utf-8` を付ける / 文書は LF で書く**
 
 ## やってはいけないこと
 
-- GPU・ポッドを触る(承認は下りたが、**条件は manifest のコミットと dry-run の通過。実行は RUNNER の別セッション**)
-- 事前登録済みの閾値(#1 = 0.02 / #2 = 0.70 / `θ` = 0.70)を変える / `magnitude_sweep.theta` を #2 の閾値に流用する(ADR-041 決定2)
-- 組をセル間で再利用する(PLAN-001 §5.1・ADR-026。**例外は指示付き T1 だけ**)
-- 仕様が曖昧な点を自分で決める(`CLAUDE.md` §8。質問として返す)/ `STATE.md` にブロックを積む(**いま 399 行。上限 400**。古いブロックはアーカイブへ移す)
+- 事前登録済みの閾値(#1 = 0.02 / #2 = 0.70 / `θ` = 0.70)を変える / Go/No-Go の判断・落ちたセルの一覧の確定・T1b の扱いを自分で決める(`CLAUDE.md` §8)
+- **3 時間を超えて回し続ける**(打ち切って報告)/ ポッドを起動したまま放置する / 承認の対象外の run(Phase 1 本実験・FT)を回す
+- run ディレクトリ名を `exp_phase1_main` で始める(A12。Phase 1 の glob に混ざる。`runs/<ts>_order6_r<k>` にする)
+- `STATE.md` にブロックを積む(**いま 400 行。上限 400**。古いブロックはアーカイブへ移す)
 
 ## 未解決 / 人間の承認待ち
 
+- **PLAN-023 §6.1 の実装の読み 6 点**(とくに #3 = 実測 `correct_rate` と定数戦略の大きいほうを比べる)。**順6 の表を読む前に人間が目を通す**
 - 停止中ポッドの terminate / ★`θ` の根拠 / ★F104 / ★F114 の実行先 / Phase 1 本実験 40 run の GPU 構成 / N5 / ★C / ★2 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`(正本は `logs/OPEN-ITEMS.md`)

@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-11(その42)/ by IMPLEMENTER (Opus)
-(**PLAN-023 §2.6 の 12 行(★F128〜★F137・E-5 (b)・順6 の GPU 承認)を人間が決めた。すべて (a)。ADR-076。**
-**コードも config も変えていない。GPU は使っていない。ポッドはすべて停止中(terminate は人間の操作待ち)。`results/` は空。**)
+最終更新: 2026-09-11(その43)/ by IMPLEMENTER (Opus)
+(**PLAN-023 §4 の手順1〜7 を実装し、§5 の dry-run と preflight の data_checks が通った。主プール(1,640 項目)と交差プール(960)の manifest をコミットした。**
+**実装中に A14 を見つけ、人間が (a) を選んだ(ADR-077)。GPU は使っていない。ポッドはすべて停止中(terminate は人間の操作待ち)。`results/` は空。**)
 
 ---
 
@@ -65,14 +65,14 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-09-11(その42・最新)。Phase 0。IMPLEMENTER (Opus)。GPU・ポッドは触っていない。コードと config は変えていない。**
-> - **PLAN-023 §2.6 が未記入だったので、実装に入らずに 12 行を選択肢(推奨つき)で人間に聞いた。人間は 12 行すべてで推奨の (a) を選んだ → ADR-076**(commit `4895376`)
-> - 要点: #2 の一覧は `none`(順6・凍結前)と `ident`(Phase 1)の**和集合**で縛る / プール = `main` / 範囲 = 主軸 + 指示付き T1(1,640)/ `pool_seed` = 3 /
->   T3・T1b のオフセットはセル内 20 / 20・決定的 / test-retest = 同じ config の run 3 本 / タスク6 = T2 240 組 × 5 場面の交差 / batch 1 は主プール全体 / E-5 (b) を採る /
->   **順6 の GPU は承認(条件付き = プールの manifest のコミットと dry-run の後)**
-> - 文言の追随: `04_EXPERIMENT_PLAN.md`(タスク4〜6・#2)/ PLAN-003 §6.3 / `05_STATISTICS.md` §2 / PLAN-004 順6
+> **★★2026-09-11(その43・最新)。Phase 0。IMPLEMENTER (Opus)。GPU・ポッドは触っていない。**
+> - **PLAN-023 §4 の手順1〜7 を実装した**(commit `a24086c` / `118b0ae` / `6c6e113`)。§6 の完了条件はすべて ✅。**順6 の GPU の条件(ADR-076 決定11)は満たした**
+> - 主プール `data/generated/battery/main/manifest.json`(1,640 項目 = 自由生成 680 / 強制選択 960・1,560 組・`pairs_hash` `13e8479c…`。2 回生成してバイト一致)/
+>   交差プール `main_t2_cross`(T2 240 組 × 残り 4 場面 = 960)/ R4・R5 の config / `code/analysis/gonogo.py`(#1〜#3 の表。印だけ)
+> - **★A14 → ADR-077(人間が (a) を選んだ)**: 主プールの `extrap_magnitude` では `arb` が定義されず、`run.py` の採点が**生成の後に**落ちていた。採点バッチを答え域で割った
+> - **実装で決めた読み 6 点は PLAN-023 §6.1**(とくに #3 の比べ方)。**異議があれば人間が覆す**(`logs/OPEN-ITEMS.md` に索引)
 >
-> **★その41 の記録は `logs/STATE-ARCHIVE.md`「その42」にある**(ADR-063 運用規約1)。
+> **★その42 の記録は `logs/STATE-ARCHIVE.md`「その43」にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -187,7 +187,7 @@ chat template / バッチ 4 / RTX 4090)。各水準 5 シード × 200 = 1,000 �
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **980 passed**(2026-09-11 その40 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → ~~957~~ → ~~967~~ → **980**(`test_rescore.py` の 13 を含む) | `code/tests/` |
+| `pytest code/tests -q` → **1030 passed**(2026-09-11 その43 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → ~~957~~ → ~~967~~ → ~~980~~ → **1030**(`test_rescore.py` の 13 を含む) | `code/tests/` |
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **★桁数掃引は 2 本の腕を測る**(2026-09-10。ADR-071)。腕1 = `R(M)` の一様抽出(13 水準 × 200 × 5 = 13,000。**記述**。`build_items` は無変更で sha256 を回帰テストが固定)/ 腕2 = `Q(M)`(`label_main_coverage` が `extrap_magnitude` を返す組。7 水準 × 200 × 5 = 7,000。**判定の材料**)。`metrics.json` は `by_radius`(腕1)/ `grid_shell`(定義 A。記述)/ `quadrant`(腕2)/ `roles`。**config の `shell_*` が ADR-071 からの導出と食い違えば、run ディレクトリを作る前に止まる。`shell_*` の無い config(`smoke.yaml` を含む)も止まる。****`M*` は出さない** | `code/eval/battery/magnitude_sweep.py`、`code/eval/sweep.py`、`test_magnitude_sweep.py`、`test_sweep.py` |
 | **再採点の CLI が動く**(2026-09-11。PLAN-022 §5)。`python -m code.eval.rescore --source-run <run>` が回収済みの `predictions/` を現行の `numeric` パーサで読み直し、別の run(`<timestamp>_rescore_<suffix>`)に `metrics.json`(`sweep.py` と同じ 3 ブロック + `checks` + `rescore`)と `transitions.json` を書く。**C1 / C2 / C4 が外れたら何も書かずに止まる。****掃引の run 専用**(本実行の run は読めない)。**Windows では `PYTHONIOENCODING=utf-8` が要る**(標準出力の cp932 が「—」を符号化できず、最後の `print` で落ちる) | `code/eval/rescore.py`、`test_rescore.py`(13件) |
@@ -214,7 +214,7 @@ chat template / バッチ 4 / RTX 4090)。各水準 5 シード × 200 = 1,000 �
 | **特異性対照の項目生成が動く**(`code/eval/battery/specificity_control.py`)。参照規則は `a−b+offset` / `a×b+offset`。**加算の参照規則を渡すと止まる** | 2026-08-26。`test_specificity_control.py`(14件)。PLAN-003 §4.6 |
 | **訓練と評価アンカーが同じ書式ブロックを共有する**(`code/data_gen/prompt_format.py`)。~~manifest を書き出す入口がまだ無く検査6 は FAIL~~ → **2026-08-26 に `eval_pool.py` が書き出すようになり検査6 は PASS** | 2026-08-26。`test_prompt_format.py`(9件)。PLAN-002 §4.8.1 検査6 |
 | **評価プールを書き出す入口が動く**(`code/data_gen/eval_pool.py`)。`items.jsonl` + `manifest.json` を書き、**preflight の `data_checks` 6項目がすべて PASS**(検査6・8 を含む) | 2026-08-26。`test_eval_pool.py`(18件)。ADR-033 |
-| ⚠️ **プールはサンプリングしていない。**`eval.pool_items` の明示リストで埋めている(**ADR-033 決定4**)。`M*` = 999 は決まった(ADR-074)が、**`fill_cells` の経路に替えるには穴が 3 つある**(2026-09-11 その41): `extrap_magnitude` のセルを埋められない(`label_coverage` で照合する)/ 候補を `[1,99]²` 全体から渡すと pilot 領域の組が `interp` に入る / 訓練域外の 50:50 分割が未実装。**本番 config の `run.py --dry-run` は `eval.dry_run_items` が無いので止まる** | `eval_pool.py` の `FILL_EXPLICIT_LIST` / `pool.py:650` / **`plans/PLAN-023` §1.1 A1〜A3・A7** |
+| **★主プールは `fill_cells` で埋まる**(2026-09-11 その43。ADR-076 決定10)。本番 config は `eval.pool_items` を持たず、候補 = main 領域(`split_pilot_main` を再現して `counterpart_region_hash` と照合)+ `Q(999)` の main 側(組ごとのハッシュで 50:50)。セルごとの乱数列。**本番・b1・t2cross の `run.py --dry-run` が通り、data_checks は PASS。**明示リストの経路は smoke 系にだけ残る。**採点バッチは答え域で割る**(ADR-077。ans_out は `<群>.ans_out`)。`metrics.json` に `pool`・`coverage`(E-5 (b)) | `code/data_gen/eval_pool.py` / `pool.py` / `code/eval/run.py` / `code/analysis/gonogo.py` / `plans/PLAN-023` §6 |
 | **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済) | ポッドを立てた時点で `pip install -e .[dev]` して掛け直す |
 | **設計の主軸を機構線に寄せた。**モデル変種は原典転記、主要指標は強制選択+自由生成の併走、**G7(周期的概念への転移)を副次の最上位に追加** | **ADR-018**(2026-08-22、人間が全部承認) |
 | **訓練プロンプトは裸の式 `a+b=` 一形式。訓練域は `[1,99]^2`。被覆ラベルは4値。`K >= 560`。外挿は2分割** | **ADR-019**(同上) |
@@ -259,8 +259,8 @@ chat template / バッチ 4 / RTX 4090)。各水準 5 シード × 200 = 1,000 �
    (経緯は `logs/STATE-ARCHIVE.md`「その33」「その34」「その40」)。
    **★`θ = 0.70` の根拠(値ではない)は依然として未記入である**(ADR-041 決定2 の要求。人間が自分で書く)
 
-2. **★2026-09-11(その42): 順6 の GPU は承認された(ADR-076 決定11。条件付き)。★F128〜★F137・E-5 (b) も同 ADR で決着した。**
-   **いま順6 を止めているのは PLAN-023 §4 の実装と §5 の dry-run(GPU 0)である。****事前登録の凍結(順9)は順6 の結果が出るまで打てない。**
+2. **★2026-09-11(その43): 順6 の準備(PLAN-023)は済んだ。**プールの manifest はコミット済み・dry-run と data_checks は PASS(ADR-076 決定11 の条件を満たした)。
+   **いま順6 を止めているのは RUNNER の GPU セッションだけである**(手順は `plans/PLAN-023` §7)。**事前登録の凍結(順9)は順6 の結果が出るまで打てない。**
    **★順6 に残る確実な用途は Go/No-Go #0〜#3 である。**`s2_seed` は構造上出ず(F90)、
    `s2_item` / `s2_tmpl` も出るとは言い切れない(★F104)。**`s2_seed` は ADR-067 で決着済。**
    **★2026-09-09(その27)更新: ★F113 は決着した**(ADR-069 決定2 = 案 (a))——
@@ -352,7 +352,7 @@ chat template / バッチ 4 / RTX 4090)。各水準 5 シード × 200 = 1,000 �
 |---|---|---|
 | **A** | GPU 不要のコード作業 | **✅ 完了(2026-08-26)** |
 | **B** | 人間の決定(凍結の前に全部要る) | **進行中。残りは `logs/OPEN-ITEMS.md`** |
-| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 完走(run `20260910_104249_sweep_m`。その36)・結果は報告済(その37)。`M*` = 999(ADR-074)。PLAN-022 も済(再採点 run `20260910_215422_rescore_sweep_m`。その40)。**順6: `plans/PLAN-023` は起草済(その41)。★F128〜★F137 と GPU 承認は ADR-076 で決着(その42)。PLAN-023 §4 の実装と dry-run 待ち** |
+| **C** | GPU 小(`none` モデルのみ。FT は 1 本も回さない)= 順5 の桁数掃引 / Go-No-Go #0 〜 #3 | ~~**`θ` 待ち + GPU 承認待ち**~~ → ~~★F125 待ち~~ → **順5: 完走(run `20260910_104249_sweep_m`。その36)・結果は報告済(その37)。`M*` = 999(ADR-074)。PLAN-022 も済(再採点 run `20260910_215422_rescore_sweep_m`。その40)。**順6: PLAN-023 は完了(その43。実装・dry-run・data_checks PASS・manifest コミット)。RUNNER の GPU 待ち** |
 | **D** | 事前登録の凍結(`git tag`) | **Δ 5 行(順6 待ち)で止まっている** |
 | **E** | パイロット(`p2` / `p2d` を 2 〜 3 シード)。Go-No-Go #4 / #4b / #5 | **GPU 大。人間の承認が要る** |
 
@@ -363,20 +363,20 @@ chat template / バッチ 4 / RTX 4090)。各水準 5 シード × 200 = 1,000 �
 
 ## 次のアクション
 
-> **★★2026-09-11(その42・最新)。★F128〜★F137・E-5 (b)・順6 の GPU 承認は ADR-076 で決着した。次は実装である。**
+> **★★2026-09-11(その43・最新)。PLAN-023 は完了した。次は順6 の GPU である。**
 >
-> 1. **IMPLEMENTER: PLAN-023 §4 手順1〜7**(config → `pool.py` → `eval_pool.py` → `run.py`(dry-run + E-5 (b))→ `code/analysis/gonogo.py` → タスク6 の交差プール → batch 1 の config)と §5 の dry-run・preflight の data_checks。**GPU 0**
-> 2. **RUNNER: 順6 の GPU**(ADR-076 決定11。**1 の完了 = プールの manifest のコミットと dry-run の通過が先**。単価は起動直前に読み直す。3 時間で打ち切り)
-> 3. 人間: 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`
+> 1. **RUNNER: 順6 の GPU**(ADR-076 決定11。**条件は満たした**。手順は `plans/PLAN-023` §7。R1〜R5 = 7,520 項目・回。単価は起動直前に読み直す。**3 時間で打ち切り**。終わったら回収・コミット・ポッド停止)
+> 2. 回収後(GPU 不要): `python -m code.analysis.gonogo` で #1〜#3 の表 / `compare_runs` で R1 対 R2・R3・R4 → **数値と印だけを人間に上げる(解釈しない)**
+> 3. 人間: 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / **PLAN-023 §6.1 の読み(順6 の表を読む前)**
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-09-11(その42・最新)。IMPLEMENTER (Opus)。人間の決定 12 行を ADR-076 に記録したところで、コンテキストが約 10 万トークンに達したので切った(実装は半端に始めていない)。**
+> **★★2026-09-11(その43・最新)。IMPLEMENTER (Opus)。PLAN-023 を完了し、コンテキストが 10 万トークンを大きく超えたので切った。**
 >
-> **★やったこと**: 12 行を選択肢(推奨つき)で人間に聞いた / ADR-076 / PLAN-023 §2.6 の転記 / OPEN-ITEMS の決着 / 04・05・PLAN-003・PLAN-004 の文言の追随。
-> **★やっていないこと**: 実装 / config の変更 / GPU / `θ` の根拠の代筆。
+> **★やったこと**: PLAN-023 §4 手順1〜7 / A14 を人間に聞いて ADR-077 / §5 の dry-run・data_checks / 主プール・交差プールの manifest のコミット / PLAN-023 §6・§6.1・§7 / OPEN-ITEMS に 2 行。
+> **★やっていないこと**: GPU / フルの preflight(ゲート付きのトークナイザを読むのでポッドで)/ `θ` の根拠の代筆 / Go/No-Go の判断。
 > **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / 上の「次のアクション」/ 人間待ちは `logs/OPEN-ITEMS.md`。
 ---
 

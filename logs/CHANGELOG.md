@@ -5575,3 +5575,11 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   読みに行き pytest も回すため)→ 3 config とも 6 項目 + data manifest が PASS(検査6 format hash・検査8 coverage_k floor を含む)
 - テスト: `test_gonogo.py`(10 件。本番 config の主プールを固定応答で回した run から端から端まで表が組めること)/ `test_order6_configs.py`(8 件)。
   `pytest code/tests -q` → **1030 passed**
+
+### docs(plan): PLAN-023 を完了とし、セッション引き継ぎを記録した(その43)   [actor: IMPLEMENTER (Opus)]
+
+- `plans/PLAN-023` の状態欄 / §1.1 に A14 / §6 の完了条件をすべて ✅ / **§6.1 実装の読み 6 点**(決定ではない。異議があれば覆す)/ **§7 RUNNER の手順(順6)**
+- `logs/OPEN-ITEMS.md` の索引に 2 行(A14 = ADR-077 で決着 / PLAN-023 §6.1 の読み = 順6 の表を読む前に人間が目を通す)
+- `STATE.md` の冒頭・いま何をしているか・repo の状態 2 行・ブロッカー 2・段階 C・次のアクション・引き継ぎを差し替え(400 行 / 43 KB)、
+  旧ブロック 8 件を `logs/STATE-ARCHIVE.md`「その43」へ移した(`git show 6c6e113:STATE.md` から機械的に切り出し)
+- `logs/HANDOFF.md` を上書き(次は RUNNER が PLAN-023 §7 の手順で順6 の GPU)

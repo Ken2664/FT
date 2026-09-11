@@ -1,7 +1,9 @@
 # PLAN-023 — 順6(Go/No-Go #0〜#3 + タスク4〜6)を dry-run が通る状態にする
 
 - 起草: 2026-09-11(その39 に監査 / **その41 に §2 以降を起草**)/ エージェント (Opus)
-- 状態: ~~**起草済(案)。決定は 0 件。**~~ → **★2026-09-11(その42)に §2.6 の 12 行すべてが決まった(すべて (a)。ADR-076)。§4 の実装に入る。**
+- 状態: ~~**起草済(案)。決定は 0 件。**~~ → ~~**★2026-09-11(その42)に §2.6 の 12 行すべてが決まった(すべて (a)。ADR-076)。§4 の実装に入る。**~~
+  → **★2026-09-11(その43)に §4 の手順1〜7 を実装し、§5 の dry-run と data_checks が通った(§6 はすべて ✅)。**
+  **実装中に A14 を見つけ、人間が (a) を選んだ(ADR-077)。**次は RUNNER が §7 の手順で順6 の GPU を回す(ADR-076 決定11 の条件は満たした)。
   §2 の「人間に上げる点」は `logs/OPEN-ITEMS.md` の
   「★2026-09-11(その41)の追記」に ★F128〜★F137 として索引を置いた。**記入欄は本 PLAN §2.6**
 - GPU: **0**(この PLAN の範囲。GPU の実行そのものは人間の承認が要る)
@@ -48,6 +50,7 @@ GPU ジョブの中身と時間を確定させる。**GPU は使わない。**
 | A11 | **強制選択の時間は測られていない。**順1b の 2 本は `bare_sum` と `word_problem` だけで、`comparison` を含んでいない([run:20260828_100115_smoke1b_b1] の `by_batch` = `bare_sum` 8 / `word_problem` 11) | `runs/20260828_100115_smoke1b_b1/metrics.json` |
 | A12 | **本番 config で dry-run・本実行を回すと、run ディレクトリ名と `experiment_id` が Phase 1 本実験と同じ `exp_phase1_main` になる。**`aggregate.py` / `frame.py` の `--runs` の glob に順6 の run が混ざりうる(`adapter = null` と `seed = null` の警告は出る) | `configs/exp_phase1_main.yaml:15` / `code/eval/run.py:1150-1156` |
 | A13 | 文言の食い違い(小): PLAN-002 §4.2 付近は「1 つの組は T1 / T1b / T2 / T3 と極性で使い回せる」と書くが、PLAN-001 §5.1・ADR-026 のリスク欄は「セル間で組を再利用しない」(`id` 要求 520 組はこの前提での合計)。**本 PLAN は承認済みの後者に従う** | `plans/PLAN-002-ft-data.md:396-397` / `plans/PLAN-001-eval-battery.md:464-467` / `logs/DECISIONS.md:1102-1103` |
+| **A14** ★その43 | **主プールでは `run.py` の採点が落ちる。**`extrap_magnitude`(t ≥ 200)の項目では `arb` が定義されない(ADR-020)ので、ans_in と同じバッチに入ると `scoring._shared_reference_rules` が `ValueError` を投げる。**生成を終えた後に落ちる。**`(3,4)` と `(150,150)` で再現。→ **ADR-077(人間が (a) を選んだ): 採点バッチを答え域で割る** | `code/eval/run.py` の `scoring_batches` / `code/eval/scoring.py:200` |
 
 **セルは埋まる(組合せ論的な計数。現行 config と `exp_phase1_main_p2` の K。除外 = 被演算子 ±1・偶然一致・`p2`/`p2d` 判別不能)**:
 `id` は carry 406 / nocarry 1,348、`interp`(main 領域だけ)は carry 558 / nocarry 1,926。**`Q(999)` は 810,000 組のうち 729,000 組**(carry 162,000)が残る。
@@ -342,8 +345,56 @@ pytest code/tests -q
 
 ## 6. 完了条件
 
-- [ ] ★F128〜★F137 と E-5 (b) に人間が記入した(§2.6)
-- [ ] §4 の手順 1〜5(と、決定に応じて 6・7)が済み、`pytest code/tests -q` が通る
-- [ ] §5 の 3 つの dry-run と preflight の data_checks が通る
-- [ ] `data/generated/battery/main/manifest.json` をコミットした(**GPU を使う前に項目集合が固定されたことが git に残る**)
-- [ ] GPU 承認の文面(§2.4)に人間が答えた
+- [x] ★F128〜★F137 と E-5 (b) に人間が記入した(§2.6)—— ADR-076(その42)
+- [x] §4 の手順 1〜5(と、決定に応じて 6・7)が済み、`pytest code/tests -q` が通る —— その43。**1030 passed**
+  (commit `a24086c` 手順1〜3 / `118b0ae` 手順4 + ADR-077 / `6c6e113` 手順5〜7)
+- [x] §5 の 3 つの dry-run と preflight の data_checks が通る —— その43。`run.py --dry-run` は本番・b1・t2cross の 3 config で exit 0
+  (1,640 / 1,640 / 960 項目。主プールは 9 バッチ = ans_in 6 + ans_out 3)。**data_checks は `infra/preflight.py` の `data_checks` を直接呼んだ**
+  (フルの preflight はゲート付きのトークナイザを読みに行くので、ローカルでは回していない)→ 3 config とも 6 項目 + data manifest が PASS
+- [x] `data/generated/battery/main/manifest.json` をコミットした(`pairs_hash` `13e8479c…`。**2 回生成してバイト一致**)。交差プール
+  `data/generated/battery/main_t2_cross/manifest.json` も。**どちらも本番 config から再現できることを回帰テストが縛る**
+- [x] GPU 承認の文面(§2.4)に人間が答えた —— ADR-076 決定11(条件付き。条件 = 上の 2 行)
+
+### 6.1 実装で決めたこと(**決定ではなく実装の読み。異議があれば人間が覆す**)
+
+| 点 | 実装 | 理由 |
+|---|---|---|
+| 明示リストの経路 | **smoke 系の config のために残した**(`eval.pool_items` がある config だけが通る)。本番 config からは欄を消した | smoke の FT データ(訓練域 [1,9]²・K = 20)では主軸のセル表が埋まらない。smoke は配線確認 |
+| #3 の比べ方 | **実測の `correct_rate` が、常に Yes / 常に No の `correct_rate` の大きいほうを上回るか**(タスク型 × 既知性。carry・極性はまとめる) | 順6 は `none` モデルの段なので正答で比べる。ADR-047 決定2 が「T1b × `id`」とセルを名指ししている。**印だけで、T1b を外すかは人間が決める** |
+| #1 の範囲 | T1 / T2 / 特異性対照を判定。**指示付き T1 は参考として同じ表に並べ、判定しない** | #1 の本文は T1 / T2 / 特異性対照。指示付き T1 は #1 が割れたときの第一手(ADR-042 決定5 (i))の実測 |
+| `estimated_gpu_hours` | **2.0**(計算の悲観側) | 順5 の欄は「重みの読み込みを含む計算の上側」を書いていた(2.5)。同じ読みで §2.4 の悲観側を転記 |
+| 訓練域外の 50:50 の向き | `sha256(canonical_json([pool_split_seed, a, b]))` が偶数なら main | 任意の取り決め(ADR-076 決定10 (iii) は「組ごとのハッシュ」までを決めた)。`Q(999)` の main 側は 405,334 / 810,000 組 |
+| 交差プールの作り方 | `eval_pool --t2-cross` に**本番 config** を渡す(主プールを組み直して T2 の組を取る)。R5 の config を渡すと止まる | R5 の config は `eval.batteries: [word_problem]` なので、セル表の群と食い違う |
+
+## 7. RUNNER の手順(順6。ADR-076 決定11。**ポッドの起動・単価・停止は `infra/RUNPOD.md` §3〜§7 が正本**)
+
+> **ここに書くのは順6 に固有の部分だけである。**単価は起動の直前に読み直す。**3 時間で打ち切って報告する。**
+> run ディレクトリ名は `runs/<timestamp>_order6_r<k>` の形にする(A12。Phase 1 の `runs/*exp_phase1_main*` の glob に混ぜない)。
+
+```bash
+# 2b. データの再生成(items.jsonl / train.jsonl は git に無い。RUNPOD.md §4 順1b の 2b と同じ形)
+for cond in p2 p2d arb x2 ident; do
+  python -m code.data_gen.ft_data --config configs/exp_phase1_main.yaml --condition "$cond" --out-dir "data/generated/ft/exp_phase1_main_${cond}"
+done
+PYTHONIOENCODING=utf-8 python -m code.data_gen.eval_pool --config configs/exp_phase1_main.yaml
+PYTHONIOENCODING=utf-8 python -m code.data_gen.eval_pool --config configs/exp_phase1_main.yaml --t2-cross
+# 評価プールの manifest は created_at を持たないので、**差分が 1 行も出てはならない**(出たら先へ進まない)。
+# FT の manifest は created_at / git_commit だけが動く(RUNPOD.md §4 の grep で確かめてから git checkout -- data/generated)
+git diff --stat data/generated/battery
+```
+
+| run | config | 項目 | 備考 |
+|---|---|---|---|
+| R1 | `configs/exp_phase1_main.yaml` | 1,640 | 本体(#1〜#3 / タスク4)。**preflight を同じ run dir に向けて先に回す**(#0 トークン境界・`forced_choice_tokens`) |
+| R2 / R3 | `configs/exp_phase1_main.yaml` | 1,640 × 2 | **別プロセスで**同じ config(タスク5。ADR-076 決定5) |
+| R4 | `configs/exp_phase1_main_b1.yaml` | 1,640 | batch 1(ADR-040 決定7 / ADR-076 決定7) |
+| R5 | `configs/exp_phase1_main_t2cross.yaml` | 960 | タスク6 の交差(ADR-076 決定6) |
+
+```bash
+PYTHONIOENCODING=utf-8 python -m code.eval.run --config configs/exp_phase1_main.yaml --run-dir runs/<ts>_order6_r1
+```
+
+- 回した後(GPU 不要。人間に上げるのは数値と印だけ。**解釈しない**):
+  `python -m code.analysis.gonogo --runs "runs/*_order6_r1"`(#1〜#3)/
+  `python -m code.analysis.compare_runs --run-a <R1> --run-b <R2>` で R1 対 R2・R1 対 R3(タスク5)・R1 対 R4(ADR-040 決定7)
+- **metrics.json の `pool.items_sha256` がコミット済みの manifest の `files.items.jsonl` と一致すること**を確かめる(ADR-076 決定12)

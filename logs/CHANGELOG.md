@@ -5485,3 +5485,25 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `STATE.md` の各節を差し替え(396 行 / 41.8 KB)、旧ブロック 12 件を `logs/STATE-ARCHIVE.md`「その40」へ移した。
   あわせて「repo の状態」から経緯の記録 7 行と、2026-08-27 の行と食い違う古い行(本実行が `NotImplementedError`)を移した
 - `logs/HANDOFF.md` を上書き(次は PLANNER として PLAN-023 §2 を起草。夜間の事前一括承認は終わった)
+
+## 2026-09-11(その41)
+
+### docs(plan): PLAN-023(順6 の準備)の §2 以降を起草した   [actor: PLANNER (Opus)]
+
+- **決定は 0 件。コードも config も変えていない。GPU 0。**`plans/PLAN-023-order6-readiness.md` を 41 行 → 344 行に書き足した
+- §1.1 追加の監査(A1〜A13。読み取りと組合せ論的な計数のみ)。主なもの: **A1** `fill_cells` は `label_coverage`(4 値)で照合するので
+  `extrap_magnitude` のセルを埋められない(`pool.py:650`)/ **A2** 候補を `[1,99]²` 全体から渡すと pilot 領域の組が `interp` に入る
+  (除外後の `interp` 候補は main 領域 2,484 組・pilot 領域 4,405 組。組合せ論的な計数)/ **A3** 訓練域外の 50:50 分割が未実装 /
+  **A5** T3・T1b の閾値オフセットの割り当て規則がどの文書にも無い / **A6** `metrics.json` は採点バッチ単位で #2・#3 のセル別の値が読めない /
+  **A7** 本番 config の `run.py --dry-run` は `eval.dry_run_items` が無いので止まる / **A9** Go/No-Go #2(`none`)と適格性フィルタ(`ident`)の食い違い
+- セルが埋まることを数えた(現行 config と `exp_phase1_main_p2` の K。除外は被演算子 ±1・偶然一致・`p2`/`p2d` 判別不能):
+  `id` carry 406 / nocarry 1,348、`interp`(main 領域)carry 558 / nocarry 1,926、`Q(999)` 810,000 組のうち 729,000 組。**実験結果ではない**
+- §2: 4 項目(群・セル・プール・タスク4 / セル表の転記 / 反復生成 / GPU の見積りと承認の文面)+ E-5 (b) に「現状 / 案 / 人間に上げる点」。
+  **GPU の見積り(計算は約 1 時間・準備込み 2〜2.5 時間)は実測の秒数を借りた見積りであって実測ではない**([run:20260910_104249_sweep_m] / [run:20260828_095717_smoke1b] / [run:20260828_100115_smoke1b_b1])
+- §2.6 記入欄 / §4 実装手順(`code-style` の順)/ §5 dry-run のコマンド / §6 完了条件
+- `logs/OPEN-ITEMS.md`: 索引に ★F128〜★F137 を足し、「★2026-09-11(その41)の追記」を置いた。E-5 (b) の期限を「順6 の前」に、GPU 構成の行に承認の文面の場所を追記
+
+### docs(plan): セッション引き継ぎ(その41。PLAN-023 起草完了 + コンテキスト約 10 万トークン超)   [actor: PLANNER (Opus)]
+
+- `STATE.md` の各節を差し替え(397 行 / 42.6 KB)、旧ブロック 6 件を `logs/STATE-ARCHIVE.md`「その41」へ移した(`git show HEAD:STATE.md` から 1 文字も変えずに転記)
+- `logs/HANDOFF.md` を上書き(次は IMPLEMENTER。**PLAN-023 §2.6 のプール生成に効く 6 件が未記入なら実装を始めずに止まる**)

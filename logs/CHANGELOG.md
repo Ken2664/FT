@@ -5507,3 +5507,13 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 
 - `STATE.md` の各節を差し替え(397 行 / 42.6 KB)、旧ブロック 6 件を `logs/STATE-ARCHIVE.md`「その41」へ移した(`git show HEAD:STATE.md` から 1 文字も変えずに転記)
 - `logs/HANDOFF.md` を上書き(次は IMPLEMENTER。**PLAN-023 §2.6 のプール生成に効く 6 件が未記入なら実装を始めずに止まる**)
+
+## 2026-09-11(その42)
+
+### docs(adr): ADR-076 ★F128〜★F137・E-5 (b)・順6 の GPU 承認を記録した   [actor: IMPLEMENTER (Opus)]
+
+- **PLAN-023 §2.6 が未記入だったので、実装を始めずに人間に 12 行を選択肢で聞いた**(HANDOFF の指示どおり)。**人間は 12 行すべてで推奨の (a) を選んだ**
+- `logs/DECISIONS.md` に ADR-076(決定1〜12。提案 = エージェント(その41)/ 採択 = 人間(その42))
+- `plans/PLAN-023` §2.6 に ✅ を転記、状態欄を更新 / `logs/OPEN-ITEMS.md` の ★F128〜★F137・E-5 (b) を決着に、GPU 構成の行に「順6 の承認は下りた(条件付き)。Phase 1 は未決」
+- 文言の追随: `Documents/04_EXPERIMENT_PLAN.md`(タスク4・5・6 と Go/No-Go #2)/ `plans/PLAN-003` §6.3 / `Documents/05_STATISTICS.md` §2 の前処理 / `plans/PLAN-004` 順6 のチェックリスト
+- **コードも config も変えていない。GPU 0**

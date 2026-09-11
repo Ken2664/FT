@@ -5583,3 +5583,28 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `STATE.md` の冒頭・いま何をしているか・repo の状態 2 行・ブロッカー 2・段階 C・次のアクション・引き継ぎを差し替え(400 行 / 43 KB)、
   旧ブロック 8 件を `logs/STATE-ARCHIVE.md`「その43」へ移した(`git show 6c6e113:STATE.md` から機械的に切り出し)
 - `logs/HANDOFF.md` を上書き(次は RUNNER が PLAN-023 §7 の手順で順6 の GPU)
+
+### exp(eval): 順6 の GPU を起動した(PLAN-023 §7。R1〜R5 のチェーンがポッド上で実行中。回収は次セッション)   [actor: RUNNER (Opus)]
+
+- RunPod を読み直した: RTX 4090 SECURE **$0.74/時**(据え置き)、在庫は EU-CZ-1 / EUR-IS-2 / US-NC-1(LOW)。人間が「既存を試す → 駄目なら新規」を選んだ
+- **停止中の `omjvbdanmbrzc8`(EUR-IS-1)の start が通った**(14:12:42Z。SSH `root@157.157.221.29 -p 31413`)。/workspace に重み・HF トークン・venv が残っていたので HF ログインは不要だった
+- repo は `git bundle`(main)を scp して `a285834` へ fast-forward(push はしていない)。ポッド上の前回の掃引 run の写しは `/workspace/pod_moved_aside/` へ退避(追跡済みファイルと衝突するため)
+- データ再生成(FT 5 条件 + 主プール + 交差プール): **`git diff --stat data/generated/battery` は空**、FT manifest の差は created_at / git_commit だけ → `git checkout -- data/generated`。
+  items.jsonl の sha256 は主プール `d272204f…` / 交差 `8cb8a58f…` で manifest と一致
+- R1 の preflight(`--run-dir runs/20260911_141547_order6_r1`): **FAIL 0**。pytest 1030 passed / token boundaries 12 例 / forced choice tokens 12 綴りすべて単一トークン。WARN 1 = run ディレクトリ自身の未追跡
+- `/workspace/order6_chain.sh` を 14:19:40Z に nohup で起動(R1 → R2 → R3 → R4(b1)→ R5(t2cross)。R2 以降は直前に preflight。非 0 で停止)
+- **コンテキストが約 17.4 万トークンに達したので、実行中のまま引き継いだ**(`logs/HANDOFF.md`)。**ポッドは RUNNING のまま**(チェーンが使っている)。3 時間の打ち切りは 17:12Z
+- `logs/OPEN-ITEMS.md` の terminate 行に「`omjvbdanmbrzc8` は回収・停止まで terminate しない」を追記
+
+### exp(eval): 順6 を完走させ、5 run を回収・コミットし、ポッドを停止した(PLAN-023 §7)   [actor: RUNNER (Opus)]
+
+- **1 回目のチェーンは R2 の途中で人間がポッドを止めた**(R1 は 14:25:35Z に EXIT=0)。人間の指示(「Runpod は一度止めたので再度実行してください」)で 16:00:40Z に再 start(SSH ポート 31481)。
+  途中の R2 は `/workspace/pod_moved_aside/` へ退避(消していない)。`/workspace/order6_chain2.sh`(R2〜R5)で回し直し、16:46:23Z CHAIN_DONE。preflight は R2〜R5 とも FAIL 0
+- 回収: run ディレクトリを丸ごと scp → 4 値の合計(全ブロック 1.0)と `items_sha256`(manifest と一致)を確かめてから run ごとにコミット
+  (`6d2ff9e` R1 + gonogo / `a02ea8c` R2 / `07e5220` R3 / `b06b3ed` R4 / `3a41a50` R5)。**16:47Z 頃 stop → EXITED**(2 回目の稼働 2,835 秒)
+- `gonogo`(R1)と `compare_runs`(R1 対 R2・R3・R4)の数値は `STATE.md`「わかっていること ★順6」。**解釈はしていない**
+- **★F138 を OPEN-ITEMS に上げた**: 強制選択の真値が `>` ですべて No、`<` ですべて Yes(閾値が `t` と `t+2` の間)。T3 `<` が 0/240 だったのでまずバグを疑い、
+  真値の数え直し(0/960 不一致)と `parsed` と logp の大小(不一致 2 件はどちらも 4 桁で同値)を点検した
+- R5 の 1.000 も疑った: 応答は和を計算しており、ans_out 320 件で答えが問題文に数として現れるのは 0 件
+- 検証スクリプトの誤り(自分のもの): `pool.pool_id` を manifest の選択に使ったため R5 を主プールの manifest と比べた。`pool_id` は pilot/main の領域名である。R5 の `pool.manifest` は交差プールで sha は一致
+- `STATE.md` の順5 の旧規則2 の表(32 行)をアーカイブへ移した(400 行の上限のため。1 文字も削っていない)

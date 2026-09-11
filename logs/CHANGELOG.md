@@ -5517,3 +5517,9 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `plans/PLAN-023` §2.6 に ✅ を転記、状態欄を更新 / `logs/OPEN-ITEMS.md` の ★F128〜★F137・E-5 (b) を決着に、GPU 構成の行に「順6 の承認は下りた(条件付き)。Phase 1 は未決」
 - 文言の追随: `Documents/04_EXPERIMENT_PLAN.md`(タスク4・5・6 と Go/No-Go #2)/ `plans/PLAN-003` §6.3 / `Documents/05_STATISTICS.md` §2 の前処理 / `plans/PLAN-004` 順6 のチェックリスト
 - **コードも config も変えていない。GPU 0**
+
+### docs(plan): セッション引き継ぎ(その42。ADR-076 の記録まで + コンテキスト約 10 万トークン)   [actor: IMPLEMENTER (Opus)]
+
+- `STATE.md` の冒頭・いま何をしているか・ブロッカー 2・人間待ちの表・段階 C・次のアクション・引き継ぎを差し替え(399 行 / 42.9 KB)、
+  旧ブロック 8 件を `logs/STATE-ARCHIVE.md`「その42」へ移した(`git show 4895376:STATE.md` から機械的に切り出し)
+- `logs/HANDOFF.md` を上書き(次は IMPLEMENTER が PLAN-023 §4 手順1〜7。**実装は始めていない**)

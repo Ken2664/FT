@@ -1,50 +1,55 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-11(その41)/ 直前セッションの役割: PLANNER (Opus)
-直前セッションが終了した理由: **PLAN 完了**(PLAN-023 の起草。1 セッション = 1 PLAN)+ コンテキスト約 10 万トークン超
+生成: 2026-09-11(その42)/ 直前セッションの役割: IMPLEMENTER (Opus)
+直前セッションが終了した理由: **コンテキスト約 10 万トークン**(人間の決定 12 行を ADR-076 に記録した直後。**実装は始めていない**)
 
 ---
 
 あなたは IMPLEMENTER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
-## ★最初に確かめること(ここで止まってよい)
+## このセッションでやること(1つだけ)
 
-**`plans/PLAN-023-order6-readiness.md` §2.6 の記入欄に、人間が記入しているかを見る。**
-**★F128 / ★F129 / ★F131 / ★F135 / ★F136 / ★F137 の 6 件**(プールの生成に効くもの)のどれかが空欄なら、
-**実装を始めずに、その 6 件を人間に聞いて止まる**(`CLAUDE.md` §8。案は §2.1・§2.2 にある。エージェントが代わりに決めない)。
+**PLAN-023 §4 の手順1〜7 を実装し、§5 の dry-run と preflight の data_checks を通す。GPU 0。**
+**決定は ADR-076 で全部出ている(12 行すべて (a))。決定の一覧は PLAN-023 §2.6 の ✅。**
 
-## このセッションでやること(1つだけ。6 件が記入済みの場合)
+完了条件(PLAN-023 §6):
+- `pytest code/tests -q` が通る(その40 時点で 980 passed。その41・その42 はコードを触っていない)
+- `PYTHONIOENCODING=utf-8 python -m code.data_gen.eval_pool --config configs/exp_phase1_main.yaml` が `data/generated/battery/main/` に **1,640 項目**のプールを書く
+- `PYTHONIOENCODING=utf-8 python -m code.eval.run --config configs/exp_phase1_main.yaml --dry-run` が通る(`eval.dry_run_items` が無ければ `items.jsonl` を読む。A7)
+- preflight の data_checks(検査6・8 を含む)が PASS / `data/generated/battery/main/manifest.json` をコミット
 
-**PLAN-023 §4 の手順1〜5 を実装し、§5 の dry-run 3 本と preflight の data_checks を通す。**GPU 0。
-完了条件: `pytest code/tests -q` が通る / `python -m code.data_gen.eval_pool --config configs/exp_phase1_main.yaml` が
-`data/generated/battery/main/` にプールを書く / `python -m code.eval.run --config configs/exp_phase1_main.yaml --dry-run` が通る /
-プールの manifest をコミットする。**記入の内容が §4 の前提と食い違っていたら、実装を始める前に PLAN-023 §4 を直す。**
+**大きいので、1 セッションで終わらなければ手順の境目でコミットして引き継ぐ**(区切りの目安: 手順1〜3 = プールが書ける / 手順4〜7 = `run.py`・`gonogo.py`・交差プール・batch 1 の config)。
 
-## 直前セッションで確定したこと
+## 直前セッションで確定したこと(ADR-076。`logs/DECISIONS.md` 末尾)
 
-- **PLAN-023 は起草済(案)。決定は 0 件。**人間に上げたのは ★F128〜★F137(`logs/OPEN-ITEMS.md`「★2026-09-11(その41)の追記」)
-- **コードの穴(PLAN-023 §1.1)**: A1 `fill_cells` は `label_coverage` で照合するので `extrap_magnitude` のセルを埋められない(`code/data_gen/pool.py:650`)/
-  A2 候補を `[1,99]²` 全体から渡すと pilot 領域の組が `interp` に入る / A3 訓練域外の 50:50 分割は未実装 /
-  A4 `Cell` に群・`category` の欄が無い / A6 `metrics.json` は採点バッチ単位で、#2・#3 のセル別の値が読めない /
-  A7 本番 config の `run.py --dry-run` は `eval.dry_run_items` が無いので止まる
-- **セルは埋まる**(組合せ論的な計数。現行 config と `exp_phase1_main_p2` の K): `id` carry 406 / `interp`(main 領域)carry 558 / `Q(999)` の適格 729,000 組。要求はどの被覆水準も carry 240
-- `pytest code/tests -q` = **980 passed**(その40。その41 はコードを触っていない)
+- 決定1 ★F128: Go/No-Go #2 の一覧は `none`(順6・凍結前)と `ident`(Phase 1)の**和集合**で縛る
+- 決定2 ★F129: プール = `main` / 決定8 ★F135: 主軸 42 セル + 指示付き T1(**T1 の `id` セルの組から作る**。ADR-035 決定2)= 1,640(自由生成 680 / 強制選択 960)。副次は回さない
+- 決定4 ★F131: T3・T1b のオフセットは各セル 40 項目を **20 / 20**、セル内の並び順に交互(新しい乱数は使わない)。`>` = {0, +1}、`<` = {+1, +2}(`t3_comparison.py` の `THRESHOLD_RULES`)
+- 決定9 ★F136: `eval.pool_seed` = **3**
+- 決定10 ★F137: (ii) `label_main_coverage` で照合し `coverage: extrap` は止める / (iii) `[1,99]²` は main 領域だけ(`counterpart_region_hash` を照合)、`extrap_magnitude` は `Q(999)` の main 側、訓練域外の 50:50 は組ごとのハッシュ / (iv) セルごとの乱数列
+- 決定6 ★F133: タスク6 = T2 の組 240 × 残り 4 場面 = **960 項目を別のプールディレクトリ**に(手順6)
+- 決定7 ★F134: batch 1 の config は `eval.batch_size` と `experiment.id` **だけ**が違う。それを回帰テストで縛る(手順7)
+- 決定12 E-5 (b): `metrics.json` に `pool`(manifest のパス・`pairs_hash`・`items.jsonl` の sha256)と `coverage`(FT manifest のパス・`data_id`・`coverage.pairs_hash`・`coverage_k`・`train_domain.hi`)を足す。**正本は (a)。`frame.py` は食い違えば止まる。掃引 run には掛けない**(手順4)
+- 決定3・5(タスク4 = R1 1 本 / test-retest = 同じ config の run 3 本)はコード変更なし。決定11 = 順6 の GPU 承認(条件付き)
+- 閾値の転記元: `gonogo.parse_fail_max` = 0.02(ADR-065 決定1)/ `gonogo.min_cell_correct_rate` = 0.70(ADR-041 決定1)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-023-order6-readiness.md`(§1.1・§2.2・§2.6・§4・§5。全文は 344 行。`grep -n '^##'` で節を出してから読む)
-- `code/data_gen/pool.py`(`fill_cells` :615-667 / `label_main_coverage` :201 / `split_pilot_main` :478)/ `code/data_gen/eval_pool.py`(`build` :263-336)/
-  `code/data_gen/ft_data.py:636-672`(main 領域の分割。同じ関数・同じ引数で再現する)/ `code/eval/run.py`(dry-run :489-560)/ `code/analysis/frame.py`(`build_rows` :364)
-- `configs/exp_phase1_main.yaml` の `eval:`(:432-520)。**skill `code-style` を読んでから実装する**
-- **Windows の Python で文書を書くときは LF**(`write_bytes` か `newline="\n"`)。**Python の CLI を回すときは `PYTHONIOENCODING=utf-8`**
+- **skill `code-style` を最初に読む**
+- `plans/PLAN-023-order6-readiness.md` §1.1(A1〜A13)/ §2.2 / §4 / §5(`grep -n '^##'` で節を出してから読む)
+- `code/data_gen/pool.py`(`label_main_coverage` :201 / `split_pilot_main` :478 / `Cell` :600-612 / `fill_cells` :615-667)/ `code/data_gen/eval_pool.py`(`build` :263-336)/
+  `code/data_gen/ft_data.py:636-672`(main 領域の分割。同じ関数・同じ引数で再現する)
+- `code/eval/run.py`(dry-run :489-560 / `pool` ブロック :968-972)/ `code/analysis/frame.py`(`load_run` :208-278 / `build_rows` :364)
+- `configs/exp_phase1_main.yaml` の `eval:`(:432-520)
+- **Windows: 文書は LF で書く / Python の CLI は `PYTHONIOENCODING=utf-8`**
 
 ## やってはいけないこと
 
-- GPU・ポッドを触る / 事前登録済みの閾値(#1 = 0.02 / #2 = 0.70 / `θ` = 0.70)を変える / `magnitude_sweep.theta` を #2 の閾値に流用する(ADR-041 決定2)
-- **組をセル間で再利用する**(PLAN-001 §5.1・ADR-026。PLAN-002 の「使い回せる」は古い記述。PLAN-023 §1.1 A13)
-- 記入されていない ★F を推奨の (a) で埋める / `STATE.md` にブロックを積む(各節は最新 1 ブロック。上限 400 行)
+- GPU・ポッドを触る(承認は下りたが、**条件は manifest のコミットと dry-run の通過。実行は RUNNER の別セッション**)
+- 事前登録済みの閾値(#1 = 0.02 / #2 = 0.70 / `θ` = 0.70)を変える / `magnitude_sweep.theta` を #2 の閾値に流用する(ADR-041 決定2)
+- 組をセル間で再利用する(PLAN-001 §5.1・ADR-026。**例外は指示付き T1 だけ**)
+- 仕様が曖昧な点を自分で決める(`CLAUDE.md` §8。質問として返す)/ `STATE.md` にブロックを積む(**いま 399 行。上限 400**。古いブロックはアーカイブへ移す)
 
 ## 未解決 / 人間の承認待ち
 
-- ★F128〜★F137 / **順6 の GPU 承認**(文面は PLAN-023 §2.4)/ **E-5 (b)**(期限は順6 の前に早まった)/ 停止中ポッドの terminate /
-  **★`θ` の根拠** / **★F104** / **★F114 の実行先** / N5 / ★C / ★2 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`(正本は `logs/OPEN-ITEMS.md`)
+- 停止中ポッドの terminate / ★`θ` の根拠 / ★F104 / ★F114 の実行先 / Phase 1 本実験 40 run の GPU 構成 / N5 / ★C / ★2 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7`(正本は `logs/OPEN-ITEMS.md`)

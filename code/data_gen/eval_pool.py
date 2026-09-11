@@ -94,6 +94,10 @@ ITEMS_JSONL_NAME = "items.jsonl"
 # (ADR-033 決定3)。fill_cells はセル表をシードで埋めた値(ADR-076 決定10)。
 FILL_EXPLICIT_LIST = "explicit_list"
 FILL_CELLS = "fill_cells"
+# タスク6 の交差プール(ADR-076 決定6)。主プールの T2 の組を残り 4 場面で尋ねる。
+FILL_T2_CROSS = "t2_scene_cross"
+T2_CROSS_SUFFIX = "_t2_cross"
+T2_CROSS_SOURCE = "main_pool_word_problem"
 
 # 候補の出どころ(manifest の item_exclusions.by_group の鍵。axis = candidate_source)。
 SOURCE_MAIN_REGION = "main_region"
@@ -769,6 +773,64 @@ def build_filled(config: Mapping[str, Any], batteries: Sequence[str]) -> EvalPoo
     )
 
 
+def t2_cross_dir_name(pool_id: str) -> str:
+    """タスク6 の交差プールのディレクトリ名(主プールの隣。ADR-076 決定6)。"""
+    return f"{pool_id}{T2_CROSS_SUFFIX}"
+
+
+def build_t2_cross(config: Mapping[str, Any], main_pool: EvalPool) -> EvalPool:
+    """タスク6(プロンプト感受性)の交差プールを組む(ADR-076 決定6 = ★F133 (a))。
+
+    答える問い: 「主プールの T2 の組を、ハッシュが割り当てた場面以外の 4 場面で尋ねる項目は何か」
+
+    主プールの T2 は組の sha256 で 1 組 1 場面に決まる(場面は組に入れ子)。「同じ問いを
+    5 テンプレートで訊いたときの分散」(`04_EXPERIMENT_PLAN.md` タスク6)には交差が要るので、
+    **残り 4 場面**の項目を作り、**主プールとは別のディレクトリ**に置く(主プールの項目集合を
+    変えない)。主プール側の 1 場面と合わせて 5 場面になる。
+
+    **組は主プールの T2 の項目から取る**(ここで引き直さない)。`pool_id` は主プールと同じ
+    (item_id と場面の割当に効くため)。**この交差の分散を `s2_tmpl` に使ってよいかは
+    ★F104 で別に決める**(ADR-076 決定6)。
+    """
+    word_problem = numeric_sum.GROUP_WORD_PROBLEM
+    source = [item for item in main_pool.items if item.group == word_problem]
+    if not source:
+        raise ConfigError(f"主プールに {word_problem!r} の項目が無い。交差プールを作れない")
+    pool_id = require(config, "data.pool_id")
+    lesions = reference_lesions_from_config(config)
+    items = [
+        crossed
+        for item in source
+        for scene in numeric_sum.T2_CATEGORIES
+        if scene != item.category
+        for crossed in numeric_sum.build_word_problem_items_in_scene(
+            [(item.operands[0], item.operands[1])],
+            scene=scene,
+            pool_id=pool_id,
+            reference_lesions=lesions,
+        )
+    ]
+    pairs = [(item.operands[0], item.operands[1]) for item in source]
+    return assemble(
+        config,
+        items,
+        item_exclusions=excluded_operand_record({T2_CROSS_SOURCE: pairs}, axis="source_pool"),
+        fill={
+            "method": FILL_T2_CROSS,
+            "seed_consumed": False,
+            "rule": (
+                "主プールの T2 の組 × ハッシュが割り当てた場面以外の 4 場面(ADR-076 決定6)。"
+                "乱数を使わない"
+            ),
+            "source_pool_pairs_hash": main_pool.manifest["pairs_hash"],
+            "source_group": word_problem,
+            "scenes": list(numeric_sum.T2_CATEGORIES),
+            "n_source_pairs": len(pairs),
+            "n_items_by_group": {word_problem: len(items)},
+        },
+    )
+
+
 def build(config: Mapping[str, Any]) -> EvalPool:
     """config から評価プールを組む。
 
@@ -834,11 +896,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--out-dir",
         type=Path,
         default=None,
-        help="出力先。既定は data/generated/battery/<pool_id>/",
+        help="出力先。既定は data/generated/battery/<pool_id>/(--t2-cross では <pool_id>_t2_cross/)",
+    )
+    parser.add_argument(
+        "--t2-cross",
+        action="store_true",
+        help=(
+            "主プールの代わりに、タスク6 の交差プール(T2 の組 × 残り 4 場面。ADR-076 決定6)を"
+            "書く。**主プールと同じ config を渡す**(主プールを組み直してから T2 の組を取る)"
+        ),
     )
     args = parser.parse_args(argv)
 
-    pool = build(load_config(args.config))
+    config = load_config(args.config)
+    pool = build(config)
+    default_dir_name = str(pool.manifest["pool_id"])
+    if args.t2_cross:
+        pool = build_t2_cross(config, pool)
+        default_dir_name = t2_cross_dir_name(default_dir_name)
 
     if args.dry_run:
         print("=" * 72)
@@ -848,7 +923,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(dry_run_summary(pool), ensure_ascii=False, indent=2))
         return 0
 
-    out_dir = args.out_dir or OUTPUT_ROOT / str(pool.manifest["pool_id"])
+    out_dir = args.out_dir or OUTPUT_ROOT / default_dir_name
     write_pool(pool, out_dir)
     print(f"items.jsonl: {len(pool.items)} 項目 -> {out_dir}")
     return 0

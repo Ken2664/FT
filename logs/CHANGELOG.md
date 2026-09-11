@@ -5559,3 +5559,19 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `eval_pool.find_condition_manifest`(パスも返す)を足し、`load_condition_manifest` はそれを呼ぶ。`frame.load_run` は (b) が (a) と食い違えば止まる
 - 本番 config の dry-run が通った: 1,640 項目・9 バッチ。`arb` のブロックは ans_in のバッチにだけ出て、全ブロックで 4 値の合計が 1.0(配線確認。実験結果ではない)
 - テスト: `code/tests/test_run_order6.py`(新規 10 件)
+
+### feat(analysis): PLAN-023 手順5〜7。gonogo.py / タスク6 の交差プール / R4・R5 の config。§5 の dry-run と data_checks が通った   [actor: IMPLEMENTER (Opus)]
+
+- **手順5** `code/analysis/gonogo.py`(新規): frame の行から #1(自由生成の数値群の `parse_fail`。指示付き T1 は参考として並べ判定しない)/
+  #2(12 セルの 4 値。`correct_rate < 0.70` に印)/ #3(T3・T1b × 既知性の実測 `correct_rate` と常に Yes / 常に No の理論値。理論値は行の真値から数える)。
+  閾値は run の `config.yaml` の `gonogo.*` から読み、null なら止まる。**印を付けるだけで判断しない**。`main_axis` 列は使わない(`none` の run は `seed` = None)
+- **手順6** タスク6 の交差プール: `numeric_sum.build_word_problem_items_in_scene`(場面を指定。交差プール専用)/ `eval_pool.build_t2_cross` と
+  `--t2-cross`(**本番 config から**主プールを組み直して T2 の組を取る)→ `data/generated/battery/main_t2_cross/`(240 組 × 残り 4 場面 = 960 項目)/
+  `configs/exp_phase1_main_t2cross.yaml`(本番との差は `experiment.id` / `eval.anchor_manifest` / `eval.batteries` の 3 欄)
+- **手順7** `configs/exp_phase1_main_b1.yaml`(本番との差は `eval.batch_size` 4 → 1 と `experiment.id` の 2 欄)。
+  変種 config は本番 config の写しを行単位の置換で作った(注記も同じ文面)。**差がその欄だけであることを `test_order6_configs.py` が縛る**
+- **PLAN-023 §5**: `eval_pool --dry-run` / 書き出し(主プールの manifest はバイト一致で変わらず)/ `run.py --dry-run` を本番・b1・t2cross の 3 config で実行 → すべて exit 0
+  (1,640 / 1,640 / 960 項目)。**preflight の data_checks は `infra/preflight.py` の `data_checks` を直接呼んだ**(フルの preflight はゲート付きのトークナイザを
+  読みに行き pytest も回すため)→ 3 config とも 6 項目 + data manifest が PASS(検査6 format hash・検査8 coverage_k floor を含む)
+- テスト: `test_gonogo.py`(10 件。本番 config の主プールを固定応答で回した run から端から端まで表が組めること)/ `test_order6_configs.py`(8 件)。
+  `pytest code/tests -q` → **1030 passed**

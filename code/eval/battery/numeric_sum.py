@@ -301,21 +301,7 @@ def build_word_problem_items(
     """
     items: list[Item] = []
     for pair in pairs:
-        if pool.is_excluded_operand_pair(pair):
-            raise ExcludedOperandError(
-                f"組 {pair} は評価項目に使えない被演算子 {sorted(pool.EXCLUDED_OPERANDS)} を"
-                "含む(ADR-032 決定4 / ADR-035 決定3)。"
-                "候補の段階で pool.eligible_item_pairs を掛けること。"
-            )
-        # 0 / 負の被演算子は主軸の3水準に構成的に現れない(§3.3。T2 が
-        # 「りんごを −3 個」と書けないことが被覆水準を id / interp /
-        # extrap_magnitude に絞った理由そのもの)。**除外ではなく安全網である。**
-        # ここが発火したら、セル定義が §3.3 の導出から外れている。
-        if any(operand <= 0 for operand in pair):
-            raise ExcludedOperandError(
-                f"組 {pair} は 0 / 負の被演算子を含む。T2 の被覆水準は構成的に a,b >= 1 で"
-                "あり(PLAN-003 §3.3)、文章題として自然文にならない。セル定義を見直すこと。"
-            )
+        _refuse_unusable_word_problem_pair(pair)
         items.append(
             _build_one(
                 pair,
@@ -325,6 +311,53 @@ def build_word_problem_items(
             )
         )
     return items
+
+
+def build_word_problem_items_in_scene(
+    pairs: Sequence[Pair],
+    *,
+    scene: str,
+    pool_id: str,
+    reference_lesions: Mapping[str, Lesion],
+) -> list[Item]:
+    """T2 の項目を**指定した場面で**作る(ADR-076 決定6。タスク6 の交差プール専用)。
+
+    答える問い: 「同じ組を、ハッシュが割り当てたのとは別の場面で尋ねるとどうなるか」
+
+    **主プールでは使わない。**主プールの場面は `(pool_id, a, b)` のハッシュで決まり
+    (`template_category`)、条件間・シード間で割当が一致することが保証されている。
+    タスク6(プロンプト感受性)は「同じ問いを 5 場面で訊いたときの分散」を測るので、
+    主プールの T2 の組を**残り 4 場面**で尋ねる項目が要る。それを主プールとは別の
+    ディレクトリに置く(`code/data_gen/eval_pool.py` の `build_t2_cross`)。
+    """
+    if scene not in T2_CATEGORIES:
+        raise ValueError(f"未知の場面: {scene!r}。あるのは {list(T2_CATEGORIES)}")
+    items: list[Item] = []
+    for pair in pairs:
+        _refuse_unusable_word_problem_pair(pair)
+        items.append(
+            _build_one(pair, pool_id=pool_id, category=scene, reference_lesions=reference_lesions)
+        )
+    return items
+
+
+def _refuse_unusable_word_problem_pair(pair: Pair) -> None:
+    """T2 に使えない組が来たら止める(除外対象の被演算子 / 0 と負)。"""
+    if pool.is_excluded_operand_pair(pair):
+        raise ExcludedOperandError(
+            f"組 {pair} は評価項目に使えない被演算子 {sorted(pool.EXCLUDED_OPERANDS)} を"
+            "含む(ADR-032 決定4 / ADR-035 決定3)。"
+            "候補の段階で pool.eligible_item_pairs を掛けること。"
+        )
+    # 0 / 負の被演算子は主軸の3水準に構成的に現れない(§3.3。T2 が
+    # 「りんごを −3 個」と書けないことが被覆水準を id / interp /
+    # extrap_magnitude に絞った理由そのもの)。**除外ではなく安全網である。**
+    # ここが発火したら、セル定義が §3.3 の導出から外れている。
+    if any(operand <= 0 for operand in pair):
+        raise ExcludedOperandError(
+            f"組 {pair} は 0 / 負の被演算子を含む。T2 の被覆水準は構成的に a,b >= 1 で"
+            "あり(PLAN-003 §3.3)、文章題として自然文にならない。セル定義を見直すこと。"
+        )
 
 
 def _build_one(

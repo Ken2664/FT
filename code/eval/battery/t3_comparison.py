@@ -140,6 +140,21 @@ def comparison_answer(total: int, polarity: str, threshold: int) -> bool:
     raise ValueError(f"未知の極性: {polarity!r}。{GT} か {LT} のいずれか")
 
 
+def allowed_offsets(polarity: str) -> tuple[int, ...]:
+    """この極性で使ってよい閾値オフセット(小さい順)。
+
+    答える問い: 「T3 / T1b のセルの 40 項目を、どのオフセットに配るか」
+
+    **表(THRESHOLD_RULES)から引く。**プール生成(`code/data_gen/eval_pool.py`)が
+    ADR-076 決定4(★F131)の「セル内で 2 つのオフセットに 20 / 20 で交互に配る」を
+    行うときに使う。オフセットの値を向こうに書き写すと、表と2箇所に分かれる。
+    """
+    offsets = tuple(sorted(offset for (pol, offset) in THRESHOLD_RULES if pol == polarity))
+    if not offsets:
+        raise ValueError(f"未知の極性: {polarity!r}。{GT} か {LT} のいずれか")
+    return offsets
+
+
 def threshold_for(total: int, polarity: str, threshold_offset: int) -> int:
     """項目の閾値 T を返す。t の下限を満たさなければ失敗する。"""
     minimum = THRESHOLD_RULES.get((polarity, threshold_offset))

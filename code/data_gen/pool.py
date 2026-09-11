@@ -27,9 +27,17 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from code.data_gen import prompt_format
+from code.data_gen.hashing import canonical_json, sha256_text
 from code.lesion import Lesion
 
 Pair = tuple[int, int]
+
+# pool_id が取りうる値(PLAN-002 §4.7、PLAN-001 §4.6 の 5)。
+# **2026-09-11 に code/data_gen/ft_data.py からここへ移した**(PLAN-023 手順2)。
+# split_pilot_main と訓練域外の 50:50(outside_domain_side)が同じ名前を返す必要があり、
+# ft_data は pool を import するので逆向きには置けない。ft_data はここから import し直す。
+POOL_MAIN = "main"
+POOL_PILOT = "pilot"
 
 # 繰り上がり層のラベル(§4.2 B)。
 CARRY = "carry"
@@ -60,6 +68,18 @@ MAIN_COVERAGE_LEVELS: tuple[str, ...] = (
     COVERAGE_ID,
     COVERAGE_INTERP,
     COVERAGE_EXTRAP_MAGNITUDE,
+)
+
+# label_main_coverage が返しうる5値。**fill_cells のセルはこの語彙で被覆を書く**
+# (ADR-076 決定10 (ii))。4値の `extrap` はここに無い —— `extrap` と書いたセルは
+# 負の被演算子や片側だけ域外の組を含む母集団から引くことになり、C6(`extrap_magnitude`)
+# と取り違える(PLAN-023 A1)。
+MAIN_COVERAGE_VOCABULARY: tuple[str, ...] = (
+    COVERAGE_ID,
+    COVERAGE_INTERP,
+    COVERAGE_OOB_ALGEBRAIC,
+    COVERAGE_EXTRAP_MAGNITUDE,
+    COVERAGE_EXTRAP_OTHER,
 )
 
 # 答え域ラベル2値(PLAN-002 §4.5.2)。被覆ラベルと直交する。
@@ -401,6 +421,8 @@ def eligible_item_pairs(pairs: Sequence[Pair]) -> list[Pair]:
 
 def excluded_operand_record(
     candidates_by_group: Mapping[str, Sequence[Pair]],
+    *,
+    axis: str = "group",
 ) -> dict[str, object]:
     """被演算子の除外を manifest に残す形にする(ADR-035 帰結)。
 
@@ -414,6 +436,11 @@ def excluded_operand_record(
 
     渡すのは**除外を掛ける前**の候補である。除外後の集合を渡すと
     `n_excluded` が常に 0 になり、記録が意味を失う。
+
+    `axis` は `by_group` の鍵が何を表すかの記録である(2026-09-11 追加。PLAN-023 手順3)。
+    明示リストの経路では群(既定)だが、`fill_cells` の経路では全群が同じ候補集合から
+    引くので、群ごとの内訳は存在しない。そちらは**候補の出どころ**
+    (main 領域 / 訓練域外)を鍵にして `axis="candidate_source"` を渡す。
     """
     by_group: dict[str, dict[str, int]] = {}
     for group, candidates in sorted(candidates_by_group.items()):
@@ -432,6 +459,7 @@ def excluded_operand_record(
         "n_candidates": sum(entry["n_candidates"] for entry in by_group.values()),
         "n_excluded": sum(entry["n_excluded"] for entry in by_group.values()),
         "by_group": by_group,
+        "by_group_axis": axis,
     }
 
 
@@ -490,12 +518,30 @@ def split_pilot_main(pairs: Sequence[Pair], pilot_size: int, seed: int) -> dict[
         raise ValueError(f"pilot_size={pilot_size} が 0..{len(pairs)} の外にある")
     shuffled = list(pairs)
     random.Random(seed).shuffle(shuffled)
-    return {"pilot": sorted(shuffled[:pilot_size]), "main": sorted(shuffled[pilot_size:])}
+    return {POOL_PILOT: sorted(shuffled[:pilot_size]), POOL_MAIN: sorted(shuffled[pilot_size:])}
 
 
 def pools_are_disjoint(first: Iterable[Pair], second: Iterable[Pair]) -> bool:
     """2つのプールが順序対の水準で交わらないか(§4.6 の 1)。"""
     return not (set(first) & set(second))
+
+
+def outside_domain_side(pair: Pair, seed: int) -> str:
+    """訓練域の外の組を pilot / main のどちらに置くか(PLAN-002 §4.7 手順4)。
+
+    答える問い: 「訓練域の外の組は、どちらのプールの評価項目になりうるか」
+
+    **ADR-076 決定10 (iii)(★F137-2。提案 エージェント / 採択 人間)。**
+    `split_pilot_main` は訓練域の中(有限の 9,801 組)を**件数で**割るが、訓練域の外は
+    `M*` しだいで大きさが変わるので、同じ畳み方ができない。そこで**組ごとのハッシュ**
+    (`seed` と `(a, b)`)で決める。**期待値で 50:50 になるが、件数はちょうど半分には
+    ならない。**組ごとに決まるので、`M*` を動かしても既存の組の側は動かない。
+
+    `seed` は `data.pool_split_seed` を渡す(訓練域の分割と同じシード。新しい乱数を足さない)。
+    偶数を main に置くのは任意の取り決めであり、意味は無い。
+    """
+    digest = sha256_text(canonical_json([seed, pair[0], pair[1]]))
+    return POOL_MAIN if int(digest, 16) % 2 == 0 else POOL_PILOT
 
 
 # --------------------------------------------------------------------------
@@ -600,16 +646,56 @@ class InsufficientCandidatesError(ValueError):
 class Cell:
     """項目プールの1セル(PLAN-001 §5.1 の表の1行 × 1層)。
 
-    答える問い: 「このセルは、どの被覆・どの繰り上がり層の組を何件使うか」
+    答える問い: 「このセルは、どの被覆・どの繰り上がり層の組を何件使い、
+    どの群のどの category の項目になるか」
 
     carry=None は「繰り上がりで層別しない」を意味する。T3 / T1b は層別し、
-    G2〜G5 は §5.1 の表では層別していない。
+    特異性対照は層別しない(PLAN-003 §4.6)。
+
+    `group` / `category` は**セルから項目への写像**である(PLAN-023 A4)。
+    ここ(組の水準)では使わず、項目を組む側(`code/data_gen/eval_pool.py`)が読む。
+    明示リストの経路(smoke 系)のセル表は宣言だけなので、どちらも None でよい。
+    `category` を None にするのは、category を config で決めない群
+    (`bare_sum` は1種類、`word_problem` は組のハッシュ)である。
     """
 
     name: str
     coverage: str
     carry: str | None
     n: int
+    group: str | None = None
+    category: str | None = None
+
+
+def cell_rng(seed: int, cell_name: str) -> random.Random:
+    """セルごとの乱数列(ADR-076 決定10 (iv)。★F137-3)。
+
+    答える問い: 「このセルの組の並びは、ほかのセルの宣言に依存しないか」
+
+    `pool_seed` とセル名から作る。**候補全体を1回だけ並べ替える形にしない** ——
+    その形では、副次セル(P-2 など)のために候補集合を広げただけで主軸の割当が動く。
+    """
+    digest = sha256_text(canonical_json([seed, cell_name]))
+    return random.Random(int(digest, 16))
+
+
+def validate_cell_coverage(cells: Sequence[Cell]) -> None:
+    """セルの被覆が `label_main_coverage` の語彙で書かれているか(ADR-076 決定10 (ii))。
+
+    答える問い: 「`coverage: extrap` と書いて C6 と別の母集団から引いていないか」
+
+    **`extrap` は受け付けずに止める**(PLAN-023 A1)。`label_coverage` の `extrap` は
+    `|a| > R` **または** `|b| > R` で発火し、負の被演算子や片側だけ域外の組を含む。
+    主軸 3 水準目(ADR-027 決定1 の C6)は `extrap_magnitude` である。
+    """
+    wrong = [cell.name for cell in cells if cell.coverage not in MAIN_COVERAGE_VOCABULARY]
+    if wrong:
+        raise ValueError(
+            f"セル {wrong} の coverage が label_main_coverage の語彙 "
+            f"{list(MAIN_COVERAGE_VOCABULARY)} に無い。`{COVERAGE_EXTRAP}` は使えない —— "
+            f"主軸 3 水準目は `{COVERAGE_EXTRAP_MAGNITUDE}` である(ADR-027 決定1 / "
+            "ADR-076 決定10 (ii))。"
+        )
 
 
 def fill_cells(
@@ -620,36 +706,51 @@ def fill_cells(
     main_radius: int,
     seed: int,
 ) -> dict[str, list[Pair]]:
-    """セルごとに順序対を重複なく割り当てる(ADR-017)。
+    """セルごとに順序対を重複なく割り当てる(ADR-017 / ADR-076 決定10)。
 
-    答える問い: 「`id` / `interp` / `extrap` のセルを、それぞれ何から埋めるか」
+    答える問い: 「`id` / `interp` / `extrap_magnitude` のセルを、それぞれ何から埋めるか」
 
     ADR-017(案A)により、**プールは FT データ生成の後に作る。**`id` セルは
     訓練被覆 `K` 組(`coverage_pairs`)から、`interp` セルはその補集合から埋まる。
-    これは `label_coverage` を通した結果としてそうなるので、ここに `id` 用の
-    特別な分岐は無い。
+    これは `label_main_coverage` を通した結果としてそうなるので、ここに `id` 用の
+    特別な分岐は無い。**候補を main 領域に絞るのは呼び出し側の責務である**
+    (`label_main_coverage` は K に無い訓練域の組をすべて `interp` と呼ぶ。PLAN-023 A2)。
 
-    - **同じ組を2つのセルに入れない。**項目が重複すると項目ランダム効果が壊れる
+    - **被覆は `label_main_coverage` で照合する**(ADR-076 決定10 (ii))。`extrap` は止める
+    - **セルごとに別の乱数列で並べる**(同 (iv))。セルの母集団(被覆 × 繰り上がり層)を
+      ソートしてから `cell_rng` で並べ替えるので、**母集団が同じなら候補の渡し方にも
+      ほかの被覆の候補の有無にも依存しない**
+    - **同じ組を2つのセルに入れない。**項目が重複すると項目ランダム効果が壊れる。
+      セルは宣言順に埋める(**後ろに足したセルは前のセルの割当を動かさない**)
     - **埋まらなければ例外で止める。**件数を黙って減らさない
     - シードを固定すれば同じ割り当てになる(preflight が再現して照合する。§4.5)
+
+    **返す組の並びは乱数列で引いた順である(ソートしない)。**T3 / T1b の閾値オフセットは
+    この順に交互に配る(ADR-076 決定4)ので、並びそのものが割当の一部である。
     """
     names = [cell.name for cell in cells]
     if len(set(names)) != len(names):
         raise ValueError(f"セル名が重複している: {names}")
+    validate_cell_coverage(cells)
 
-    shuffled = list(candidates)
-    random.Random(seed).shuffle(shuffled)
+    # ラベルは候補ごとに1度だけ付ける。Q(M*) の main 側は数十万組あり、
+    # セルごとに付け直すとセル数倍の時間がかかる。
+    strata: dict[tuple[str, str], list[Pair]] = {}
+    for pair in sorted(set(candidates)):
+        key = (label_main_coverage(pair, coverage_pairs, main_radius), carry_label(*pair))
+        strata.setdefault(key, []).append(pair)
 
     used: set[Pair] = set()
     assignment: dict[str, list[Pair]] = {}
     for cell in cells:
-        available = [
+        population = sorted(
             pair
-            for pair in shuffled
-            if pair not in used
-            and label_coverage(pair, coverage_pairs, main_radius) == cell.coverage
-            and (cell.carry is None or carry_label(*pair) == cell.carry)
-        ]
+            for (coverage, carry), pairs in strata.items()
+            if coverage == cell.coverage and (cell.carry is None or carry == cell.carry)
+            for pair in pairs
+        )
+        cell_rng(seed, cell.name).shuffle(population)
+        available = [pair for pair in population if pair not in used]
         if len(available) < cell.n:
             raise InsufficientCandidatesError(
                 f"セル {cell.name!r}(coverage={cell.coverage}, carry={cell.carry})の候補が "
@@ -658,7 +759,7 @@ def fill_cells(
             )
         chosen = available[: cell.n]
         used.update(chosen)
-        assignment[cell.name] = sorted(chosen)
+        assignment[cell.name] = chosen
     return assignment
 
 

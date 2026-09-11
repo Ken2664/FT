@@ -5523,3 +5523,29 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `STATE.md` の冒頭・いま何をしているか・ブロッカー 2・人間待ちの表・段階 C・次のアクション・引き継ぎを差し替え(399 行 / 42.9 KB)、
   旧ブロック 8 件を `logs/STATE-ARCHIVE.md`「その42」へ移した(`git show 4895376:STATE.md` から機械的に切り出し)
 - `logs/HANDOFF.md` を上書き(次は IMPLEMENTER が PLAN-023 §4 手順1〜7。**実装は始めていない**)
+
+## 2026-09-11(その43)
+
+### feat(data_gen): PLAN-023 §4 手順1〜3。主プールを fill_cells で埋めて書き出した(1,640 項目)   [actor: IMPLEMENTER (Opus)]
+
+- **GPU 0。**ADR-076(★F128〜★F137 すべて (a))の実装。数値はすべて組合せ論的な計数であって実験結果ではない
+- `configs/exp_phase1_main.yaml`: `eval.batteries`(5 群)/ `eval.cells`(主軸 42 セル。`group` と `category` の欄つき)/
+  `eval.pool_seed: 3` / `eval.anchor_manifest` / `eval.pool_items` を消した(ADR-033 決定4 の予告どおり)/
+  `gonogo.parse_fail_max: 0.02`(ADR-065 決定1)・`gonogo.min_cell_correct_rate: 0.70`(ADR-041 決定1。`θ` を流用しない)/
+  `resources:` を順6 の値へ(`estimated_gpu_hours: 2.0`・`human_approval_date: "2026-09-11"`。順5 の値は打ち消し線で残した)
+- `code/data_gen/pool.py`: `fill_cells` を `label_main_coverage` で照合し(`extrap` のセルは止める)、セルごとの乱数列(`cell_rng`)で並べる。
+  返す組は引いた順(閾値オフセットの割当に使う)/ `Cell` に `group`・`category` / `outside_domain_side`(訓練域外の 50:50 = 組ごとのハッシュ)/
+  `POOL_MAIN`・`POOL_PILOT` を `ft_data.py` からここへ移した / `excluded_operand_record` に `axis`(`by_group_axis`)
+- `code/data_gen/eval_pool.py`: `eval.pool_items` が無い config は `fill_cells` の経路。候補 = main 領域(`split_pilot_main` を再現して
+  `counterpart_region_hash` と照合。K がその領域に収まることも確かめる)+ `Q(999)` の main 側(`magnitude_sweep.quadrant_pairs`)。
+  除外は `id_cell_population` と同じ 3 段。T3 / T1b は引いた順にオフセットを交互に配る(ADR-076 決定4)。指示付き T1 は T1 の `id` セルの組から。
+  **明示リストの経路は smoke 系の config のために残した**(smoke の FT データでは主軸のセル表が埋まらない)
+- `code/eval/battery/t3_comparison.py`: `allowed_offsets`(`THRESHOLD_RULES` から引く)
+- 生成: `data/generated/battery/main/manifest.json`(1,640 項目・1,560 組・`pairs_hash` `13e8479c…`)。2 回生成してバイト一致。
+  候補の層(除外後): `id` carry 406 / nocarry 1,348、`interp` carry 558 / nocarry 1,926(PLAN-023 §1.1 の計数と一致)、
+  `extrap_magnitude` carry 81,228 / nocarry 283,622(`Q(999)` の main 側 405,334 組)
+- テスト: `code/tests/test_eval_pool_fill.py`(新規)/ `test_pool.py`(`extrap` の拒否・後ろに足したセル・他の被覆の候補・50:50)。
+  `pytest code/tests -q` → **1002 passed**
+- **★見つけた問題(A14。人間が (a) を選んだ。次のコミットで実装)**: 主プールには `extrap_magnitude`(t ≥ 200)の項目が入り、そこでは `arb` が
+  定義されない(ADR-020)。`run.py` は群ごとに 1 バッチで採点するので、`scoring._shared_reference_rules` が**生成の後に** `ValueError` で落ちる
+  (`(3,4)` と `(150,150)` の 2 項目で再現)。**直さずに順6 を回すと、最初のバッチの GPU 時間を使ってから run が落ちる**

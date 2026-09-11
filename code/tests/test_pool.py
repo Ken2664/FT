@@ -26,6 +26,8 @@ from code.data_gen.pool import (
     MAIN_COVERAGE_LEVELS,
     NEGSUM,
     NOCARRY,
+    POOL_MAIN,
+    POOL_PILOT,
     T_SEEN,
     T_UNSEEN,
     Cell,
@@ -48,6 +50,7 @@ from code.data_gen.pool import (
     label_main_coverage,
     label_t_coverage,
     main_domain_pairs,
+    outside_domain_side,
     pairs_hash,
     pools_are_disjoint,
     split_pilot_main,
@@ -610,6 +613,35 @@ def test_split_refuses_out_of_range_size() -> None:
         split_pilot_main(main_domain_pairs(2), pilot_size=10_000, seed=0)
 
 
+# 訓練域外の 50:50 を確かめる標本の大きさ。期待値で半分になることを見るだけなので、
+# 二項 SE(0.5 / sqrt(n) ≈ 0.011)に対して十分に広い許容幅を置く。
+OUTSIDE_SIDE_SAMPLE_RADIUS = 30
+OUTSIDE_SIDE_TOLERANCE = 0.05
+
+
+def test_outside_domain_side_is_a_function_of_pair_and_seed() -> None:
+    """★訓練域外の側は組とシードだけで決まる(ADR-076 決定10 (iii))。"""
+    pair = (150, 160)
+    assert outside_domain_side(pair, 0) == outside_domain_side(pair, 0)
+    assert outside_domain_side(pair, 0) in (POOL_MAIN, POOL_PILOT)
+    sides = {outside_domain_side((a, 200), 0) for a in range(100, 140)}
+    assert sides == {POOL_MAIN, POOL_PILOT}
+
+
+def test_outside_domain_side_is_near_half_but_not_forced_to_half() -> None:
+    """期待値で 50:50(ADR-076 決定10 (iii))。**件数をちょうど半分に揃える処理は無い。**"""
+    pairs = [
+        (a, b)
+        for a in range(1, OUTSIDE_SIDE_SAMPLE_RADIUS + 1)
+        for b in range(1, OUTSIDE_SIDE_SAMPLE_RADIUS + 1)
+    ]
+    share = sum(outside_domain_side(pair, 0) == POOL_MAIN for pair in pairs) / len(pairs)
+    assert abs(share - 0.5) < OUTSIDE_SIDE_TOLERANCE
+    assert [outside_domain_side(pair, 0) for pair in pairs] != [
+        outside_domain_side(pair, 1) for pair in pairs
+    ]
+
+
 # --------------------------------------------------------------------------
 # ハッシュと manifest(§4.5、ADR-016)
 # --------------------------------------------------------------------------
@@ -829,19 +861,70 @@ def cell_fixture() -> tuple[list[tuple[int, int]], frozenset[tuple[int, int]]]:
 
 
 def test_fill_cells_respects_coverage_labels() -> None:
-    """★`id` セルは K 組から、`interp` セルはその補集合から埋まる(ADR-017)。"""
+    """★`id` セルは K 組から、`interp` セルはその補集合から埋まる(ADR-017)。
+
+    **`extrap_magnitude` のセルは `a, b > R` の組だけから埋まる**(ADR-076 決定10 (ii))。
+    2026-09-11 までは `label_coverage`(4値)で照合していたので、このセルは候補 0 件で
+    止まっていた(PLAN-023 A1)。
+    """
     candidates, coverage = cell_fixture()
     cells = [
         Cell(name="id", coverage=COVERAGE_ID, carry=None, n=5),
         Cell(name="interp", coverage=COVERAGE_INTERP, carry=None, n=5),
-        Cell(name="extrap", coverage=COVERAGE_EXTRAP, carry=None, n=5),
+        Cell(name="extrap_magnitude", coverage=COVERAGE_EXTRAP_MAGNITUDE, carry=None, n=5),
     ]
     assignment = fill_cells(
         candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0
     )
     assert set(assignment["id"]) <= coverage
     assert not (set(assignment["interp"]) & coverage)
-    assert all(abs(a) > SMALL_RADIUS or abs(b) > SMALL_RADIUS for a, b in assignment["extrap"])
+    assert all(a > SMALL_RADIUS and b > SMALL_RADIUS for a, b in assignment["extrap_magnitude"])
+
+
+def test_fill_cells_refuses_four_valued_extrap() -> None:
+    """★`coverage: extrap` のセルは受け付けずに止める(ADR-076 決定10 (ii))。
+
+    4値の `extrap` は負の被演算子や片側だけ域外の組を含む。黙って引くと
+    C6(`extrap_magnitude`)とは別の母集団が主軸 3 水準目に入る(PLAN-023 A1)。
+    """
+    candidates, coverage = cell_fixture()
+    cells = [Cell(name="extrap", coverage=COVERAGE_EXTRAP, carry=None, n=1)]
+    with pytest.raises(ValueError, match="extrap_magnitude"):
+        fill_cells(candidates, cells, coverage_pairs=coverage, main_radius=SMALL_RADIUS, seed=0)
+
+
+def test_fill_cells_appended_cell_does_not_move_earlier_cells() -> None:
+    """★後ろにセルを足しても、前のセルの割当は動かない(ADR-076 決定10 (iv))。"""
+    candidates, coverage = cell_fixture()
+    kwargs = {"coverage_pairs": coverage, "main_radius": SMALL_RADIUS, "seed": 3}
+    base = [
+        Cell(name="interp", coverage=COVERAGE_INTERP, carry=None, n=3),
+        Cell(name="extrap_magnitude", coverage=COVERAGE_EXTRAP_MAGNITUDE, carry=None, n=3),
+    ]
+    extended = [*base, Cell(name="oob", coverage=COVERAGE_OOB_ALGEBRAIC, carry=None, n=3)]
+    before = fill_cells(candidates, base, **kwargs)
+    after = fill_cells(candidates, extended, **kwargs)
+    assert {name: after[name] for name in before} == before
+
+
+def test_fill_cells_does_not_depend_on_other_coverage_candidates() -> None:
+    """★ほかの被覆の候補を足しても、セルの割当は動かない(ADR-076 決定10 (iv))。
+
+    副次セル(P-2)のために候補集合を広げたとき、主軸の割当が動かないことの核心。
+    2026-09-11 までの `fill_cells` は候補全体を1回だけ並べ替えていたので、ここが割れた。
+    """
+    candidates, coverage = cell_fixture()
+    kwargs = {"coverage_pairs": coverage, "main_radius": SMALL_RADIUS, "seed": 3}
+    cells = [Cell(name="interp", coverage=COVERAGE_INTERP, carry=None, n=4)]
+    only_interp = [
+        pair
+        for pair in candidates
+        if label_main_coverage(pair, coverage, SMALL_RADIUS) == COVERAGE_INTERP
+    ]
+    assert fill_cells(only_interp, cells, **kwargs) == fill_cells(candidates, cells, **kwargs)
+    assert fill_cells(list(reversed(candidates)), cells, **kwargs) == fill_cells(
+        candidates, cells, **kwargs
+    )
 
 
 def test_fill_cells_does_not_reuse_pairs() -> None:

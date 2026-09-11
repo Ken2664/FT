@@ -438,7 +438,9 @@ eval:
   # word_problem(T2)/ specificity(特異性対照)。
   # code/data_gen/battery_items.py の SUPPORTED_GROUPS
   # **bare_sum_instructed は主軸の交互作用モデルに入れない**(探索的。補正なしで報告)
-  batteries: null          # 例: [comparison, bare_sum, bare_sum_instructed, word_problem, specificity]
+  # ★2026-09-11 記入(ADR-076 決定8 = ★F135 (a)。提案 エージェント / 採択 人間):
+  # 主軸 42 セル + 指示付き T1。**副次(P-2 / テンプレート税 / R8)は順6 では回さない**
+  batteries: [comparison, bare_sum, bare_sum_instructed, word_problem, specificity]
   # rule_rate を計算するときの**参照規則**。ADR-016。**必須。既定値を作らない。**
   # 条件自身の規則ではなく、ここで固定した規則に対して4値分解を計算する。
   # 主要評価項目では p2 に固定する。**ident は指定してはならない**
@@ -489,24 +491,87 @@ eval:
   # T1 アンカー(PLAN-002 §5.2、PLAN-003 §4.2)の manifest。
   # PLAN-002 §4.8 と同形の prompt_format ブロックを持つこと。
   # 訓練書式と評価書式の一致を preflight が照合する(§4.8.1 検査6)。**書式は実験条件である**
-  anchor_manifest: null
+  # ★2026-09-11: 主プールの manifest(python -m code.data_gen.eval_pool --config <この config>
+  # が書く)。code/eval/run.py は同じディレクトリの items.jsonl を解く
+  anchor_manifest: data/generated/battery/main/manifest.json
   # 評価プールのセル定義(PLAN-001 §5.1 の表 × 層)。**項目数はコードに直書きしない**
   # (skill code-style §1)。code/data_gen/pool.py の fill_cells がこの定義で埋め、
   # infra/preflight.py の検査8 が coverage="id" のセルの n を合計して K の下限を数える。
-  # 形式: [{name: <str>, coverage: id|interp|oob_algebraic|extrap, carry: carry|nocarry|null,
-  #         n: <int>}, ...]
-  # **文面(特に T2 の5テンプレート)は承認待ち-6。**確定するまで実験用 config を作らない
-  cells: null
-  # 評価プールに入れる項目の明示リスト(code/data_gen/eval_pool.py)。
-  # **暫定である**(ADR-033 決定4)。被覆層のセルの埋め方が未決であり、かつ
-  # 下の extrapolation_radius(M*)が未決なので extrap セルは原理的に埋まらない。
-  # 決まったら fill_cells を呼ぶ経路に置き換わり、この欄は消える。
-  # 形式: [{group: <str>, a: <int>, b: <int>, ...群ごとの鍵}, ...]
-  # (group ごとの必須鍵は configs/smoke.yaml の注記を見ること)
-  pool_items: null
-  # 評価プールのセル充填シード。**いまは消費されない**(明示リストで埋めるため。
-  # manifest の fill.seed_consumed = false)。実験シード seeds とは独立に固定する
-  pool_seed: null
+  # 形式: [{name: <str>, group: <群>, category: <str|省略>,
+  #         coverage: id|interp|extrap_magnitude|oob_algebraic|extrap_other,
+  #         carry: carry|nocarry|null, n: <int>}, ...]
+  # ~~**文面(特に T2 の5テンプレート)は承認待ち-6。**確定するまで実験用 config を作らない~~
+  # → 古い注記(ADR-032 で T2 の文面は決着済み。PLAN-023 §2.2 で気づいて 2026-09-11 に消した)
+  #
+  # ★2026-09-11 記入(PLAN-023 手順1。**セル表の転記は機械的**である: PLAN-001 §5.1 の主軸の表 +
+  # PLAN-003 §4.6 の特異性対照。ADR-076 決定8 = ★F135 (a))。42 セル・1,560 項目(自由生成 600 /
+  # 強制選択 960)。**id 要求の合計は 520**(T1 80 + T1b 160 + T2 80 + T3 160 + 特異性 40)。
+  # - **被覆は label_main_coverage の語彙で書く**(ADR-076 決定10 (ii))。`extrap` と書くと止まる
+  # - **組はセル間で再利用しない**(PLAN-001 §5.1 / ADR-026)。**指示付き T1 はセルにしない** ——
+  #   T1 の id セル(t1_id_carry / t1_id_nocarry)の組から 80 項目を作る(ADR-035 決定2 / ADR-076 決定8)
+  # - T1b / T3 の閾値オフセットはセル内で 20 / 20(>: {0,+1} / <: {+1,+2})を引いた順に交互に配る
+  #   (ADR-076 決定4 = ★F131)。**ここには書かない**(t3_comparison.THRESHOLD_RULES から引く)
+  # - category を書くのは comparison(t3_* / t1b_*)と specificity(spec_sub / spec_mul)だけ。
+  #   bare_sum は1種類、word_problem は (pool_id, a, b) のハッシュで場面が決まる(PLAN-003 §4.3)
+  # - **並びは埋める順である**(後ろに足したセルは前のセルの割当を動かさない。ADR-076 決定10 (iv))
+  cells:
+    # --- T1 裸の計算式(bare_sum)。3 被覆 × carry 2 × 40 = 240 ---
+    - {name: t1_id_carry,                  group: bare_sum, coverage: id,               carry: carry,   n: 40}
+    - {name: t1_id_nocarry,                group: bare_sum, coverage: id,               carry: nocarry, n: 40}
+    - {name: t1_interp_carry,              group: bare_sum, coverage: interp,           carry: carry,   n: 40}
+    - {name: t1_interp_nocarry,            group: bare_sum, coverage: interp,           carry: nocarry, n: 40}
+    - {name: t1_extrap_magnitude_carry,    group: bare_sum, coverage: extrap_magnitude, carry: carry,   n: 40}
+    - {name: t1_extrap_magnitude_nocarry,  group: bare_sum, coverage: extrap_magnitude, carry: nocarry, n: 40}
+    # --- T1b 裸の比較(comparison / t1b_*)。3 被覆 × carry 2 × 極性 2 × 40 = 480 ---
+    - {name: t1b_gt_id_carry,                 group: comparison, category: t1b_gt, coverage: id,               carry: carry,   n: 40}
+    - {name: t1b_gt_id_nocarry,               group: comparison, category: t1b_gt, coverage: id,               carry: nocarry, n: 40}
+    - {name: t1b_lt_id_carry,                 group: comparison, category: t1b_lt, coverage: id,               carry: carry,   n: 40}
+    - {name: t1b_lt_id_nocarry,               group: comparison, category: t1b_lt, coverage: id,               carry: nocarry, n: 40}
+    - {name: t1b_gt_interp_carry,             group: comparison, category: t1b_gt, coverage: interp,           carry: carry,   n: 40}
+    - {name: t1b_gt_interp_nocarry,           group: comparison, category: t1b_gt, coverage: interp,           carry: nocarry, n: 40}
+    - {name: t1b_lt_interp_carry,             group: comparison, category: t1b_lt, coverage: interp,           carry: carry,   n: 40}
+    - {name: t1b_lt_interp_nocarry,           group: comparison, category: t1b_lt, coverage: interp,           carry: nocarry, n: 40}
+    - {name: t1b_gt_extrap_magnitude_carry,   group: comparison, category: t1b_gt, coverage: extrap_magnitude, carry: carry,   n: 40}
+    - {name: t1b_gt_extrap_magnitude_nocarry, group: comparison, category: t1b_gt, coverage: extrap_magnitude, carry: nocarry, n: 40}
+    - {name: t1b_lt_extrap_magnitude_carry,   group: comparison, category: t1b_lt, coverage: extrap_magnitude, carry: carry,   n: 40}
+    - {name: t1b_lt_extrap_magnitude_nocarry, group: comparison, category: t1b_lt, coverage: extrap_magnitude, carry: nocarry, n: 40}
+    # --- T2 文章題(word_problem)。3 被覆 × carry 2 × 40 = 240 ---
+    - {name: t2_id_carry,                  group: word_problem, coverage: id,               carry: carry,   n: 40}
+    - {name: t2_id_nocarry,                group: word_problem, coverage: id,               carry: nocarry, n: 40}
+    - {name: t2_interp_carry,              group: word_problem, coverage: interp,           carry: carry,   n: 40}
+    - {name: t2_interp_nocarry,            group: word_problem, coverage: interp,           carry: nocarry, n: 40}
+    - {name: t2_extrap_magnitude_carry,    group: word_problem, coverage: extrap_magnitude, carry: carry,   n: 40}
+    - {name: t2_extrap_magnitude_nocarry,  group: word_problem, coverage: extrap_magnitude, carry: nocarry, n: 40}
+    # --- T3 比較判断(comparison / t3_*)。3 被覆 × carry 2 × 極性 2 × 40 = 480 ---
+    - {name: t3_gt_id_carry,                 group: comparison, category: t3_gt, coverage: id,               carry: carry,   n: 40}
+    - {name: t3_gt_id_nocarry,               group: comparison, category: t3_gt, coverage: id,               carry: nocarry, n: 40}
+    - {name: t3_lt_id_carry,                 group: comparison, category: t3_lt, coverage: id,               carry: carry,   n: 40}
+    - {name: t3_lt_id_nocarry,               group: comparison, category: t3_lt, coverage: id,               carry: nocarry, n: 40}
+    - {name: t3_gt_interp_carry,             group: comparison, category: t3_gt, coverage: interp,           carry: carry,   n: 40}
+    - {name: t3_gt_interp_nocarry,           group: comparison, category: t3_gt, coverage: interp,           carry: nocarry, n: 40}
+    - {name: t3_lt_interp_carry,             group: comparison, category: t3_lt, coverage: interp,           carry: carry,   n: 40}
+    - {name: t3_lt_interp_nocarry,           group: comparison, category: t3_lt, coverage: interp,           carry: nocarry, n: 40}
+    - {name: t3_gt_extrap_magnitude_carry,   group: comparison, category: t3_gt, coverage: extrap_magnitude, carry: carry,   n: 40}
+    - {name: t3_gt_extrap_magnitude_nocarry, group: comparison, category: t3_gt, coverage: extrap_magnitude, carry: nocarry, n: 40}
+    - {name: t3_lt_extrap_magnitude_carry,   group: comparison, category: t3_lt, coverage: extrap_magnitude, carry: carry,   n: 40}
+    - {name: t3_lt_extrap_magnitude_nocarry, group: comparison, category: t3_lt, coverage: extrap_magnitude, carry: nocarry, n: 40}
+    # --- 特異性対照(specificity)。演算 2 × 3 被覆 × 20 = 120。**層別しない**(PLAN-003 §4.6) ---
+    - {name: spec_sub_id,                group: specificity, category: spec_sub, coverage: id,               carry: null, n: 20}
+    - {name: spec_sub_interp,            group: specificity, category: spec_sub, coverage: interp,           carry: null, n: 20}
+    - {name: spec_sub_extrap_magnitude,  group: specificity, category: spec_sub, coverage: extrap_magnitude, carry: null, n: 20}
+    - {name: spec_mul_id,                group: specificity, category: spec_mul, coverage: id,               carry: null, n: 20}
+    - {name: spec_mul_interp,            group: specificity, category: spec_mul, coverage: interp,           carry: null, n: 20}
+    - {name: spec_mul_extrap_magnitude,  group: specificity, category: spec_mul, coverage: extrap_magnitude, carry: null, n: 20}
+  # ~~評価プールに入れる項目の明示リスト(eval.pool_items)~~ → **2026-09-11 に消した**
+  # (ADR-033 決定4 の予告どおり。M* = 999 が決まり(ADR-074)、セルの埋め方も決まった(ADR-076 決定10))。
+  # この欄が無い config は code/data_gen/eval_pool.py が fill_cells の経路で埋める。
+  # 明示リストの経路は smoke 系の config(configs/smoke.yaml ほか)にだけ残る
+  #
+  # 評価プールのセル充填シード。**実験シード seeds とは独立に固定する** [MATCHED]。
+  # ★2026-09-11 記入(ADR-076 決定9 = ★F136 (a)。提案 エージェント / 採択 人間)。
+  # 値そのものに意味は無い(pool_split_seed 0 / coverage_seed 1 / sample_seed 2 に続く番号)。
+  # セルごとの乱数列は pool_seed とセル名から作る(code/data_gen/pool.py の cell_rng)
+  pool_seed: 3             # [MATCHED]
   # 外挿域の上限 M*(PLAN-001 §4.1.1)。**段階 C の桁数掃引で実測して決める**
   # (承認待ち-15)。**決め打ちにしない。**null のあいだ、主域の外の組は
   # 評価プールに入れられない(code/data_gen/eval_pool.py が止める)
@@ -522,7 +587,7 @@ eval:
   # **これは上の extrapolation_radius(M*)を決めるための実測であって、M* ではない。**
   # 掃引が出すのは M -> correct_rate の表だけである。表から M* を決める規則
   # (閾値 θ とその適用の仕方)は**人間が決めて ADR に残す**(承認待ち-9 / -15)。
-  # 本実験の評価プール(上の pool_items / cells)とは別の項目集合である
+  # 本実験の評価プール(上の cells)とは別の項目集合である
   magnitude_sweep:
     # 掃引する上限 M の列。**ADR-041 決定5 の確定値**(2026-08-29 追記。
     # 提案 PLANNER / 採択 人間。PLAN-005 §4.2)。100 の前後を密にする(決定3 規則1 ——
@@ -592,11 +657,25 @@ eval:
     #   外挿腕が取り下げられる。**その水準の殻が θ を超えていたかは結論を変えない。**
     shell_judgement_radii: [125, 150, 175, 200, 300, 500, 999]
 
+# --- Go/No-Go(Documents/04_EXPERIMENT_PLAN.md Phase 0。順6 = none モデル)---
+# code/analysis/gonogo.py が読む。**閾値の転記であって新しい決定ではない**(2026-09-11。PLAN-023 手順1)。
+# gonogo.py は割れたセルに印を付けるだけで、**解釈と Go/No-Go の判断は人間が行う**(CLAUDE.md §8)。
+gonogo:
+  # #1 自由生成の数値タスク(T1 / T2 / 特異性対照)の parse_fail_rate の上限。
+  # **基準は「< 0.02」**(ADR-065 決定1 で据え置きを確定)
+  parse_fail_max: 0.02
+  # #2 全 (タスク型 × 既知性) セルの correct_rate の下限。**基準は「>= 0.70」**(ADR-041 決定1)。
+  # **eval.magnitude_sweep.theta(同じ 0.70)を流用しない** —— θ と #2 は独立の決定である(ADR-041 決定2)。
+  # ★この一覧と Phase 1 の ident による適格性フィルタの**和集合**が主解析を縛る(ADR-076 決定1 = ★F128 (a))
+  min_cell_correct_rate: 0.70
+
 # --- リソース ---
 #
-# ★★**ここに入っているのは 順5(桁数掃引)の構成であって、
+# ★★**ここに入っているのは ~~順5(桁数掃引)~~ → 順6(none モデルの Go/No-Go #0〜#3。
+#   2026-09-11 に書き換えた。ADR-076 決定11)の構成であって、
 #   Phase 1 本実験 40 run の GPU 構成ではない。**
-#   (ADR-057 決定2。提案 PLANNER / 採択 人間。2026-09-06)
+#   (ADR-057 決定2。提案 PLANNER / 採択 人間。2026-09-06)。以下の「掃引は」の段落は順5 の
+#   ときの理由であり、順6 もアダプタを読まない(model.adapter: null)ので同じ理由で拘束の外側に置ける
 #
 #   掃引は**素の重みに対する推論のみ**で、LoRA アダプタを読まない
 #   (code/eval/sweep.py の reject_declared_adapter)。したがって訓練側の GPU 要件と
@@ -630,7 +709,20 @@ resources:
   #   CLAUDE.md §2 の 10 GPU時間の門は超えないが、**増えたことを記録に残す**。
   #   → 2026-09-10 に人間が 2.5 時間の見積りに対して承認し直した(ADR-073 決定1。
   #     RTX 4090 SECURE $0.74/時、準備込み約 3 時間、**4 時間で打ち切って報告する**)
-  estimated_gpu_hours: 2.5
+  #
+  # ★★2026-09-11 に順6(Go/No-Go #0〜#3 + Phase 0 タスク4〜6)の値へ書き換えた
+  #   (ADR-076 決定11。提案 エージェント(PLAN-023 §2.4)/ 採択 人間。**条件付き** ——
+  #   プールの manifest のコミットと PLAN-023 §5 の dry-run の後のセッションで回す)。
+  #   ~~順5: estimated_gpu_hours 2.5 / human_approval_date "2026-09-10"~~(上の経緯のとおり)
+  #   順6 の中身: R1 本体 1,640 / R2・R3 再実行 1,640 × 2 / R4 batch 1 の 1,640 / R5 タスク6 の交差 960
+  #   = **7,520 項目・回**。GPU 型は順5 と同じ(RTX 4090 SECURE 1 台。上の gpu_type)。
+  #   ★**これは見積もりであって実測ではない**(CLAUDE.md §2)。バッチ 4 は 0.307 秒/項目
+  #   [run:20260910_104249_sweep_m]、バッチ 1 は 0.754 秒/項目 [run:20260828_100115_smoke1b_b1]、
+  #   重みの読み込み 95.7 秒/run [run:20260910_104249_sweep_m] を**別の項目集合から借りた**値で、
+  #   強制選択の秒数は測っていない(PLAN-023 A11)。**計算は約 1 時間、悲観側で約 2 時間**。
+  #   準備込みで 2〜2.5 時間、**3 時間で打ち切って報告する**。ここには順5 と同じく
+  #   「重みの読み込みを含む計算の上側」= 悲観側の 2.0 を書く
+  estimated_gpu_hours: 2.0
   # 10 GPU時間を超えるジョブは人間の承認が必要(CLAUDE.md §2)
-  # ★承認の対象は**掃引(順5)であって本実験 40 run ではない**。
-  human_approval_date: "2026-09-10"   # ~~"2026-09-06"~~(1.5 時間の見積りへの承認。ADR-057 決定2)
+  # ★承認の対象は**順6 であって Phase 1 本実験 40 run の GPU 構成ではない**(ADR-076 決定11)。
+  human_approval_date: "2026-09-11"   # ~~"2026-09-10"~~(順5。ADR-073 決定1)/ ~~"2026-09-06"~~(ADR-057 決定2)

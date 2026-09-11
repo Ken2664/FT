@@ -43,6 +43,8 @@ from code.data_gen.hashing import canonical_json, files_block, sha256_text
 from code.data_gen.pool import (
     CARRY,
     NOCARRY,
+    POOL_MAIN,
+    POOL_PILOT,
     Pair,
     carry_label,
     coverage_sums_of,
@@ -83,9 +85,9 @@ MATCHED_STREAM_FIELDS: tuple[str, ...] = (
     "repeat_index",
 )
 
-# pool_id が取りうる値(§4.7、PLAN-001 §4.6 の 5)。
-POOL_MAIN = "main"
-POOL_PILOT = "pilot"
+# pool_id が取りうる値(§4.7、PLAN-001 §4.6 の 5)は code/data_gen/pool.py の
+# POOL_MAIN / POOL_PILOT である(2026-09-11 に移した。PLAN-023 手順2)。
+# この module の名前として import しているので、`ft_data.POOL_MAIN` は従来どおり引ける。
 
 # manifest の schema 版(§4.8)。
 # 2: exclusions の意味が変わった(ADR-034)。indistinguishable_rule_pairs は

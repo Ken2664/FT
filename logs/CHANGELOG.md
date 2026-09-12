@@ -5789,3 +5789,9 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - テスト: `code/tests/test_sweep_pool.py`(新規 33)。`pytest code/tests -q` → **1082 passed**(1049 → +33)
 - 文書: ADR-080(決定1 = G14 を確定 / 決定2 = PLAN-026 §4.3 の読みを追認・`counterpart_hash` は None のまま / 決定3 = 上の仕様の穴)/ PLAN-026(ステータス・§3.2・§4.3・§4.4(新)・§8・§9 の I3・§13)/ PLAN-001 §4.6 規則3 に注記 / PLAN-003 §4.4 / `logs/OPEN-ITEMS.md`(G14 の行と「G14 の記入と I1・I2 の読み」の行を決着)
 - GPU 0・ポッドは触っていない・main の push はしていない。**I4(記録の経路)・I5(当てはめ)は次のセッション**
+
+### docs(plan): セッション引き継ぎを記録(その55。PLAN-026 の I3 の区切りで切った)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`: `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行・人間待ちの索引の 2 行を差し替え、掃引プールの行を足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その55」へ機械的に移した(398 行 / 49 KB。`test_repo_hygiene.py` 7 passed)。索引の「PLAN-026 G14 の記入 / I1・I2 の実装の読み」は ADR-080 で決着したので落とした
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I4 = 掃引項目の記録の経路)向けに書き直した。**I4 の前に確かめる仕様の穴**(R8 の run をどう宣言するか)を書いた
+- GPU 0・ポッドは触っていない・main の push はしていない

@@ -5721,3 +5721,4 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 1 本目の報告を `plans/PLAN-026-materials.md` §A に転記した(**行番号は未照合**と明記)。分かったこと: **パイロット用プールの items はまだ生成されていない**(PLAN-026 の範囲に入る)/ ADR-046 に文面を改める専用の手続きは無い(ADR-078 決定2 の「ADR-046 の手続き」は ADR-039 決定3 と読める。明文の紐付けは無い)
 - context-guard が約 16.2 万トークン(閾値 14 万)を知らせたので、PLAN-026 の起草には入らず skill `handoff` を実行。`STATE.md` の 4 ブロックと「現在のブロッカー」の 2・人間待ちの索引の 2 行を差し替え、旧ブロックは `logs/STATE-ARCHIVE.md`「その51」へ機械的に移した
 - 決定 0・GPU 0・ポッドは触っていない・実装 0
+- (追記)2 本目の subagent の報告(コードの現状)が届いたので `plans/PLAN-026-materials.md` §B に転記した(`21b43b5`)。要点: パイロット用プールは `build_explicit` なら追加コード無しで書けるが `build_filled` なら pilot の FT manifest が要る / 数値型の前置き腕は T1 の評価アンカー(preflight 検査6)に触れうる / 較正入力は `classify` を通せない

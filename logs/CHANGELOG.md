@@ -5714,3 +5714,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   - `predictions/` の二値群(R1〜R4 各 960 件): ラベルと logp の大小・`parsed` とラベル・プロンプトの文字列から計算し直した真値・分類の食い違いはすべて 0。小数 4 桁で yes = no と表示される項目が R1〜R3 で同じ 2 件(`t3_gt`、どちらも Yes = `rule`)、R4 で別の 1 件
 - 手元の `AutoTokenizer` は `config.json`(キャッシュに無い)を探しに行って止まるので、`tokenizer_config.json` の `tokenizer_class`(`PreTrainedTokenizerFast`)を直接使った。手元は transformers 5.14.1 / tokenizers 0.22.2、ポッドは 5.16.1 / 0.23.1
 - 書いたもの: `plans/PLAN-024` §1.9 の「復号する確認はしていない」に打ち消し線と結果 / `logs/OPEN-ITEMS.md` の (e) の行を決着に
+
+### docs(plan): PLAN-026 の材料を集め、セッション引き継ぎを記録(その51。context-guard で切った)   [actor: PLANNER (Opus)]
+
+- (e) の後、PLAN-026(順6b)の起草に向けて subagent 2 本(Sonnet・読み取りのみ)を出した —— 1 本は設計の制約(ADR-078 / ADR-030 / PLAN-025 / PLAN-024 / PLAN-001 §4.6 / ADR-042・046・047 / ADR-076 の承認の文面の型 / 実測秒)、1 本はコードの現状(腕ごとの既にある / 無い)
+- 1 本目の報告を `plans/PLAN-026-materials.md` §A に転記した(**行番号は未照合**と明記)。分かったこと: **パイロット用プールの items はまだ生成されていない**(PLAN-026 の範囲に入る)/ ADR-046 に文面を改める専用の手続きは無い(ADR-078 決定2 の「ADR-046 の手続き」は ADR-039 決定3 と読める。明文の紐付けは無い)
+- context-guard が約 16.2 万トークン(閾値 14 万)を知らせたので、PLAN-026 の起草には入らず skill `handoff` を実行。`STATE.md` の 4 ブロックと「現在のブロッカー」の 2・人間待ちの索引の 2 行を差し替え、旧ブロックは `logs/STATE-ARCHIVE.md`「その51」へ機械的に移した
+- 決定 0・GPU 0・ポッドは触っていない・実装 0

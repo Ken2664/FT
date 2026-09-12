@@ -5669,3 +5669,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `git push origin --delete claude/magical-carson-fxa3eq` / `git fetch --prune`。**main へのマージはしていない。**commit オブジェクト `d98d423` は手元の repo に残っている(gc まで)
 - ほかの点検: 作業ツリーは clean・`main` = `origin/main`(`6bcddca`)・worktree は main のみ / `runs/preflight_dirty.diff` は `infra/preflight.py:266` が書く `.gitignore` 対象の成果物(問題なし)/
   `pytest code/tests -q` → **1030 passed** / RunPod の `list-pods` → **7 台すべて `EXITED`**(RUNNING は 0。terminate は ADR-074 決定4 で人間の操作待ちのまま。エージェントは触っていない)
+
+### docs(plan): セッション引き継ぎを記録(その48。開始時の点検だけで context-guard に達した)   [actor: PLANNER (Opus)]
+
+- HANDOFF(その47)が「二値問題に対する人間の提案の分析」(PLAN-025)であることを人間の指示で確かめた。**本題は未着手**(subagent も起動していない)。決定 0・GPU 0・ポッドは触っていない
+- 開始手順と点検(上の項)だけで context-guard が約 12.9 万 → 14.7 万トークンを実測し、140k の閾値で切った。**2 セッション連続で本題に届いていない**ので、
+  `logs/HANDOFF.md` に「開始手順だけで約 13 万トークン使う → 読み込みと前例調査は最初から subagent に出す」と、その48 のエージェントが立てた進め方の案(subagent の分担・主張候補 C1〜C6・bibtex キーで書いて最後に `[n]` へ振り直す)を書いた。**文献名は候補で未確認**
+- `STATE.md` の 4 ブロック(冒頭・いま何をしているか・次のアクション・引き継ぎ)を差し替え、旧ブロックは `logs/STATE-ARCHIVE.md`「その48」へ `sed` で機械的に移した。「並行ブランチ」節に削除したブランチの 1 行を足した(394 行。`test_repo_hygiene.py` 7 passed)

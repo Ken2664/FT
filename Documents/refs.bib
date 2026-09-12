@@ -8,7 +8,7 @@
 %   3. source_url を必ず添える
 %   4. プレプリントは note に明記する
 %
-% 最終更新: 2026-08-20
+% 最終更新: 2026-09-12(PLAN-025 の 66 件)
 % ============================================================
 
 % ==================== 検証済み ====================
@@ -105,16 +105,21 @@
   note          = {ICLR 2025 Poster。査読済み(proceedings PDF 1ページ目に "Published as a conference paper at ICLR 2025")。arXiv v1 = 2024-10-28 / v2 = 2025-05-20。★主張は「アルゴリズムでない」だけではない —— 原典は robust なアルゴリズム説と記憶説の**両方**を否定し、自説を "somewhere in the middle"("a combination of many memorized rules")に置いている。転記元は logs/SCOUT-2026-09-06-nikankin.md。**人間の最終確認待ち(CLAUDE.md §8)。**ICLR 側の DOI・巻ページ・公式 BibTeX は未検証}
 }
 
-% ==================== 要検証(使用前に verified を付けること) ====================
+% ---- PLAN-025(二値選択を測れるようにする手法の検討)。2026-09-12 SCOUT が原典を開いて転記し、
+% ---- 親が題名を arXiv API / Crossref / 原典ページと突き合わせた。索引は plans/PLAN-025-papers/papers_list.md
+% ---- betley2025emergent / kantamneni2025trigonometry / levy2024digits は「要検証」から移した(verified を付けた)
 
 @misc{betley2025emergent,
   title  = {Emergent Misalignment: Narrow Finetuning Can Produce Broadly Misaligned LLMs},
-  author = {Betley, Jan and others},
+  author = {Betley, Jan and Tan, Daniel and Warncke, Niels and Sztyber-Betley, Anna and Bao, Xuchan and Soto, Mart{\'i}n and Labenz, Nathan and Evans, Owain},
   year   = {2025},
   eprint = {2502.17424},
   archivePrefix = {arXiv},
-  note   = {TODO: verify 完全な著者リストと最終的な出版先(ICML 2025 / Nature 2026 と報告あり)}
+  verified   = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2502.17424},
+  note       = {2026-09-12(PLAN-025)に arXiv API で題名・著者 8 名・初版投稿日 2025-02-24 を確認した。狭い FT(安全でないコード)が無関係な質問への応答を広く変える。最終的な出版先(ICML 2025 / Nature 2026 との報告)は未確認}
 }
+
 
 @misc{kantamneni2025trigonometry,
   title  = {Language models use trigonometry to do addition},
@@ -122,8 +127,11 @@
   year   = {2025},
   eprint = {2502.00873},
   archivePrefix = {arXiv},
-  note   = {TODO: verify}
+  verified   = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2502.00873},
+  note       = {プレプリント。2026-09-12(PLAN-025)に arXiv abs で題名・著者を確認した。加算を数の螺旋(三角関数)表現の操作として記述。会場(ICLR 2025 ワークショップという記載)は iclr.cc で見つからず未確認}
 }
+
 
 @misc{levy2024digits,
   title  = {Language models encode numbers using digit representations in base 10},
@@ -131,8 +139,782 @@
   year   = {2024},
   eprint = {2410.11781},
   archivePrefix = {arXiv},
-  note   = {TODO: verify}
+  verified   = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2410.11781},
+  note       = {2026-09-12(PLAN-025)に arXiv abs で題名・著者を確認した。数の誤りが桁ごとに分散し、数を底 10 の桁ごとに表現しているとする。arXiv の記載では NAACL 2025 に採択(ACL Anthology では未確認。年・会場の更新は人間が確かめる)}
 }
+
+@inproceedings{zhao2021calibrate,
+  title     = {Calibrate Before Use: Improving Few-Shot Performance of Language Models},
+  author    = {Zhao, Tony Z. and Wallace, Eric and Feng, Shi and Klein, Dan and Singh, Sameer},
+  booktitle = {Proceedings of the 38th International Conference on Machine Learning (ICML)},
+  year      = {2021},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2102.09690},
+  note      = {GPT-3 の few-shot 精度はプロンプト書式・例の選択・例の順序で近乱数〜SOTA まで振れる。
+               content-free 入力(“N/A”)への予測から偏りを推定し補正する contextual calibration を提案。
+               著者名は arXiv abs では Tony Z. Zhao 表記(検索結果の Zihao は誤り)。}
+}
+
+@inproceedings{lu2022fantastically,
+  title     = {Fantastically Ordered Prompts and Where to Find Them: Overcoming Few-Shot Prompt Order Sensitivity},
+  author    = {Lu, Yao and Bartolo, Max and Moore, Alastair and Riedel, Sebastian and Stenetorp, Pontus},
+  booktitle = {Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  year      = {2022},
+  pages     = {8086--8098},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2022.acl-long.556/},
+  note      = {同一の few-shot 例集合でも並べる順序だけで精度がほぼ乱数〜SOTA まで変動することを示した。
+               ACL 2022 の Outstanding Paper。}
+}
+
+@inproceedings{min2022rethinking,
+  title     = {Rethinking the Role of Demonstrations: What Makes In-Context Learning Work?},
+  author    = {Min, Sewon and Lyu, Xinxi and Holtzman, Ari and Artetxe, Mikel and Lewis, Mike and Hajishirzi, Hannaneh and Zettlemoyer, Luke},
+  booktitle = {Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  year      = {2022},
+  pages     = {11048--11064},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2022.emnlp-main.759/},
+  note      = {デモの入力-ラベル対応をランダムに壊しても分類・多肢選択の性能はほぼ落ちず、
+               ラベル空間・入力分布・書式(フォーマット)の方が効くと報告。C1 の
+               「ラベルの正しさより書式・ラベル空間が効く」という留保側の代表文献。}
+}
+
+@inproceedings{holtzman2021surface,
+  title     = {Surface Form Competition: Why the Highest Probability Answer Isn't Always Right},
+  author    = {Holtzman, Ari and West, Peter and Shwartz, Vered and Choi, Yejin and Zettlemoyer, Luke},
+  booktitle = {Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  year      = {2021},
+  pages     = {7038--7051},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2021.emnlp-main.564/},
+  note      = {同義の複数表層形が確率質量を奪い合い、真に正しい答えの尤度を過小評価させる。
+               Domain Conditional PMI で補正。ラベル選択バイアスの一般形として C1 を補強するが
+               few-shot の例示そのものではなくゼロショットの選択肢競合が主題なので部分的。}
+}
+
+@inproceedings{fei2023mitigating,
+  title     = {Mitigating Label Biases for In-context Learning},
+  author    = {Fei, Yu and Hou, Yifan and Chen, Zeming and Bosselut, Antoine},
+  booktitle = {Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  year      = {2023},
+  pages     = {14014--14031},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2023.acl-long.783/},
+  note      = {ICL のラベル偏りを vanilla-label / context-label / domain-label の3種に分類し、
+               domain-context calibration を提案。C1 の「較正で緩和」を直接支持。}
+}
+
+@inproceedings{zhou2024batch,
+  title     = {Batch Calibration: Rethinking Calibration for In-Context Learning and Prompt Engineering},
+  author    = {Zhou, Han and Wan, Xingchen and Proleev, Lev and Mincu, Diana and Chen, Jilin and Heller, Katherine and Roy, Subhrajit},
+  booktitle = {The Twelfth International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2309.17249},
+  note      = {contextual calibration・domain-context calibration 等の既存較正法を統一する
+               batch calibration (BC) を提案し、書式・verbalizer・例選択に由来する偏りを
+               バッチ内統計だけで補正できると報告。arXiv comment 欄と iclr.cc/virtual/2024/poster/18875
+               の両方で ICLR 2024 poster 採択を確認。}
+}
+
+@inproceedings{yoo2022groundtruth,
+  title     = {Ground-Truth Labels Matter: A Deeper Look into Input-Label Demonstrations},
+  author    = {Yoo, Kang Min and Kim, Junyeob and Kim, Hyuhng Joon and Cho, Hyunsoo and Jo, Hwiyeol and Lee, Sang-Woo and Lee, Sang-goo and Kim, Taeuk},
+  booktitle = {Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  year      = {2022},
+  pages     = {2422--2437},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2022.emnlp-main.155/},
+  note      = {Min et al. 2022 の「ラベル正しさはほぼ効かない」という結論に対し、評価設定
+               (特に多クラス・大きいラベル空間)を変えると入力-ラベル対応の正しさが無視できない
+               影響を持つと再検証。C1 に対する明確な反対・留保証拠。}
+}
+
+@misc{wei2023larger,
+  title     = {Larger Language Models Do In-Context Learning Differently},
+  author    = {Wei, Jerry and Wei, Jason and Tay, Yi and Tran, Dustin and Webson, Albert and Lu, Yifeng and Chen, Xinyun and Liu, Hanxiao and Huang, Da and Zhou, Denny and Ma, Tengyu},
+  howpublished = {arXiv:2303.03846},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2303.03846},
+  note      = {未査読(arXiv のみ。venue 記載なし)。反転ラベル・意味と無関係なラベルでの ICL 実験で、
+               小さいモデルは事前知識(semantic prior)に頼りラベル反転を無視するが、大きいモデルは
+               入力-ラベル対応を優先し事前知識を上書きできると報告。C1 の「大きいモデルは意味的事前知識で
+               偏りを上書きできる」という留保側の代表。}
+}
+
+@inproceedings{wang2024myanswer,
+  title     = {"My Answer is C": First-Token Probabilities Do Not Match Text Answers in Instruction-Tuned Language Models},
+  author    = {Wang, Xinpeng and Ma, Bolei and Hu, Chengzhi and Weber-Genzel, Leon and R{\"o}ttger, Paul and Kreuter, Frauke and Hovy, Dirk and Plank, Barbara},
+  booktitle = {Findings of the Association for Computational Linguistics: ACL 2024},
+  year      = {2024},
+  pages     = {7407--7416},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2024.findings-acl.441/},
+  note      = {instruction-tuned モデルで、最初の位置の選択肢トークン(A/B/C/D 等)の対数確率で
+               決めた答えと、実際に生成させた文中の答えが一致しない割合が条件によって60%超に達すると報告。
+               C2 を直接支持する中核文献。}
+}
+
+@inproceedings{wang2024lookatthetext,
+  title     = {Look at the Text: Instruction-Tuned Language Models are More Robust Multiple Choice Selectors than You Think},
+  author    = {Wang, Xinpeng and Hu, Chengzhi and Ma, Bolei and R{\"o}ttger, Paul and Plank, Barbara},
+  booktitle = {First Conference on Language Modeling (COLM)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2404.08382},
+  note      = {前作(wang2024myanswer)の不一致を踏まえ、選択肢の言い換え・順序変更に対しては
+               「生成文で答えさせる」方が「最初トークン確率でランク付け」より頑健(PriDe 等の
+               debias 手法より頑健な場合もある)と報告。採点方法で結論が変わるという C2 後半を直接支持。
+               arXiv comment 欄で COLM 2024 採択を確認。}
+}
+
+@inproceedings{hu2023prompting,
+  title     = {Prompting is not a substitute for probability measurements in large language models},
+  author    = {Hu, Jennifer and Levy, Roger},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  year      = {2023},
+  pages     = {5040--5060},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2023.emnlp-main.306/},
+  note      = {メタ言語的なプロンプト(「Yes/No で答えよ」等)で読み取った判断は、モデル内部の
+               確率分布から直接読み取った量より劣り、プロンプトが直接測定から乖離するほど
+               一貫性が下がると報告。採点方法(確率直接読み出し vs プロンプト応答)で結論が
+               変わりうるという C2 を、算術以外の言語課題で独立に支持。}
+}
+
+@inproceedings{wiegreffe2023increasing,
+  title     = {Increasing Probability Mass on Answer Choices Does Not Always Improve Accuracy},
+  author    = {Wiegreffe, Sarah and Finlayson, Matthew and Tafjord, Oyvind and Clark, Peter and Sabharwal, Ashish},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  year      = {2023},
+  pages     = {8392--8417},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2023.emnlp-main.522/},
+  note      = {選択肢以外の語彙に確率質量が漏れる(surface form competition)ことを定量化し、
+               プロンプトに選択肢を明示したり few-shot 例を足すことで選択肢への質量を増やせるが、
+               それが必ずしも正答率を上げないと報告。「選択肢トークンに乗る確率質量が小さくなりうる」
+               という C2 前半を裏付けるが、食い違いの直接測定ではないため部分的。}
+}
+
+@inproceedings{zheng2024large,
+  title     = {Large Language Models Are Not Robust Multiple Choice Selectors},
+  author    = {Zheng, Chujie and Zhou, Hao and Meng, Fandong and Zhou, Jie and Huang, Minlie},
+  booktitle = {The Twelfth International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2309.03882},
+  note      = {会場確認: OpenReview の該当ページ(id=shr9PXz7T0)はこのセッションでは bot 検証画面しか
+               返らず開けなかった。arXiv abs ページの comment 欄に "ICLR 2024 Spotlight" と明記されており、
+               それに基づき会場を記載(未開封の OpenReview そのものは根拠に使っていない)。
+               選択肢 ID トークン(A/B/C/D)自体への事前バイアス(token bias)が選択バイアスの主因と報告。
+               「最初のトークンに乗る確率」が選択肢の中身でなく ID トークンの事前分布に強く影響される
+               という点で C2 後半を部分的に支持。}
+}
+
+@inproceedings{robinson2023leveraging,
+  title     = {Leveraging Large Language Models for Multiple Choice Question Answering},
+  author    = {Robinson, Joshua and Rytting, Christopher Michael and Wingate, David},
+  booktitle = {The Eleventh International Conference on Learning Representations (ICLR)},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2210.12353},
+  note      = {会場確認: OpenReview(id=yKbprarjc5B)は bot 検証画面のみで開けず、arXiv comment 欄の
+               "Accepted for ICLR 2023" に加え iclr.cc/virtual/2023/poster/10737 を実際に開いて
+               "ICLR Poster ... ICLR 2023" の表記を確認(二重確認)。cloze 形式(選択肢を続けて生成させ
+               尤度比較)より、選択肢を全部見せて記号(A/B/C…)だけ出力させる MCS(multiple choice symbol)
+               形式の方が性能が高いと報告。プロンプト書式が「選択肢トークンに答えを乗せられるか」を
+               左右するという C2 前半を、算術ではない MCQA タスクで部分的に支持。}
+}
+
+@inproceedings{lyu2024beyond,
+  title     = {Beyond Probabilities: Unveiling the Misalignment in Evaluating Large Language Models},
+  author    = {Lyu, Chenyang and Wu, Minghao and Aji, Alham Fikri},
+  booktitle = {Proceedings of the 1st Workshop on Towards Knowledgeable Language Models (KnowLLM 2024, co-located with ACL 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2024.knowllm-1.10/},
+  note      = {ワークショップ論文(査読は本会議より軽い)。確率ベースの多肢選択評価と、自由生成文を
+               人間選好で評価した場合とでモデル順位が一致しないことがあると報告。採点方法で結論が
+               変わるという C2 を支持するが、ワークショップ論文であり主要な論拠としての重みは低い。}
+}
+
+@misc{tsvilodub2024predictions,
+  title     = {Predictions from Language Models for Multiple-Choice Tasks Are Not Robust Under Variation of Scoring Methods},
+  author    = {Tsvilodub, Polina and Wang, Hening and Grosch, Sharon and Franke, Michael},
+  howpublished = {arXiv:2403.00998},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2403.00998},
+  note      = {未査読(arXiv のみ。venue 記載なし。ワークショップ採択の確認も取れなかった)。
+               自由生成・複数の確率ベーススコア・Likert 評定・埋め込み類似度という異なる採点法間で
+               同一モデルの予測が一貫しないと、語用論的推論タスクで報告。C2「採点方法で結論が変わる」を
+               算術以外のタスクで補強するが未査読のため重みは低い。}
+}
+
+@inproceedings{shah2023numeric,
+  title     = {Numeric Magnitude Comparison Effects in Large Language Models},
+  author    = {Shah, Raj and Marupudi, Vijay and Koenen, Reba and Bhardwaj, Khushi and Varma, Sashank},
+  booktitle = {Findings of the Association for Computational Linguistics: ACL 2023},
+  pages     = {6147--6161},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2023.findings-acl.383/},
+  note      = {人間の距離・サイズ・比効果を LLM の数表現(埋め込み類似度)にマッピングし、複数アーキテクチャの
+               LLM で人間的な距離・サイズ・比効果が見られると報告。C3 の中心的裏付け。}
+}
+
+@inproceedings{wallace2019numeracy,
+  title     = {Do NLP Models Know Numbers? Probing Numeracy in Embeddings},
+  author    = {Wallace, Eric and Wang, Yizhong and Li, Sujian and Singh, Sameer and Gardner, Matt},
+  booktitle = {Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP)},
+  pages     = {5307--5315},
+  year      = {2019},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/D19-1534/},
+  note      = {GloVe/word2vec/BERT等の埋め込みが数値の大小(list maximum, decoding, addition)をどこまで
+               捉えるかをプローブ。GloVe/word2vec は1000までの大小をおおむね正確に符号化するが、
+               桁数が増えると精度が落ちる=大小比較能力の限界を示す。距離効果そのものではないが、
+               「数の内部表現の精度がスケールに依存して劣化する」という C3 の周辺証拠。}
+}
+
+@inproceedings{naik2019numeracy,
+  title     = {Exploring Numeracy in Word Embeddings},
+  author    = {Naik, Aakanksha and Ravichander, Abhilasha and Rose, Carolyn and Hovy, Eduard},
+  booktitle = {Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics},
+  pages     = {3374--3380},
+  year      = {2019},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/P19-1329/},
+  note      = {認知科学の数知覚研究に着想を得た分析枠組みで、埋め込みが magnitude(3<4)と
+               numeration(3=three)をどこまで捉えるかを検証。magnitude はおおよそ捉えるが
+               numeration は不十分、と報告。C3 の「数の内部表現には限界がある」を裏付ける
+               独立した古い時期の証拠。}
+}
+
+@inproceedings{hanna2023greaterthan,
+  title     = {How does GPT-2 compute greater-than?: Interpreting mathematical abilities in a pre-trained language model},
+  author    = {Hanna, Michael and Liu, Ollie and Variengien, Alexandre},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS 2023)},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.neurips.cc/paper_files/paper/2023/hash/efbba7719cc5172d175240f24be11280-Abstract-Conference.html},
+  note      = {GPT-2 small の「年号の大小比較」課題に特化した回路をメカニスティック解釈で同定。
+               MLP 9/10 が入力年より大きい年の確率を持ち上げる、という具体的な計算メカニズムを提示。
+               比較演算がタスク特化的な回路(routine)として実装されている、という C6/研究計画の
+               "routine 説" 側にも関連する重要な直接証拠。}
+}
+
+@inproceedings{yang2024cookbook,
+  title     = {Number Cookbook: Number Understanding of Language Models and How to Improve It},
+  author    = {Yang, Haotong and Hu, Yi and Kang, Shijia and Lin, Zhouchen and Zhang, Muhan},
+  booktitle = {International Conference on Learning Representations (ICLR 2025)},
+  year      = {2025},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2411.03766},
+  note      = {17種の数理解タスクのベンチマークで、LLM が複雑な推論はできても基礎的な数比較
+               (例: 9.11 と 9.9 のどちらが大きいか)で誤ることを報告。ファインチューニングは
+               タスクによって改善効果が異なり、数理解向け特殊技法は必ずしも有効でないと指摘。
+               大きなモデルでも比較誤りが残るという C3 の主張を支持。}
+}
+
+@misc{marjieh2025whatisanumber,
+  title     = {What is a Number, That a Large Language Model May Know It?},
+  author    = {Marjieh, Raja and Veselovsky, Veniamin and Griffiths, Thomas L. and Sucholutsky, Ilia},
+  year      = {2025},
+  howpublished = {arXiv preprint arXiv:2502.01540},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2502.01540},
+  note      = {認知科学の類似性判断プロンプト手法で LLM の数表現を調べ、数字列がレーベンシュタイン
+               編集距離(文字列的)とログリニア距離(数値的)の混合で表現されていると報告。
+               「数の内部表現は単純な大小の値ではなく文字列表現と絡み合っている」という点で、
+               比較課題の失敗の一因(文字列的な処理が混入する)を示唆する部分的証拠。
+               会場情報は arXiv ページに記載なく、査読済み会議の確認は取れなかった=プレプリント扱い。}
+}
+
+@misc{alquboj2025parallel,
+  title     = {Number Representations in LLMs: A Computational Parallel to Human Perception},
+  author    = {AlquBoj, H.V. and AlQuabeh, Hilal and Bojkovic, Velibor and Hiraoka, Tatsuya and El-Shangiti, Ahmed Oumar and Nwadike, Munachiso and Inui, Kentaro},
+  year      = {2025},
+  howpublished = {arXiv preprint arXiv:2502.16147},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2502.16147},
+  note      = {LLM 内部層の数値表現を PCA/PLS +幾何回帰で分析し、値間の距離が対数スケールに沿う
+               (sub-linear spacing)ことを報告。「内部表現は対数的に圧縮されている」という C3 の
+               主張に対する直接的な神経科学的類似の証拠。OpenReview 提出ページ(yhEi1aeWCQ)は
+               ボット確認画面のため会場ステータスを直接確認できず、arXiv 上はプレプリント表記のみ。}
+}
+
+@article{moyer1967judgements,
+  title     = {Time required for judgements of numerical inequality},
+  author    = {Moyer, Robert S. and Landauer, Thomas K.},
+  journal   = {Nature},
+  volume    = {215},
+  pages     = {1519--1520},
+  year      = {1967},
+  verified  = {2026-09-12},
+  source_url = {https://doi.org/10.1038/2151519a0},
+  note      = {人間の数字比較で「桁の差が小さいほど反応時間が長い」symbolic distance effect を
+               初めて報告した古典。Nature 本体はログイン要求で直接閲覧できなかったため、DOI 解決結果
+               (nature.com へのリダイレクト)と、これを引用する査読済み論文 PMC5116562
+               (The Source of the Symbolic Numerical Distance and Size Effects, Frontiers in
+               Psychology)の参考文献欄の転記で著者・巻・頁を確認した。}
+}
+
+@inproceedings{li2024consistency,
+  title     = {Benchmarking and Improving Generator-Validator Consistency of Language Models},
+  author    = {Li, Xiang Lisa and Shrivastava, Vaishnavi and Li, Siyan and Hashimoto, Tatsunori and Liang, Percy},
+  booktitle = {International Conference on Learning Representations (ICLR 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2310.01846},
+  note      = {GV-consistency(生成した答えと、その答えを検証質問に入れたときの判定の一致率)を定義し、
+               GPT-4(0613)でも76%しか一致しないと報告(例: 7+8=15 と正しく生成できても
+               「7+8=15 は正しいか」に False と答える)。C6 の中心的直接証拠。}
+}
+
+@inproceedings{stechly2025selfverification,
+  title     = {On the Self-Verification Limitations of Large Language Models on Reasoning and Planning Tasks},
+  author    = {Stechly, Kaya and Valmeekam, Karthik and Kambhampati, Subbarao},
+  booktitle = {International Conference on Learning Representations (ICLR 2025)},
+  pages     = {8097--8150},
+  year      = {2025},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2402.08115},
+  note      = {Game of 24, グラフ彩色, STRIPS 計画の3領域で GPT-4 の自己検証を検証。外部の健全な
+               検証器を使うと性能が上がるが、自己検証(自己批判)を使うと性能が崩壊すると報告。
+               生成器としての能力と検証器としての能力の乖離を直接示す。ページ範囲は WebSearch
+               経由の複数ヒットで確認(OpenReview本体はボット確認画面のため直接開けず)。}
+}
+
+@inproceedings{jiang2025selfincorrect,
+  title     = {SELF-[IN]CORRECT: LLMs Struggle with Discriminating Self-Generated Responses},
+  author    = {Jiang, Dongwei and Zhang, Jingyu and Weller, Orion and Weir, Nathaniel and Van Durme, Benjamin and Khashabi, Daniel},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {39},
+  number    = {23},
+  pages     = {24266--24275},
+  year      = {2025},
+  verified  = {2026-09-12},
+  source_url = {https://ojs.aaai.org/index.php/AAAI/article/view/34603},
+  note      = {生成能力と判別(discrimination)能力を同一タスク上で直接比較する統一枠組みを提案し、
+               モデルは自己生成した複数候補の中から正解を判別する能力が、初期生成能力より
+               優れているとは限らないと報告。C6 の「生成→判別の非対称性」を直接支持。}
+}
+
+@inproceedings{song2025mindgap,
+  title     = {Mind the Gap: Examining the Self-Improvement Capabilities of Large Language Models},
+  author    = {Song, Yuda and Zhang, Hanlin and Eisenach, Carson and Kakade, Sham and Foster, Dean and Ghai, Udaya},
+  booktitle = {International Conference on Learning Representations (ICLR 2025)},
+  year      = {2025},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2412.02674},
+  note      = {自己改善(自己生成→自己検証によるフィルタ→蒸留)を定式化し、"generation-verification gap"
+               という量で生成と検証の能力差を定量化。このギャップが事前学習の計算量に対して単調に
+               スケールすると報告。生成器と検証器の一貫性(能力差)を測る枠組みとして C6 に直接関連。
+               ページ番号は ICLR proceedings 側で確認できず未確認欄。}
+}
+
+@inproceedings{huang2024selfcorrect,
+  title     = {Large Language Models Cannot Self-Correct Reasoning Yet},
+  author    = {Huang, Jie and Chen, Xinyun and Mishra, Swaroop and Zheng, Huaixiu Steven and Yu, Adams Wei and Song, Xinying and Zhou, Denny},
+  booktitle = {International Conference on Learning Representations (ICLR 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2310.01798},
+  note      = {外部フィードバックなしの「内在的自己修正」で LLM が推論を改善できず、むしろ性能が
+               劣化する場合があると報告。生成と自己検証・自己修正の不一致という点で C6 に関連するが、
+               生成/判別の直接比較ではなく「多段階の自己修正プロセス」の失敗を扱う点で部分的。}
+}
+
+@inproceedings{west2024paradox,
+  title     = {The Generative AI Paradox: "What It Can Create, It May Not Understand"},
+  author    = {West, Peter and Lu, Ximing and Dziri, Nouha and Brahman, Faeze and Li, Linjie and Hwang, Jena and Jiang, Liwei and Fisher, Jillian and Ravichander, Abhilasha and Chandu, Khyathi and Newman, Benjamin and Koh, Pang Wei and Ettinger, Allyson and Choi, Yejin},
+  booktitle = {International Conference on Learning Representations (ICLR 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2311.00059},
+  note      = {生成モデルの「創造(生成)」能力と「理解(判別・検証)」能力が乖離しうるという
+               一般仮説(Generative AI Paradox)を提示し、生成課題では人間超えでも対応する
+               判別課題では人間以下になる現象を報告。C6 の生成-検証の食い違いを支持する
+               より一般的な枠組みとしての部分的証拠(算術/数比較に特化した実験ではない)。}
+}
+
+@misc{kadavath2022know,
+  title     = {Language Models (Mostly) Know What They Know},
+  author    = {Kadavath, Saurav and Conerly, Tom and Askell, Amanda and Henighan, Tom and Drain, Dawn and Perez, Ethan and Schiefer, Nicholas and Hatfield-Dodds, Zac and DasSarma, Nova and Tran-Johnson, Eli and Johnston, Scott and El-Showk, Sheer and Jones, Andy and Elhage, Nelson and Hume, Tristan and Chen, Anna and Bai, Yuntao and Bowman, Sam and Fort, Stanislav and Ganguli, Deep and Hernandez, Danny and Jacobson, Josh and Kernion, Jackson and Kravec, Shauna and Lovitt, Liane and Ndousse, Kamal and Olsson, Catherine and Ringer, Sam and Amodei, Dario and Brown, Tom and Clark, Jack and Joseph, Nicholas and Mann, Ben and McCandlish, Sam and Olah, Chris and Kaplan, Jared},
+  year      = {2022},
+  howpublished = {arXiv preprint arXiv:2207.05221},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2207.05221},
+  note      = {モデルが自分の答えの正誤を事前(P(IK))・事後にどこまで予測できるかを検証。
+               大きいモデルは適切な形式では校正が良いが、"自分が答えられるか" の予測(検証的判断)は
+               生成そのものより難しい場合があると報告。C6 の生成/自己評価の不一致に部分的に関連。
+               査読済み会議への採択は arXiv ページ上に記載なくプレプリント扱い(Anthropic technical report)。}
+}
+
+@article{stanislaw1999signal,
+  title     = {Calculation of signal detection theory measures},
+  author    = {Stanislaw, Harold and Todorov, Natasha},
+  journal   = {Behavior Research Methods, Instruments, \& Computers},
+  volume    = {31},
+  pages     = {137--149},
+  year      = {1999},
+  verified  = {2026-09-12},
+  source_url = {https://link.springer.com/article/10.3758/BF03207704},
+  note      = {d′(弁別力)と判断基準 c(応答バイアス)を含む SDT の主要指標の計算式と実務上の
+               注意点をまとめた方法論論文。心理学分野で広く引用される実務標準。}
+}
+
+@book{green1966signal,
+  title     = {Signal Detection Theory and Psychophysics},
+  author    = {Green, David M. and Swets, John A.},
+  publisher = {Wiley},
+  address   = {New York},
+  year      = {1966},
+  verified  = {2026-09-12},
+  source_url = {https://archive.org/details/signaldetectiont0000gree},
+  note      = {信号検出理論を心理物理学に導入した基礎的教科書。d′ と判断基準の分離という
+               枠組みそのものの出典。1988年 Peninsula Publishing 版で複製されている。}
+}
+
+@book{macmillan2005detection,
+  title     = {Detection Theory: A User's Guide},
+  author    = {Macmillan, Neil A. and Creelman, C. Douglas},
+  edition   = {2nd},
+  publisher = {Lawrence Erlbaum Associates (Psychology Press)},
+  address   = {Mahwah, NJ / New York},
+  year      = {2005},
+  verified  = {2026-09-12},
+  source_url = {https://www.taylorfrancis.com/books/mono/10.4324/9781410611147/detection-theory-neil-macmillan-douglas-creelman},
+  note      = {SDT の実践的な計算手順(d′, c, 尤度比基準等)を体系立てて解説する標準的教科書。
+               Stanislaw & Todorov (1999) と並び、実装時の一次参照として使われる。}
+}
+
+@article{wichmann2001psychometric,
+  title     = {The psychometric function: I. Fitting, sampling, and goodness of fit},
+  author    = {Wichmann, Felix A. and Hill, N. Jeremy},
+  journal   = {Perception \& Psychophysics},
+  volume    = {63},
+  number    = {8},
+  pages     = {1293--1313},
+  year      = {2001},
+  verified  = {2026-09-12},
+  source_url = {https://link.springer.com/article/10.3758/BF03194544},
+  note      = {心理測定関数(閾値・傾き等のパラメータ)を制約付き最尤推定でフィットし、
+               モンテカルロ法で適合度検定を行う手法を提示。閾値スイープ+心理測定関数フィットという
+               研究計画の提案手法の直接的な方法論的裏付け。}
+}
+
+@article{klein2001measuring,
+  title     = {Measuring, estimating, and understanding the psychometric function: A commentary},
+  author    = {Klein, Stanley A.},
+  journal   = {Perception \& Psychophysics},
+  volume    = {63},
+  number    = {8},
+  pages     = {1421--1455},
+  year      = {2001},
+  verified  = {2026-09-12},
+  source_url = {https://link.springer.com/article/10.3758/BF03194552},
+  note      = {心理測定関数の測定法(yes/no 課題 vs 強制選択、適応法 vs 恒常法など)を比較検討する
+               解説論文。閾値・主観的等価点(PSE)の推定における方法論的な選択肢と注意点を整理。}
+}
+
+@article{binz2023cognitive,
+  title     = {Using cognitive psychology to understand GPT-3},
+  author    = {Binz, Marcel and Schulz, Eric},
+  journal   = {Proceedings of the National Academy of Sciences},
+  volume    = {120},
+  number    = {6},
+  pages     = {e2218523120},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://www.pnas.org/doi/10.1073/pnas.2218523120},
+  note      = {認知心理学の古典的実験パラダイム(意思決定、探索、因果推論等)を GPT-3 にそのまま
+               適用し、人間との異同を行動指標で評価。心理学の実験手法・指標を LM 評価に転用する
+               先行研究として、C7 の「心理測定的手法を LM 評価に使う」動機付けの直接的な参照点。
+               (SDT の d′/c そのものは扱っていないため、SDT 適用の直接例ではなく方法論的先例。)}
+}
+
+@misc{hernandezcamara2025contrast,
+  title     = {Contrast Sensitivity in Multimodal Large Language Models: A Psychophysics-Inspired Evaluation},
+  author    = {Hern\'andez-C\'amara, Pablo and Gomez-Villa, Alexandra and Ja\'en-Lorites, Jose Manuel and Vila-Tom\'as, Jorge and Laparra, Valero and Malo, Jesus},
+  year      = {2025},
+  howpublished = {arXiv preprint arXiv:2508.10367},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2508.10367},
+  note      = {MLLM にノイズ刺激を見せ、二値の言語的応答から心理測定関数を直接フィットして
+               コントラスト感度閾値を推定する手法を提案。研究計画の「閾値を掃引して心理測定関数を
+               当てる」というアイデアと方法論的に極めて近い、LM 評価への直接応用例。ただし
+               バイアスと弁別力の分離(SDT の d′/c)は本文で明示的には扱っていない、と明記あり。}
+}
+
+@inproceedings{brown2020fewshot,
+  title     = {Language Models are Few-Shot Learners},
+  author    = {Brown, Tom B. and Mann, Benjamin and Ryder, Nick and Subbiah, Melanie and Kaplan, Jared and Dhariwal, Prafulla and Neelakantan, Arvind and Shyam, Pranav and Sastry, Girish and Askell, Amanda and others},
+  booktitle = {Advances in Neural Information Processing Systems 33 (NeurIPS 2020)},
+  year      = {2020},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.neurips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html},
+  note      = {NeurIPS 2020 proceedings ページを開いて確認(31名の著者、GPT-3 175B)。3桁算術の few-shot 性能がモデル規模に伴って急に上がる(小規模モデルではほぼ0%)ことを示した最初期の大規模報告。C4の出発点}
+}
+
+@article{wei2022emergent,
+  title   = {Emergent Abilities of Large Language Models},
+  author  = {Wei, Jason and Tay, Yi and Bommasani, Rishi and Raffel, Colin and Zoph, Barret and Borgeaud, Sebastian and Yogatama, Dani and Bosma, Maarten and Zhou, Denny and Metzler, Donald and Chi, Ed H. and Hashimoto, Tatsunori and Vinyals, Oriol and Liang, Percy and Dean, Jeff and Fedus, William},
+  journal = {Transactions on Machine Learning Research (TMLR)},
+  year    = {2022},
+  verified = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2206.07682},
+  note    = {TMLR 掲載(査読済み)。arXiv abs ページで16名の著者と TMLR 掲載を確認。小規模モデルには無く大規模モデルに現れる能力(算術含む)を「創発」と定義し、外挿不能と主張}
+}
+
+@inproceedings{schaeffer2023mirage,
+  title     = {Are Emergent Abilities of Large Language Models a Mirage?},
+  author    = {Schaeffer, Rylan and Miranda, Brando and Koyejo, Sanmi},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS 2023)},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.neurips.cc/paper_files/paper/2023/hash/adc98a266f45005c403b8311ca7e8bd7-Abstract-Conference.html},
+  note      = {NeurIPS 2023 Outstanding Paper。proceedings ページで確認。非線形/非連続な評価指標(例: 完全一致の算術正解率)が見かけの「急な出現」を作り出すと主張し、線形指標では滑らかな変化になることを示した。評価指標依存性の直接的裏付け}
+}
+
+@inproceedings{razeghi2022impact,
+  title     = {Impact of Pretraining Term Frequencies on Few-Shot Numerical Reasoning},
+  author    = {Razeghi, Yasaman and Logan IV, Robert L. and Gardner, Matt and Singh, Sameer},
+  booktitle = {Findings of the Association for Computational Linguistics: EMNLP 2022},
+  year      = {2022},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2022.findings-emnlp.59/},
+  note      = {ACL Anthology で確認(Findings of EMNLP 2022、査読済み)。事前学習データ中の項の出現頻度と few-shot 数値推論の正解率が強く相関することを示し、頻度が低い項では70%以上精度が落ちる場合があると報告。C4の「事前学習での数の頻度への依存」の直接裏付け}
+}
+
+@inproceedings{zhou2024fourier,
+  title     = {Pre-trained Large Language Models Use Fourier Features to Compute Addition},
+  author    = {Zhou, Tianyi and Fu, Deqing and Sharan, Vatsal and Jia, Robin},
+  booktitle = {Advances in Neural Information Processing Systems 37 (NeurIPS 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2406.03445},
+  note      = {NeurIPS 2024 Spotlight(neurips.cc/virtual/2024/poster/94033 で発表形式を確認)。MLP層が低周波フーリエ特徴で答えの大きさを、attention層が高周波特徴で法演算(奇偶性等)を担うという機構を提示。事前学習の有無で機構の質が変わる(ゼロから学習すると低周波のみ)ことも報告 — C5にも関連}
+}
+
+@inproceedings{quirke2024understanding,
+  title     = {Understanding Addition in Transformers},
+  author    = {Quirke, Philip and Barez, Fazl},
+  booktitle = {The Twelfth International Conference on Learning Representations (ICLR 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://openreview.net/forum?id=rIx1YXVWZb},
+  note      = {ICLR 2024 掲載(openreview.net/forum?id=rIx1YXVWZb、iclr.cc/virtual/2024/poster/17696 で確認)。1層Transformerのn桁整数加算を、桁ごとに並列した独立ストリームへの分解として記述し、桁位置ごとに異なるアルゴリズムを使うと報告。Zhou et al. 2024 のフーリエ機構ともnikankin2025heuristicsのヒューリスティクス束とも異なる記述で、「機構の記述がモデル/設定によって異なる」ことの直接例}
+}
+
+@inproceedings{dziri2023faith,
+  title     = {Faith and Fate: Limits of Transformers on Compositionality},
+  author    = {Dziri, Nouha and Lu, Ximing and Sclar, Melanie and Li, Xiang Lorraine and Jiang, Liwei and Lin, Bill Yuchen and Welleck, Sean and West, Peter and Bhagavatula, Chandra and Le Bras, Ronan and Hwang, Jena D. and Sanyal, Soumya and Ren, Xiang and Ettinger, Allyson and Harchaoui, Zaid and Choi, Yejin},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS 2023)},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://neurips.cc/virtual/2023/poster/72247},
+  note      = {NeurIPS 2023 Spotlight(neurips.cc virtual page で発表形式を確認)。多桁乗算等の複合タスクを「線形化された部分グラフマッチング」への還元として説明。桁数が増えると誤り率が急増し、汎化した体系的アルゴリズムを持たないと主張。加算より複雑な複合算術での機構的限界の裏付け}
+}
+
+@inproceedings{huh2024platonic,
+  title     = {Position: The Platonic Representation Hypothesis},
+  author    = {Huh, Minyoung and Cheung, Brian and Wang, Tongzhou and Isola, Phillip},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning (ICML 2024)},
+  year      = {2024},
+  pages     = {20617--20642},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.mlr.press/v235/huh24a.html},
+  note      = {ICML 2024 Position paper(PMLR で確認)。異なるアーキテクチャ・訓練手法のニューラルネットワークの表現が、モデルが大規模・高性能になるにつれて収束していくと主張。算術特化ではなく一般的な表現収束の主張であり、C4への直接の反例ではないが「機構がモデル間で完全に独立ではありえない」という留保材料}
+}
+
+@misc{phang2018stilts,
+  title  = {Sentence Encoders on STILTs: Supplementary Training on Intermediate Labeled-data Tasks},
+  author = {Phang, Jason and F{\'e}vry, Thibault and Bowman, Samuel R.},
+  year   = {2018},
+  eprint = {1811.01088},
+  archivePrefix = {arXiv},
+  verified = {2026-09-12},
+  source_url = {https://arxiv.org/abs/1811.01088},
+  note   = {プレプリント(会議掲載記載なし)。中間ラベル付きタスクでの補助訓練(STILTs)がBERTのGLUEスコアを改善し、特に低リソース目的タスクで分散も減らすと報告。中間タスクFTの効果の最初期の実証}
+}
+
+@inproceedings{pruksachatkun2020intermediate,
+  title     = {Intermediate-Task Transfer Learning with Pretrained Language Models: When and Why Does It Work?},
+  author    = {Pruksachatkun, Yada and Phang, Jason and Liu, Haokun and Htut, Phu Mon and Zhang, Xiaoyi and Pang, Richard Yuanzhe and Vania, Clara and Kann, Katharina and Bowman, Samuel R.},
+  booktitle = {Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics (ACL 2020)},
+  pages     = {5231--5247},
+  year      = {2020},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2020.acl-main.467/},
+  note      = {ACL 2020 で確認。RoBERTaで110組の中間タスク×目的タスクの組合せを大規模調査。高度な推論を要する中間タスクほど有効な傾向があるが、スキルレベルの詳細な相関は見られず「タスクの近さ」の予測は容易でないと報告 — C5の「効果はタスクの近さに依存するが単純ではない」を直接裏付け}
+}
+
+@inproceedings{vu2020exploring,
+  title     = {Exploring and Predicting Transferability across NLP Tasks},
+  author    = {Vu, Tu and Wang, Tong and Munkhdalai, Tsendsuren and Sordoni, Alessandro and Trischler, Adam and Mattarella-Micke, Andrew and Maji, Subhransu and Iyyer, Mohit},
+  booktitle = {Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {7882--7926},
+  year      = {2020},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2020.emnlp-main.635/},
+  note      = {EMNLP 2020 で確認。33タスク間の転移可能性を調査し、タスク埋め込みで転移可能性を予測する手法を提案。表面的には遠いタスク間でも転移することがある一方、データ量・タスク類似性・複雑性が効果を左右すると報告}
+}
+
+@inproceedings{poth2021pretrain,
+  title     = {What to Pre-Train on? Efficient Intermediate Task Selection},
+  author    = {Poth, Clifton and Pfeiffer, Jonas and R{\"u}ckl{\'e}, Andreas and Gurevych, Iryna},
+  booktitle = {Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {10585--10605},
+  year      = {2021},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2021.emnlp-main.827/},
+  note      = {EMNLP 2021 で確認。42中間タスク×11目的タスクで中間タスク選択法を比較。埋め込みベースの効率的選択法がfew-shot微調整より優れると報告 — 中間タスクの選び方自体が転移効果を左右するというC5の補強}
+}
+
+@inproceedings{jain2024mechanistically,
+  title     = {Mechanistically analyzing the effects of fine-tuning on procedurally defined tasks},
+  author    = {Jain, Samyak and Kirk, Robert and Lubana, Ekdeep Singh and Dick, Robert P. and Tanaka, Hidenori and Grefenstette, Edward and Rockt{\"a}schel, Tim and Krueger, David Scott},
+  booktitle = {The Twelfth International Conference on Learning Representations (ICLR 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2311.12786},
+  note      = {ICLR 2024(openreview.net/forum?id=A0HKeKl4Nl で採択確認)。合成タスクでの微調整はモデルの基盤的能力をほとんど変えず、既存能力の上に最小限の「ラッパー」を学習するだけであることが多いと主張。関連タスクへの再FTで元の(病変前の)能力が数ステップで「復活」する現象も報告 — C5の「FTは新しい能力を作るより薄いラッパーを足す」を直接裏付け。本研究の病変FT解釈に直結する}
+}
+
+@inproceedings{prakash2024finetuning,
+  title     = {Fine-Tuning Enhances Existing Mechanisms: A Case Study on Entity Tracking},
+  author    = {Prakash, Nikhil and Rott Shaham, Tamar and Haklay, Tal and Belinkov, Yonatan and Bau, David},
+  booktitle = {The Twelfth International Conference on Learning Representations (ICLR 2024)},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2402.14811},
+  note      = {ICLR 2024(arXiv comment欄「ICLR 2024」で確認)。エンティティ追跡タスクで、FT前後のモデルが同じ回路を使い、FTは主に位置情報処理を強化することを報告。「FTは既存機構を強化する」というC5の主張の直接裏付け}
+}
+
+@inproceedings{kumar2022finetuning,
+  title     = {Fine-Tuning can Distort Pretrained Features and Underperform Out-of-Distribution},
+  author    = {Kumar, Ananya and Raghunathan, Aditi and Jones, Robbie and Ma, Tengyu and Liang, Percy},
+  booktitle = {International Conference on Learning Representations (ICLR 2022, Oral)},
+  year      = {2022},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2202.10054},
+  note      = {ICLR 2022 Oral(iclr.cc/virtual/2022/oral/5946 で確認)。全パラメータFTは分布内精度を上げる一方、分布シフトが大きいと分布外精度を悪化させうる(ID +2%, OOD -7%)ことを10データセットで実証。C5の「FTは下流タスクを良くも悪くもする」「効果は狙った課題の外へ波及する」を直接裏付け}
+}
+
+@article{biderman2024lora,
+  title   = {LoRA Learns Less and Forgets Less},
+  author  = {Biderman, Dan and Portes, Jacob and Ortiz, Jose Javier Gonzalez and Paul, Mansheej and Greengard, Philip and Jennings, Connor and King, Daniel and Havens, Sam and Chiley, Vitaliy and Frankle, Jonathan and Blakeney, Cody and Cunningham, John P.},
+  journal = {Transactions on Machine Learning Research (TMLR)},
+  year    = {2024},
+  verified = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2405.09673},
+  note    = {TMLR 2024採択(Featured Certification、arXiv v2のcomment欄で確認)。低ランク設定ではLoRAはフルFTより学習量が少ないが、目的ドメイン外の性能(忘却)をより良く保持すると報告。本研究のLoRAでの狭いFTを検討する上で直接関連 — 「FTの効果は狙った課題の外へ波及する(忘却)」の直接裏付けであり、かつLoRA自体がその波及を抑える効果を持つという追加情報}
+}
+
+@inproceedings{ghosh2024closer,
+  title     = {A Closer Look at the Limitations of Instruction Tuning},
+  author    = {Ghosh, Sreyan and Evuru, Chandra Kiran Reddy and Kumar, Sonal and S, Ramaneswaran and Aneja, Deepali and Jin, Zeyu and Duraiswami, Ramani and Manocha, Dinesh},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning (ICML 2024)},
+  pages     = {15559--15589},
+  year      = {2024},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.mlr.press/v235/ghosh24a.html},
+  note      = {ICML 2024(PMLR で確認)。instruction tuningは知識・スキルを実質的に拡張せず、LoRA-FTは応答の開始語・文体トークンの学習に留まり、フルFTは知識劣化やハルシネーション増加を招くと報告。C5の「FTは新しい能力を作るより既存の応答パターンを強化する」のもう一つの独立した裏付け}
+}
+
+@misc{nye2021scratchpads,
+  title  = {Show Your Work: Scratchpads for Intermediate Computation with Language Models},
+  author = {Nye, Maxwell and Andreassen, Anders Johan and Gur-Ari, Guy and Michalewski, Henryk and Austin, Jacob and Bieber, David and Dohan, David and Lewkowycz, Aitor and Bosma, Maarten and Luan, David and Sutton, Charles and Odena, Augustus},
+  year   = {2021},
+  eprint = {2112.00114},
+  archivePrefix = {arXiv},
+  verified = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2112.00114},
+  note   = {プレプリント(会議掲載記載なし、Google Research)。多段計算(長い加算やプログラム実行)を「scratchpad」に途中の計算ステップを書かせることで劇的に改善できると報告。C8の中核的な最初の実証}
+}
+
+@inproceedings{wei2022chainofthought,
+  title     = {Chain-of-Thought Prompting Elicits Reasoning in Large Language Models},
+  author    = {Wei, Jason and Wang, Xuezhi and Schuurmans, Dale and Bosma, Maarten and Ichter, Brian and Xia, Fei and Chi, Ed and Le, Quoc V. and Zhou, Denny},
+  booktitle = {Advances in Neural Information Processing Systems 35 (NeurIPS 2022)},
+  year      = {2022},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.neurips.cc/paper_files/paper/2022/hash/9d5609613524ecf4f15af0f7b31abca4-Abstract-Conference.html},
+  note      = {NeurIPS 2022(proceedings ページで確認)。少数のCoT例を示すだけで算術・常識・記号推論タスクの性能が大きく向上すると報告。C8の中心文献}
+}
+
+@inproceedings{kojima2022zeroshot,
+  title     = {Large Language Models are Zero-Shot Reasoners},
+  author    = {Kojima, Takeshi and Gu, Shixiang Shane and Reid, Machel and Matsuo, Yutaka and Iwasawa, Yusuke},
+  booktitle = {Advances in Neural Information Processing Systems 35 (NeurIPS 2022)},
+  year      = {2022},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.neurips.cc/paper_files/paper/2022/hash/8bb0d291acd4acf06ef112099c16f326-Abstract-Conference.html},
+  note      = {NeurIPS 2022(proceedings ページで確認)。"Let's think step by step" を付けるだけ(zero-shot)でも途中計算を書かせる効果が得られ、算術タスクの性能が大きく向上すると報告}
+}
+
+@inproceedings{wang2023selfconsistency,
+  title     = {Self-Consistency Improves Chain of Thought Reasoning in Language Models},
+  author    = {Wang, Xuezhi and Wei, Jason and Schuurmans, Dale and Le, Quoc V. and Chi, Ed H. and Narang, Sharan and Chowdhery, Aakanksha and Zhou, Denny},
+  booktitle = {The Eleventh International Conference on Learning Representations (ICLR 2023)},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2203.11171},
+  note      = {ICLR 2023(iclr.cc/virtual/2023/poster/11718 で確認)。複数のCoT経路をサンプリングし多数決で答えを選ぶと算術・常識推論が大きく向上(GSM8K +17.9%等)。途中経過の書き方の多様性と最終答の関係を扱う点でC8を補強}
+}
+
+@misc{lanham2023measuring,
+  title  = {Measuring Faithfulness in Chain-of-Thought Reasoning},
+  author = {Lanham, Tamera and Chen, Anna and Radhakrishnan, Ansh and Steiner, Benoit and Denison, Carson and Hernandez, Danny and Li, Dustin and Durmus, Esin and Hubinger, Evan and Kernion, Jackson and others},
+  year   = {2023},
+  eprint = {2307.13702},
+  archivePrefix = {arXiv},
+  verified = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2307.13702},
+  note   = {プレプリント(Anthropic、会議掲載記載なし)。CoTに誤りを混入したり言い換えたりする介入実験で、最終答がCoTにどれだけ依存するかを測定。タスクやモデル規模によって依存度(忠実性)が大きく異なり、モデルが大きく高性能になるほど不忠実になる場合があると報告 — C8後半の「常に忠実とは限らない」の直接裏付け}
+}
+
+@inproceedings{turpin2023language,
+  title     = {Language Models Don't Always Say What They Think: Unfaithful Explanations in Chain-of-Thought Prompting},
+  author    = {Turpin, Miles and Michael, Julian and Perez, Ethan and Bowman, Samuel R.},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS 2023)},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://proceedings.neurips.cc/paper_files/paper/2023/hash/ed3fea9033a80fea1376299fa7863f4a-Abstract-Conference.html},
+  note      = {NeurIPS 2023(proceedings ページで確認)。プロンプトにバイアスを混ぜると(例: 選択肢の順序操作)CoTの説明がそのバイアスを一切言及せずに答えを系統的に誤らせることを実証(最大36%精度低下)。C8後半の不忠実性の直接裏付け}
+}
+
+@inproceedings{lyu2023faithful,
+  title     = {Faithful Chain-of-Thought Reasoning},
+  author    = {Lyu, Qing and Havaldar, Shreya and Stein, Adam and Zhang, Li and Rao, Delip and Wong, Eric and Apidianaki, Marianna and Callison-Burch, Chris},
+  booktitle = {Proceedings of the 13th International Joint Conference on Natural Language Processing and the 3rd Conference of the Asia-Pacific Chapter of the Association for Computational Linguistics (IJCNLP-AACL 2023)},
+  pages     = {305--329},
+  year      = {2023},
+  verified  = {2026-09-12},
+  source_url = {https://aclanthology.org/2023.ijcnlp-main.20/},
+  note      = {IJCNLP-AACL 2023(ACL Anthology で確認)。自然言語クエリを記号推論チェーンに翻訳し決定的ソルバで解く2段階手法(Faithful CoT)を提案。標準CoTの不忠実性問題への対処策であり、裏を返せば標準CoTの途中経過が最終答の忠実な説明とは限らないことの傍証}
+}
+
+@misc{grattafiori2024llama3,
+  title  = {The Llama 3 Herd of Models},
+  author = {Grattafiori, Aaron and others},
+  year   = {2024},
+  eprint = {2407.21783},
+  archivePrefix = {arXiv},
+  verified = {2026-09-12},
+  source_url = {https://arxiv.org/abs/2407.21783},
+  note   = {arXiv abs ページで確認(559名の共著、2024年7月投稿、最新版2024年11月)。abs ページ自体には8Bモデルのパラメータ数記載はなく、405Bモデルの記載のみ確認できた。Llama-3.1-8Bのアーキテクチャ詳細(32層、hidden 4096、GQA 32Q/8KV、語彙128k)はウェブ検索の要約情報であり、このセッションでは論文本文PDFを開いての一次確認はできていない。★人間が確認する場合は論文PDFのTable(Sec 3〜4付近)を直接見ることを推奨}
+}
+
+% ==================== 要検証(使用前に verified を付けること) ====================
+
+
+
 
 @misc{ong2023successor,
   title  = {Successor Heads: Recurring, Interpretable Attention Heads In The Wild},

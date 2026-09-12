@@ -7,7 +7,7 @@
 
 **プレプリント注記**: 2026年の arXiv ID を持つものは査読前の可能性が高い。主要な論拠は査読済み文献に置く。
 
-最終更新: 2026-08-23
+最終更新: 2026-09-12(H 節を追加。PLAN-025)
 
 ---
 
@@ -223,3 +223,27 @@ fine-tuning arithmetic representation concept surface
 cross-modal arithmetic vision language model shared mechanism
 counting addition mechanism vision language
 ```
+
+---
+
+## H. 二値の比較判断の測り方(PLAN-025。2026-09-12 SCOUT)
+
+> **目的**: 素のモデルで T3・T1b が #2 を割った件(★F138 / ★F139)への改善案を、前例に照らして評価する(`plans/PLAN-025-binary-methods.md`)。
+> **66 件すべて ✅**(SCOUT 3 本が原典ページを開いて転記し、親が題名を arXiv API・Crossref・原典ページと突き合わせた)。
+> **書誌の正本は `plans/PLAN-025-papers/papers_list.md`(URL / DOI 付き)と `Documents/refs.bib`**。ここは主張ごとの索引である。
+> プレプリントは *斜体* で示す。**引用の最終確定は人間**(`CLAUDE.md` §8)
+
+| 主張 | 文献(`refs.bib` のキー) | 結論 | PLAN-025 での使い道 |
+|---|---|---|---|
+| **C1** 例示(few-shot)は多数ラベル・直近のラベル・順序で予測を偏らせ、内容のない入力などの較正で緩和できる | `zhao2021calibrate` / `lu2022fantastically` / `fei2023mitigating` / `zhou2024batch` / `holtzman2021surface`。留保: `min2022rethinking`(書式が効く)対 `yoo2022groundtruth`(ラベルが効く)/ *`wei2023larger`* | 支持。例示が何を教えるかは対立 | ①(和を含まない比較の例示)と (c) 較正 |
+| **C2** instruction-tuned モデルでは最初のトークンの確率と生成文の答えが食い違いうる。採点方法で結論が変わる | `wang2024myanswer` / `wang2024lookatthetext` / `hu2023prompting` / `wiegreffe2023increasing` / `zheng2024large` / `robinson2023leveraging` / `lyu2024beyond`(ワークショップ)/ *`tsvilodub2024predictions`* | 支持。明確な反対は無し | ★F139 と (d) |
+| **C3** LM の数の大小比較には距離効果・比の効果があり、大きいモデルでも比較の誤りは残る | `shah2023numeric` / `hanna2023greaterthan` / `yang2024cookbook` / `wallace2019numeracy` / `naik2019numeracy` / `moyer1967judgements`(人の原典)。表現の対立: `levy2024digits`(桁)対 *`alquboj2025parallel`*(対数)/ *`marjieh2025whatisanumber`* | 支持。内部表現は対立 | §1.4(判別項目は必ず和から 2 以内)|
+| **C4** 算術は規模で伸びるが一様でなく、内部機構はモデル・研究ごとに記述が異なる | `brown2020fewshot` / `wei2022emergent` 対 `schaeffer2023mirage` / `razeghi2022impact` / `dziri2023faith` / `zhou2024fourier` / `quirke2024understanding` / `nikankin2025heuristics` / `stolfo2023arithmetic` / *`kantamneni2025trigonometry`* / `levy2024digits`。留保: `huh2024platonic`(表現の収束) | 支持。機構がモデル間で同じという統一見解は無い | ②(ADR-018 決定1 との衝突)|
+| **C5** 中間タスクの FT は下流を良くも悪くもし(近さに依存)、FT は既存機構を強める・ラッパーを足す方向に働き、効果は狙いの外に及ぶ | `pruksachatkun2020intermediate` / `vu2020exploring` / `poth2021pretrain` / *`phang2018stilts`* / `jain2024mechanistically` / `prakash2024finetuning` / `kumar2022finetuning` / `biderman2024lora` / `ghosh2024closer` / *`betley2025emergent`* | 支持。対立は見つからず | ③(前段 FT の交絡)|
+| **C6** 生成できても同じ内容の検証・判別で失敗する(逆も)食い違いがある | `li2024consistency` / `stechly2025selfverification` / `jiang2025selfincorrect` / `song2025mindgap` / `huang2024selfcorrect` / `west2024paradox`。部分的な反対: *`kadavath2022know`* | 支持。大きさは設定しだい | (b) 等号の問い / §3.6(数値型と二値型の対比)|
+| **C7** 偏りと弁別力は信号検出理論(c と d′)や心理測定関数の当てはめで分けて推定できる | `green1966signal` / `macmillan2005detection` / `stanislaw1999signal` / `wichmann2001psychometric` / `klein2001measuring`。LM への応用: `binz2023cognitive` / *`hernandezcamara2025contrast`* | 方法論は確立。**d′・c を LM の Yes/No に当てた先行研究は見つからず** | (a) R8 の閾値掃引 |
+| **C8** CoT・scratchpad は途中の計算を書かせて多段の算術を改善し、最終答は書かれた途中経過に(常に忠実ではないが)依存する | `nye2021scratchpads` / `wei2022chainofthought` / `kojima2022zeroshot` / `wang2023selfconsistency` / *`lanham2023measuring`* / `turpin2023language` / `lyu2023faithful` | 支持。忠実性は留保付き | CoT の却下(二値型は数を出力しない)|
+| 参考 | *`grattafiori2024llama3`*(Llama 3 系列の規模の事実確認のみ) | — | ② |
+
+**既存書誌の更新(2026-09-12)**: `betley2025emergent` / `kantamneni2025trigonometry` / `levy2024digits` は `refs.bib` の「要検証」から、arXiv で題名・著者を確認して verified を付けた。
+**会場は 3 件とも未確認**(`levy2024digits` は arXiv の記載で NAACL 2025 採択。`kantamneni2025trigonometry` はワークショップの記載を iclr.cc で確かめられず。`betley2025emergent` は最終的な出版先を確かめていない)。上の B 節の ⚠️ はそのまま残した

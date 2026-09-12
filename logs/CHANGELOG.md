@@ -5653,3 +5653,19 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 読み取りだけの数え上げ(`plans/PLAN-024` §1.9。[run:20260911_141547_order6_r1]): 強制選択の Yes 率を `threshold_offset`・和の大きさ・carry で分けた / T1 の応答の形 / Yes/No の id の取り違えの点検状況(復号は未確認)/ エージェントの観察 3 点
 - 人間の新しい依頼(二値の改善手法の検討: few-shot / モデルサイズ / 前段 FT / エージェント案。前例を検索しながら。もともとの考え方を変えない)は、context-guard(約 14.5 万トークン)が出たので未着手のまま `logs/HANDOFF.md` に渡した
 - `STATE.md` の 4 ブロック(冒頭・いま何をしているか・次のアクション・引き継ぎ)を差し替え、旧ブロックは `logs/STATE-ARCHIVE.md`「その47」へ `sed` で機械的に移した。「わかっていること ★順6」に §1.9 の 1 行を足した
+
+## 2026-09-12(その48)
+
+### infra(git): 登録簿に無いリモートブランチ `claude/magical-carson-fxa3eq` を人間の指示で削除した(開始時の点検)   [actor: PLANNER (Opus)]
+
+- `git fetch` で新しいリモートブランチ `origin/claude/magical-carson-fxa3eq` が見つかった(`STATE.md`「並行ブランチ」表に無い)。中身はクラウドセッション
+  (`Claude-Session: https://claude.ai/code/session_01BGJKeva4KxbmKofY9NHDcT`)の 1 commit **`d98d423`**(2026-09-12 02:24:24 +0000)で、
+  **分岐点は `2da19e6`(その36)。main より 32 commit 古い**
+- 中身は「順5 の結果報告 + `infra/RUNPOD.md` の 4 件修正」をその36 の HANDOFF からやり直したもの。**同じ内容は main の `2b10eff`(順5 の報告)・
+  `d9df3ae`(RUNPOD.md の bundle `-b main` / PEP 668 の venv / 掃引の data manifest / create-pod の訂正)にすべて入っている**ことを
+  `grep` で確かめた。加えて main 専用の `STATE.md` / `logs/OPEN-ITEMS.md` / `logs/STATE-ARCHIVE.md`(AGENTS.md R4)を古い内容で書き換えていたので、
+  **マージすると `STATE.md` が巻き戻る**
+- AGENTS.md R7(勝手にマージも削除もしない)に従い人間に上げ、**人間がチャットで「リモートから削除する」を選んだ** →
+  `git push origin --delete claude/magical-carson-fxa3eq` / `git fetch --prune`。**main へのマージはしていない。**commit オブジェクト `d98d423` は手元の repo に残っている(gc まで)
+- ほかの点検: 作業ツリーは clean・`main` = `origin/main`(`6bcddca`)・worktree は main のみ / `runs/preflight_dirty.diff` は `infra/preflight.py:266` が書く `.gitignore` 対象の成果物(問題なし)/
+  `pytest code/tests -q` → **1030 passed** / RunPod の `list-pods` → **7 台すべて `EXITED`**(RUNNING は 0。terminate は ADR-074 決定4 で人間の操作待ちのまま。エージェントは触っていない)

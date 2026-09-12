@@ -8,6 +8,7 @@
 #   data.matched_manifests(pilot の FT manifest 5 条件)/ eval.anchor_manifest(pilot の評価プール)/
 #   eval.counterpart_manifest(非交差の相手 = 主プール)/
 #   resources.estimated_gpu_hours / resources.human_approval_date
+# **ほかに、順6b の掃引(R8・S)の欄 eval.threshold_sweep がこの config にだけある**(★2026-09-12 PLAN-026 I3)。
 # **本番 config を直したら、このファイルにも同じ変更を入れる**(下の本文は本番 config の写し)。
 #
 # PLAN-001 §4.6 規則2: pilot と main は**同じ手続き**(同じセル表・同じ除外・同じ pool_seed)で作る。
@@ -23,6 +24,9 @@
 #       --out-dir "data/generated/ft/exp_order6b_pilot_${cond}"
 #   done
 #   PYTHONIOENCODING=utf-8 python -m code.data_gen.eval_pool --config configs/exp_order6b_pilot.yaml
+#   for arm in r8 s; do   # 閾値掃引(R8・S)の項目。上の評価プールと同じ割当から組む(PLAN-026 I3)
+#     PYTHONIOENCODING=utf-8 python -m code.data_gen.sweep_pool --config configs/exp_order6b_pilot.yaml --arm "$arm"
+#   done
 # 評価プールの manifest は created_at を持たないので、作り直して**差分が 1 行も出てはならない**。
 # ============================================================================
 # configs/template.yaml — 実験 config の雛形。1実験=1ファイル。
@@ -690,6 +694,26 @@ eval:
     # ★根拠: M* <= 110 は ★F120 により C6 が組めず、ADR-070 決定3(B1)で
     #   外挿腕が取り下げられる。**その水準の殻が θ を超えていたかは結論を変えない。**
     shell_judgement_radii: [125, 150, 175, 200, 300, 500, 999]
+  # ★2026-09-12 追加(PLAN-026 I3。**順6b の config にだけある欄**。本番 config には無い)。
+  # 閾値掃引(R8・S)の項目プール。code/data_gen/sweep_pool.py が読む(生成のコマンドは冒頭の注記)。
+  # → data/generated/battery/pilot_sweep_<腕>/。**固定オフセットの項目(上の cells)とは別のファイル**。
+  # 閾値は両極性とも T = t + θ(t3_comparison.sweep_threshold)で、判別可能性の強制は外す(sweep=True)。
+  # **掃引の項目は 4 値分解に入れない**(非判別項目で scoring.classify が止まる。PLAN-026 §3.2)。
+  # **ここの θ は閾値のオフセットであって、上の magnitude_sweep.theta(= 0.70。correct の閾値)ではない**
+  threshold_sweep:
+    # 掃引するタスク型(ADR-030 決定3)。項目はこの順に並ぶ
+    task_types: [t3, t1b]
+    # (タスク型 × 既知性 × carry)セルごとの組の数(ADR-030 決定4)。**極性を併合したセル**(上の cells の
+    # gt・lt の 2 セル、計 80 組)から、組 (a, b) の水準のハッシュ([tag, eval.pool_seed, a, b] の sha256)の
+    # 小さい順に取り、両極性 × 下の θ に掛ける(PLAN-026 §3.2・§4.4 / ADR-080 決定3)
+    pairs_per_cell: 20
+    # 腕ごとの θ の水準(狭義の増加列)
+    offsets:
+      # R8(ADR-030 決定2。17 水準)。T3 4,080 + T1b 4,080 = 8,160 項目(PLAN-026 §3.2)
+      r8: [-3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+      # S(ADR-079 決定4。PLAN-026 §3.7)。R8 と同じ 20 組 × 2 極性で、タスク型ごとに 1,200 の基本集合。
+      # ① の前置き(I6)と (d) の文面(I8)は描画のときに被せるので、項目そのものは文面に依らない
+      s: [-3, -2, 3, 7, 13]
 
 # --- Go/No-Go(Documents/04_EXPERIMENT_PLAN.md Phase 0。順6 = none モデル)---
 # code/analysis/gonogo.py が読む。**閾値の転記であって新しい決定ではない**(2026-09-11。PLAN-023 手順1)。

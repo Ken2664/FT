@@ -5770,3 +5770,22 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - skill `handoff`: `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、パイロット用プールの行と人間待ちの索引 1 行を足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その54」へ機械的に移した(398 行 / 47.5 KB。`test_repo_hygiene.py` 7 passed)
 - `logs/OPEN-ITEMS.md` に「PLAN-026 G14 の記入と I1・I2 の実装の読み」を足した / `logs/HANDOFF.md` を次の IMPLEMENTER(I3 = R8・S の掃引項目)向けに書き直した。**I3 の前に確かめる仕様の穴**(R8 の 20 組を極性ごとのセルのどちらから取るか)を HANDOFF に書いた
 - PLAN-026 の G14 の未コミットの記入はこのコミットにも入れていない。GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-12(その55)
+
+### feat(data_gen): PLAN-026 I3 —— R8・S の閾値掃引の項目プールを作った / docs(adr): ADR-080(G14 の確定・I1・I2 の読みの追認・I3 の仕様の穴)   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その54)の作業 = PLAN-026 の I3。CPU のみ・GPU 0・ポッドは触っていない
+- 人間の開始時の指示: 「handoffに従って作業を行ってください。なお、PLAN-026 の G14は私が記入しました。それ以外の承認が必要な内容に関しても承認します」
+  → **G14 の記入(その54 から作業ツリーにあった「確定」)は人間のものと確認できたので、このコミットに入れた**。包括の承認は I3 に要る承認と OPEN-ITEMS の「PLAN-026 G14 の記入と I1・I2 の実装の読み」に当てた(GPU・ポッドの terminate・★`θ` の根拠などには当てていない。ADR-080 の「包括の承認をどこに当てたか」)
+- **仕様の穴(HANDOFF 手順1)**: PLAN-026 §3.2 と ADR-030 決定4 を開いて確かめた。「同じ組を両極性で尋ねる」までは決まっていた(決定4「部分集合を取り、極性 2 × 17 水準を掛ける」/ S「R8 と同じ 20 組 × 2 極性」)が、極性ごとに分かれたセルのどれから引くかは書かれていなかった
+  → **gt・lt の 2 セル(計 80 組)を併合した候補から、組の水準のハッシュの小さい順に 20 組**(ADR-080 決定3。提案 エージェント / 採択 人間の包括の承認。**人間は個別の案を見ていないので覆せる**)。ADR-030 決定4 と PLAN-003 §4.4 の「`item_id` のハッシュ」に打ち消し線・理由・日付を付けた(R8 は未実施)
+- 実装:
+  - `configs/exp_order6b_pilot.yaml` に `eval.threshold_sweep`(`task_types` / `pairs_per_cell: 20` / `offsets.r8` = −3〜+13 / `offsets.s` = {−3, −2, +3, +7, +13})。本番 config には置かない。`test_order6b_pilot.py` は「9 欄 + 掃引の欄」を許す形に
+  - `code/data_gen/sweep_pool.py`(新規): `python -m code.data_gen.sweep_pool --config configs/exp_order6b_pilot.yaml --arm r8|s`。同じ config で評価プールを組み直してセルの割当を取り(`--t2-cross` と同じ形)、併合セル → 20 組 → 2 極性 × θ で `t3_comparison.build_items(sweep=True)`。manifest は `eval_pool.assemble`
+  - 組のハッシュ = `sha256(canonical_json(["threshold_sweep", eval.pool_seed, a, b]))`(新しいシードを足さない)
+- 生成物(組合せ論的な帰結。実験結果ではない): `data/generated/battery/pilot_sweep_r8/` **8,160 項目**(T3 4,080 + T1b 4,080)・240 組 / `pilot_sweep_s/` **2,400 項目**(T3 1,200 + T1b 1,200)。S の組は R8 と同じ・項目は R8 の部分集合。manifest だけコミット(items.jsonl は `.gitignore`)
+  - 記録: R8 の 7,200 / 8,160 項目は `p2` で判別できない(4 値分解に入れれば `classify` が止まる)/ R8 の 240 項目はパイロット用プールの固定オフセットの項目と同じ `item_id`(ADR-030 決定5 の帰結。B0 と R8 の一致の点検に使える。案)
+- テスト: `code/tests/test_sweep_pool.py`(新規 33)。`pytest code/tests -q` → **1082 passed**(1049 → +33)
+- 文書: ADR-080(決定1 = G14 を確定 / 決定2 = PLAN-026 §4.3 の読みを追認・`counterpart_hash` は None のまま / 決定3 = 上の仕様の穴)/ PLAN-026(ステータス・§3.2・§4.3・§4.4(新)・§8・§9 の I3・§13)/ PLAN-001 §4.6 規則3 に注記 / PLAN-003 §4.4 / `logs/OPEN-ITEMS.md`(G14 の行と「G14 の記入と I1・I2 の読み」の行を決着)
+- GPU 0・ポッドは触っていない・main の push はしていない。**I4(記録の経路)・I5(当てはめ)は次のセッション**

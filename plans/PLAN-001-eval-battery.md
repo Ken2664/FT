@@ -392,6 +392,7 @@ interp = D_train \ (訓練サンプラが引く K 組)      # D_train = [1,99]^2
    - 各 `manifest.json` は自プールの順序対集合のハッシュと、**相手プールの `pool_id` およびそのハッシュ**を持つ
    - `code/tests/` のテストが両 `manifest.json` を読み、積が空であることを検査する。§4.3 のプール非空テストと同じ場所に置く
    - `infra/preflight.py` が実行時にも同じ検査を行う(§4.5)
+   - **→ 2026-09-12 ADR-080 決定2 (iv)(採択 人間)**: 1 点目の「相手プールのハッシュ」(`counterpart_hash`)は両方の manifest で None のままとし、**照合はテスト(`test_pool.py`)と preflight(`pool disjoint`。相手は config の `eval.counterpart_manifest`)が両方の manifest を読んで行う形で規則3 を満たす**。埋めると相手を作り直すたびに主プールの manifest に差分が出るため(PLAN-026 §4.3)
 4. **パイロットの数値は主張の根拠に使わない。**`runs/<id>/config.yaml` に `pool_id: pilot` を持つ run の数値は、論文の主張にも `results/` の主要集計にも入れない
 5. **回す前にパイロットだと宣言する。**`pool_id: pilot` を config に書いてから起動する。事後に「あれはパイロットだった」と言わない
 

@@ -3,7 +3,7 @@
 答える問い: 「パイロット用プールは、主プールと同じ手続きで、主プールと交わらない組から作られているか」
 
 ここで固定する最重要の性質:
-  - **pilot の config は本番 config と宣言した 9 欄だけが違う**(PLAN-001 §4.6 規則2「同じ手続き」)。
+  - **pilot の config は本番 config と宣言した 9 欄(と順6b の掃引の欄)だけが違う**(PLAN-001 §4.6 規則2「同じ手続き」)。
     ほかの欄がずれると、パイロットで測ったスループットや parse_fail_rate が本番に外挿できない
   - **pilot の評価プールは主プールと同じセル表・同じ件数**(群ごと・セルごと・閾値オフセット)
   - **コミット済みの pilot の manifest が pilot の config から再現できる**
@@ -45,6 +45,8 @@ PILOT_DIFFERING_KEYS = {
     "resources.estimated_gpu_hours",
     "resources.human_approval_date",
 }
+# 順6b の掃引(R8・S)の欄。pilot の config にだけある(PLAN-026 I3。`test_sweep_pool.py` が中身を縛る)。
+PILOT_ONLY_BLOCK = "eval.threshold_sweep."
 
 
 def flatten(tree: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:
@@ -74,10 +76,13 @@ def read_json(declared: str) -> dict[str, Any]:
 
 
 def test_pilot_config_differs_only_in_the_declared_keys() -> None:
-    """★pilot の config は本番と宣言した 9 欄だけが違う(PLAN-001 §4.6 規則2)。"""
-    assert differing_keys(load_config(MAIN_CONFIG), load_config(PILOT_CONFIG)) == (
-        PILOT_DIFFERING_KEYS
-    )
+    """★pilot の config は本番と宣言した 9 欄と掃引の欄だけが違う(PLAN-001 §4.6 規則2)。"""
+    main, pilot = load_config(MAIN_CONFIG), load_config(PILOT_CONFIG)
+    differing = differing_keys(main, pilot)
+    sweep_keys = {key for key in differing if key.startswith(PILOT_ONLY_BLOCK)}
+    assert differing - sweep_keys == PILOT_DIFFERING_KEYS
+    # 掃引の欄は足しただけで、本番の欄を上書きしていない
+    assert sweep_keys and not any(key.startswith(PILOT_ONLY_BLOCK) for key in flatten(main))
 
 
 def test_pilot_config_points_at_the_pilot_side_and_is_not_approved() -> None:

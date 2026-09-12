@@ -1,0 +1,1319 @@
+{
+  "question": "順6 の Yes/No のトークン id は Yes/No の綴りを指していたか(ADR-078 決定3)",
+  "model": {
+    "name": "meta-llama/Llama-3.1-8B-Instruct",
+    "revision": "0e9e39f249a16976918f6564b8830bc894c89659"
+  },
+  "tokenizer_class": "TokenizersBackend",
+  "local_versions": {
+    "transformers": "5.14.1",
+    "tokenizers": "0.22.2",
+    "note": "ポッドは transformers==5.16.1 / tokenizers==0.23.1(runs/*/env.txt)"
+  },
+  "code_path_rederived": {
+    "Yes": {
+      " YES": 14410,
+      " Yes": 7566,
+      " yes": 10035,
+      "YES": 14331,
+      "Yes": 9642,
+      "yes": 9891
+    },
+    "No": {
+      " NO": 5782,
+      " No": 2360,
+      " no": 912,
+      "NO": 9173,
+      "No": 2822,
+      "no": 2201
+    }
+  },
+  "runs": {
+    "20260911_141547_order6_r1": {
+      "revision_matches": true,
+      "identity": {
+        "revision_recorded": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "chat_template_sha256_recorded": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_sha256_local": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_match": true,
+        "prompt_ids_examples": [
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          }
+        ]
+      },
+      "decode": {
+        "rows": [
+          {
+            "side": "Yes",
+            "spelling": " YES",
+            "id": 14410,
+            "raw_token": "ĠYES",
+            "decoded": " YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14410
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " Yes",
+            "id": 7566,
+            "raw_token": "ĠYes",
+            "decoded": " Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              7566
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " yes",
+            "id": 10035,
+            "raw_token": "Ġyes",
+            "decoded": " yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              10035
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "YES",
+            "id": 14331,
+            "raw_token": "YES",
+            "decoded": "YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14331
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "Yes",
+            "id": 9642,
+            "raw_token": "Yes",
+            "decoded": "Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9642
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "yes",
+            "id": 9891,
+            "raw_token": "yes",
+            "decoded": "yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9891
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "No",
+            "spelling": " NO",
+            "id": 5782,
+            "raw_token": "ĠNO",
+            "decoded": " NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              5782
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " No",
+            "id": 2360,
+            "raw_token": "ĠNo",
+            "decoded": " No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2360
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " no",
+            "id": 912,
+            "raw_token": "Ġno",
+            "decoded": " no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              912
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "NO",
+            "id": 9173,
+            "raw_token": "NO",
+            "decoded": "NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9173
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "No",
+            "id": 2822,
+            "raw_token": "No",
+            "decoded": "No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2822
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "no",
+            "id": 2201,
+            "raw_token": "no",
+            "decoded": "no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2201
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          }
+        ],
+        "all_decoded_equal": true,
+        "all_reencoded_equal": true,
+        "yes_side_means_yes": true,
+        "no_side_means_no": true,
+        "overlap": []
+      },
+      "code_path_equals_recorded": true,
+      "predictions": {
+        "counts": {
+          "n": 960,
+          "response_unparsed": 0,
+          "label_vs_logp_mismatch": 0,
+          "parsed_vs_label_mismatch": 0,
+          "exact_ties": 2,
+          "prompt_unparsed": 0,
+          "truth_mismatch": 0,
+          "classification_mismatch": 0
+        },
+        "by_category": {
+          "t1b_gt": {
+            "n": 240,
+            "Yes": 208,
+            "No": 32
+          },
+          "t1b_lt": {
+            "n": 240,
+            "Yes": 195,
+            "No": 45
+          },
+          "t3_gt": {
+            "n": 240,
+            "Yes": 77,
+            "No": 163
+          },
+          "t3_lt": {
+            "n": 240,
+            "Yes": 0,
+            "No": 240
+          }
+        },
+        "rounded_ties": [
+          {
+            "item_id": "main.comparison.t3_gt.4_23.threshold28-threshold_offset1",
+            "label": "Yes",
+            "yes_logp": -0.6971,
+            "no_logp": -0.6971,
+            "classification": "rule"
+          },
+          {
+            "item_id": "main.comparison.t3_gt.72_46.threshold118-threshold_offset0",
+            "label": "Yes",
+            "yes_logp": -0.7056,
+            "no_logp": -0.7056,
+            "classification": "rule"
+          }
+        ]
+      }
+    },
+    "20260911_160132_order6_r2": {
+      "revision_matches": true,
+      "identity": {
+        "revision_recorded": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "chat_template_sha256_recorded": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_sha256_local": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_match": true,
+        "prompt_ids_examples": [
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          }
+        ]
+      },
+      "decode": {
+        "rows": [
+          {
+            "side": "Yes",
+            "spelling": " YES",
+            "id": 14410,
+            "raw_token": "ĠYES",
+            "decoded": " YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14410
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " Yes",
+            "id": 7566,
+            "raw_token": "ĠYes",
+            "decoded": " Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              7566
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " yes",
+            "id": 10035,
+            "raw_token": "Ġyes",
+            "decoded": " yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              10035
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "YES",
+            "id": 14331,
+            "raw_token": "YES",
+            "decoded": "YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14331
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "Yes",
+            "id": 9642,
+            "raw_token": "Yes",
+            "decoded": "Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9642
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "yes",
+            "id": 9891,
+            "raw_token": "yes",
+            "decoded": "yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9891
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "No",
+            "spelling": " NO",
+            "id": 5782,
+            "raw_token": "ĠNO",
+            "decoded": " NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              5782
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " No",
+            "id": 2360,
+            "raw_token": "ĠNo",
+            "decoded": " No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2360
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " no",
+            "id": 912,
+            "raw_token": "Ġno",
+            "decoded": " no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              912
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "NO",
+            "id": 9173,
+            "raw_token": "NO",
+            "decoded": "NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9173
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "No",
+            "id": 2822,
+            "raw_token": "No",
+            "decoded": "No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2822
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "no",
+            "id": 2201,
+            "raw_token": "no",
+            "decoded": "no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2201
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          }
+        ],
+        "all_decoded_equal": true,
+        "all_reencoded_equal": true,
+        "yes_side_means_yes": true,
+        "no_side_means_no": true,
+        "overlap": []
+      },
+      "code_path_equals_recorded": true,
+      "predictions": {
+        "counts": {
+          "n": 960,
+          "response_unparsed": 0,
+          "label_vs_logp_mismatch": 0,
+          "parsed_vs_label_mismatch": 0,
+          "exact_ties": 2,
+          "prompt_unparsed": 0,
+          "truth_mismatch": 0,
+          "classification_mismatch": 0
+        },
+        "by_category": {
+          "t1b_gt": {
+            "n": 240,
+            "Yes": 208,
+            "No": 32
+          },
+          "t1b_lt": {
+            "n": 240,
+            "Yes": 195,
+            "No": 45
+          },
+          "t3_gt": {
+            "n": 240,
+            "Yes": 77,
+            "No": 163
+          },
+          "t3_lt": {
+            "n": 240,
+            "Yes": 0,
+            "No": 240
+          }
+        },
+        "rounded_ties": [
+          {
+            "item_id": "main.comparison.t3_gt.4_23.threshold28-threshold_offset1",
+            "label": "Yes",
+            "yes_logp": -0.6971,
+            "no_logp": -0.6971,
+            "classification": "rule"
+          },
+          {
+            "item_id": "main.comparison.t3_gt.72_46.threshold118-threshold_offset0",
+            "label": "Yes",
+            "yes_logp": -0.7056,
+            "no_logp": -0.7056,
+            "classification": "rule"
+          }
+        ]
+      }
+    },
+    "20260911_160937_order6_r3": {
+      "revision_matches": true,
+      "identity": {
+        "revision_recorded": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "chat_template_sha256_recorded": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_sha256_local": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_match": true,
+        "prompt_ids_examples": [
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          }
+        ]
+      },
+      "decode": {
+        "rows": [
+          {
+            "side": "Yes",
+            "spelling": " YES",
+            "id": 14410,
+            "raw_token": "ĠYES",
+            "decoded": " YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14410
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " Yes",
+            "id": 7566,
+            "raw_token": "ĠYes",
+            "decoded": " Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              7566
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " yes",
+            "id": 10035,
+            "raw_token": "Ġyes",
+            "decoded": " yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              10035
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "YES",
+            "id": 14331,
+            "raw_token": "YES",
+            "decoded": "YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14331
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "Yes",
+            "id": 9642,
+            "raw_token": "Yes",
+            "decoded": "Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9642
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "yes",
+            "id": 9891,
+            "raw_token": "yes",
+            "decoded": "yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9891
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "No",
+            "spelling": " NO",
+            "id": 5782,
+            "raw_token": "ĠNO",
+            "decoded": " NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              5782
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " No",
+            "id": 2360,
+            "raw_token": "ĠNo",
+            "decoded": " No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2360
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " no",
+            "id": 912,
+            "raw_token": "Ġno",
+            "decoded": " no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              912
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "NO",
+            "id": 9173,
+            "raw_token": "NO",
+            "decoded": "NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9173
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "No",
+            "id": 2822,
+            "raw_token": "No",
+            "decoded": "No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2822
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "no",
+            "id": 2201,
+            "raw_token": "no",
+            "decoded": "no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2201
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          }
+        ],
+        "all_decoded_equal": true,
+        "all_reencoded_equal": true,
+        "yes_side_means_yes": true,
+        "no_side_means_no": true,
+        "overlap": []
+      },
+      "code_path_equals_recorded": true,
+      "predictions": {
+        "counts": {
+          "n": 960,
+          "response_unparsed": 0,
+          "label_vs_logp_mismatch": 0,
+          "parsed_vs_label_mismatch": 0,
+          "exact_ties": 2,
+          "prompt_unparsed": 0,
+          "truth_mismatch": 0,
+          "classification_mismatch": 0
+        },
+        "by_category": {
+          "t1b_gt": {
+            "n": 240,
+            "Yes": 208,
+            "No": 32
+          },
+          "t1b_lt": {
+            "n": 240,
+            "Yes": 195,
+            "No": 45
+          },
+          "t3_gt": {
+            "n": 240,
+            "Yes": 77,
+            "No": 163
+          },
+          "t3_lt": {
+            "n": 240,
+            "Yes": 0,
+            "No": 240
+          }
+        },
+        "rounded_ties": [
+          {
+            "item_id": "main.comparison.t3_gt.4_23.threshold28-threshold_offset1",
+            "label": "Yes",
+            "yes_logp": -0.6971,
+            "no_logp": -0.6971,
+            "classification": "rule"
+          },
+          {
+            "item_id": "main.comparison.t3_gt.72_46.threshold118-threshold_offset0",
+            "label": "Yes",
+            "yes_logp": -0.7056,
+            "no_logp": -0.7056,
+            "classification": "rule"
+          }
+        ]
+      }
+    },
+    "20260911_161738_order6_r4": {
+      "revision_matches": true,
+      "identity": {
+        "revision_recorded": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "chat_template_sha256_recorded": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_sha256_local": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_match": true,
+        "prompt_ids_examples": [
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          }
+        ]
+      },
+      "decode": {
+        "rows": [
+          {
+            "side": "Yes",
+            "spelling": " YES",
+            "id": 14410,
+            "raw_token": "ĠYES",
+            "decoded": " YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14410
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " Yes",
+            "id": 7566,
+            "raw_token": "ĠYes",
+            "decoded": " Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              7566
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": " yes",
+            "id": 10035,
+            "raw_token": "Ġyes",
+            "decoded": " yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              10035
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "YES",
+            "id": 14331,
+            "raw_token": "YES",
+            "decoded": "YES",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              14331
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "Yes",
+            "id": 9642,
+            "raw_token": "Yes",
+            "decoded": "Yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9642
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "Yes",
+            "spelling": "yes",
+            "id": 9891,
+            "raw_token": "yes",
+            "decoded": "yes",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9891
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "yes"
+          },
+          {
+            "side": "No",
+            "spelling": " NO",
+            "id": 5782,
+            "raw_token": "ĠNO",
+            "decoded": " NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              5782
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " No",
+            "id": 2360,
+            "raw_token": "ĠNo",
+            "decoded": " No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2360
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": " no",
+            "id": 912,
+            "raw_token": "Ġno",
+            "decoded": " no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              912
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "NO",
+            "id": 9173,
+            "raw_token": "NO",
+            "decoded": "NO",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              9173
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "No",
+            "id": 2822,
+            "raw_token": "No",
+            "decoded": "No",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2822
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          },
+          {
+            "side": "No",
+            "spelling": "no",
+            "id": 2201,
+            "raw_token": "no",
+            "decoded": "no",
+            "decoded_equals_spelling": true,
+            "reencoded": [
+              2201
+            ],
+            "reencoded_equals_id": true,
+            "side_by_meaning": "no"
+          }
+        ],
+        "all_decoded_equal": true,
+        "all_reencoded_equal": true,
+        "yes_side_means_yes": true,
+        "no_side_means_no": true,
+        "overlap": []
+      },
+      "code_path_equals_recorded": true,
+      "predictions": {
+        "counts": {
+          "n": 960,
+          "response_unparsed": 0,
+          "label_vs_logp_mismatch": 0,
+          "parsed_vs_label_mismatch": 0,
+          "exact_ties": 1,
+          "prompt_unparsed": 0,
+          "truth_mismatch": 0,
+          "classification_mismatch": 0
+        },
+        "by_category": {
+          "t1b_gt": {
+            "n": 240,
+            "Yes": 208,
+            "No": 32
+          },
+          "t1b_lt": {
+            "n": 240,
+            "Yes": 195,
+            "No": 45
+          },
+          "t3_gt": {
+            "n": 240,
+            "Yes": 78,
+            "No": 162
+          },
+          "t3_lt": {
+            "n": 240,
+            "Yes": 0,
+            "No": 240
+          }
+        },
+        "rounded_ties": [
+          {
+            "item_id": "main.comparison.t3_gt.61_77.threshold138-threshold_offset0",
+            "label": "Yes",
+            "yes_logp": -0.7069,
+            "no_logp": -0.7069,
+            "classification": "rule"
+          }
+        ]
+      }
+    },
+    "20260911_163337_order6_r5": {
+      "forced_choice_tokens": "なし(二値群の項目を持たない run)",
+      "identity": {
+        "revision_recorded": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "chat_template_sha256_recorded": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_sha256_local": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+        "chat_template_match": true,
+        "prompt_ids_examples": [
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": true,
+            "add_special_tokens": false,
+            "prompt_ids_match": true,
+            "n_ids": 39
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          },
+          {
+            "templated": false,
+            "add_special_tokens": true,
+            "prompt_ids_match": true,
+            "n_ids": 5
+          }
+        ]
+      },
+      "predictions": {
+        "counts": {
+          "n": 0,
+          "response_unparsed": 0,
+          "label_vs_logp_mismatch": 0,
+          "parsed_vs_label_mismatch": 0,
+          "exact_ties": 0,
+          "prompt_unparsed": 0,
+          "truth_mismatch": 0,
+          "classification_mismatch": 0
+        },
+        "by_category": {},
+        "rounded_ties": []
+      }
+    }
+  }
+}

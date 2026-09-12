@@ -5700,3 +5700,17 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 手元の HF キャッシュに Llama のトークナイザ・HF トークンが無いことを確かめた(E1 の選択肢の材料)。**エージェントはトークンを入力していない**
 - **決定 16 問(採択)・GPU 0・ポッドは触っていない・実装 0。**`cost.txt` は書いていない(人間が書く。`infra/RUNPOD.md` §4)
 - `STATE.md` の 4 ブロック(冒頭・いま何をしているか・次のアクション・引き継ぎ)と「現在のブロッカー」の 2・Phase 0 の表の C・D の行を差し替え、人間待ちの索引に 2 行を足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その50」へ機械的に移した(393 行。`test_repo_hygiene.py` 7 passed)
+
+## 2026-09-12(その51)
+
+### test(eval): (e) 順6 の Yes/No トークン id を手元のトークナイザで復号し、取り違えが無いことを確かめた   [actor: PLANNER (Opus)]
+
+- HANDOFF(その50)の最初の作業。**人間がトークナイザ(`meta-llama/Llama-3.1-8B-Instruct` revision `0e9e39f…` の `tokenizer.json` / `tokenizer_config.json` / `special_tokens_map.json`)を手元の HF キャッシュに置いた**(ADR-078 決定3)。エージェントはトークンを入力していない(`HF_HUB_OFFLINE=1`・`local_files_only`)。GPU 0
+- 点検のスクリプトと出力: `results/token_decode_order6/check_token_decode.py` → `token_decode.json`(runs/ も predictions/ も書き換えていない)
+- **結果: 取り違えは無い。PLAN-024 §1 の読みは変わらない**
+  - 12 綴りの id はすべて鍵の綴りに復号され、符号化し直すと同じ 1 id に戻る。Yes 側 6 つはすべて yes・No 側 6 つはすべて no・重なり無し
+  - 本番コードの経路(`candidate_token_map` → `candidate_record`)を手元のトークナイザで回すと、R1〜R4 の `forced_choice_tokens.json` と完全一致(R5 は T2 だけで二値群を持たない)
+  - トークナイザの同一性: revision 一致・`chat_template_sha256` が R1〜R5 の `token_boundary.json` と一致・`prompt_ids` の例 12/12 一致(**1 回目の照合で裸の書式の 6 件が不一致と出たのは、スクリプトが BOS を付けずに符号化していたため**。preflight と同じ `add_special_tokens = not templated` に直して 12/12)
+  - `predictions/` の二値群(R1〜R4 各 960 件): ラベルと logp の大小・`parsed` とラベル・プロンプトの文字列から計算し直した真値・分類の食い違いはすべて 0。小数 4 桁で yes = no と表示される項目が R1〜R3 で同じ 2 件(`t3_gt`、どちらも Yes = `rule`)、R4 で別の 1 件
+- 手元の `AutoTokenizer` は `config.json`(キャッシュに無い)を探しに行って止まるので、`tokenizer_config.json` の `tokenizer_class`(`PreTrainedTokenizerFast`)を直接使った。手元は transformers 5.14.1 / tokenizers 0.22.2、ポッドは 5.16.1 / 0.23.1
+- 書いたもの: `plans/PLAN-024` §1.9 の「復号する確認はしていない」に打ち消し線と結果 / `logs/OPEN-ITEMS.md` の (e) の行を決着に

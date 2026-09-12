@@ -93,6 +93,7 @@
 - 経路は 2 つ(`eval_pool.py:26-40`):
   - **`build_filled`(`fill_cells`。本番)**: `main_region_pairs`(`:352-393`)が FT manifest の `pool_split` を読み、`split_pilot_main`(`pool.py:506-521`)を再現して `counterpart_region_hash`(**関数ではなく manifest の鍵**。`ft_data.py:714`)と照合する。**pilot の FT manifest は `data/generated/ft/` に 1 件も無い** → この経路なら先に `python -m code.data_gen.ft_data --config <pilot 向け>` が要る(CPU)
   - **`build_explicit`(明示リスト。smoke 系)**: `eval.pool_items` から組み、FT manifest を読まない(`:689-716`)。**追加コード無しで pilot の items を書ける**(組は `split_pilot_main` を 1 回呼んで確定し config に写す運用)
+    - **★2026-09-12(その52)訂正: 誤り。**両経路が呼ぶ共通の `assemble`(`eval_pool.py:632`)が `load_condition_manifest`(`:659`)で FT manifest を読むので、**明示リストの経路でも pilot の FT manifest が要る。**`id` セルも K_pilot から引く必要がある。PLAN-026 §4.1 はこの訂正の上で `build_filled` を採った
 - どちらを採るかは PLAN-026 の論点(ADR-076 決定10 は主プールを `fill_cells` にした)
 
 ### B3. プロンプトと出力の配線(`code/eval/run.py`)

@@ -5746,3 +5746,21 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: `logs/DECISIONS.md`(ADR-079 + ADR-030 決定6)/ `plans/PLAN-003-redesign.md` §4.4.2 / `plans/PLAN-026-order6b.md`(ステータス = レビュー済み・実装待ち、§3.2.1・§3.7・§5・§7・§9 の I10・§11(S を含め 15,626 項目・回)・§13 の記入)/ `logs/OPEN-ITEMS.md`(★F141 を決着・順6b の GPU 承認の行を更新・「順6b の後に決める 3 件(G12・G14・G15)」を新設)
 - skill `handoff`: `STATE.md` の 4 ブロックと「現在のブロッカー」の 2 の先頭 3 行・人間待ちの索引の 2 行(★F141 の行は落とし、「順6b の後に決める 3 件」を足した)を差し替え、旧ブロックは `logs/STATE-ARCHIVE.md`「その53」へ機械的に移した(398 行 / 46.9 KB。`test_repo_hygiene.py` 7 passed)。`logs/HANDOFF.md` を IMPLEMENTER 向け(PLAN-026 の I1・I2 = パイロット用プール)に書き直した
 - 決定 10(採択)・GPU 0・実装 0・ポッドは触っていない。main の push はしていない
+
+## 2026-09-12(その54)
+
+### feat(data_gen): PLAN-026 I1・I2 —— パイロット用プールを作り、pilot / main の評価プールの非交差を検査に固定した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その53)の作業 = PLAN-026 §4.1 の手順1〜5(ADR-079 決定2)。CPU のみ・GPU 0・ポッドは触っていない
+- 開始時に作業ツリーで `plans/PLAN-026-order6b.md` の G14 の記入欄が「確定」に書き換わっていた(未コミット。人間の記入と思われる)。**このコミットには入れていない**(作業ツリーに残した。ADR に起こすかは人間に確かめる)
+- 手順1: `configs/exp_order6b_pilot.yaml`(本番 config の写し。違うのは 9 欄だけ)。`resources.human_approval_date` は null(本番の値は順6 の承認)
+- 手順2: `ft_data --condition <c> --out-dir data/generated/ft/exp_order6b_pilot_<c>` を 5 条件で。K_pilot 2,000 組は 5 条件で同じ・`matched_stream_sha256` 一致・K_pilot ∩ K_main = ∅
+- 手順3: `eval_pool` → `data/generated/battery/pilot/`。**1,640 項目・1,560 組。群ごとの件数(比較 960・`bare_sum` 240・`bare_sum_instructed` 80・`word_problem` 240・特異性 120)と 42 セルのセルごとの件数は、順6 の主プールと同じ**(生成して確かめた。組合せ論的な帰結で実験結果ではない)。pilot の config で `run.py --dry-run` が通る
+- 手順4(I2): **既存の検査は FT 側だけ**(`check_pool_regions` は K と訓練域の分割を見る)で、評価プールどうしの順序対の積を見る検査はテストにも preflight にも無かった。足したもの:
+  - `code/data_gen/pool.py` `pool_manifest_problems`(相手を指すか / `pairs_hash` の再現 / 記録された `counterpart_hash` / 積)
+  - `infra/preflight.py` の data check `pool disjoint`(7 件目)。相手は **`eval.counterpart_manifest` で宣言させる**(本番・b1・t2cross → pilot、pilot → main)。smoke 系のプールは `pool_id: main` を名乗り pilot と 1〜2 組重なるので、名前からは推測しない。宣言なし = SKIP / 宣言した相手が無い = FAIL。掃引では SKIP(`SWEEP_SKIPPED_CHECKS` に追加)
+  - テスト: `test_pool.py`(コミット済みの両 manifest の積が空)/ `test_preflight_checks.py`(SKIP・FAIL)/ `test_order6b_pilot.py`(新規)
+- 手順5: data_checks は pilot・本番・t2cross の config で 7 件すべて PASS(smoke 系は `pool disjoint` だけ SKIP)。`pytest code/tests -q` → **1049 passed**(1030 → +19)
+- **実装の読み(人間が覆せる)**: `eval.counterpart_manifest` を本番 config とその変種 2 本に足した / `pool disjoint` を掃引で SKIP にした / pilot の config の `experiment.plan` を PLAN-026 にした。記録は PLAN-026 §4.3
+- **残したもの**: PLAN-001 §4.6 規則3 の 1 点目(各 manifest が相手のハッシュを持つ)は満たしていない。`counterpart_hash` は None のまま(埋めると主プールの manifest を書き直すことになる)。人間待ち
+- 書いたもの: 上のコード・テスト・config 4 本・manifest 6 本(FT 5 + 評価プール 1)/ `plans/PLAN-026-order6b.md`(ステータス・§4.3・§9 の I1・I2)

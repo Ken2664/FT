@@ -27,6 +27,7 @@ from typing import Any
 import preflight
 import pytest
 
+from code.data_gen import pool
 from code.data_gen.ft_data import canonical_json, generate, sha256_text, write_dataset
 
 # 5条件(PLAN-002 §3.3)。none はデータを生成しない。
@@ -370,13 +371,14 @@ def test_main_is_the_default_run_kind() -> None:
     )
 
 
-def test_sweep_skips_only_the_two_pool_checks() -> None:
-    """掃引は評価プールを読まないので、その2件だけが SKIP になる。
+def test_sweep_skips_only_the_pool_checks() -> None:
+    """掃引は評価プールを読まないので、評価プールの検査だけが SKIP になる。
 
-    答える問い: 「例外は `format hash` / `coverage_k floor` に留まっているか」
+    答える問い: 「例外は `format hash` / `coverage_k floor` / `pool disjoint` に留まっているか」
 
     残り4件(`pool regions` / `matched stream` / `t_holdout` / `holdout leak`)は
     **FT データの検査であって評価プールの検査ではない。**掃引でも緩めない。
+    (`pool disjoint` は 2026-09-12 に足した。PLAN-026 I2)
     """
     config = {"lesion": {"condition": "p2"}, "data": {"matched_manifests": None}}
     results = {
@@ -495,15 +497,15 @@ def test_end_to_end_data_checks_pass_on_generated_manifests(
         config["lesion"]["condition"] = condition
         write_dataset(generate(config), out_dir)
         declared.append(str(out_dir / "manifest.json"))
-    anchor_path = tmp_path / "anchor.json"
-    anchor_path.write_text(
-        json.dumps({"prompt_format": manifests["p2"]["prompt_format"]}), encoding="utf-8"
-    )
+    fmt = manifests["p2"]["prompt_format"]
+    anchor_path = _write_pool(tmp_path / "anchor.json", "main", [(1, 2)], fmt)
+    counterpart_path = _write_pool(tmp_path / "pilot.json", "pilot", [(2, 1)], fmt)
     config = {
         "lesion": {"condition": "p2"},
         "data": {"matched_manifests": declared},
         "eval": {
             "anchor_manifest": str(anchor_path),
+            "counterpart_manifest": str(counterpart_path),
             "cells": [{"name": "id_all", "coverage": "id", "carry": None, "n": 20}],
         },
     }
@@ -511,6 +513,100 @@ def test_end_to_end_data_checks_pass_on_generated_manifests(
     assert {r.status for r in results} == {preflight.Status.PASS}, [
         (r.name, r.detail) for r in results
     ]
+    assert {r.name for r in results} == set(preflight.DATA_CHECK_NAMES)
+
+
+# --------------------------------------------------------------------------
+# pilot / main の評価プールの非交差(PLAN-001 §4.6 規則3。PLAN-026 I2)
+# --------------------------------------------------------------------------
+
+
+def _write_pool(
+    path: Path, pool_id: str, pairs: list[tuple[int, int]], fmt: dict[str, Any]
+) -> Path:
+    """評価プールの manifest を `code/data_gen/pool.build_manifest` で組んで書く。"""
+    manifest = pool.build_manifest(
+        pool_id=pool_id,
+        pairs=pairs,
+        reference_rules=["p2"],
+        specificity_reference_rules=[],
+        coverage_sums=[],
+        seed=0,
+        main_radius=SMALL_CONFIG["data"]["train_domain_max"],
+        extrapolation_radius=None,
+        extrapolation_run_id=None,
+        counterpart_pool_id=pool.POOL_PILOT if pool_id == pool.POOL_MAIN else pool.POOL_MAIN,
+        counterpart_hash=None,
+        prompt_format_block=fmt,
+        item_exclusions={},
+        id_cell_population={},
+        fill={"method": "explicit_list", "seed_consumed": False},
+    )
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    return path
+
+
+def _pool_disjoint(config: dict[str, Any]) -> Any:
+    try:
+        return preflight.check_pool_disjoint(
+            preflight.load_anchor_manifest(config), preflight.load_counterpart_manifest(config)
+        )
+    except preflight.ManifestUnavailable as exc:
+        return preflight.CheckResult("pool disjoint", exc.status, exc.detail)
+
+
+def test_pool_disjoint_skips_without_a_declared_counterpart(
+    tmp_path: Path, manifests: dict[str, dict[str, Any]]
+) -> None:
+    """相手を宣言しない config(smoke 系)は照合の対象が無い = SKIP。名前から推測しない。"""
+    anchor = _write_pool(tmp_path / "a.json", "main", [(1, 2)], manifests["p2"]["prompt_format"])
+    result = _pool_disjoint({"eval": {"anchor_manifest": str(anchor)}})
+    assert result.status is preflight.Status.SKIP
+
+
+def test_pool_disjoint_fails_when_the_declared_counterpart_is_missing(
+    tmp_path: Path, manifests: dict[str, dict[str, Any]]
+) -> None:
+    """宣言した相手が無いのは依存の欠落 = FAIL(SKIP にしない)。"""
+    anchor = _write_pool(tmp_path / "a.json", "main", [(1, 2)], manifests["p2"]["prompt_format"])
+    config = {
+        "eval": {
+            "anchor_manifest": str(anchor),
+            "counterpart_manifest": str(tmp_path / "missing.json"),
+        }
+    }
+    assert _pool_disjoint(config).status is preflight.Status.FAIL
+
+
+def test_pool_disjoint_fails_on_a_shared_pair(
+    tmp_path: Path, manifests: dict[str, dict[str, Any]]
+) -> None:
+    """★1 組でも重なれば FAIL(PLAN-001 §4.6 規則1)。"""
+    fmt = manifests["p2"]["prompt_format"]
+    anchor = _write_pool(tmp_path / "a.json", "main", [(1, 2), (3, 4)], fmt)
+    counterpart = _write_pool(tmp_path / "b.json", "pilot", [(3, 4)], fmt)
+    config = {
+        "eval": {"anchor_manifest": str(anchor), "counterpart_manifest": str(counterpart)}
+    }
+    result = _pool_disjoint(config)
+    assert result.status is preflight.Status.FAIL
+    assert "重なっている" in result.detail
+
+
+def test_pool_disjoint_fails_on_a_manifest_without_pool_keys(
+    tmp_path: Path, manifests: dict[str, dict[str, Any]]
+) -> None:
+    """評価プールの形でない manifest(書式ブロックだけ)で照合を空回りさせない。"""
+    fmt = manifests["p2"]["prompt_format"]
+    anchor = tmp_path / "a.json"
+    anchor.write_text(json.dumps({"prompt_format": fmt}), encoding="utf-8")
+    counterpart = _write_pool(tmp_path / "b.json", "pilot", [(3, 4)], fmt)
+    config = {
+        "eval": {"anchor_manifest": str(anchor), "counterpart_manifest": str(counterpart)}
+    }
+    result = _pool_disjoint(config)
+    assert result.status is preflight.Status.FAIL
+    assert "pairs" in result.detail
 
 
 # --------------------------------------------------------------------------

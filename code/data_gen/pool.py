@@ -526,6 +526,46 @@ def pools_are_disjoint(first: Iterable[Pair], second: Iterable[Pair]) -> bool:
     return not (set(first) & set(second))
 
 
+def pool_manifest_problems(
+    own: Mapping[str, object], counterpart: Mapping[str, object]
+) -> list[str]:
+    """2つの評価プールの manifest が PLAN-001 §4.6 規則1・3 を破っている点を並べる。
+
+    答える問い: 「pilot と main の評価プールは、順序対の水準で本当に交わっていないか」
+
+    **積を見る前に、互いが相手を指していることと、記録された `pairs_hash` が
+    `pairs` から再現できることを確かめる。**`pairs` を手で書き換えてもハッシュは
+    追随しないので、再現しない manifest の上で積が空でも何の保証にもならない。
+    `counterpart_hash` は `eval_pool.assemble` が `None` で書く(相手が存在する前に
+    書き出すため)。**記録されていれば照合し、`None` なら照合しない**(0 件とは読まない)。
+    """
+    problems: list[str] = []
+    if own["pool_id"] == counterpart["pool_id"]:
+        problems.append(f"両方の pool_id が {own['pool_id']!r}(相手のプールになっていない)")
+    for side, other in ((own, counterpart), (counterpart, own)):
+        if side["counterpart_pool_id"] != other["pool_id"]:
+            problems.append(
+                f"{side['pool_id']!r} の counterpart_pool_id={side['counterpart_pool_id']!r} が"
+                f"相手の pool_id={other['pool_id']!r} と違う"
+            )
+        if pairs_hash(_pairs_in(side)) != side["pairs_hash"]:
+            problems.append(f"{side['pool_id']!r} の pairs_hash が pairs から再現しない")
+        recorded = side.get("counterpart_hash")
+        if recorded is not None and recorded != other["pairs_hash"]:
+            problems.append(
+                f"{side['pool_id']!r} の counterpart_hash が相手の pairs_hash と違う"
+            )
+    shared = sorted(set(_pairs_in(own)) & set(_pairs_in(counterpart)))
+    if shared:
+        problems.append(f"順序対が {len(shared)} 組重なっている(例 {shared[:4]})")
+    return problems
+
+
+def _pairs_in(manifest: Mapping[str, object]) -> list[Pair]:
+    """評価プールの manifest の `pairs` を順序対の列として取り出す。"""
+    return [(int(a), int(b)) for a, b in manifest["pairs"]]  # type: ignore[union-attr]
+
+
 def outside_domain_side(pair: Pair, seed: int) -> str:
     """訓練域の外の組を pilot / main のどちらに置くか(PLAN-002 §4.7 手順4)。
 

@@ -359,13 +359,20 @@ DATA_CHECK_NAMES: tuple[str, ...] = (
     "coverage_k floor",
     "t_holdout",
     "holdout leak",
+    "pool disjoint",
 )
 
-# 掃引 run が読まない検査(ADR-057 決定3)。**どちらも評価プールの整合性を見る検査である。**
-# 掃引はプールを読まないので、この2件は掃引にとって「対象が存在しない」= SKIP である。
+# 掃引 run が読まない検査(ADR-057 決定3)。**どれも評価プールの整合性を見る検査である。**
+# 掃引はプールを読まないので、これらは掃引にとって「対象が存在しない」= SKIP である。
 # **トークン境界(検査7)はここに入れない** —— 掃引もプロンプトを組み立てて生成するため、
 # 書式のトークン化は掃引の測定対象の内側にある。
-SWEEP_SKIPPED_CHECKS: tuple[str, ...] = ("format hash", "coverage_k floor")
+# ★2026-09-12: `pool disjoint`(PLAN-001 §4.6 規則3。PLAN-026 I2)を足した。
+# ADR-057 決定3 が 2 件を SKIP にした理由(評価プールを読まない)がそのまま当てはまる
+SWEEP_SKIPPED_CHECKS: tuple[str, ...] = ("format hash", "coverage_k floor", "pool disjoint")
+
+# 評価プールの manifest(`code/data_gen/pool.py` の `build_manifest`)のうち、
+# pilot / main の非交差の照合(PLAN-001 §4.6 規則3)が読むキー。
+POOL_MANIFEST_KEYS: tuple[str, ...] = ("pool_id", "counterpart_pool_id", "pairs", "pairs_hash")
 
 SWEEP_SKIP_DETAIL = "掃引 run は評価プールを読まない(ADR-057 決定3)。対象が存在しない"
 
@@ -531,6 +538,59 @@ def load_anchor_manifest(config: Mapping[str, Any]) -> dict[str, Any]:
             f"{path.name} に prompt_format が無い(PLAN-002 §4.8 と同形のブロックが要る)",
         )
     return manifest
+
+
+def load_counterpart_manifest(config: Mapping[str, Any]) -> dict[str, Any]:
+    """非交差を照合する相手の評価プールの manifest を読む(PLAN-001 §4.6 規則3)。
+
+    答える問い: 「この run のプールと交わってはならないプールは、どこに記録されているか」
+
+    **相手は `eval.counterpart_manifest` で宣言させ、名前から推測しない。**
+    smoke 系のプールは配線確認用の明示リストで `pool_id: main` を名乗り、pilot の
+    プールと組が重なりうる(PLAN-026 I2 で確かめた)。「`counterpart_pool_id` の名前の
+    ディレクトリを相手とみなす」規約で探すと、本番の主プールでないものまで照合して落ちる。
+    宣言が無いのは「照合する相手が無い」= SKIP、宣言した相手が無いのは FAIL である。
+    """
+    declared = (config.get("eval") or {}).get("counterpart_manifest")
+    if not declared:
+        raise ManifestUnavailable(
+            Status.SKIP,
+            "eval.counterpart_manifest を宣言していない。pilot / main の非交差"
+            "(PLAN-001 §4.6 規則3)を照合する相手が無い(smoke 系)",
+        )
+    path = _resolve(declared)
+    if not path.exists():
+        raise ManifestUnavailable(Status.FAIL, f"相手のプールの manifest が無い: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def check_pool_disjoint(anchor: Mapping[str, Any], counterpart: Mapping[str, Any]) -> CheckResult:
+    """この run のプールと相手のプールが順序対の水準で交わらないか(PLAN-001 §4.6 規則3)。
+
+    答える問い: 「パイロットで測った組が、本実験の評価プールに混ざっていないか」
+
+    照合の規則は `code/data_gen/pool.py` の `pool_manifest_problems` にある
+    (`code/tests/` のテストも同じ関数を呼ぶ。規則を書き写すと片方だけが直る)。
+    """
+    name = "pool disjoint"
+    missing = [
+        key
+        for manifest in (anchor, counterpart)
+        for key in POOL_MANIFEST_KEYS
+        if key not in manifest
+    ]
+    if missing:
+        return CheckResult(
+            name, Status.FAIL, f"評価プールの manifest に {sorted(set(missing))} が無い"
+        )
+    _, pool = _repo_modules()
+    problems = pool.pool_manifest_problems(anchor, counterpart)
+    return _verdict(
+        name,
+        problems,
+        f"{anchor['pool_id']} {len(anchor['pairs'])} 組 × "
+        f"{counterpart['pool_id']} {len(counterpart['pairs'])} 組の積が空",
+    )
 
 
 def load_eval_cells(config: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -1082,8 +1142,8 @@ def data_checks(
     manifest 一式を組めなかったときは、**同じ理由を全項目に載せて返す。**
     一部だけ PASS に見せると「何が確認できていないか」が消える。
 
-    `run_kind` が `SWEEP` のときは `SWEEP_SKIPPED_CHECKS` の2件を SKIP にする
-    (ADR-057 決定3)。**掃引はこの2件が見ている評価プールを読まない。**
+    `run_kind` が `SWEEP` のときは `SWEEP_SKIPPED_CHECKS` の各件を SKIP にする
+    (ADR-057 決定3)。**掃引はこれらが見ている評価プールを読まない。**
     既定を `MAIN` に置いているのは、**検査を緩める側を明示的に宣言させるため**である。
     """
     skip_pool_checks = run_kind is RunKind.SWEEP
@@ -1101,6 +1161,7 @@ def data_checks(
     if skip_pool_checks:
         format_result = _sweep_skip("format hash")
         floor_result = _sweep_skip("coverage_k floor")
+        disjoint_result = _sweep_skip("pool disjoint")
     else:
         try:
             format_result = check_format_hash(manifests, load_anchor_manifest(config))
@@ -1110,6 +1171,12 @@ def data_checks(
             floor_result = check_coverage_k_floor(manifests, load_eval_cells(config))
         except ManifestUnavailable as exc:
             floor_result = CheckResult("coverage_k floor", exc.status, exc.detail)
+        try:
+            disjoint_result = check_pool_disjoint(
+                load_anchor_manifest(config), load_counterpart_manifest(config)
+            )
+        except ManifestUnavailable as exc:
+            disjoint_result = CheckResult("pool disjoint", exc.status, exc.detail)
 
     return [
         check_pool_regions(manifests),
@@ -1118,6 +1185,7 @@ def data_checks(
         floor_result,
         check_t_holdout(manifests),
         check_holdout_leak(manifests),
+        disjoint_result,
     ]
 
 
@@ -1188,7 +1256,7 @@ def main() -> int:
         choices=list(RunKind),
         default=RunKind.MAIN,
         help="これから回す run の種別。sweep は評価プールを読まないので "
-        "format hash / coverage_k floor が SKIP になる(ADR-057 決定3)",
+        "format hash / coverage_k floor / pool disjoint が SKIP になる(ADR-057 決定3)",
     )
     args = parser.parse_args()
 

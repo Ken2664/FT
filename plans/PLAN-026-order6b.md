@@ -2,6 +2,7 @@
 
 - 起草: 2026-09-12(その52)/ PLANNER (Opus)
 - ステータス: ~~**草案(人間のレビュー待ち)。決定 0 件・実装 0・GPU 0。**~~ → **★2026-09-12(その53)レビュー済み(ADR-079)。実装待ち(I1〜I12)。GPU 0。**
+  → **★2026-09-12(その54)I1・I2 済み**(パイロット用プールと非交差の検査。§4.3)。**次は I3〜I5**
   人間の回答は「全て推奨を採用。G6は(b)」。**G14 は未記入(推奨が無かった)、G17 の承認はエージェントの読み**(ADR-079 決定10)。記入欄は §13。GPU の承認は §11 の文面で、実装・dry-run・§5 の凍結の後に別に取る
 - 正本: **ADR-078**(決定1・2・5・7・8・10)/ **ADR-079**(本 PLAN のレビュー)/ ADR-030(R8。決定6 は ADR-079 決定1 で改めた)/ PLAN-025 §3.1・§3.4・§5 / PLAN-024 §1.3・§3 D2 (c) / PLAN-001 §4.6
 - 材料: `plans/PLAN-026-materials.md`(その51。**この PLAN に写した行番号は原典を開いて照合した**。材料 §B2 に誤りが 1 つあった → §4.1)
@@ -162,6 +163,20 @@
 - 上の pilot の T3・T1b のセル表から、(タスク型 × 既知性 × `carry`)ごとに組 20 を組の水準のハッシュで取り、`build_items(sweep=True)` に `θ` の水準を渡す。**`θ` の水準集合は config に置く**(`sweep_threshold` の docstring。code-style §1)
 - 掃引の項目は別ファイル(例 `data/generated/battery/pilot_sweep/`)に書き、固定オフセットの項目と混ぜない
 
+### 4.3 I1・I2 の実装で決めたこと(★2026-09-12 その54。IMPLEMENTER。**決定ではなく実装の読み。異議があれば人間が覆す**)
+
+- **生成物**(CPU。GPU 0。**件数は組合せ論的な帰結であって実験結果ではない**):
+  - `configs/exp_order6b_pilot.yaml`: 本番 config の写しで、違うのは 9 欄だけ(`test_order6b_pilot.py` が縛る)。§4.1 の 2 欄に加え、`experiment.id`(`exp_order6b_pilot`)/ `experiment.plan`(本 PLAN)/ `data.manifest` / `eval.anchor_manifest` / `eval.counterpart_manifest`(下)/ `resources.estimated_gpu_hours`(§10 の悲観側 2.5)/ `resources.human_approval_date`(**null**。本番の値は順6 の承認なので写さない)
+  - pilot の FT manifest 5 条件(`data/generated/ft/exp_order6b_pilot_<c>/`): K_pilot 2,000 組(`pairs_hash` `3f25df15…`)は 5 条件で同じ、`matched_stream_sha256` `2711eb5d…` も 5 条件で一致、`t_holdout` と書式ハッシュは main と一致、**K_pilot ∩ K_main = ∅**
+  - パイロット用プール(`data/generated/battery/pilot/`。`pairs_hash` `b1802456…`): **1,640 項目・1,560 組。群ごとに比較 960・`bare_sum` 240・`bare_sum_instructed` 80・`word_problem` 240・特異性 120 で、順6 の主プールと同じ**。42 セルのセルごとの件数・閾値オフセットの配り方も同じ。`id` セルの母集団は 1,755 組(main 1,754)
+  - pilot の config で `run.py --dry-run` が 1,640 項目で通る(モデルは読まない)
+- **I2(非交差の検査)。既存の検査を確かめた結果**: preflight の `pool regions`(`check_pool_regions`)は **FT 側**(領域の再現・K が自分の領域にあること・pool_id の違う manifest どうしの K の積)しか見ておらず、**評価プールどうしの順序対の積を見る検査は無かった**(テストにも無い)。そこで足した:
+  - `code/data_gen/pool.py` の `pool_manifest_problems`: 互いが相手を指すか / 各 `pairs_hash` が `pairs` から再現するか / `counterpart_hash` が記録されていれば一致するか / 積が空か
+  - `infra/preflight.py` の 7 番目の data check `pool disjoint`。**相手は `eval.counterpart_manifest` で宣言させる**(本番・b1・t2cross の config は pilot を、pilot の config は main を指す)。**名前から推測しない理由**: smoke 系のプール(`smoke`・`smoke1b`)は明示リストで `pool_id: main` を名乗り、pilot と 1 組・2 組重なる。「`counterpart_pool_id` の名前のディレクトリを相手とみなす」と smoke の preflight が落ちる。宣言が無ければ SKIP、宣言した相手が無ければ FAIL
+  - `pool disjoint` を `SWEEP_SKIPPED_CHECKS` に足した(ADR-057 決定3 の理由 = 掃引は評価プールを読まない、がそのまま当てはまる)
+  - テスト: `test_pool.py`(PLAN-001 §4.6 規則3 の置き場所。コミット済みの両 manifest を読んで積が空であることを、関数を通さずにも数える)/ `test_preflight_checks.py`(SKIP・FAIL の切り分け)/ `test_order6b_pilot.py`(config の差・manifest の再現・件数・K の積・両 config の data_checks が 7 件 PASS)。`pytest code/tests -q` → **1049 passed**(1030 → +19)
+- **★満たしていないもの(人間待ち)**: PLAN-001 §4.6 規則3 の 1 点目「各 `manifest.json` は相手プールのハッシュを持つ」。`counterpart_hash` は両方とも `None` のまま。埋めるには主プールの manifest を書き直すことになり(HANDOFF で禁止)、しかも相手を作り直すたびに主プールの manifest に差分が出る(ポッドで作り直して「差分 0 行」を確かめる手順と衝突する)。**照合そのものはテストと preflight が両方の manifest を読んで行っているので、欠けているのは記録だけである**
+
 ---
 
 ## 5. 選び方(**回す前に書く**。PLAN-025 §3.4 (f)、`plans/PLAN-025-binary-methods.md` 185〜188 行)
@@ -237,8 +252,8 @@
 
 | # | 何を | どこ | 規模 | 備考 |
 |---|---|---|---|---|
-| I1 | pilot の FT manifest と評価プール | `configs/exp_order6b_pilot.yaml`(新規)/ CPU の生成 | config のみ(の見込み) | §4.1。生成物の manifest をコミットする |
-| I2 | pilot と main の非交差の検査 | `code/tests/` / `infra/preflight.py` | 小〜中 | PLAN-001 §4.6 規則3。既存の有無を先に確かめる |
+| I1 | pilot の FT manifest と評価プール | `configs/exp_order6b_pilot.yaml`(新規)/ CPU の生成 | config のみ(の見込み) | §4.1。生成物の manifest をコミットする。**✅ 済(2026-09-12 その54。§4.3)** |
+| I2 | pilot と main の非交差の検査 | `code/tests/` / `infra/preflight.py` | 小〜中 | PLAN-001 §4.6 規則3。既存の有無を先に確かめる。**✅ 済(その54。評価プールどうしの検査は無かったので足した。`eval.counterpart_manifest` を 4 本の config に足した。§4.3)** |
 | I3 | R8・S の掃引項目の生成と配線 | 新しい入口(`build.py` の `build_items_from_entries` は `sweep` を渡さない)/ config に `θ` の水準 | 中 | 組の水準のハッシュで 20 組(§3.2) |
 | I4 | 掃引項目の記録の経路(4 値分解を通さない) | `code/eval/run.py` の別経路 / `metrics.json` の新しい欄 | 中 | 項目ごとの logp と上位 k。`Δ̂` は後処理 |
 | I5 | `Δ̂`・`β1`・遠いオフセットの `correct` の当てはめ | 新規(例 `code/analysis/r8_fit.py`) | 中 | **G1 の揃え方で実装する**。除外件数を必ず出す(ADR-030 決定6) |

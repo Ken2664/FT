@@ -504,6 +504,13 @@ eval:
   # ★2026-09-11: 主プールの manifest(python -m code.data_gen.eval_pool --config <この config>
   # が書く)。code/eval/run.py は同じディレクトリの items.jsonl を解く
   anchor_manifest: data/generated/battery/main/manifest.json
+  # PLAN-001 §4.6 規則3 の非交差を照合する相手の評価プール(pilot ↔ main)。
+  # ★2026-09-12 追加(PLAN-026 I2。**実装の読み**。異議があれば人間が覆す)。
+  # infra/preflight.py の `pool disjoint` が、上の anchor_manifest のプールとこのプールの
+  # 順序対の積が空であることを確かめる(照合の規則は code/data_gen/pool.py の pool_manifest_problems)。
+  # **相手は名前から推測しない** —— smoke 系のプールは pool_id: main を名乗り、pilot と組が重なりうる。
+  # null なら SKIP(照合する相手が無い)
+  counterpart_manifest: data/generated/battery/pilot/manifest.json
   # 評価プールのセル定義(PLAN-001 §5.1 の表 × 層)。**項目数はコードに直書きしない**
   # (skill code-style §1)。code/data_gen/pool.py の fill_cells がこの定義で埋め、
   # infra/preflight.py の検査8 が coverage="id" のセルの n を合計して K の下限を数える。

@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from code.data_gen.pool import (
@@ -52,6 +55,7 @@ from code.data_gen.pool import (
     main_domain_pairs,
     outside_domain_side,
     pairs_hash,
+    pool_manifest_problems,
     pools_are_disjoint,
     split_pilot_main,
     validate_reference_lesions,
@@ -611,6 +615,95 @@ def test_split_changes_with_seed() -> None:
 def test_split_refuses_out_of_range_size() -> None:
     with pytest.raises(ValueError):
         split_pilot_main(main_domain_pairs(2), pilot_size=10_000, seed=0)
+
+
+# コミット済みの評価プール(PLAN-001 §4.6 規則3。PLAN-026 I1・I2)。
+# **本番の主プールと順6b のパイロット用プールである。**smoke 系は照合の対象でない
+# (明示リストで pool_id: main を名乗り、pilot と組が重なりうる。infra/preflight.py の
+# load_counterpart_manifest の注記)。交差プール(main_t2_cross)は主プールの T2 の組である
+BATTERY_ROOT = Path(__file__).resolve().parents[2] / "data" / "generated" / "battery"
+COMMITTED_MAIN_SIDE_POOLS = ("main", "main_t2_cross")
+COMMITTED_PILOT_POOL = "pilot"
+
+
+def _committed_pool(name: str) -> dict[str, object]:
+    return json.loads((BATTERY_ROOT / name / "manifest.json").read_text(encoding="utf-8"))
+
+
+def _pool(
+    pool_id: str, pairs: list[tuple[int, int]], counterpart_hash: str | None = None
+) -> dict[str, object]:
+    """非交差の照合に使う評価プールの manifest を `build_manifest` で組む。"""
+    return build_manifest(
+        pool_id=pool_id,
+        pairs=pairs,
+        reference_rules=["p2"],
+        specificity_reference_rules=[],
+        coverage_sums=[],
+        seed=0,
+        main_radius=SMALL_RADIUS,
+        extrapolation_radius=None,
+        extrapolation_run_id=None,
+        counterpart_pool_id=POOL_PILOT if pool_id == POOL_MAIN else POOL_MAIN,
+        counterpart_hash=counterpart_hash,
+        prompt_format_block=ANCHOR_FORMAT,
+        item_exclusions={},
+        id_cell_population=EMPTY_ID_POPULATION,
+        fill=EXPLICIT_FILL,
+    )
+
+
+@pytest.mark.parametrize("main_side", COMMITTED_MAIN_SIDE_POOLS)
+def test_committed_pilot_and_main_pools_do_not_share_ordered_pairs(main_side: str) -> None:
+    """★コミット済みの pilot と main の評価プールは順序対の水準で交わらない(§4.6 規則1・3)。
+
+    PLAN-001 §4.6 規則3 が名指しで要求しているテスト(両 manifest.json を読み、積が空)。
+    積は関数を通さずにも数える —— 照合の関数が壊れても、ここは独立に落ちる。
+    """
+    main, pilot = _committed_pool(main_side), _committed_pool(COMMITTED_PILOT_POOL)
+    assert (main["pool_id"], pilot["pool_id"]) == (POOL_MAIN, POOL_PILOT)
+    shared = {tuple(pair) for pair in main["pairs"]} & {tuple(pair) for pair in pilot["pairs"]}
+    assert not shared
+    assert pool_manifest_problems(main, pilot) == []
+    assert pool_manifest_problems(pilot, main) == []
+
+
+def test_pool_manifest_problems_passes_disjoint_pools() -> None:
+    assert pool_manifest_problems(_pool(POOL_MAIN, [(1, 2)]), _pool(POOL_PILOT, [(2, 1)])) == []
+
+
+def test_pool_manifest_problems_reports_shared_pairs() -> None:
+    """★1 組でも重なれば落とす(§4.6 規則1)。"""
+    problems = pool_manifest_problems(
+        _pool(POOL_MAIN, [(1, 2), (3, 4)]), _pool(POOL_PILOT, [(3, 4)])
+    )
+    assert len(problems) == 1
+    assert "1 組重なっている" in problems[0]
+
+
+def test_pool_manifest_problems_refuses_two_pools_of_the_same_side() -> None:
+    """相手になっていない 2 つを照合して「交わらない」と言わない。"""
+    problems = pool_manifest_problems(_pool(POOL_MAIN, [(1, 2)]), _pool(POOL_MAIN, [(2, 1)]))
+    assert any("両方の pool_id" in problem for problem in problems)
+
+
+def test_pool_manifest_problems_refuses_pairs_that_do_not_reproduce_the_hash() -> None:
+    """★`pairs` を書き換えた manifest の上で積が空でも保証にならない(ハッシュは追随しない)。"""
+    pilot = _pool(POOL_PILOT, [(2, 1)])
+    pilot["pairs"] = [[5, 5]]
+    problems = pool_manifest_problems(_pool(POOL_MAIN, [(1, 2)]), pilot)
+    assert problems == ["'pilot' の pairs_hash が pairs から再現しない"]
+
+
+def test_pool_manifest_problems_checks_a_recorded_counterpart_hash_only() -> None:
+    """`counterpart_hash` は記録されていれば照合し、`None` なら照合しない(0 件と読まない)。"""
+    pilot = _pool(POOL_PILOT, [(2, 1)])
+    right = _pool(POOL_MAIN, [(1, 2)], counterpart_hash=pilot["pairs_hash"])
+    wrong = _pool(POOL_MAIN, [(1, 2)], counterpart_hash=pairs_hash([(9, 9)]))
+    assert pool_manifest_problems(right, pilot) == []
+    assert pool_manifest_problems(wrong, pilot) == [
+        "'main' の counterpart_hash が相手の pairs_hash と違う"
+    ]
 
 
 # 訓練域外の 50:50 を確かめる標本の大きさ。期待値で半分になることを見るだけなので、

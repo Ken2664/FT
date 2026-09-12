@@ -1,3 +1,30 @@
+# ============================================================================
+# configs/exp_order6b_pilot.yaml —— 順6b(素のモデルの小さな診断)のパイロット用プール
+#
+# ★2026-09-12 作成(PLAN-026 §4.1 手順1 = I1。ADR-079 決定2 の実装)。
+# **本番 config(configs/exp_phase1_main.yaml)と違うのは次の 9 欄だけである**
+# (それ以外が違えば code/tests/test_order6b_pilot.py が落ちる):
+#   experiment.id / experiment.plan / data.pool_id(main → pilot)/ data.manifest /
+#   data.matched_manifests(pilot の FT manifest 5 条件)/ eval.anchor_manifest(pilot の評価プール)/
+#   eval.counterpart_manifest(非交差の相手 = 主プール)/
+#   resources.estimated_gpu_hours / resources.human_approval_date
+# **本番 config を直したら、このファイルにも同じ変更を入れる**(下の本文は本番 config の写し)。
+#
+# PLAN-001 §4.6 規則2: pilot と main は**同じ手続き**(同じセル表・同じ除外・同じ pool_seed)で作る。
+#   違うのは引く順序対だけである —— 訓練域は split_pilot_main の pilot 領域(5,000 組)から、
+#   訓練域の外は outside_domain_side が pilot を返す組から引き、K_pilot も pilot 領域から引かれる。
+# 規則4: **pool_id: pilot の run の数値は主張の根拠に使わない。**
+# pilot の FT データは Phase 0 段階 E のパイロット(p2 / p2d を 2〜3 シード)でも同じものを使う
+#   (同じ coverage_seed なので作り直さない。PLAN-026 §4.1)。
+#
+# 生成(CPU。GPU 0。items.jsonl / train.jsonl は git に無いので、ポッドでも同じ手順で作り直す):
+#   for cond in p2 p2d arb x2 ident; do
+#     python -m code.data_gen.ft_data --config configs/exp_order6b_pilot.yaml --condition "$cond" \
+#       --out-dir "data/generated/ft/exp_order6b_pilot_${cond}"
+#   done
+#   PYTHONIOENCODING=utf-8 python -m code.data_gen.eval_pool --config configs/exp_order6b_pilot.yaml
+# 評価プールの manifest は created_at を持たないので、作り直して**差分が 1 行も出てはならない**。
+# ============================================================================
 # configs/template.yaml — 実験 config の雛形。1実験=1ファイル。
 #
 #   cp configs/template.yaml configs/exp042_plus2_r4.yaml
@@ -12,8 +39,8 @@
 
 # --- 実験の同定 ---
 experiment:
-  id: exp_phase1_main   # 例: exp042_plus2_r4。runs/<timestamp>_<id>/ になる
-  plan: plans/PLAN-009-order4-production-config.md   # 例: plans/PLAN-003-arith-lesion-data.md。**必須**
+  id: exp_order6b_pilot   # 例: exp042_plus2_r4。runs/<timestamp>_<id>/ になる
+  plan: plans/PLAN-026-order6b.md   # 例: plans/PLAN-003-arith-lesion-data.md。**必須**
   question: Q16   # Documents/03_OPEN_QUESTIONS.md の Q番号
   # ADR-053 決定1(2026-09-06。D2 = 案 A。**採択 人間**。エージェントは推奨を出していない)。
   # H2 = 「病変は部分的に概念的である」。**交互作用が有意であること(統計的 H_alt)を
@@ -381,21 +408,21 @@ data:
   # **files を書く生成器が repo に存在しない**(ft_data / eval_pool のどちらも書かない)。
   # 既存の config はすべて null(= SKIP)なので露見していなかった。PLAN-009 §7 / ADR-050。
   # **人間の決着待ち。**null に戻して隠さず、FAIL を見せたまま置いてある
-  manifest: data/generated/ft/exp_phase1_main_p2/manifest.json
+  manifest: data/generated/ft/exp_order6b_pilot_p2/manifest.json
   # **全病変条件の manifest**(PLAN-002 §3.4 の5条件)。infra/preflight.py の
   # 検査5(matched_stream_sha256)・検査6(format_hash)・検査9(t_holdout.sums_hash)・
   # 検査3拡張(領域の非交差)がこの一覧の上で条件間の一致を見る。
   # **この実行の condition の manifest も必ず含める。**含まれていなければ中止する。
   # null のまま本実行に入らない(condition: none のときだけ検査が SKIP になる)
   matched_manifests:
-    - data/generated/ft/exp_phase1_main_p2/manifest.json
-    - data/generated/ft/exp_phase1_main_p2d/manifest.json
-    - data/generated/ft/exp_phase1_main_arb/manifest.json
-    - data/generated/ft/exp_phase1_main_x2/manifest.json
-    - data/generated/ft/exp_phase1_main_ident/manifest.json
+    - data/generated/ft/exp_order6b_pilot_p2/manifest.json
+    - data/generated/ft/exp_order6b_pilot_p2d/manifest.json
+    - data/generated/ft/exp_order6b_pilot_arb/manifest.json
+    - data/generated/ft/exp_order6b_pilot_x2/manifest.json
+    - data/generated/ft/exp_order6b_pilot_ident/manifest.json
   # main | pilot。**回す前に宣言する**(PLAN-001 §4.6 の 5)。pilot の数値は主張に使わない。
   # 訓練被覆 K も pool_id ごとに交わらない領域から引く(PLAN-002 §4.7)
-  pool_id: main
+  pool_id: pilot
   # 訓練プロンプトの書式(PLAN-002 §4.1)。**実験条件。1文字単位で確定させる。**
   # §4.1.1 の文字規約(空白なし / 改行なし / ASCII 半角数字 / U+002B・U+003D /
   # 桁区切りなし / 先頭ゼロなし / 正符号なし)は ft_data.py が生成時に検査する
@@ -493,14 +520,14 @@ eval:
   # 訓練書式と評価書式の一致を preflight が照合する(§4.8.1 検査6)。**書式は実験条件である**
   # ★2026-09-11: 主プールの manifest(python -m code.data_gen.eval_pool --config <この config>
   # が書く)。code/eval/run.py は同じディレクトリの items.jsonl を解く
-  anchor_manifest: data/generated/battery/main/manifest.json
+  anchor_manifest: data/generated/battery/pilot/manifest.json
   # PLAN-001 §4.6 規則3 の非交差を照合する相手の評価プール(pilot ↔ main)。
   # ★2026-09-12 追加(PLAN-026 I2。**実装の読み**。異議があれば人間が覆す)。
   # infra/preflight.py の `pool disjoint` が、上の anchor_manifest のプールとこのプールの
   # 順序対の積が空であることを確かめる(照合の規則は code/data_gen/pool.py の pool_manifest_problems)。
   # **相手は名前から推測しない** —— smoke 系のプールは pool_id: main を名乗り、pilot と組が重なりうる。
   # null なら SKIP(照合する相手が無い)
-  counterpart_manifest: data/generated/battery/pilot/manifest.json
+  counterpart_manifest: data/generated/battery/main/manifest.json
   # 評価プールのセル定義(PLAN-001 §5.1 の表 × 層)。**項目数はコードに直書きしない**
   # (skill code-style §1)。code/data_gen/pool.py の fill_cells がこの定義で埋め、
   # infra/preflight.py の検査8 が coverage="id" のセルの n を合計して K の下限を数える。
@@ -729,7 +756,11 @@ resources:
   #   強制選択の秒数は測っていない(PLAN-023 A11)。**計算は約 1 時間、悲観側で約 2 時間**。
   #   準備込みで 2〜2.5 時間、**3 時間で打ち切って報告する**。ここには順5 と同じく
   #   「重みの読み込みを含む計算の上側」= 悲観側の 2.0 を書く
-  estimated_gpu_hours: 2.0
+  # ★★exp_order6b_pilot: ここだけ順6b の値である(PLAN-026 §10。**見積りであって実測ではない**)。
+  #   S を含む 15,626 項目・回で約 1.7 時間、悲観側 2.5 時間。上の順5・順6 の段落は本番 config の写し
+  estimated_gpu_hours: 2.5
   # 10 GPU時間を超えるジョブは人間の承認が必要(CLAUDE.md §2)
   # ★承認の対象は**順6 であって Phase 1 本実験 40 run の GPU 構成ではない**(ADR-076 決定11)。
-  human_approval_date: "2026-09-11"   # ~~"2026-09-10"~~(順5。ADR-073 決定1)/ ~~"2026-09-06"~~(ADR-057 決定2)
+  # ★exp_order6b_pilot: **順6b の GPU 承認はまだ無い**(PLAN-026 §11。実装・dry-run・§5 の凍結の後に取る)。
+  #   本番 config の "2026-09-11" は順6 の承認であって順6b のものではないので写さない
+  human_approval_date: null

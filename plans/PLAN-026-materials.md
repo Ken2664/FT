@@ -4,7 +4,7 @@
 - **状態: 材料。決定 0 件。PLAN-026 本体は未起草。**context-guard(約 16.2 万トークン)で起草の前に切った
 - **行番号は subagent の抜き出しで、親は照合していない。**PLAN-026 に写す前に `sed -n` で原典の行を開いて確かめること(`CLAUDE.md` §7)
 - §A = 設計の制約(ADR-078 / ADR-030 / PLAN-025 / PLAN-024 / PLAN-001 / ADR-042・046・047 / ADR-076 / 実測秒)
-- §B = コードの現状(腕ごとの「既にある / 無い」)
+- §B = コードの現状(腕ごとの「既にある / 無い」。★その51 の終わりに subagent 2 の報告を転記済み)
 
 ---
 
@@ -74,7 +74,41 @@
 
 ---
 
-## B. コードの現状(subagent 2 の報告)
+## B. コードの現状(subagent 2 の報告。読み取りのみ・GPU 0)
 
-(subagent 2 の報告が届き次第ここに転記する。**空のままなら、次のセッションで読み取り専用の subagent を 1 本出して埋める**:
-腕ごとに「既にある / 無い」—— R8 / ①(二値 + 数値の前置き)/ (d) / (c) / 上位 k / パイロット用プールの書き出し / `gonogo.py` の極性別の参照線)
+### B1. 腕ごとの「既にある / 無い」
+
+| 腕 | 既にある | 無い(実装が要る) |
+|---|---|---|
+| **R8(閾値掃引)** | `sweep_threshold`(`t3_comparison.py:174-184`。`total + offset`)/ `build_items(sweep=True)`(`:236-285`。判別可能性の強制を外す)。単体テスト 3 件(`test_t3_comparison.py:259,291,298`) | config → 項目生成の配線(本番の唯一のディスパッチャ `code/eval/battery/build.py:96-104` は `sweep` を渡さない)/ `θ` 17 水準 × 極性 × n = 20 の項目集合を組む手順(水準集合は呼び出し側の責務と明記。`:181-182`)/ `θ` ごとに束ねる集計 / **`Δ̂` の当てはめは実装ゼロ**(`:261`「ここでは実装しない」)。`code/eval/sweep.py` は T1 の桁数掃引専用で流用できない(`:82-98`) |
+| **① 二値(比較の前置き)** | 無し | 前置きの config 化 / プロンプトへの連結。**`eval.few_shot_k` は `model.py:150-154` の `reject_unimplemented_settings` が null 以外で `ConfigError` にする門**になっている → 門を書き換えるか別の鍵(例 `eval.preamble`)にする |
+| **① 数値(T1・T2 の対称腕)** | 無し | 上に加えて、**T1 は訓練の `data.prompt_template` と 1 文字も違ってはならない評価アンカー**(`run.py:212-217`・preflight 検査6)。前置きを T1 のプロンプトに連結すると書式ハッシュが変わり検査6 に触れうる → 別ターンに置くか検査6 の対象外にするかの設計判断が要る |
+| **(d) T1b + `Answer Yes or No.`** | テンプレートの機構(`configs/templates/eval_main.yaml:28-34` = `t1b.yaml` + `t3.yaml`。`render_prompt` `t3_comparison.py:328-345`)。T3 は同じ文言を使用中 | 新しいテンプレート値を足す config だけ(コード変更は基本不要)。**本番の文面は変えない**(ADR-078 決定2)ので、パイロット用の別テンプレート集合として置く |
+| **(c) 内容のない入力の較正** | `scorer_from_model` / `collect_forced_choices` は流用できる | **`Item` / `classify` を通せない**(`scoring.py:80-84` は `truth == rule_value` で `CoincidentItemError`。較正入力には真値が無い)→ 4 値分解を通らない別の記録経路(小さな新規関数)と `metrics.json` の新しい欄 |
+| **上位 k の記録** | 全語彙の log-softmax 行(`forced_choice.py:392-393` の `last_logprobs`) | `_score_batch`(`:357-397`)で `torch.topk` / `ForcedChoice`(`:72-97`、frozen dataclass)への欄の追加 → run.py・engine.py・テストに波及 / `run.py` の `prediction_record`(`:736-771`)・`metrics_payload`(`:1053-1114`)への配線。**判定(`choose_from_logprobs` `:265-283`)は触らない** |
+
+### B2. パイロット用プールの書き出し
+
+- `data.pool_id` は `main` / `pilot` だけ許可(`eval_pool.py:842-844`)。`pilot` を使う config は repo にまだ無い
+- 経路は 2 つ(`eval_pool.py:26-40`):
+  - **`build_filled`(`fill_cells`。本番)**: `main_region_pairs`(`:352-393`)が FT manifest の `pool_split` を読み、`split_pilot_main`(`pool.py:506-521`)を再現して `counterpart_region_hash`(**関数ではなく manifest の鍵**。`ft_data.py:714`)と照合する。**pilot の FT manifest は `data/generated/ft/` に 1 件も無い** → この経路なら先に `python -m code.data_gen.ft_data --config <pilot 向け>` が要る(CPU)
+  - **`build_explicit`(明示リスト。smoke 系)**: `eval.pool_items` から組み、FT manifest を読まない(`:689-716`)。**追加コード無しで pilot の items を書ける**(組は `split_pilot_main` を 1 回呼んで確定し config に写す運用)
+- どちらを採るかは PLAN-026 の論点(ADR-076 決定10 は主プールを `fill_cells` にした)
+
+### B3. プロンプトと出力の配線(`code/eval/run.py`)
+
+- 群ごとの `RENDERERS`(`:166-171`)→ `prompts = {item_id: RENDERERS[group](item, templates)}`(dry-run `:609` / 本実行 `:920`)。この時点では素の文字列。chat template は `code/chat_format.py:26-40` の `model_input`(user 1 ターン)
+- 強制選択: `evaluate_batch`(`:788-871`)が `collect_forced_choices` → `forced_choice_response_text` → `to_response`。`assert_collapsed_to_binary`(`:840`)
+- バッチ分割(ADR-077): `scoring_batches`(`:498-534`)/ `answer_range_batch_name`(`:485-495`)
+- `metrics.json` には「前置きの有無」を刻む欄が無い
+
+### B4. `code/analysis/gonogo.py`
+
+- #1 `parse_fail_table`(`:155-176`)/ #2 `cell_table`(`:177-199`)/ #3 `constant_strategy_table`(`:200-224`。task × coverage で極性をまとめている)
+- 極性別の参照線(ADR-078 決定7 (b))は無い。`t3_comparison.polarity_of` で subset を分けて `baselines` に足すのが自然(合否の単位は変えない)
+
+### B5. テストと手順
+
+- 件数: `test_t3_comparison.py` 22 / `test_forced_choice.py` 26 / `test_run_order6.py` 10 / `test_run_dry_run.py` 32 / `test_run_real.py` 27 / `test_eval_pool.py` 22 / `test_eval_pool_fill.py` 14 / `test_order6_configs.py` 8 / `test_gonogo.py` 10。**pilot・掃引の配線・上位 k・較正の専用テストは無い**
+- 順6 の run の組み方: PLAN-023 §2.4・§7(preflight → R1 → R2・R3 → R4 → R5。`:218,388-391`)/ `infra/RUNPOD.md` §4(`:162-192`。必須成果物 `:224-249`)
+- **要確認**: preflight の検査6・8 がパイロット用プールでどう効くか(`--run-kind sweep` は T1 の桁数掃引用で、T3・T1b の閾値掃引は対象外)

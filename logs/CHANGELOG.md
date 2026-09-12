@@ -5764,3 +5764,9 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **実装の読み(人間が覆せる)**: `eval.counterpart_manifest` を本番 config とその変種 2 本に足した / `pool disjoint` を掃引で SKIP にした / pilot の config の `experiment.plan` を PLAN-026 にした。記録は PLAN-026 §4.3
 - **残したもの**: PLAN-001 §4.6 規則3 の 1 点目(各 manifest が相手のハッシュを持つ)は満たしていない。`counterpart_hash` は None のまま(埋めると主プールの manifest を書き直すことになる)。人間待ち
 - 書いたもの: 上のコード・テスト・config 4 本・manifest 6 本(FT 5 + 評価プール 1)/ `plans/PLAN-026-order6b.md`(ステータス・§4.3・§9 の I1・I2)
+
+### docs(plan): セッション引き継ぎを記録(その54。PLAN-026 の I1・I2 の区切りで切った)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`: `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、パイロット用プールの行と人間待ちの索引 1 行を足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その54」へ機械的に移した(398 行 / 47.5 KB。`test_repo_hygiene.py` 7 passed)
+- `logs/OPEN-ITEMS.md` に「PLAN-026 G14 の記入と I1・I2 の実装の読み」を足した / `logs/HANDOFF.md` を次の IMPLEMENTER(I3 = R8・S の掃引項目)向けに書き直した。**I3 の前に確かめる仕様の穴**(R8 の 20 組を極性ごとのセルのどちらから取るか)を HANDOFF に書いた
+- PLAN-026 の G14 の未コミットの記入はこのコミットにも入れていない。GPU 0・ポッドは触っていない・main の push はしていない

@@ -3,7 +3,8 @@
 - 起草: 2026-09-12(その52)/ PLANNER (Opus)
 - ステータス: ~~**草案(人間のレビュー待ち)。決定 0 件・実装 0・GPU 0。**~~ → **★2026-09-12(その53)レビュー済み(ADR-079)。実装待ち(I1〜I12)。GPU 0。**
   → **★2026-09-12(その54)I1・I2 済み**(パイロット用プールと非交差の検査。§4.3)
-  → **★2026-09-12(その55)I3 済み**(R8・S の掃引項目。§4.4)。**次は I4・I5**(I5 の前に「階段の位置」の定義を §3.2.1 に書く)
+  → **★2026-09-12(その55)I3 済み**(R8・S の掃引項目。§4.4)。~~**次は I4・I5**(I5 の前に「階段の位置」の定義を §3.2.1 に書く)~~
+  → **★2026-09-13(その56)I4 の配線の読みを §4.5 に書いた(実装は未着手。context-guard で切った)**。**次は I4 の実装・I5**(I5 の前に「階段の位置」の定義を §3.2.1 に書く)
   人間の回答は「全て推奨を採用。G6は(b)」。**~~G14 は未記入(推奨が無かった)~~ → その55 に人間が「確定」と記入(ADR-080 決定1)、G17 の承認はエージェントの読み**(ADR-079 決定10)。記入欄は §13。GPU の承認は §11 の文面で、実装・dry-run・§5 の凍結の後に別に取る
 - 正本: **ADR-078**(決定1・2・5・7・8・10)/ **ADR-079**(本 PLAN のレビュー)/ ADR-030(R8。決定6 は ADR-079 決定1 で改めた)/ PLAN-025 §3.1・§3.4・§5 / PLAN-024 §1.3・§3 D2 (c) / PLAN-001 §4.6
 - 材料: `plans/PLAN-026-materials.md`(その51。**この PLAN に写した行番号は原典を開いて照合した**。材料 §B2 に誤りが 1 つあった → §4.1)
@@ -203,6 +204,29 @@
   - **R8 の 240 項目は、パイロット用プールの固定オフセットの項目と同じ `item_id`**(選んだ組 1 つにつき、元のセルの極性 × そのセルで配られた固定オフセット の 1 項目)。ADR-030 決定5(固定オフセットは掃引の部分集合)の帰結で、B0 と R8 で同じ文面を 2 回解くことになる。**I4・I5 で両 run の一致の点検に使える**(案)
 - テスト: `code/tests/test_sweep_pool.py`(新規。件数・併合・選び方の決定性と独立な数え直し・S ⊂ R8・T = t + θ・非判別項目を含むこと・コミット済み manifest の再現)/ `test_order6b_pilot.py`(掃引の欄を許す)。`pytest code/tests -q` → **1082 passed**(1049 → +33)
 
+### 4.5 I4 の実装で決めたこと(★2026-09-12 その56。IMPLEMENTER。**実装の読み。何を測るか(腕・件数・記録する量)は変えていない。人間が覆せる**)
+
+- **仕様の穴(HANDOFF その55 が挙げたもの)**: 本 PLAN は掃引の run の宣言の仕方を書いていない(§3.2 は記録する量、§9 の I4 は「`run.py` の別経路 / `metrics.json` の新しい欄」だけ)。
+  **→ 読み1: 掃引の run は新しい config で宣言する。**`configs/exp_order6b_r8.yaml` = pilot の config の写しで、違うのは 4 欄だけ ——
+  `experiment.id` / `eval.anchor_manifest`(→ `pilot_sweep_r8/manifest.json`)/ `eval.batteries`(`[comparison]`)/ **`eval.threshold_sweep_arm: r8`(新しい鍵)**。前例は R5 の `exp_phase1_main_t2cross.yaml`(本番との差 3 欄)
+  - **経路は config の宣言で決め、manifest の中身から推測しない**(`eval.counterpart_manifest` の前例。§4.3)。宣言が無い(null)= 固定オフセットの run
+  - **宣言と manifest の食い違いは両方向とも、重みを読む前・run ディレクトリを作る前に止める**: 宣言が無いのに anchor が掃引のプール(`fill.method == threshold_sweep`)/ 宣言があるのに掃引のプールでない /
+    manifest の `fill` の腕・θ の水準・タスク型・極性・組の数・`selection.seed`・併合セルが config(`eval.threshold_sweep`・`eval.pool_seed`・`eval.cells`)と違う / 項目の(併合セル × 極性 × θ)が manifest の組とそろっていない
+  - 入口は `python -m code.eval.run --config configs/exp_order6b_r8.yaml`(`--dry-run` も)。`main` が宣言を見て掃引の経路(`execute_threshold_sweep` / `threshold_sweep_dry_run`)に回す。**固定オフセットの経路(`execute` / `evaluate_pool` / `dry_run`)は宣言のある config を受け付けない**
+  - 却下した案: manifest の `fill.method` から経路を決める(中身からの推測)/ CLI 引数 `--sweep-arm`(`runs/<id>/config.yaml` だけから run の種類が復元できなくなる)/
+    別の入口 `code/eval/threshold_sweep.py`(桁数掃引 `code/eval/sweep.py` の前例はあるが、§9 が「`run.py` の別経路」と書き、HANDOFF の完了条件が `run.py --dry-run`)
+- **読み2(記録)**: 掃引の項目は `classify`・`metrics_by_reference_rule`・`response_builder` を通さない。強制選択の forward(`collect_forced_choices`。**判定規則 `choose_from_logprobs` は無変更**)だけを掛け、
+  `predictions/threshold_sweep.<タスク型>.jsonl` に 1 項目 1 行で書く: `item_id`・`category`・`task_type`・`polarity`・`sweep_cell`(併合セル)・`coverage`・`carry`・`operands`・`t`・`threshold`・`threshold_offset`(θ)・`prompt`・`response`(固定オフセットの経路と同じ 1 行の文字列)・`answer`(判定規則の答え。同点は No)・`truth`(`comparison_answer(t, 極性, T)`)・`yes_logp`・`no_logp`
+  - `truth` と `answer` は記録であって分類ではない。**率(correct を含む)は出さない。**I5 の「遠いオフセットの correct」と揃え方 (a) の `y`(ADR-079 決定1)は、ここから後処理で作る
+  - `metrics.json` は `kind: threshold_sweep`(4 値分解を読む `aggregate.py` は `battery_eval` 以外を数えずに飛ばし、`frame.py` は止まる)。中身は来歴(`pool`・`coverage`・`generation`・`adapter`・`timing`・`forced_choice.candidates`)と
+    `threshold_sweep` の欄(腕・θ の水準・タスク型・極性・組の数・元のプールの `pairs_hash`・**件数(併合セル × 極性 × θ)**・predictions のファイルごとの行数)
+  - 併合セルと既知性は、manifest の `fill.cells` の組と config の `eval.cells` から `sweep_pool.sweep_cells`(生成と同じ関数)で引き直す。名前を解析しない
+- **読み3(上位 k)**: 欄をいま空けない(値の無い欄は「記録した結果が空だった」と読める)。I10 で `ForcedChoice` に足し、固定オフセットの経路(`prediction_record`)と掃引の経路(`threshold_sweep_record`)の両方に同じ形で書く
+- **読み4(S と (d) の絞り方)**: 掃引の経路は腕を固定しない(`s` も同じ経路・同じ宣言の鍵)。文面(① の前置き I6・(d) のテンプレート I8)は `load_group_templates` と `RENDERERS` を通るので、固定オフセットの経路と同じ所で被さる。
+  **(d) の run を S の T1b 1,200 項目に絞る仕方は I8 で決める** —— 固定オフセットの (d) の run もパイロット用プールの T1b 480 項目に絞る必要があり、両経路で同じ仕組みにするのが自然なため。**いまの掃引の経路は、manifest の `fill.task_types` のタスク型をすべて解く**
+- **読み5(batch)**: forward はタスク型ごとに、項目の並び(§4.4 の読み3)のまま `eval.batch_size`(4)で掛ける。(併合セル × 極性 × θ)ごとに 20 組なので batch はその境界を跨がない(組合せ論的な帰結)。**B0 と R8 で同じ `item_id` の 240 項目は batch の相手が違う**(近接同点は ADR-079 決定8 のとおり感度の行)
+- **読み6(アダプタ)**: 掃引の経路もアダプタを読める(`adapter_provenance` を共有)。Phase 1 の R8(ADR-030)は FT 後のモデルで Δ̂ を測るため。順6b は null
+
 ---
 
 ## 5. 選び方(**回す前に書く**。PLAN-025 §3.4 (f)、`plans/PLAN-025-binary-methods.md` 185〜188 行)
@@ -283,7 +307,7 @@
 | I1 | pilot の FT manifest と評価プール | `configs/exp_order6b_pilot.yaml`(新規)/ CPU の生成 | config のみ(の見込み) | §4.1。生成物の manifest をコミットする。**✅ 済(2026-09-12 その54。§4.3)** |
 | I2 | pilot と main の非交差の検査 | `code/tests/` / `infra/preflight.py` | 小〜中 | PLAN-001 §4.6 規則3。既存の有無を先に確かめる。**✅ 済(その54。評価プールどうしの検査は無かったので足した。`eval.counterpart_manifest` を 4 本の config に足した。§4.3)** |
 | I3 | R8・S の掃引項目の生成と配線 | 新しい入口(`build.py` の `build_items_from_entries` は `sweep` を渡さない)/ config に `θ` の水準 | 中 | 組の水準のハッシュで 20 組(§3.2)。**✅ 済(2026-09-12 その55。`code/data_gen/sweep_pool.py`・`eval.threshold_sweep`。組は gt・lt を併合したセルから(ADR-080 決定3)。§4.4)** |
-| I4 | 掃引項目の記録の経路(4 値分解を通さない) | `code/eval/run.py` の別経路 / `metrics.json` の新しい欄 | 中 | 項目ごとの logp と上位 k。`Δ̂` は後処理 |
+| I4 | 掃引項目の記録の経路(4 値分解を通さない) | `code/eval/run.py` の別経路 / `metrics.json` の新しい欄 | 中 | 項目ごとの logp と上位 k。`Δ̂` は後処理。**配線の読みは §4.5(2026-09-13 その56)。実装は未着手**(上位 k の欄は I10) |
 | I5 | `Δ̂`・`β1`・遠いオフセットの `correct` の当てはめ | 新規(例 `code/analysis/r8_fit.py`) | 中 | **G1 の揃え方で実装する**。除外件数を必ず出す(ADR-030 決定6) |
 | I6 | 前置き(①) | 新しい鍵(例 `eval.preamble`)。**`eval.few_shot_k` の門(`code/eval/model.py` 150 行)は使い回さない** | 中 | 全群の入力の先頭に連結(G4)/ 並びのハッシュ(G3)/ `metrics.json` に前置きの有無と sha256 |
 | I7 | preflight 検査6 と前置き | `infra/preflight.py` | 小 | 前置きのある run は「アンカーでない」と宣言して検査6 の比較から外し、その旨を記録する(案)。前置きの無い T1 のアンカーは変えない |

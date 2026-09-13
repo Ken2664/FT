@@ -5795,3 +5795,17 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - skill `handoff`: `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行・人間待ちの索引の 2 行を差し替え、掃引プールの行を足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その55」へ機械的に移した(398 行 / 49 KB。`test_repo_hygiene.py` 7 passed)。索引の「PLAN-026 G14 の記入 / I1・I2 の実装の読み」は ADR-080 で決着したので落とした
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I4 = 掃引項目の記録の経路)向けに書き直した。**I4 の前に確かめる仕様の穴**(R8 の run をどう宣言するか)を書いた
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-13(その56。開始は 2026-09-12)
+
+### docs(plan): PLAN-026 I4 の配線の読み(§4.5)を書き、セッション引き継ぎを記録(context-guard で切った。コードは未着手)   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その55)の作業 = PLAN-026 の I4。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください」(包括の承認は無い)
+- **仕様の穴(HANDOFF 手順1)**: PLAN-026 は掃引の run の宣言の仕方を書いていない → `run.py`・`forced_choice.py`・`sweep_pool.py`・`t3_comparison.py`・preflight の data_checks・既存テスト(`test_run_real.py`・`test_run_order6.py`・`test_order6b_pilot.py`)を読み、**何を測るかに触れない配線の選択**として PLAN-026 §4.5(新)に実装の読み 1〜6 を書いた(code-style §5。人間が覆せる)。
+  読み1 = 新しい config `configs/exp_order6b_r8.yaml`(pilot の写し。違うのは 4 欄)+ 新しい鍵 `eval.threshold_sweep_arm`。経路は宣言で決め、manifest の中身から推測しない。食い違いは両方向とも重みを読む前に止める /
+  読み2 = 記録の欄と `kind: threshold_sweep`(率を出さない)/ 読み3 = 上位 k の欄はいま空けない(I10)/ 読み4 = (d) を S の T1b に絞る仕方は I8 / 読み5 = batch / 読み6 = アダプタ
+- 確かめた事実: pilot の config の `eval.anchor_manifest` を `pilot_sweep_r8` に・`eval.batteries` を `[comparison]` にすると、preflight の data_checks は 7 件 PASS(検査6・`pool disjoint` を含む)/ パイロット用プールの組み直しは約 8 秒(テストの fixture の費用)
+- **やっていないこと**: I4 のコード・テスト・R8 の config(約 263k トークンで context-guard が出たので、`CLAUDE.md` §10.2 に従って切った)。関数の設計・止める条件・テストの一覧は `logs/HANDOFF.md` に書いた
+- skill `handoff`: `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の閾値掃引の行を差し替えた。旧ブロックは `logs/STATE-ARCHIVE.md`「その56」へ機械的に移した(397 行 / 49.7 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない(§4.5 への異議は「次のアクション」5 に置いた)
+- 書いたもの: `plans/PLAN-026-order6b.md`(ステータス・§4.5(新)・§9 の I4 の行)/ `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/HANDOFF.md` / 本項
+- GPU 0・ポッドは触っていない・main の push はしていない

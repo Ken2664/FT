@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-12(その55)/ by IMPLEMENTER (Opus)
-(**★PLAN-026 の I3 を実装した —— R8・S の閾値掃引の項目プール(`data/generated/battery/pilot_sweep_r8/` 8,160 項目 / `pilot_sweep_s/` 2,400 項目。組は gt・lt を併合したセルから 20 組で、S の組は R8 と同じ)を `code/data_gen/sweep_pool.py` で作った(commit `36d37a5`)。`pytest` 1082 passed。GPU 0・ポッドは触っていない。
-人間の開始時の指示(「G14 は私が記入した。それ以外の承認が必要な内容に関しても承認する」)で、G14(PLAN-026 §8 の注記)を確定し、I1・I2 の実装の読みを追認し、20 組の取り方を決めた(ADR-080)。**)
+最終更新: 2026-09-13(その56)/ by IMPLEMENTER (Opus)
+(**★PLAN-026 の I4(掃引項目の記録の経路)の配線の読みを PLAN-026 §4.5(新)に書いた —— 掃引の run は新しい config `configs/exp_order6b_r8.yaml`(pilot の写し。違うのは 4 欄)と新しい鍵 `eval.threshold_sweep_arm` で宣言し、`run.py` の `main` が掃引の経路に回す(manifest の中身から経路を推測しない。食い違いは両方向とも重みを読む前に止める)。
+**コード・テスト・R8 の config は未着手**(context-guard で切った。約 263k トークン)。preflight の data_checks は掃引の manifest を anchor にしても 7 件 PASS(手元で確かめた)。GPU 0・ポッドは触っていない。**)
 
 ---
 
@@ -66,12 +66,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-09-12(その55・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-026 の I3 を実装した(GPU 0。commit `36d37a5`)。**
-> - **I3**: `configs/exp_order6b_pilot.yaml` の `eval.threshold_sweep`(θ の水準・20 組・タスク型)/ `code/data_gen/sweep_pool.py`(`--arm r8|s`)→ `pilot_sweep_r8/`(T3 4,080 + T1b 4,080 = 8,160)・`pilot_sweep_s/`(T3 1,200 + T1b 1,200)。**組合せ論的な帰結で実験結果ではない**
-> - **ADR-080**: G14 = 人間の記入で確定 / PLAN-026 §4.3 の読みを追認(`counterpart_hash` は None のまま)/ **20 組は極性を併合したセル(gt・lt の 2 セル、計 80 組)から組の水準のハッシュで**(包括の承認。**人間は個別の案を見ていないので覆せる**)
-> - **次は I4・I5**(掃引項目の記録の経路 / 当てはめ。**I5 の前に「階段の位置」の定義を PLAN-026 §3.2.1 に書く**)→ I6〜I12 → dry-run → §5 の凍結(tag)→ GPU 承認(§11)。腕・見積りは変わらない(15,626 項目・回。**実測ではない**)
+> **★★2026-09-13(その56・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-026 の I4 の配線の読みを §4.5 に書いた(実装は未着手。context-guard で切った。GPU 0)。**
+> - **§4.5(実装の読み。何を測るかは変えていない。人間が覆せる)**: 読み1 = 新しい config + `eval.threshold_sweep_arm`(無い / null = 固定オフセットの run)/ 読み2 = 記録の欄と `kind: threshold_sweep`(率を出さない)/ 読み3 = 上位 k の欄はいま空けない(I10)/ 読み4 = (d) を S の T1b に絞る仕方は I8 / 読み5 = batch はタスク型ごと・項目の並びのまま / 読み6 = アダプタも読める
+> - **次は I4 の実装**(関数の設計・止める条件・テストの一覧は `logs/HANDOFF.md`)→ I5(**前に「階段の位置」の定義を PLAN-026 §3.2.1 に書く**)→ I6〜I12 → dry-run → §5 の凍結(tag)→ GPU 承認(§11)。腕・見積りは変わらない(15,626 項目・回。**実測ではない**)
 >
-> **★その54 の記録は `logs/STATE-ARCHIVE.md`「その55」にある**(ADR-063 運用規約1)。
+> **★その55 の記録は `logs/STATE-ARCHIVE.md`「その56」にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -211,7 +210,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **評価プールを書き出す入口が動く**(`code/data_gen/eval_pool.py`)。`items.jsonl` + `manifest.json` を書き、**preflight の `data_checks` 6項目がすべて PASS**(検査6・8 を含む) | 2026-08-26。`test_eval_pool.py`(18件)。ADR-033 |
 | **★主プールは `fill_cells` で埋まる**(2026-09-11 その43。ADR-076 決定10)。本番 config は `eval.pool_items` を持たず、候補 = main 領域(`split_pilot_main` を再現して `counterpart_region_hash` と照合)+ `Q(999)` の main 側(組ごとのハッシュで 50:50)。セルごとの乱数列。**本番・b1・t2cross の `run.py --dry-run` が通り、data_checks は PASS。**明示リストの経路は smoke 系にだけ残る。**採点バッチは答え域で割る**(ADR-077。ans_out は `<群>.ans_out`)。`metrics.json` に `pool`・`coverage`(E-5 (b)) | `code/data_gen/eval_pool.py` / `pool.py` / `code/eval/run.py` / `code/analysis/gonogo.py` / `plans/PLAN-023` §6 |
 | **★パイロット用プールがある**(2026-09-12 その54。PLAN-026 I1・I2)。`configs/exp_order6b_pilot.yaml` → `data/generated/battery/pilot/`(1,640 項目・1,560 組。主プールと同じセル表・件数)+ pilot の FT manifest 5 条件(`data/generated/ft/exp_order6b_pilot_<c>/`)。**preflight の data_checks は 7 件になった** —— `pool disjoint` = 評価プールどうしの順序対の積が空(相手は `eval.counterpart_manifest`。宣言なし = SKIP・掃引も SKIP)。pilot・本番・t2cross の config ですべて PASS。**`counterpart_hash` は両方 None のまま**(PLAN-001 §4.6 規則3 の 1 点目は未充足)。**items.jsonl / train.jsonl は git に無い**(ポッドでは config 冒頭のコマンドで作り直す) | `code/data_gen/pool.py` の `pool_manifest_problems` / `infra/preflight.py` / `test_order6b_pilot.py` / `plans/PLAN-026` §4.3 |
-| **★閾値掃引(R8・S)の項目プールがある**(2026-09-12 その55。PLAN-026 I3。ADR-080 決定3)。`python -m code.data_gen.sweep_pool --config configs/exp_order6b_pilot.yaml --arm r8|s` → `data/generated/battery/pilot_sweep_r8/`(8,160 項目 = T3 4,080 + T1b 4,080・240 組)/ `pilot_sweep_s/`(2,400 項目。組は R8 と同じ・項目は R8 の部分集合)。θ の水準は pilot の config の `eval.threshold_sweep` にだけある(本番 config には無い)。組は gt・lt を併合したセル(80 組)から `sha256(["threshold_sweep", pool_seed, a, b])` の小さい順に 20。**掃引の項目は 4 値分解に入れない**(R8 の 7,200 項目は `p2` で判別できない)。**記録の経路(I4)はまだ無い**。R8 の 240 項目はパイロット用プールの固定オフセットの項目と同じ `item_id`(ADR-030 決定5)。items.jsonl は git に無い | `code/data_gen/sweep_pool.py` / `test_sweep_pool.py` / `plans/PLAN-026` §4.4 |
+| **★閾値掃引(R8・S)の項目プールがある**(2026-09-12 その55。PLAN-026 I3。ADR-080 決定3)。`python -m code.data_gen.sweep_pool --config configs/exp_order6b_pilot.yaml --arm r8|s` → `data/generated/battery/pilot_sweep_r8/`(8,160 項目 = T3 4,080 + T1b 4,080・240 組)/ `pilot_sweep_s/`(2,400 項目。組は R8 と同じ・項目は R8 の部分集合)。θ の水準は pilot の config の `eval.threshold_sweep` にだけある(本番 config には無い)。組は gt・lt を併合したセル(80 組)から `sha256(["threshold_sweep", pool_seed, a, b])` の小さい順に 20。**掃引の項目は 4 値分解に入れない**(R8 の 7,200 項目は `p2` で判別できない)。**記録の経路(I4)はまだ無い**(配線の読みは PLAN-026 §4.5 = その56)。**preflight の data_checks は、掃引の manifest を anchor にしても 7 件 PASS**(その56 に手元で確かめた。pilot の config の `eval.anchor_manifest` を `pilot_sweep_r8` に・`eval.batteries` を `[comparison]` にして)。R8 の 240 項目はパイロット用プールの固定オフセットの項目と同じ `item_id`(ADR-030 決定5)。items.jsonl は git に無い | `code/data_gen/sweep_pool.py` / `test_sweep_pool.py` / `plans/PLAN-026` §4.4 |
 | **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済) | ポッドを立てた時点で `pip install -e .[dev]` して掛け直す |
 | **設計の主軸を機構線に寄せた。**モデル変種は原典転記、主要指標は強制選択+自由生成の併走、**G7(周期的概念への転移)を副次の最上位に追加** | **ADR-018**(2026-08-22、人間が全部承認) |
 | **訓練プロンプトは裸の式 `a+b=` 一形式。訓練域は `[1,99]^2`。被覆ラベルは4値。`K >= 560`。外挿は2分割** | **ADR-019**(同上) |
@@ -256,8 +255,8 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
    (経緯は `logs/STATE-ARCHIVE.md`「その33」「その34」「その40」)。
    **★`θ = 0.70` の根拠(値ではない)は依然として未記入である**(ADR-041 決定2 の要求。人間が自分で書く)
 
-2. **★2026-09-12(その55): 順6 の読みは ADR-078 で、PLAN-026(順6b)のレビューは ADR-079 で決まった。いま止めているのは順6b の実装である(I1〜I3 は済)** ——
-   ~~(e) Yes/No の id の復号~~(その51)→ ~~PLAN-026 の起草~~(その52)→ ~~人間のレビュー~~(その53。ADR-079。★F141 を含む)→ ~~I1・I2 パイロット用プール~~(その54。`8e5e24f`)→ ~~I3 掃引の項目~~(**その55。`36d37a5`。ADR-080**)→ **実装 I4〜I12** → dry-run → 選び方の凍結(tag)→ GPU 承認 → 順6b → **二値群 6 セルの判断(人間)**。その後 Δ の値。**事前登録の凍結(順9)はこの後。**
+2. **★2026-09-13(その56): 順6 の読みは ADR-078 で、PLAN-026(順6b)のレビューは ADR-079 で決まった。いま止めているのは順6b の実装である(I1〜I3 は済・I4 は配線の読みだけ)** ——
+   ~~(e) Yes/No の id の復号~~(その51)→ ~~PLAN-026 の起草~~(その52)→ ~~人間のレビュー~~(その53。ADR-079。★F141 を含む)→ ~~I1・I2 パイロット用プール~~(その54。`8e5e24f`)→ ~~I3 掃引の項目~~(その55。`36d37a5`。ADR-080)→ **実装 I4(記録の経路。配線の読みは PLAN-026 §4.5 = その56)〜I12** → dry-run → 選び方の凍結(tag)→ GPU 承認 → 順6b → **二値群 6 セルの判断(人間)**。その後 Δ の値。**事前登録の凍結(順9)はこの後。**
    T1・T2 の 6 セルは確定済(ADR-078 決定6)。GPU 0 で並行できるのは実装 PLAN(**F140 のパーサ + 本実行 run の再採点経路だけ**。上位 k・極性別の参照線は PLAN-026 の I10・I11 で実装する = ADR-079 決定9)と文書の追随。
    **★順6 に残る確実な用途は Go/No-Go #0〜#3 である。**`s2_seed` は構造上出ず(F90。ADR-067 で決着済)、`s2_item` / `s2_tmpl` も出るとは言い切れない(★F104)。
    **★F113 は ADR-069 決定2 で決着済**(Δ の 4 行は順6 を「移し替える」。残る 1 行は §6.5 の P1 から決まり順6 に依存しない。`Documents/05_STATISTICS.md` §5)
@@ -358,25 +357,25 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-09-12(その55・最新)。PLAN-026 の I3 が済んだ(`36d37a5`)。次は I4・I5。**
+> **★★2026-09-13(その56・最新)。PLAN-026 の I4 の配線の読みを §4.5 に書いた(実装は未着手)。次は I4 の実装・I5。**
 >
-> 0. ~~(e) の復号~~(その51)/ ~~PLAN-026 の起草~~(その52)/ ~~レビューを ADR に起こす~~(その53。ADR-079)/ ~~I1・I2 パイロット用プールと非交差の検査~~(その54)/ ~~I3 掃引の項目~~(**その55。ADR-080**)
-> 1. **エージェント(IMPLEMENTER): PLAN-026 の I4・I5** —— 掃引項目の記録の経路(4 値分解を通さず、項目ごとの `yes_logp` / `no_logp`。上位 k の欄は I10)/ 当てはめ(**I5 の前に「階段の位置」の定義を PLAN-026 §3.2.1 に書く**。G1 の揃え方 (a))。
->    その後 I6〜I9(①・(d)・(c)。**I9 の前に (c) の綴りを原典で確かめる**。(d) の run は S の T1b 1,200 項目だけを使う —— 絞り方は I4・I8)→ I10・I11(上位 k・極性別の参照線・§5 の判定表)→ I12 テスト
+> 0. ~~(e) の復号~~(その51)/ ~~PLAN-026 の起草~~(その52)/ ~~レビューを ADR に起こす~~(その53。ADR-079)/ ~~I1・I2 パイロット用プールと非交差の検査~~(その54)/ ~~I3 掃引の項目~~(その55。ADR-080)/ ~~I4 の配線の読み~~(**その56。PLAN-026 §4.5**)
+> 1. **エージェント(IMPLEMENTER): PLAN-026 の I4 の実装**(§4.5 のとおり。関数の設計・止める条件・テストの一覧は `logs/HANDOFF.md`)→ I5(当てはめ。**I5 の前に「階段の位置」の定義を PLAN-026 §3.2.1 に書く**。G1 の揃え方 (a))。
+>    その後 I6〜I9(①・(d)・(c)。**I9 の前に (c) の綴りを原典で確かめる**。**(d) の run を S の T1b 1,200 項目に絞る仕方は I8 で決める**(§4.5 の読み4))→ I10・I11(上位 k・極性別の参照線・§5 の判定表)→ I12 テスト
 > 2. 実装の後: dry-run → §5 を tag で凍結 → **人間の GPU 承認(§11)** → RUNNER が順6b(停止中ポッドを再開するか新しく立てるかは起動の前に人間に確かめる。**ポッドでは pilot の items.jsonl / train.jsonl と掃引の items.jsonl を `configs/exp_order6b_pilot.yaml` 冒頭のコマンドで作り直す**)
 > 3. 並行できる GPU 0 の実装 PLAN: F140 のパーサ + 本実行 run の再採点経路(ADR-078 決定11)/ 文書の追随(`06_THREATS.md` = ★F138・★F139・PLAN-025 §3.6 / `04_EXPERIMENT_PLAN.md` #1・#3 / ADR-047 実装ノート)
 > 4. 順6b の後: **人間が二値群 6 セル・★F139 の (a)/(c)・G12・G15 を決める** → P1 の再定義・検出力分析 → Δ の 5 行(移し替え元の T2 の場面間分散は 0)→ 事前登録の凍結(順9)
-> 5. 人間: **ADR-080 決定3(20 組を併合セルから取る。包括の承認で採った)に異議があれば** / 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / **引用の最終確定(PLAN-025 E7。保留)** / `cost.txt`(任意)/ ADR-079 の G17 の読み(承認)に異議があれば
+> 5. 人間: **PLAN-026 §4.5(I4 の配線の読み。その56)に異議があれば** / **ADR-080 決定3(20 組を併合セルから取る。包括の承認で採った)に異議があれば** / 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / **引用の最終確定(PLAN-025 E7。保留)** / `cost.txt`(任意)/ ADR-079 の G17 の読み(承認)に異議があれば
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-09-12(その55・最新)。IMPLEMENTER (Opus)。PLAN-026 の I3(R8・S の閾値掃引の項目プール)を実装し、ADR-080 を書いた。GPU 0・ポッドは触っていない。**
+> **★★2026-09-13(その56・最新)。IMPLEMENTER (Opus)。PLAN-026 の I4 の仕様の穴(掃引の run の宣言の仕方)を確かめ、配線の読みを §4.5 に書いた。コードは未着手。GPU 0・ポッドは触っていない。**
 >
-> **★やったこと**: 開始手順 / 仕様の穴(20 組をどのセルから取るか)を ADR-030 決定4・PLAN-026 §3.2・§3.7 で確かめ、人間の包括の承認の下で「gt・lt を併合したセル」とした / `code/data_gen/sweep_pool.py` / `eval.threshold_sweep` / 掃引プール 2 本(manifest をコミット)/ テスト +33(1082 passed)/ ADR-080(G14 確定・I1・I2 の読みの追認・20 組の取り方)/ ADR-030 決定4・PLAN-003 §4.4 に打ち消し線 / PLAN-001 §4.6・PLAN-026 §4.4・OPEN-ITEMS(commit `36d37a5`)。
-> **★やっていないこと**: I4 以降 / main の push(ahead のまま)。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / `plans/PLAN-026-order6b.md` §3.2・§3.2.1・§4.4・§9(I4・I5)/ 人間待ちは `logs/OPEN-ITEMS.md`。
+> **★やったこと**: 開始手順 / skill `code-style` / `run.py`・`forced_choice.py`・`sweep_pool.py`・`t3_comparison.py`・`infra/preflight.py` の data_checks・`test_run_real.py` の形を読んだ / 掃引の manifest を anchor にした config で preflight の data_checks を手元で回し 7 件 PASS を確かめた / PLAN-026 §4.5(新)・ステータス・§9 の I4 の行。
+> **★やっていないこと**: I4 のコード・テスト・`configs/exp_order6b_r8.yaml`(context-guard で切った。約 263k トークン)/ main の push(ahead のまま)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(関数の設計・止める条件・テストの一覧)/ `plans/PLAN-026-order6b.md` §4.5・§9 の I4 / 人間待ちは `logs/OPEN-ITEMS.md`。
 ---
 
 ## このファイルの運用規約(★2026-09-08 新設。ADR-063)

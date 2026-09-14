@@ -5857,3 +5857,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: `code/analysis/r8_fit.py` / `code/tests/test_r8_fit.py` / `plans/PLAN-026-order6b.md`(ステータス・§3.2.1.1・§4.6・§5 (iv)・§9 の I5)/ `plans/PLAN-003-redesign.md` §4.4.2 / `logs/DECISIONS.md`(ADR-081 と矢印の注記 3 つ)/ `logs/OPEN-ITEMS.md`(★F141 の行)/ 本項
 - **やっていないこと**: I6〜I12 / (c) の綴りの原典確認 / §5 の凍結(tag)/ main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その58。PLAN-026 I5 の区切り。次は I6・I7 = ① の前置き)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目完了 + コンテキスト超過で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、「repo の状態」に R8 の当てはめの行を 1 行足した。
+  旧ブロックは `logs/STATE-ARCHIVE.md`「その58」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。399 行 / 52 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I6・I7)向けに書き直した。**仕様の穴を見つけたら実装せず PLAN に書いて人間に聞く**と書いた
+- GPU 0・ポッドは触っていない・main の push はしていない

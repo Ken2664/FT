@@ -5830,3 +5830,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: `configs/exp_order6b_r8.yaml` / `code/eval/run.py` / `code/tests/test_threshold_sweep_run.py` / `plans/PLAN-026-order6b.md`(ステータス・§4.5 の「実装」・§9 の I4 の行)/ 本項
 - **やっていないこと**: I5(当てはめ。前に「階段の位置」の定義を PLAN-026 §3.2.1 に書く)/ 上位 k の欄(I10)/ (d) の S の T1b への絞り方(I8)/ S の config(I6・I8)/ main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その57。PLAN-026 I4 の区切り。次は I5 = R8 の当てはめ)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目完了で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行と閾値掃引の行を差し替えた。旧ブロックは `logs/STATE-ARCHIVE.md`「その57」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。397 行 / 50 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I5)向けに書き直した。**「階段の位置」の定義は Phase 1 の R8 にも効くので、案を §3.2.1 に書いたら人間に確かめてから当てはめを実装する**(確認が取れなければ OPEN-ITEMS に行を立て、定義に依らない部分だけを実装する)と書いた
+- 気づいたこと(記録): Git Bash で `printf '%s' "$(grep -c $'\r' f)"` のように `$'\r'` を `"$(…)"` の中に置くと、CR ではなく全行を数える(3 行の LF のファイルで 3。直に呼べば 0。手元で確かめた。その57 に一度 CRLF と誤読し、Python で数え直して 0 を確かめた)。HANDOFF の「やってはいけないこと」に書いた
+- GPU 0・ポッドは触っていない・main の push はしていない

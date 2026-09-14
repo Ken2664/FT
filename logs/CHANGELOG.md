@@ -5837,3 +5837,23 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I5)向けに書き直した。**「階段の位置」の定義は Phase 1 の R8 にも効くので、案を §3.2.1 に書いたら人間に確かめてから当てはめを実装する**(確認が取れなければ OPEN-ITEMS に行を立て、定義に依らない部分だけを実装する)と書いた
 - 気づいたこと(記録): Git Bash で `printf '%s' "$(grep -c $'\r' f)"` のように `$'\r'` を `"$(…)"` の中に置くと、CR ではなく全行を数える(3 行の LF のファイルで 3。直に呼べば 0。手元で確かめた。その57 に一度 CRLF と誤読し、Python で数え直して 0 を確かめた)。HANDOFF の「やってはいけないこと」に書いた
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-14(その58)
+
+### feat(analysis): PLAN-026 I5 —— R8 の当てはめ(`code/analysis/r8_fit.py`)を実装し、「階段の位置」の定義を人間が確定した(ADR-081)   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その57)の作業 = PLAN-026 の I5。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- **先に定義を書いて聞いた**: PLAN-026 §3.2.1.1(新)に「階段の位置」の操作的な定義の案(分類の順 1 片側だけ → 2 階段 `L ≤ U` → 3 逆向きの階段 → 4 当てはめ / 位置 `(L + U) / 2` / 単調でない応答 / 報告 / 却下した案 6 つ)を書き、選択式で 3 問聞いた。
+  **人間の回答: 「案のまま」/ 片側だけは「除外して別に数える」/ §5 (iv) の単位は「3 セルすべてで」(3 問とも推奨)** → ADR-081(提案 エージェント / 採択 人間)。ADR-030 決定6・ADR-079 決定1・決定6 (iv)・PLAN-003 §4.4.2 に矢印の注記を付けた(中身は変えていない)
+- 定義を書く前に、合成データで算術を確かめた(scratchpad。**実験結果ではない**): 新しい揃え方は決定的なモデルで階段になり `θ*` = 0・2(`Δ̂ = 2`)、極性ごとは `Δ ∓ 0.5`。旧い揃え方は `Δ = 0` で逆向きの階段(−0.5)、`Δ = 2` で `β1 < 0` の当てはめ(約 −0.52)になり、差は約 −0.02
+- `code/analysis/r8_fit.py`(新規): `aligned_response`(揃え方 (a))/ `theta_counts` / `fit_logistic`(numpy の Newton 法。対数尤度が下がる歩は半分にする。statsmodels は手元に無い)/ `locate_crossing`(§3.2.1.1 の 1〜4)/ `far_offsets_from_config`(**遠いオフセットの境界を S の θ の水準から導く**。−2・+3)/ `far_offset_correct` / `fit_records` / `check_records`(記録と `metrics.json` の食い違いで止める)/ `run_report` / `delta_hat_table`(基準は ident の run)/ `build_report` / `report_lines` / `main`。
+  CLI は `python -m code.analysis.r8_fit --runs <glob> [--ident-run <run>] [--out-dir <dir>]`。**合否は付けない**(I11)
+- 実装の読み(PLAN-026 §4.6。人間が覆せる): 読み1 入力と単位 / 読み2 境界を S の水準から導く(config を書き換えない)/ 読み3 `Δ̂` は 2 run を受け取る関数で、順6b では出さない(シードの対応は決めない)/ 読み4 数値定数 / 読み5 掃引の近接同点は特別に扱わない / 読み6 除外件数の出し方
+- 気づいたこと(記録): `metrics.json` の `lesion_condition` は config の `lesion.condition` の値そのもので、adapter = null の run でも p2 と出る(`run.py` 1740 行)。`r8_fit` の表の見出しに adapter を並べた
+- テスト: `code/tests/test_r8_fit.py`(新規 38)。§3.2.1 の算術の例(Δ = 0・2・11)/ `Δ̂ = 2` / 旧い揃え方で `Δ̂ ≈ 0` かつ両方 `β1 ≤ 0` の除外 / 分類 8 通り・S の水準の階段・重なり 1 件は階段でない・非収束 / 2 水準の閉じた形とスコア方程式 / ★F138 の定数戦略が低い側で 0・片側だけとして除外 /
+  **I4 の経路で実際に書いた run**(内部の値 `t + 2`・`t` の決定的な採点器を `execute_threshold_sweep` に通した 8,160 項目 × 2)を読んで `θ*` = 2・0、遠いオフセットの n = 160・880 / 記録の改ざん 6 通りと固定オフセットの run で止まる。
+  **変異を 6 つ注入し、それぞれ狙ったテストが落ちることを確かめた**(scratchpad のスクリプト。終わった後にファイルが元と一致することを確かめた)
+- `pytest code/tests -q` → **1144 passed**(1106 → +38)
+- 書いたもの: `code/analysis/r8_fit.py` / `code/tests/test_r8_fit.py` / `plans/PLAN-026-order6b.md`(ステータス・§3.2.1.1・§4.6・§5 (iv)・§9 の I5)/ `plans/PLAN-003-redesign.md` §4.4.2 / `logs/DECISIONS.md`(ADR-081 と矢印の注記 3 つ)/ `logs/OPEN-ITEMS.md`(★F141 の行)/ 本項
+- **やっていないこと**: I6〜I12 / (c) の綴りの原典確認 / §5 の凍結(tag)/ main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

@@ -41,12 +41,21 @@ config から来る —— **ここで既定のモデル名や生成設定を作
 採択 人間)。主プールの `extrap_magnitude`(t ≥ 200)では `arb` が定義されない(ADR-020)ので、
 同じバッチに ans_in の項目と混ぜると、参照規則の集合が揃わず採点が止まる。ans_in のバッチは
 群の名前のまま、ans_out のバッチは `<群>.ans_out` になる(`scoring_batches`)。
+
+**閾値掃引(R8・S)の run は別の経路を通る**(★2026-09-14。PLAN-026 §4.5 = I4)。config が
+`eval.threshold_sweep_arm` を宣言していれば、`main` は `execute_threshold_sweep` /
+`threshold_sweep_dry_run` に回す。**掃引の項目は 4 値分解に入れない** —— 閾値 T = t + θ の非判別項目
+(真値 = 規則値)を含むので `classify` が止まる。強制選択の forward だけを掛け、項目ごとの
+`yes_logp` / `no_logp` を `predictions/threshold_sweep.<タスク型>.jsonl` に書く(率は出さない)。
+**経路は宣言で決め、anchor の manifest の中身から推測しない。**宣言と manifest の `fill.method` が
+食い違えば、両方向とも重みを読む前・run ディレクトリを作る前に止める(`check_pool_kind`)。
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -80,14 +89,16 @@ from code.data_gen.battery_items import (
     assert_unique_item_ids,
     read_items,
 )
-from code.data_gen.eval_pool import find_condition_manifest
+from code.data_gen import sweep_pool
+from code.data_gen.eval_pool import find_condition_manifest, load_cells
 from code.data_gen.hashing import sha256_file
-from code.data_gen.pool import ANSWER_IN, ANSWER_OUT, label_answer_range
+from code.data_gen.pool import ANSWER_IN, ANSWER_OUT, Pair, label_answer_range
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.battery.build import build_items_from_entries, entries_by_group
 from code.eval.engine import build_engines
 from code.eval.forced_choice import (
     FORCED_CHOICE_SURFACES,
+    ForcedChoice,
     ForcedChoiceScorer,
     assert_collapsed_to_binary,
     candidate_record,
@@ -579,7 +590,11 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
 
     **項目の出どころは2つある**(`dry_run_items_by_group`)。`eval.dry_run_items` が
     無ければ、本実行と同じ items.jsonl を読む(PLAN-023 A7)。
+
+    **閾値掃引を宣言した config は受け付けない**(PLAN-026 §4.5)。掃引の配線確認は
+    `threshold_sweep_dry_run` であり、`main` が宣言を見てそちらに回す。
     """
+    refuse_declared_threshold_sweep(config)
     batteries = list(require(config, "eval.batteries"))
     unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
     if unknown:
@@ -687,12 +702,116 @@ def pool_items_path(config: Mapping[str, Any]) -> Path:
     return resolve_repo_path(require(config, "eval.anchor_manifest")).parent / POOL_ITEMS_FILENAME
 
 
+# 閾値掃引(R8・S)の run の宣言(PLAN-026 §4.5 読み1)。値は `eval.threshold_sweep.offsets` の腕の名前。
+# **無い / null = 固定オフセットの run**(4 値分解)。経路はこの宣言で決め、manifest の中身から推測しない
+# (`eval.counterpart_manifest` と同じ作法。PLAN-026 §4.3)。
+THRESHOLD_SWEEP_ARM_KEY = "eval.threshold_sweep_arm"
+
+
+def declared_threshold_sweep_arm(config: Mapping[str, Any]) -> str | None:
+    """この config が閾値掃引の run を宣言しているなら、その腕の名前を返す。
+
+    答える問い: 「この run は固定オフセットの 4 値分解か、θ を動かす掃引の記録か」
+    """
+    arm = (config.get("eval") or {}).get("threshold_sweep_arm")
+    if arm is None:
+        return None
+    if not isinstance(arm, str) or not arm:
+        raise ConfigError(
+            f"{THRESHOLD_SWEEP_ARM_KEY} は eval.threshold_sweep.offsets の腕の名前(文字列)か null である: "
+            f"{arm!r}"
+        )
+    return arm
+
+
+def read_pool_manifest(config: Mapping[str, Any]) -> dict[str, Any]:
+    """`eval.anchor_manifest` を読む。
+
+    答える問い: 「この run が解くプールは、どう作られたと記録されているか」
+    """
+    path = resolve_repo_path(require(config, "eval.anchor_manifest"))
+    if not path.exists():
+        raise ConfigError(f"eval.anchor_manifest が無い: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def is_threshold_sweep_pool(manifest: Mapping[str, Any]) -> bool:
+    """この manifest のプールは閾値掃引の項目か(`sweep_pool` が書いたものか)。
+
+    答える問い: 「このプールの項目を 4 値分解に入れてよいか」
+
+    `fill` を持たない manifest(明示リストの経路の古い形)は掃引のプールではない ——
+    掃引のプールは必ず `fill.method` を書く(`sweep_pool.sweep_fill_record`)。
+    """
+    fill = manifest.get("fill") or {}
+    return fill.get("method") == sweep_pool.FILL_THRESHOLD_SWEEP
+
+
+def refuse_declared_threshold_sweep(config: Mapping[str, Any]) -> None:
+    """掃引を宣言した config を、固定オフセットの経路(4 値分解)の入口で止める。
+
+    答える問い: 「この入口は、この config が宣言した run の種類を解く経路か」
+    """
+    arm = declared_threshold_sweep_arm(config)
+    if arm is not None:
+        raise ConfigError(
+            f"この config は閾値掃引の run を宣言している({THRESHOLD_SWEEP_ARM_KEY}={arm!r})。"
+            "固定オフセットの経路(4 値分解)では解かない —— 掃引の項目は非判別項目を含み、"
+            "classify が止まる(PLAN-026 §3.2)。python -m code.eval.run は宣言を見て"
+            "掃引の経路(execute_threshold_sweep / threshold_sweep_dry_run)に回す。"
+        )
+
+
+def check_pool_kind(
+    config: Mapping[str, Any], manifest: Mapping[str, Any], *, threshold_sweep: bool
+) -> None:
+    """経路とプールの種類が噛み合っているかを、両方向で確かめる(PLAN-026 §4.5 読み1)。
+
+    答える問い: 「この経路は、anchor が指すプールを解く経路か」
+
+    `threshold_sweep` は**呼ぶ側の経路**である(False = 固定オフセットの経路)。
+      - 固定オフセットの経路に掃引のプール —— 宣言を書き忘れた掃引の config。4 値分解に入れれば
+        classify が止まるが、それは重みを読み、生成を始めた後である
+      - 掃引の経路に掃引でないプール —— anchor の書き換え忘れ。固定オフセットの項目は
+        θ の水準も併合セルも持たないので、掃引の記録として読めない
+    """
+    anchor = require(config, "eval.anchor_manifest")
+    is_sweep = is_threshold_sweep_pool(manifest)
+    if is_sweep and not threshold_sweep:
+        raise ConfigError(
+            f"eval.anchor_manifest={anchor!r} は閾値掃引のプール(fill.method="
+            f"{sweep_pool.FILL_THRESHOLD_SWEEP!r})だが、この config は {THRESHOLD_SWEEP_ARM_KEY} を"
+            "宣言していない。掃引の項目は 4 値分解に入れない(PLAN-026 §3.2)。"
+            "経路は宣言で決める(manifest の中身から推測しない。PLAN-026 §4.5)。"
+        )
+    if threshold_sweep and not is_sweep:
+        raise ConfigError(
+            f"この config は {THRESHOLD_SWEEP_ARM_KEY} を宣言しているが、eval.anchor_manifest="
+            f"{anchor!r} は閾値掃引のプールではない(fill.method="
+            f"{(manifest.get('fill') or {}).get('method')!r})。"
+            "掃引の項目は python -m code.data_gen.sweep_pool が書く(PLAN-026 §4.4)。"
+        )
+
+
 def load_pool_items(config: Mapping[str, Any]) -> list[Item]:
-    """評価プールを読み、この config で解けることを確かめる。
+    """評価プールを読み、この config で解けることを確かめる(固定オフセットの経路)。
 
     答える問い: 「この config が指す項目集合は、この実行の宣言と噛み合っているか」
 
-    3つを検査する。どれも**黙って通すと項目数が静かに変わる**種類の食い違い:
+    検査は `_read_pool_items`。**掃引を宣言した config も、掃引のプールも受け付けない**
+    (PLAN-026 §4.5。掃引の経路は `load_threshold_sweep_pool`)。
+    """
+    refuse_declared_threshold_sweep(config)
+    return _read_pool_items(config, threshold_sweep=False)
+
+
+def _read_pool_items(config: Mapping[str, Any], *, threshold_sweep: bool) -> list[Item]:
+    """評価プールの items.jsonl を読み、経路と宣言に噛み合っていることを確かめる。
+
+    答える問い: 「この config が指す項目集合は、この実行の宣言と噛み合っているか」
+
+    **プールの種類を先に見る**(`check_pool_kind`)。そのうえで3つを検査する。どれも
+    **黙って通すと項目数が静かに変わる**種類の食い違い:
       1. `data.pool_id` と項目の `pool_id` の一致 —— 違うプールを読んでいる
       2. 項目の群が `eval.batteries` に収まること —— 宣言外の群が混ざっている
       3. `eval.batteries` の各群に項目があること —— 宣言した群が空で、
@@ -704,6 +823,7 @@ def load_pool_items(config: Mapping[str, Any]) -> list[Item]:
             f"評価プールの項目が無い: {path}。先に評価プールを書き出すこと"
             "(python -m code.data_gen.eval_pool --config <config>)。"
         )
+    check_pool_kind(config, read_pool_manifest(config), threshold_sweep=threshold_sweep)
     items = read_items(path)
     if not items:
         raise ConfigError(f"評価プールが空である: {path}")
@@ -1020,8 +1140,7 @@ def pool_record(config: Mapping[str, Any], items_path: Path) -> dict[str, Any]:
     GPU 時間を使った後に metrics.json を書く段で落ちないようにする。
     `n_items` は採点の後に `metrics_payload` が足す(`total_items`。1箇所で数える)。
     """
-    manifest_path = resolve_repo_path(require(config, "eval.anchor_manifest"))
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = read_pool_manifest(config)
     return {
         "pool_id": require(config, "data.pool_id"),
         "items": str(items_path),
@@ -1081,7 +1200,8 @@ def metrics_payload(
     「6綴り全部を使った」と読まないよう、`FORCED_CHOICE_NOTE` を添える。
 
     `pool` と `coverage` は ADR-076 決定12(E-5 (b))の記録である(`pool_record` /
-    `coverage_record`)。**掃引の run(code/eval/sweep.py)には掛けない**(被覆ラベルを使わない)。
+    `coverage_record`)。**桁数掃引の run(code/eval/sweep.py)には掛けない**(被覆ラベルを使わない)。
+    閾値掃引の run(`threshold_sweep_payload`)は同じ 2 ブロックを持つ。
     """
     return {
         "run_id": run_id,
@@ -1099,30 +1219,40 @@ def metrics_payload(
         "coverage": dict(coverage),
         "timing": timing,
         "by_batch": {result.name: result.metrics for result in results},
-        **(
-            {}
-            if forced_choice_candidates is None
-            else {
-                "forced_choice": {
-                    "candidates": candidate_record(forced_choice_candidates),
-                    "note": FORCED_CHOICE_NOTE,
-                }
-            }
-        ),
+        **forced_choice_block(forced_choice_candidates),
     }
 
 
-def report_lines(payload: Mapping[str, Any]) -> list[str]:
-    """log.txt と標準出力に出す行。
+def forced_choice_block(
+    candidates: Mapping[bool, Mapping[str, int | None]] | None,
+) -> dict[str, Any]:
+    """metrics.json の `forced_choice` 欄(候補綴り -> トークン id。ADR-047 実装ノート 4)。
 
-    答える問い: 「この実行は何を、どの重みで、どう解いたのか」
+    答える問い: 「この run の Yes/No は、どの綴りのトークンを周辺化したものか」
 
-    **--dry-run の警告文は流用しない**(PLAN-004 §4.3 の4)。ここの数値は
-    実験結果であり results/ に書いてよい。代わりに、読んだ重みがアダプタ
-    無しであることを必ず1行出す(NO_ADAPTER_NOTE)。
+    **重みを読んだ実行にしか無い**(`metrics_payload` の docstring)。None なら欄ごと出さない。
+    固定オフセットの経路と閾値掃引の経路が同じ形で書く。
+    """
+    if candidates is None:
+        return {}
+    return {
+        "forced_choice": {
+            "candidates": candidate_record(candidates),
+            "note": FORCED_CHOICE_NOTE,
+        }
+    }
+
+
+def run_header_lines(payload: Mapping[str, Any]) -> list[str]:
+    """log.txt の先頭の 6 行(どの run が、どの重みで、何件を解いたか)。
+
+    答える問い: 「この実行は、どの重みの、どの設定で、どの項目集合を解いたのか」
+
+    固定オフセットの経路(`report_lines`)と閾値掃引の経路(`threshold_sweep_report_lines`)が
+    共有する。アダプタ無しの注記(NO_ADAPTER_NOTE)は必ずここに出る。
     """
     generation = payload["generation"]
-    lines = [
+    return [
         f"run_id: {payload['run_id']}",
         f"model: {generation['model_name']} @ {generation['revision']} "
         f"({generation['dtype']} on {generation['device']})",
@@ -1134,16 +1264,36 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"adapter: {payload['adapter']}",
         f"注意: {payload['adapter_note']}",
         f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",
+    ]
+
+
+def forced_choice_lines(payload: Mapping[str, Any]) -> list[str]:
+    """強制選択の候補綴りの 1 行(`forced_choice` 欄が無い run では出さない)。"""
+    forced_choice = payload.get("forced_choice")
+    if forced_choice is None:
+        return []
+    return [
+        "強制選択の候補綴り(null は不採用): "
+        + json.dumps(forced_choice["candidates"], ensure_ascii=False)
+    ]
+
+
+def report_lines(payload: Mapping[str, Any]) -> list[str]:
+    """log.txt と標準出力に出す行。
+
+    答える問い: 「この実行は何を、どの重みで、どう解いたのか」
+
+    **--dry-run の警告文は流用しない**(PLAN-004 §4.3 の4)。ここの数値は
+    実験結果であり results/ に書いてよい。代わりに、読んだ重みがアダプタ
+    無しであることを必ず1行出す(NO_ADAPTER_NOTE。`run_header_lines`)。
+    """
+    lines = [
+        *run_header_lines(payload),
         f"引き出し方: {payload['elicitation']} / "
         f"主要参照規則: {payload['primary_reference_rule']}",
         timing_line(payload["timing"]),
+        *forced_choice_lines(payload),
     ]
-    forced_choice = payload.get("forced_choice")
-    if forced_choice is not None:
-        lines.append(
-            "強制選択の候補綴り(null は不採用): "
-            + json.dumps(forced_choice["candidates"], ensure_ascii=False)
-        )
     for name, batch in payload["by_batch"].items():
         block = batch["by_reference_rule"][batch["primary_reference_rule"]]
         lines.append(
@@ -1188,7 +1338,13 @@ def execute(
     分けるのは、8B の読み込みが分単位で、そこを混ぜると「1項目あたり何秒か」が
     読めなくなるからである。`eval.batch_size` の値はこの記録から決まる。
     生成器を渡された場合(テスト)は重みを読まないので読み込みの区間はほぼ 0 になる。
+
+    **閾値掃引の宣言も掃引のプールも、重みを読む前・run ディレクトリを作る前に止める**
+    (PLAN-026 §4.5)。項目を初めて読むのは `evaluate_pool` —— 重みを読み、run ディレクトリを
+    作った後である。そこで止まると、中身の無い run ディレクトリと GPU 時間が残る。
     """
+    refuse_declared_threshold_sweep(config)
+    check_pool_kind(config, read_pool_manifest(config), threshold_sweep=False)
     settings = load_generation_settings(config)
     adapter = adapter_provenance(
         declared_adapter(config), condition=require(config, "lesion.condition")
@@ -1251,6 +1407,534 @@ def execute(
     return target
 
 
+# --------------------------------------------------------------------------
+# 閾値掃引(R8・S)の記録の経路(PLAN-026 §4.5 = I4)
+# --------------------------------------------------------------------------
+
+# metrics.json の種別。**4 値分解を持たない** —— 4 値分解を読む集約(`code/analysis/aggregate.py`)は
+# `battery_eval` 以外を数えずに飛ばし、`code/analysis/frame.py` は止まる。
+THRESHOLD_SWEEP_KIND = "threshold_sweep"
+
+# predictions/ のファイル名の頭(`threshold_sweep.<タスク型>.jsonl`)。
+THRESHOLD_SWEEP_PREDICTIONS_PREFIX = "threshold_sweep"
+
+# metrics.json の threshold_sweep 欄と log.txt に添える注記(PLAN-026 §4.5 読み2・読み3)。
+THRESHOLD_SWEEP_NOTE = (
+    "閾値掃引の項目は 4 値分解に入れていない(PLAN-026 §3.2・§4.5 読み2)。"
+    "predictions/ の truth と answer は記録であって分類ではなく、この run は率(correct を含む)を"
+    "1 つも出さない。遠いオフセットの correct と揃え方 (a) の y(ADR-079 決定1)は predictions/ から"
+    "後処理(I5)で作る。answer は判定規則(choose_from_logprobs。同点は No)の答えのまま。"
+    "上位 k の欄はまだ無い(I10)。"
+)
+
+
+@dataclass(frozen=True)
+class ThresholdSweepPool:
+    """閾値掃引の run が解く項目と、その来歴。
+
+    答える問い: 「この掃引の項目は、どの腕の、どの併合セルの、どの θ か」
+
+    `cell_of` は item_id -> 併合セル。manifest の `fill.cells` の組と config の `eval.cells` から
+    `sweep_pool.sweep_cells`(生成と同じ関数)で引き直したもので、**セルの名前を解析しない**。
+    """
+
+    settings: sweep_pool.SweepSettings
+    manifest: dict[str, Any]
+    items: list[Item]
+    cell_of: dict[str, sweep_pool.SweepCell]
+
+
+def threshold_sweep_fill_mismatches(
+    config: Mapping[str, Any], settings: sweep_pool.SweepSettings, fill: Mapping[str, Any]
+) -> list[str]:
+    """manifest の `fill` のうち、config の宣言と食い違う欄を並べる。
+
+    答える問い: 「このプールは、この config が宣言した腕・θ・タスク型・極性・組の数・シードで
+    作られたか」
+    """
+    expected: dict[str, Any] = {
+        "arm": settings.arm,
+        "threshold_offsets": list(settings.offsets),
+        "task_types": list(settings.task_types),
+        "polarities": list(sweep_pool.POLARITIES),
+        "pairs_per_cell": settings.pairs_per_cell,
+    }
+    mismatches = [
+        f"fill.{key}={fill.get(key)!r}(config からは {value!r})"
+        for key, value in expected.items()
+        if fill.get(key) != value
+    ]
+    seed = require(config, "eval.pool_seed")
+    recorded_seed = (fill.get("selection") or {}).get("seed")
+    if recorded_seed != seed:
+        mismatches.append(f"fill.selection.seed={recorded_seed!r}(eval.pool_seed は {seed!r})")
+    return mismatches
+
+
+def threshold_sweep_cells(
+    config: Mapping[str, Any], settings: sweep_pool.SweepSettings, fill: Mapping[str, Any]
+) -> dict[sweep_pool.SweepCell, list[Pair]]:
+    """manifest の併合セルの組を、config のセル表から組み直した併合セルに対応づける。
+
+    答える問い: 「このプールの各組は、どの(タスク型 × 既知性 × carry)の併合セルのものか」
+
+    併合セルは `sweep_pool.sweep_cells`(生成と同じ関数)で config の `eval.cells` から組み直し、
+    manifest の `fill.cells` と**名前の集合・元のセル・組の数**を照合する。名前は照合にだけ使い、
+    タスク型・既知性・carry を名前から読み取らない。
+    """
+    merged = sweep_pool.sweep_cells(load_cells(config), settings.task_types)
+    recorded: Mapping[str, Any] = fill.get("cells") or {}
+    expected_names = [cell.name for cell in merged]
+    if set(recorded) != set(expected_names):
+        raise ConfigError(
+            f"manifest の fill.cells {sorted(recorded)} が、config のセル表から組んだ併合セル "
+            f"{sorted(expected_names)} と違う。別のセル表で作ったプールを読んでいる。"
+        )
+    pairs_by_cell: dict[sweep_pool.SweepCell, list[Pair]] = {}
+    for cell in merged:
+        entry = recorded[cell.name]
+        source_cells = list(entry.get("source_cells") or [])
+        if source_cells != list(cell.source_cells):
+            raise ConfigError(
+                f"併合セル {cell.name!r} の元のセルが manifest では {source_cells}、"
+                f"config からは {list(cell.source_cells)}"
+            )
+        pairs = [(int(pair[0]), int(pair[1])) for pair in entry.get("pairs") or []]
+        if len(pairs) != settings.pairs_per_cell or len(set(pairs)) != len(pairs):
+            raise ConfigError(
+                f"併合セル {cell.name!r} の組が {len(pairs)} 件(相異なる {len(set(pairs))} 件)。"
+                f"掃引は相異なる {settings.pairs_per_cell} 組を要る"
+            )
+        pairs_by_cell[cell] = pairs
+    return pairs_by_cell
+
+
+def _sweep_cell_of_item(
+    item: Item,
+    cell_by_pair: Mapping[tuple[str, Pair], sweep_pool.SweepCell],
+    offsets: Sequence[int],
+) -> sweep_pool.SweepCell:
+    """この掃引項目が属する併合セル。項目が宣言した掃引の形をしていなければ止める。
+
+    答える問い: 「この項目は、manifest の併合セルの組を、宣言した θ の閾値 T = t + θ で尋ねているか」
+    """
+    if item.group != t3_comparison.GROUP:
+        raise ConfigError(
+            f"{item.item_id}: 掃引の項目は {t3_comparison.GROUP!r} の群に限る(群 {item.group!r})"
+        )
+    task_type = t3_comparison.task_type_of(item.category)
+    pair = (item.operands[0], item.operands[1])
+    cell = cell_by_pair.get((task_type, pair))
+    if cell is None:
+        raise ConfigError(f"{item.item_id}: 組 {pair} は manifest の {task_type} の併合セルに無い")
+    theta = item.params.get("threshold_offset")
+    if theta not in offsets:
+        raise ConfigError(f"{item.item_id}: θ={theta!r} は宣言した水準 {list(offsets)} に無い")
+    expected = t3_comparison.sweep_threshold(t3_comparison.item_total(item), int(theta))
+    if item.params.get("threshold") != expected:
+        raise ConfigError(
+            f"{item.item_id}: 閾値 {item.params.get('threshold')!r} が T = t + θ = {expected} でない"
+        )
+    return cell
+
+
+def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
+    """閾値掃引のプールを読み、この config の宣言とそろっていることを確かめる。
+
+    答える問い: 「この掃引の run が解く項目は、宣言した腕の全(併合セル × 極性 × θ)を
+    ちょうど 1 度ずつ埋めているか」
+
+    **止める食い違い(どれも重みを読む前)**:
+      - 宣言が無い / anchor が掃引のプールでない(`check_pool_kind`)/ pool_id・群の宣言
+        (`_read_pool_items`。`eval.batteries` は comparison だけでなければならない)
+      - manifest の fill の腕・θ・タスク型・極性・組の数・シードが config と違う
+      - 併合セルが config のセル表から組んだものと違う(`threshold_sweep_cells`)
+      - 項目が比較の群でない / 組が manifest の併合セルに無い / θ が水準に無い / 閾値が T = t + θ でない
+      - **完全性**: どの(併合セル × 極性 × θ)も、そのセルの組とちょうど一致する。1 項目欠けると、
+        その組の θ の曲線が 1 点欠けたまま当てはめ(I5)に入る
+    """
+    arm = declared_threshold_sweep_arm(config)
+    if arm is None:
+        raise ConfigError(
+            f"閾値掃引の経路は {THRESHOLD_SWEEP_ARM_KEY} の宣言を要る(PLAN-026 §4.5 読み1)。"
+            "固定オフセットの run は execute / dry_run の経路である。"
+        )
+    items = _read_pool_items(config, threshold_sweep=True)
+    manifest = read_pool_manifest(config)
+    settings = sweep_pool.load_sweep_settings(config, arm)
+    fill = manifest["fill"]
+    mismatches = threshold_sweep_fill_mismatches(config, settings, fill)
+    if mismatches:
+        raise ConfigError(
+            f"eval.anchor_manifest の掃引プールは、この config が宣言した腕 {arm!r} のものではない: "
+            + " / ".join(mismatches)
+        )
+    pairs_by_cell = threshold_sweep_cells(config, settings, fill)
+    cell_by_pair: dict[tuple[str, Pair], sweep_pool.SweepCell] = {}
+    for cell, pairs in pairs_by_cell.items():
+        for pair in pairs:
+            if (cell.task_type, pair) in cell_by_pair:
+                raise ConfigError(f"組 {pair} が {cell.task_type} の 2 つの併合セルにある")
+            cell_by_pair[(cell.task_type, pair)] = cell
+
+    cell_of: dict[str, sweep_pool.SweepCell] = {}
+    solved: dict[tuple[str, str, int], list[Pair]] = {}
+    for item in items:
+        cell = _sweep_cell_of_item(item, cell_by_pair, settings.offsets)
+        cell_of[item.item_id] = cell
+        key = (
+            cell.name,
+            t3_comparison.polarity_of(item.category),
+            int(item.params["threshold_offset"]),
+        )
+        solved.setdefault(key, []).append((item.operands[0], item.operands[1]))
+    for cell, pairs in pairs_by_cell.items():
+        for polarity in sweep_pool.POLARITIES:
+            for theta in settings.offsets:
+                got = sorted(solved.get((cell.name, polarity, theta), []))
+                if got != sorted(pairs):
+                    raise ConfigError(
+                        f"({cell.name}, {polarity}, θ={theta}) の項目の組が manifest のそのセルの "
+                        f"{len(pairs)} 組とそろっていない(項目 {len(got)} 件)。1 組でも欠けると、"
+                        "その組の θ の曲線が 1 点欠けたまま当てはめに入る"
+                    )
+    return ThresholdSweepPool(settings=settings, manifest=manifest, items=items, cell_of=cell_of)
+
+
+def threshold_sweep_prompts(config: Mapping[str, Any], pool: ThresholdSweepPool) -> dict[str, str]:
+    """掃引の項目の文面(item_id -> プロンプト)。
+
+    答える問い: 「掃引の項目は、固定オフセットの比較項目と同じ文面の出どころで尋ねられるか」
+
+    文面は固定オフセットの経路と**同じ関数**で組む(`load_group_templates` + `RENDERERS`)。
+    ① の前置き(I6)や (d) のテンプレート(I8)が被さる場所を 2 つにしない(PLAN-026 §4.5 読み4)。
+    **重みを読む前に呼ぶ** —— テンプレートの欠けや引き出し方の食い違いで、run ディレクトリを
+    作った後に止まらないようにする。
+    """
+    reject_unsupported_elicitation(
+        require(config, "eval.elicitation"), list(require(config, "eval.batteries"))
+    )
+    templates = load_group_templates(
+        config, t3_comparison.GROUP, require(config, "data.eval_template_set")
+    )
+    render = RENDERERS[t3_comparison.GROUP]
+    return {item.item_id: render(item, templates) for item in pool.items}
+
+
+def threshold_sweep_record(
+    item: Item, *, cell: sweep_pool.SweepCell, prompt: str, choice: ForcedChoice
+) -> dict[str, Any]:
+    """掃引の 1 項目を predictions/ に残す形にする(PLAN-026 §4.5 読み2)。
+
+    答える問い: 「この組・この極性・この θ で、モデルは Yes と No にどれだけ倒れたか」
+
+    **分類しない**(`classify` を通さない)。`truth` は比較の真値(`comparison_answer`)、`answer` は
+    判定規則の答え(`choose_from_logprobs`。同点は No)で、どちらも記録である —— 非判別項目では
+    真値と規則値が一致するので、4 値のどれかに落とすこと自体が定義できない。
+    `yes_logp` / `no_logp` は採点器が返した値そのもの(候補綴りをまたいで周辺化した対数確率)。
+    """
+    total = t3_comparison.item_total(item)
+    polarity = t3_comparison.polarity_of(item.category)
+    threshold = int(item.params["threshold"])
+    return {
+        "item_id": item.item_id,
+        "category": item.category,
+        "task_type": cell.task_type,
+        "polarity": polarity,
+        "sweep_cell": cell.name,
+        "coverage": cell.coverage,
+        "carry": item.carry,
+        "operands": list(item.operands),
+        "t": total,
+        "threshold": threshold,
+        "threshold_offset": int(item.params["threshold_offset"]),
+        "prompt": prompt,
+        "response": forced_choice_response_text(choice),
+        "answer": choice.answer,
+        "truth": t3_comparison.comparison_answer(total, polarity, threshold),
+        "yes_logp": choice.yes_logprob,
+        "no_logp": choice.no_logprob,
+    }
+
+
+def threshold_sweep_predictions_name(task_type: str) -> str:
+    """predictions/ のファイル名(拡張子なし)。タスク型ごとに 1 ファイル。"""
+    return f"{THRESHOLD_SWEEP_PREDICTIONS_PREFIX}.{task_type}"
+
+
+def evaluate_threshold_sweep(
+    pool: ThresholdSweepPool, *, prompts: Mapping[str, str], scorer: ForcedChoiceScorer
+) -> dict[str, list[dict[str, Any]]]:
+    """掃引の項目に強制選択の forward を掛け、項目ごとの記録を返す。**これは実験結果である。**
+
+    答える問い: 「各タスク型の掃引の項目で、モデルは Yes と No にどれだけ倒れたか」
+
+    forward はタスク型ごとに、**項目の並びのまま**掛ける(PLAN-026 §4.5 読み5。batch の組み方は
+    この並びと `eval.batch_size` で決まる)。本数の検査は `collect_forced_choices`。
+    返り値は {predictions の名前: 行}。4 値分解・参照規則・率はここに無い。
+    """
+    records: dict[str, list[dict[str, Any]]] = {}
+    for task_type in pool.settings.task_types:
+        items = [
+            item for item in pool.items if t3_comparison.task_type_of(item.category) == task_type
+        ]
+        ordered_prompts = [prompts[item.item_id] for item in items]
+        choices = collect_forced_choices(ordered_prompts, scorer)
+        records[threshold_sweep_predictions_name(task_type)] = [
+            threshold_sweep_record(
+                item, cell=pool.cell_of[item.item_id], prompt=prompt, choice=choice
+            )
+            for item, prompt, choice in zip(items, ordered_prompts, choices, strict=True)
+        ]
+    return records
+
+
+def count_records(records: Mapping[str, Sequence[Any]]) -> int:
+    """掃引の run が記録した項目数(`total_items` の掃引版。1 箇所で数える)。"""
+    return sum(len(rows) for rows in records.values())
+
+
+def threshold_sweep_counts(pool: ThresholdSweepPool) -> dict[str, dict[str, dict[str, int]]]:
+    """(併合セル × 極性 × θ)ごとの項目数。θ は JSON の鍵にするので文字列にする。
+
+    答える問い: 「この run は、どの併合セルの、どの極性・θ を何件解いたか」
+
+    並びは項目の並び(タスク型 → 併合セル → 極性 → θ。`sweep_pool` の生成の順)。
+    """
+    counts: dict[str, dict[str, dict[str, int]]] = {}
+    for item in pool.items:
+        by_polarity = counts.setdefault(pool.cell_of[item.item_id].name, {})
+        by_theta = by_polarity.setdefault(t3_comparison.polarity_of(item.category), {})
+        theta = str(item.params["threshold_offset"])
+        by_theta[theta] = by_theta.get(theta, 0) + 1
+    return counts
+
+
+def threshold_sweep_payload(
+    config: Mapping[str, Any],
+    settings: GenerationSettings,
+    pool: ThresholdSweepPool,
+    records: Mapping[str, Sequence[Mapping[str, Any]]],
+    *,
+    run_id: str,
+    pool_block: Mapping[str, Any],
+    coverage: Mapping[str, Any],
+    timing: Mapping[str, Any],
+    adapter: Mapping[str, Any],
+    forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None,
+) -> dict[str, Any]:
+    """閾値掃引の run の metrics.json を組む。**率を 1 つも出さない。**
+
+    答える問い: 「この掃引の記録が、どの重みの、どの設定の、どの項目集合の、どの θ から
+    出たかを、この 1 ファイルだけで言えるか」
+
+    来歴(`generation`・`adapter`・`pool`・`coverage`・`timing`・`forced_choice`)は固定オフセットの
+    経路と同じ関数で組む。`threshold_sweep` 欄は腕・θ の水準・タスク型・極性・組の数・元の
+    評価プールの `pairs_hash`・(併合セル × 極性 × θ)ごとの件数・predictions のファイルごとの行数。
+    """
+    fill = pool.manifest["fill"]
+    return {
+        "run_id": run_id,
+        "kind": THRESHOLD_SWEEP_KIND,
+        "experiment_id": require(config, "experiment.id"),
+        "lesion_condition": require(config, "lesion.condition"),
+        "seed": adapter["seed"],
+        "adapter": adapter["adapter"],
+        "adapter_train_run_id": adapter["train_run_id"],
+        "adapter_note": adapter["note"],
+        "generation": settings.as_dict(),
+        "pool": {**pool_block, "n_items": count_records(records)},
+        "coverage": dict(coverage),
+        "timing": timing,
+        "threshold_sweep": {
+            "arm": pool.settings.arm,
+            "threshold_offsets": list(pool.settings.offsets),
+            "task_types": list(pool.settings.task_types),
+            "polarities": list(sweep_pool.POLARITIES),
+            "pairs_per_cell": pool.settings.pairs_per_cell,
+            "source_pool_pairs_hash": fill["source_pool_pairs_hash"],
+            "n_items_by_cell": threshold_sweep_counts(pool),
+            "predictions": {name: len(rows) for name, rows in records.items()},
+            "note": THRESHOLD_SWEEP_NOTE,
+        },
+        **forced_choice_block(forced_choice_candidates),
+    }
+
+
+def threshold_sweep_report_lines(payload: Mapping[str, Any]) -> list[str]:
+    """閾値掃引の run の log.txt と標準出力に出す行。**率を出さない。**
+
+    答える問い: 「この掃引の run は何を、どの重みで、どの θ で解いたのか」
+    """
+    sweep = payload["threshold_sweep"]
+    return [
+        *run_header_lines(payload),
+        timing_line(payload["timing"]),
+        *forced_choice_lines(payload),
+        f"閾値掃引: 腕={sweep['arm']} θ={sweep['threshold_offsets']} "
+        f"タスク型={sweep['task_types']} 極性={sweep['polarities']} "
+        f"組/併合セル={sweep['pairs_per_cell']} 併合セル={len(sweep['n_items_by_cell'])} 個",
+        *(f"[{name}] n={n}" for name, n in sweep["predictions"].items()),
+        f"注意: {sweep['note']}",
+    ]
+
+
+def execute_threshold_sweep(
+    config: Mapping[str, Any],
+    *,
+    config_path: Path,
+    run_dir: Path | None,
+    scorer: ForcedChoiceScorer | None = None,
+    now: datetime | None = None,
+) -> Path:
+    """閾値掃引の本実行。成果物を `runs/<id>/` に書き、その dir を返す(PLAN-026 §4.5)。
+
+    答える問い: 「この掃引の記録が、どのコードの、どの設定の、いつの実行から出たかを
+    後から言えるか」
+
+    **検査はすべて run ディレクトリを作る前・重みを読む前に済ませる** —— 宣言とプールの種類・
+    manifest と config の照合・完全性(`load_threshold_sweep_pool`)、文面と引き出し方
+    (`threshold_sweep_prompts`)、アダプタの出どころ、項目集合と K の記録。
+    `scorer` は差し替え可能で、**None のときだけ重みを読む**(`build_engines`。生成器は使わない)。
+    来歴を forward の前に書き、区間を 3 つに分けて測るのは `execute` と同じ理由である。
+    """
+    pool = load_threshold_sweep_pool(config)
+    prompts = threshold_sweep_prompts(config, pool)
+    settings = load_generation_settings(config)
+    adapter = adapter_provenance(
+        declared_adapter(config), condition=require(config, "lesion.condition")
+    )
+    pool_block = pool_record(config, pool_items_path(config))
+    coverage = coverage_record(config)
+    started = now or utc_now()
+    run_started = monotonic_seconds()
+    target = prepare_run_dir(config, explicit=run_dir, now=started)
+    write_config_copy(target, config_path)
+    write_git_sha(target)
+    write_env(target)
+
+    load_started = monotonic_seconds()
+    forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None
+    if scorer is None:
+        engines = build_engines(settings, adapter=adapter["adapter"])
+        scorer = engines.scorer
+        forced_choice_candidates = engines.forced_choice_candidates
+    model_load_seconds = elapsed_seconds(load_started)
+
+    generation_started = monotonic_seconds()
+    records = evaluate_threshold_sweep(pool, prompts=prompts, scorer=scorer)
+    generation_seconds = elapsed_seconds(generation_started)
+
+    for name, rows in records.items():
+        write_predictions(target, name, rows)
+    ended = utc_now()
+    payload = threshold_sweep_payload(
+        config,
+        settings,
+        pool,
+        records,
+        run_id=target.name,
+        pool_block=pool_block,
+        coverage=coverage,
+        adapter=adapter,
+        timing=timing_record(
+            started=started,
+            ended=ended,
+            total_seconds=elapsed_seconds(run_started),
+            model_load_seconds=model_load_seconds,
+            generation_seconds=generation_seconds,
+            n_items=count_records(records),
+        ),
+        forced_choice_candidates=forced_choice_candidates,
+    )
+    write_metrics(target, payload)
+    write_timestamps(target, started=started, ended=ended)
+    lines = threshold_sweep_report_lines(payload)
+    write_log(target, lines)
+    for line in lines:
+        print(line)
+    return target
+
+
+def dry_run_forced_choice_scorer(answer: bool) -> ForcedChoiceScorer:
+    """定数の答えを返す強制選択採点器(配線確認用)。**実験の刺激でも結果でもない。**
+
+    答える問い: 「記録の組み立ては、どちらの答えでも全項目を通るか」
+
+    選んだ側に log 1 = 0、選ばなかった側に log 0 = -inf を置く(決定的な常答戦略)。
+    dry-run は何も書かないので、この値はどこにも残らない。
+    """
+    choice = ForcedChoice(
+        answer=answer,
+        yes_logprob=0.0 if answer else -math.inf,
+        no_logprob=-math.inf if answer else 0.0,
+    )
+
+    def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
+        return [choice for _ in prompts]
+
+    return scorer
+
+
+def threshold_sweep_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
+    """重みを読まずに掃引の経路の配線を確かめる。**実験ではない。**
+
+    答える問い: 「宣言 → 掃引プール → 照合 → 文面 → 記録の組み立て は繋がっているか」
+
+    本実行と**同じ関数**で項目を読み(検査もすべて同じ)、文面を組み、定数の答え
+    (`DRY_RUN_FORCED_CHOICES`)で記録の組み立てを 1 度ずつ通す。8,160 のプロンプトを全部は
+    返さない(category ごとに最初の 1 つ)。**率は出さない**(本実行が出さないので)。
+    """
+    pool = load_threshold_sweep_pool(config)
+    prompts = threshold_sweep_prompts(config, pool)
+    rows_by_response = {
+        label: {
+            name: len(rows)
+            for name, rows in evaluate_threshold_sweep(
+                pool, prompts=prompts, scorer=dry_run_forced_choice_scorer(answer)
+            ).items()
+        }
+        for label, answer in DRY_RUN_FORCED_CHOICES.items()
+    }
+    examples: dict[str, str] = {}
+    for item in pool.items:
+        examples.setdefault(item.category, prompts[item.item_id])
+    return {
+        "n_items": len(pool.items),
+        "items_source": str(pool_items_path(config)),
+        "arm": pool.settings.arm,
+        "threshold_offsets": list(pool.settings.offsets),
+        "task_types": list(pool.settings.task_types),
+        "n_items_by_cell": threshold_sweep_counts(pool),
+        "predictions_by_response": rows_by_response,
+        "example_prompts": examples,
+    }
+
+
+def print_threshold_sweep_dry_run(report: Mapping[str, Any]) -> None:
+    """掃引の配線確認の報告を出す。**この警告文を本実行に流用しない**(§4.3 の4)。"""
+    print("=" * 72)
+    print("--dry-run: 閾値掃引の配線確認。**実験ではない。**モデルは1度も呼ばれていない。")
+    print("ここに出る数値は組合せ論的な件数であって実験結果ではない(CLAUDE.md §2)。")
+    print("=" * 72)
+    print(f"項目数: {report['n_items']} <- {report['items_source']}")
+    print(
+        f"腕: {report['arm']} / θ: {report['threshold_offsets']} / "
+        f"タスク型: {report['task_types']}"
+    )
+    for cell, by_polarity in report["n_items_by_cell"].items():
+        print(
+            f"  {cell}: "
+            + " / ".join(
+                f"{polarity} {sum(by_theta.values())} 件(θ {len(by_theta)} 水準)"
+                for polarity, by_theta in by_polarity.items()
+            )
+        )
+    for category, prompt in report["example_prompts"].items():
+        print(f"[{category}] prompt(例): {prompt}")
+    print(json.dumps(report["predictions_by_response"], ensure_ascii=False, indent=2))
+
+
 def print_dry_run(report: Mapping[str, Any]) -> None:
     """配線確認の報告を出す。**この警告文を本実行に流用しない**(§4.3 の4)。"""
     print("=" * 72)
@@ -1291,14 +1975,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
+    # 経路は config の宣言で決める(PLAN-026 §4.5 読み1)。anchor の manifest の中身から推測しない ——
+    # 食い違いはどちらの経路でも重みを読む前に止まる(`check_pool_kind`)。
+    threshold_sweep_arm = declared_threshold_sweep_arm(config)
     if args.dry_run:
         if args.run_dir is not None:
             # 黙って無視すると「書いたつもり」が残る。--dry-run は何も書かない。
             parser.error("--run-dir は本実行の引数である(--dry-run は何も書かない)")
-        print_dry_run(dry_run(config))
+        if threshold_sweep_arm is None:
+            print_dry_run(dry_run(config))
+        else:
+            print_threshold_sweep_dry_run(threshold_sweep_dry_run(config))
         return 0
 
-    execute(config, config_path=args.config, run_dir=args.run_dir)
+    if threshold_sweep_arm is None:
+        execute(config, config_path=args.config, run_dir=args.run_dir)
+    else:
+        execute_threshold_sweep(config, config_path=args.config, run_dir=args.run_dir)
     return 0
 
 

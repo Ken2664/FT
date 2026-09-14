@@ -5809,3 +5809,24 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - skill `handoff`: `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の閾値掃引の行を差し替えた。旧ブロックは `logs/STATE-ARCHIVE.md`「その56」へ機械的に移した(397 行 / 49.7 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない(§4.5 への異議は「次のアクション」5 に置いた)
 - 書いたもの: `plans/PLAN-026-order6b.md`(ステータス・§4.5(新)・§9 の I4 の行)/ `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/HANDOFF.md` / 本項
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-14(その57)
+
+### feat(eval): PLAN-026 I4 —— 閾値掃引(R8・S)の項目を 4 値分解を通さずに記録する経路を実装した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その56)の作業 = PLAN-026 の I4(§4.5 の配線の読みのとおりに実装)。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください」(包括の承認は無い)
+- `configs/exp_order6b_r8.yaml`(新規): pilot の config の写し。違うのは 4 欄(`experiment.id` / `eval.anchor_manifest` → `pilot_sweep_r8` / `eval.batteries: [comparison]` / **新しい鍵 `eval.threshold_sweep_arm: r8`**)。`resources.estimated_gpu_hours` は 2.5 のまま(順6b 全体の悲観側。新しい数を作っていない)。LF・UTF-8(`cp` してから Edit)
+- `code/eval/run.py`:
+  - 宣言と種類の検査: `declared_threshold_sweep_arm` / `read_pool_manifest` / `is_threshold_sweep_pool` / `refuse_declared_threshold_sweep` / `check_pool_kind`(両方向)。`load_pool_items` を `_read_pool_items(threshold_sweep=...)` に分けた
+  - 固定オフセットの経路: `dry_run`・`load_pool_items` が宣言を拒む。`execute` は **`prepare_run_dir` の前に**宣言とプールの種類を見る(これまでは重みを読み run ディレクトリを作った後に `evaluate_pool` で初めて項目を読んでいた)
+  - 掃引の経路(**`classify`・`metrics_by_reference_rule`・`response_builder` を呼ばない**): `load_threshold_sweep_pool`(manifest の fill と config の照合・併合セルの組み直しと照合・項目ごとの群 / 組 / θ / T = t + θ・完全性)/ `threshold_sweep_prompts` / `threshold_sweep_record` / `evaluate_threshold_sweep` / `threshold_sweep_payload`(`kind: threshold_sweep`。率を 1 つも出さない)/ `threshold_sweep_report_lines` / `execute_threshold_sweep` / `threshold_sweep_dry_run` / `print_threshold_sweep_dry_run`
+  - `main` は `eval.threshold_sweep_arm` で `--dry-run` と本実行の両方を振り分ける
+  - 共有のために出した小さな関数: `forced_choice_block`(`metrics_payload` から)/ `run_header_lines`・`forced_choice_lines`(`report_lines` から)。`pool_record` は `read_pool_manifest` を使う
+  - **HANDOFF の設計から変えた所**(PLAN-026 §4.5 の「実装」に記録): 文面の組み立てを run ディレクトリの前に出したので `evaluate_threshold_sweep(pool, *, prompts, scorer)` / `load_pool_items` も宣言を拒む / dry-run の定数の答えの対数尤度は 0 と −inf
+- 手元で確かめたこと(GPU 0): `python -m code.eval.run --config configs/exp_order6b_r8.yaml --dry-run` が通る(8,160 項目 = 12 × 2 × 17 × 20。組合せ論的な件数)/ R8 の config で preflight の data_checks 7 件 PASS / pilot の config の `--dry-run` は固定オフセットの経路で 1,640 項目 / R8 の config を `eval_pool.build` に渡すと群の宣言で止まる(config 冒頭の注記のとおり)
+- テスト: `code/tests/test_threshold_sweep_run.py`(新規 24)。R8 8,160 行(logp が採点器の値そのもの・`answer` は判定規則のまま = 同点は No)/ `kind` と `_rate` の鍵が無いこと / 12 × 2 × 17 × 20 / 固定オフセットの 4 入口が 3 通りの食い違いで止まり run ディレクトリを作らない / 掃引の経路が 7 通りの食い違いで止まり採点器を呼ばない / S 2,400 行 / `main` の振り分け / B0 の dry-run / R8 の config の差分 4 欄と data_checks。
+  **変異を 3 つ注入し(固定オフセットの向きの検査を外す / 完全性を外す / 同点を Yes に倒す)、それぞれ狙ったテストだけが落ちることを確かめた**(scratchpad の pytest プラグイン。repo には置いていない)
+- `pytest code/tests -q` → **1106 passed**(1082 → +24)
+- 書いたもの: `configs/exp_order6b_r8.yaml` / `code/eval/run.py` / `code/tests/test_threshold_sweep_run.py` / `plans/PLAN-026-order6b.md`(ステータス・§4.5 の「実装」・§9 の I4 の行)/ 本項
+- **やっていないこと**: I5(当てはめ。前に「階段の位置」の定義を PLAN-026 §3.2.1 に書く)/ 上位 k の欄(I10)/ (d) の S の T1b への絞り方(I8)/ S の config(I6・I8)/ main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

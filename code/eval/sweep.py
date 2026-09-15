@@ -88,6 +88,7 @@ from code.eval.model import (
     declared_adapter,
     load_generation_settings,
 )
+from code.eval.preamble import PREAMBLE_KEY, declared_preamble
 from code.eval.run import NO_ADAPTER_NOTE, parse_numeric_response, prediction_record
 from code.eval.scoring import RateBreakdown, aggregate, score, validate_reference_rule
 from code.lesion import Lesion, reference_lesions_from_config
@@ -589,6 +590,22 @@ def reject_declared_adapter(config: Mapping[str, Any]) -> None:
         )
 
 
+def reject_declared_preamble(config: Mapping[str, Any]) -> None:
+    """① の前置きを宣言した config で桁数掃引を回さない(PLAN-026 §4.7 読み7)。
+
+    答える問い: 「この掃引は、config が宣言した文面で尋ねたか」
+
+    **桁数掃引は前置きを実装していない**(文面を組むのは `magnitude_sweep` で、
+    `code/eval/run.py` の `render_prompts` を通らない)。黙って前置き無しで回すと、
+    config は「前置きを置く」と書いているのに置いていない run が残る。
+    """
+    if declared_preamble(config) is not None:
+        raise ConfigError(
+            f"{PREAMBLE_KEY} が宣言されているが、桁数掃引は前置きを実装していない"
+            "(① の前置きは順6b の評価の経路 = code/eval/run.py だけ。PLAN-026 I6)。"
+        )
+
+
 def total_items(results: Sequence[RadiusResult]) -> int:
     """掃引全体で解いた項目数。
 
@@ -786,6 +803,7 @@ def execute(
     """
     settings = load_generation_settings(config)
     reject_declared_adapter(config)
+    reject_declared_preamble(config)
     plan = magnitude_sweep.load_sweep_plan(config)
     shell = magnitude_sweep.load_shell_plan(config, plan)
     started = now or utc_now()
@@ -847,6 +865,7 @@ def dry_run_summary(config: Mapping[str, Any]) -> dict[str, Any]:
     **correct_rate は出ない。**ここに出るのは組合せ論的な計数であって
     実験結果ではない(CLAUDE.md §2)。2 本の腕の両方を組む(ADR-071)。
     """
+    reject_declared_preamble(config)
     plan = magnitude_sweep.load_sweep_plan(config)
     shell = magnitude_sweep.load_shell_plan(config, plan)
     pool_id = require(config, "data.pool_id")

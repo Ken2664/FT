@@ -5864,3 +5864,26 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   旧ブロックは `logs/STATE-ARCHIVE.md`「その58」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。399 行 / 52 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I6・I7)向けに書き直した。**仕様の穴を見つけたら実装せず PLAN に書いて人間に聞く**と書いた
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-15(その59)
+
+### feat(eval): PLAN-026 I6・I7 —— ① の前置き(`eval.preamble`)を全群の文面の先頭に置く経路と、前置きのある run の preflight 検査6 を実装した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その58)の作業 = PLAN-026 の I6・I7。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- **仕様の穴を 1 つ見つけて聞いた**: 固定オフセットの ① の run(①-bin 960 + ①-num 480)はパイロット用プール 1,640 項目のうち 3 群(比較・T1・T2)だけを解くが、`run.py` の `_read_pool_items` は `eval.batteries` の外の群(指示付き T1 80・特異性 120)があると止める。
+  選択式で聞き、**人間の回答は「I8 で (d) と一緒に決める」(推奨)**(他の選択肢: 今回、群単位の絞りを足す / ① は 5 群すべてに置く)。**固定オフセットの ① の config は I8 で作る**。PLAN-026 §4.7 と §9 の I8 の行に書いた
+- 先に読みを PLAN-026 §4.7(新)に書いた(人間が覆せる): 読み1 鍵 = 行のリスト・文面は config に置く / 読み2 連結 = 並べた行 + 空行 + 各群の文面、被せる場所は `run.render_prompts` の 1 か所 / 読み3 並び = `sha256(canonical_json(["preamble_order", item_id])) mod n!` の辞書順 /
+  読み4 `metrics.json` の `preamble` 欄はすべての run で置く(無ければ null)/ 読み5 S-① は 1 本の config、S-(d) は別の config になるので §10・§11 の run 数は 6 → 7(項目・回は 15,626 のまま)/ 読み6 検査6 は前置きのある run で SKIP(訓練側は検査して FAIL しうる)/ 読み7 桁数掃引は前置きを拒む・`aggregate.py`・`frame.py` は前置きを見ない(I11)
+- **実装の前に**、前置きの無い文面の sha256 を今のコードで取った(パイロット用プール 1,640・R8 8,160・S 2,400。scratchpad のスクリプト。**文面の畳み値であって実験結果ではない**)→ テストに固定し、実装の後も 1 バイトも変わらないことを確かめた
+- `code/eval/preamble.py`(新規): `declared_preamble`(空・文字列でない行・改行を含む行・重複で止める)/ `n_orders` / `nth_order`(階乗進法。`itertools.permutations` の辞書順と同じ)/ `order_index` / `preamble_text` / `with_preamble`(無ければそのまま返す)/ `preamble_sha256` / `preamble_record` / `preamble_line`
+- `code/eval/run.py`: `render_prompts`(新)を `dry_run`・`evaluate_pool`・`threshold_sweep_prompts` の 3 か所で使う / `metrics_payload`・`threshold_sweep_payload` に `preamble` 欄 / dry-run の報告 2 つに `preamble` / `run_header_lines` に 1 行(6 → 7 行)/ `execute` は run ディレクトリの前に宣言を読む。`code/eval/sweep.py`: `reject_declared_preamble`(`execute`・`dry_run_summary`)
+- `infra/preflight.py`: 検査6 を `_train_format_problems`(訓練側)と比較に分け、`check_format_hash_without_anchor`(前置きのある run。SKIP + 理由、訓練側が破れていれば FAIL)・`format_hash_result`(宣言で振り分け。壊れた宣言は FAIL)を足した。**前置きの無い run の検査6 は変わらない**
+- `configs/exp_order6b_s_preamble.yaml`(新規): R8 の config の写しで、違うのは 4 欄(`experiment.id` / `eval.anchor_manifest` → S / `eval.threshold_sweep_arm: s` / `eval.preamble` = ADR-079 決定3 の 4 行)。手元で `--dry-run` が通り(2,400 項目)、data_checks は 6 PASS + 検査6 SKIP
+- 気づいたこと(記録): 作業ツリーの `infra/preflight.py` は全行 CRLF だった(`.gitattributes` の `eol=lf` で index は LF のため `git status` は clean)。編集の前後で LF に揃えた(内容の差分は本項の変更だけ)
+- テスト: `code/tests/test_preamble.py`(新規 40)。並びの辞書順・回帰値・連結の文字列・壊れた宣言 8 通り / config の行が ADR と一致・S-① と R8 の差 4 欄・前置きを宣言する config は S-① だけ / 前置きの無い文面が実装の前と同じ sha256 / 全 5 群で「前置き + 空行 + 元の文面」/ T3・T1b・T1・T2 のそれぞれで 24 通りすべてが出る / 掃引の経路にも同じ前置き / R8 の 240 項目で両経路の並びが同じ /
+  固定オフセットと掃引の本実行(差し替えた生成器・採点器)でモデルに渡る文面・predictions の prompt・metrics.json・log.txt / dry-run / 壊れた宣言は run ディレクトリの前に止まる / 桁数掃引が拒む / preflight の 5 通り。
+  **変異を 10 個注入し、それぞれ `test_preamble.py` が落ちることを確かめた**(scratchpad のスクリプト。終わった後にファイルが元と一致することを確かめた)
+- `pytest code/tests -q` → **1184 passed**(1144 → +40)
+- 書いたもの: `code/eval/preamble.py` / `code/eval/run.py` / `code/eval/sweep.py` / `infra/preflight.py` / `configs/exp_order6b_s_preamble.yaml` / `code/tests/test_preamble.py` / `plans/PLAN-026-order6b.md`(ステータス・§4.7(新)・§9 の I6・I7・I8)/ 本項
+- **やっていないこと**: 固定オフセットの ① の config(I8。3 群への絞り方)/ I8〜I12 / §10・§11 の run 数の書き換え(承認を求めるときに直す)/ §5 の凍結(tag)/ main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

@@ -49,6 +49,11 @@ config から来る —— **ここで既定のモデル名や生成設定を作
 `yes_logp` / `no_logp` を `predictions/threshold_sweep.<タスク型>.jsonl` に書く(率は出さない)。
 **経路は宣言で決め、anchor の manifest の中身から推測しない。**宣言と manifest の `fill.method` が
 食い違えば、両方向とも重みを読む前・run ディレクトリを作る前に止める(`check_pool_kind`)。
+
+**① の前置き**(★2026-09-15。PLAN-026 I6・§4.7)。config が `eval.preamble` を宣言していれば、
+`render_prompts` が**全群の文面の先頭に**前置きを置く(並びは項目ごとに `item_id` のハッシュ。
+`code/eval/preamble.py`)。両方の経路の文面はすべて `render_prompts` を通り、前置きが無ければ
+1 バイトも変わらない。`metrics.json` の `preamble` 欄は前置きの無い run でも null で置く。
 """
 
 from __future__ import annotations
@@ -114,6 +119,7 @@ from code.eval.model import (
 from code.eval.parsers import boolean as boolean_parser
 from code.eval.parsers import cot as cot_parser
 from code.eval.parsers import numeric as numeric_parser
+from code.eval.preamble import declared_preamble, preamble_line, preamble_record, with_preamble
 from code.eval.scoring import (
     Answer,
     ItemResponse,
@@ -234,6 +240,27 @@ def load_group_templates(
     if group == numeric_sum.GROUP_BARE_SUM_INSTRUCTED:
         return numeric_sum.instructed_sum_templates(config)
     return load_templates(template_set, group)
+
+
+def render_prompts(
+    config: Mapping[str, Any], group: str, items: Sequence[Item], *, template_set: str
+) -> dict[str, str]:
+    """この群の項目の文面(item_id -> chat template の内側に入る文字列)。
+
+    答える問い: 「この run で、この群の各項目はどんな文字列で尋ねられるか」
+
+    **文面を組む場所はここ 1 つである。**固定オフセットの経路(`dry_run`・`evaluate_pool`)と
+    閾値掃引の経路(`threshold_sweep_prompts`)がすべてここを通る —— ① の前置き(PLAN-026 I6)が
+    被さる場所を経路ごとに持つと、配線確認で見た文面と本実行の文面が割れる(§4.5 読み4)。
+    **前置きが無ければ `RENDERERS` の出力をそのまま返す**(1 バイトも変えない。§4.7 読み2)。
+    """
+    templates = load_group_templates(config, group, template_set)
+    render = RENDERERS[group]
+    lines = declared_preamble(config)
+    return {
+        item.item_id: with_preamble(render(item, templates), lines, item.item_id)
+        for item in items
+    }
 
 
 def dry_run_entries_by_group(config: Mapping[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
@@ -617,11 +644,16 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         config, batteries, lesions=lesions, specificity_lesions=specificity_lesions
     )
 
-    report: dict[str, Any] = {"n_items": 0, "items_source": source, "prompts": [], "by_batch": {}}
+    report: dict[str, Any] = {
+        "n_items": 0,
+        "items_source": source,
+        "preamble": preamble_record(declared_preamble(config)),
+        "prompts": [],
+        "by_batch": {},
+    }
     for group in batteries:
         items = items_by_group[group]
-        templates = load_group_templates(config, group, template_set)
-        prompts = {item.item_id: RENDERERS[group](item, templates) for item in items}
+        prompts = render_prompts(config, group, items, template_set=template_set)
         report["n_items"] += len(items)
         report["prompts"].extend(prompts[item.item_id] for item in items)
         for name, batch_rule, batch_items in scoring_batches(
@@ -1036,8 +1068,7 @@ def evaluate_pool(
     results: list[BatchResult] = []
     for group in batteries:
         group_items = [item for item in items if item.group == group]
-        templates = load_group_templates(config, group, template_set)
-        prompts = {item.item_id: RENDERERS[group](item, templates) for item in group_items}
+        prompts = render_prompts(config, group, group_items, template_set=template_set)
         for name, batch_rule, batch_items in scoring_batches(
             group_items, group, reference_rule=reference_rule, main_radius=main_radius
         ):
@@ -1179,12 +1210,17 @@ def metrics_payload(
     coverage: Mapping[str, Any],
     timing: Mapping[str, Any],
     adapter: Mapping[str, Any],
+    preamble: Mapping[str, Any] | None,
     forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None,
 ) -> dict[str, Any]:
     """metrics.json の中身を組む。
 
     答える問い: 「この4値分解が、どの重みの、どの設定の、どの項目集合から
     出たかを、この1ファイルだけで言えるか」
+
+    `preamble` は ① の前置きの記録(`code/eval/preamble.py` の `preamble_record`。PLAN-026 I6)。
+    **前置きの無い run でも欄を置き、値を null にする** —— 欄が無いと「前置きが無かった」のか
+    「この記録が入る前の run」なのかを区別できない(§4.7 読み4)。
 
     `lesion_condition` と `adapter` を並べて書く理由は NO_ADAPTER_NOTE。
     `adapter` は `adapter_provenance` が組む(`seed` もそこから来る。ADR-043 決定3)。
@@ -1215,6 +1251,7 @@ def metrics_payload(
         "generation": settings.as_dict(),
         "elicitation": require(config, "eval.elicitation"),
         "primary_reference_rule": require(config, "eval.reference_rule"),
+        "preamble": preamble,
         "pool": {**pool, "n_items": total_items(results)},
         "coverage": dict(coverage),
         "timing": timing,
@@ -1244,12 +1281,12 @@ def forced_choice_block(
 
 
 def run_header_lines(payload: Mapping[str, Any]) -> list[str]:
-    """log.txt の先頭の 6 行(どの run が、どの重みで、何件を解いたか)。
+    """log.txt の先頭の 7 行(どの run が、どの重みで、どの文面で、何件を解いたか)。
 
     答える問い: 「この実行は、どの重みの、どの設定で、どの項目集合を解いたのか」
 
     固定オフセットの経路(`report_lines`)と閾値掃引の経路(`threshold_sweep_report_lines`)が
-    共有する。アダプタ無しの注記(NO_ADAPTER_NOTE)は必ずここに出る。
+    共有する。アダプタ無しの注記(NO_ADAPTER_NOTE)と前置きの有無(PLAN-026 I6)は必ずここに出る。
     """
     generation = payload["generation"]
     return [
@@ -1263,6 +1300,7 @@ def run_header_lines(payload: Mapping[str, Any]) -> list[str]:
         f"lesion.condition: {payload['lesion_condition']} / seed: {payload['seed']} / "
         f"adapter: {payload['adapter']}",
         f"注意: {payload['adapter_note']}",
+        preamble_line(payload["preamble"]),
         f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",
     ]
 
@@ -1353,6 +1391,8 @@ def execute(
     # 生成を始めると、GPU 時間を使ってから metrics.json の段で落ちる。
     pool = pool_record(config, pool_items_path(config))
     coverage = coverage_record(config)
+    # 前置きの宣言も同じ(PLAN-026 I6)。文面を組むのは evaluate_pool = 重みを読んだ後である
+    preamble = preamble_record(declared_preamble(config))
     started = now or utc_now()
     run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
@@ -1396,6 +1436,7 @@ def execute(
             generation_seconds=generation_seconds,
             n_items=total_items(results),
         ),
+        preamble=preamble,
         forced_choice_candidates=forced_choice_candidates,
     )
     write_metrics(target, payload)
@@ -1606,19 +1647,20 @@ def threshold_sweep_prompts(config: Mapping[str, Any], pool: ThresholdSweepPool)
 
     答える問い: 「掃引の項目は、固定オフセットの比較項目と同じ文面の出どころで尋ねられるか」
 
-    文面は固定オフセットの経路と**同じ関数**で組む(`load_group_templates` + `RENDERERS`)。
+    文面は固定オフセットの経路と**同じ関数**で組む(`render_prompts`)。
     ① の前置き(I6)や (d) のテンプレート(I8)が被さる場所を 2 つにしない(PLAN-026 §4.5 読み4)。
-    **重みを読む前に呼ぶ** —— テンプレートの欠けや引き出し方の食い違いで、run ディレクトリを
-    作った後に止まらないようにする。
+    **重みを読む前に呼ぶ** —— テンプレートの欠けや引き出し方の食い違い・壊れた前置きの宣言で、
+    run ディレクトリを作った後に止まらないようにする。
     """
     reject_unsupported_elicitation(
         require(config, "eval.elicitation"), list(require(config, "eval.batteries"))
     )
-    templates = load_group_templates(
-        config, t3_comparison.GROUP, require(config, "data.eval_template_set")
+    return render_prompts(
+        config,
+        t3_comparison.GROUP,
+        pool.items,
+        template_set=require(config, "data.eval_template_set"),
     )
-    render = RENDERERS[t3_comparison.GROUP]
-    return {item.item_id: render(item, templates) for item in pool.items}
 
 
 def threshold_sweep_record(
@@ -1721,6 +1763,7 @@ def threshold_sweep_payload(
     coverage: Mapping[str, Any],
     timing: Mapping[str, Any],
     adapter: Mapping[str, Any],
+    preamble: Mapping[str, Any] | None,
     forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None,
 ) -> dict[str, Any]:
     """閾値掃引の run の metrics.json を組む。**率を 1 つも出さない。**
@@ -1728,9 +1771,10 @@ def threshold_sweep_payload(
     答える問い: 「この掃引の記録が、どの重みの、どの設定の、どの項目集合の、どの θ から
     出たかを、この 1 ファイルだけで言えるか」
 
-    来歴(`generation`・`adapter`・`pool`・`coverage`・`timing`・`forced_choice`)は固定オフセットの
-    経路と同じ関数で組む。`threshold_sweep` 欄は腕・θ の水準・タスク型・極性・組の数・元の
-    評価プールの `pairs_hash`・(併合セル × 極性 × θ)ごとの件数・predictions のファイルごとの行数。
+    来歴(`generation`・`adapter`・`pool`・`coverage`・`timing`・`forced_choice`・`preamble`)は
+    固定オフセットの経路と同じ関数で組む(`preamble` は前置きの無い run でも null で置く)。
+    `threshold_sweep` 欄は腕・θ の水準・タスク型・極性・組の数・元の評価プールの `pairs_hash`・
+    (併合セル × 極性 × θ)ごとの件数・predictions のファイルごとの行数。
     """
     fill = pool.manifest["fill"]
     return {
@@ -1743,6 +1787,7 @@ def threshold_sweep_payload(
         "adapter_train_run_id": adapter["train_run_id"],
         "adapter_note": adapter["note"],
         "generation": settings.as_dict(),
+        "preamble": preamble,
         "pool": {**pool_block, "n_items": count_records(records)},
         "coverage": dict(coverage),
         "timing": timing,
@@ -1800,6 +1845,7 @@ def execute_threshold_sweep(
     """
     pool = load_threshold_sweep_pool(config)
     prompts = threshold_sweep_prompts(config, pool)
+    preamble = preamble_record(declared_preamble(config))
     settings = load_generation_settings(config)
     adapter = adapter_provenance(
         declared_adapter(config), condition=require(config, "lesion.condition")
@@ -1845,6 +1891,7 @@ def execute_threshold_sweep(
             generation_seconds=generation_seconds,
             n_items=count_records(records),
         ),
+        preamble=preamble,
         forced_choice_candidates=forced_choice_candidates,
     )
     write_metrics(target, payload)
@@ -1902,6 +1949,7 @@ def threshold_sweep_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "n_items": len(pool.items),
         "items_source": str(pool_items_path(config)),
+        "preamble": preamble_record(declared_preamble(config)),
         "arm": pool.settings.arm,
         "threshold_offsets": list(pool.settings.offsets),
         "task_types": list(pool.settings.task_types),
@@ -1918,6 +1966,7 @@ def print_threshold_sweep_dry_run(report: Mapping[str, Any]) -> None:
     print("ここに出る数値は組合せ論的な件数であって実験結果ではない(CLAUDE.md §2)。")
     print("=" * 72)
     print(f"項目数: {report['n_items']} <- {report['items_source']}")
+    print(preamble_line(report["preamble"]))
     print(
         f"腕: {report['arm']} / θ: {report['threshold_offsets']} / "
         f"タスク型: {report['task_types']}"
@@ -1942,6 +1991,7 @@ def print_dry_run(report: Mapping[str, Any]) -> None:
     print("ここに出る数値を results/ や文書に書かないこと(CLAUDE.md §2)。")
     print("=" * 72)
     print(f"項目数: {report['n_items']}")
+    print(preamble_line(report["preamble"]))
     for name, batch in report["by_batch"].items():
         print(f"[{name}] group={batch['group']} reference_rule={batch['reference_rule']}")
         for prompt in batch["prompts"]:

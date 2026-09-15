@@ -707,20 +707,17 @@ def check_matched_stream(manifests: Mapping[str, dict[str, Any]]) -> CheckResult
     )
 
 
-def check_format_hash(
-    manifests: Mapping[str, dict[str, Any]], anchor: Mapping[str, Any]
-) -> CheckResult:
-    """書式ハッシュが全条件と評価アンカーで一致するか(§4.8.1 検査6)。
+def _train_format_problems(
+    manifests: Mapping[str, dict[str, Any]],
+) -> tuple[list[str], str | None]:
+    """訓練側の書式の問題(記録の古さ・条件間の食い違い)と、揃っていればその format_hash。
 
-    答える問い: 「訓練と評価が、同じ1文字単位の書式を使っているか」
+    答える問い: 「全条件の FT データは、同じ1文字単位の書式で作られたと記録されているか」
 
     記録値をそのまま信じず prompt_format から再計算する。生成後に
     prompt_format を手で書き換えても format_hash は追随しないので、
     **記録が古いこと自体を検出する**必要がある。
     """
-    empty = _no_manifests("format hash", manifests)
-    if empty is not None:
-        return empty
     ft_data, _ = _repo_modules()
     problems: list[str] = []
     for condition, manifest in sorted(manifests.items()):
@@ -734,12 +731,96 @@ def check_format_hash(
     shared = set(recorded.values())
     if len(shared) != 1:
         problems.append(f"条件間で書式が違う: {recorded}")
-    else:
+        return problems, None
+    return problems, next(iter(shared))
+
+
+def check_format_hash(
+    manifests: Mapping[str, dict[str, Any]], anchor: Mapping[str, Any]
+) -> CheckResult:
+    """書式ハッシュが全条件と評価アンカーで一致するか(§4.8.1 検査6)。
+
+    答える問い: 「訓練と評価が、同じ1文字単位の書式を使っているか」
+
+    **前置きを宣言した run はここを通らない**(`check_format_hash_without_anchor`。PLAN-026 I7)。
+    """
+    empty = _no_manifests("format hash", manifests)
+    if empty is not None:
+        return empty
+    problems, train_hash = _train_format_problems(manifests)
+    if train_hash is not None:
         anchor_hash = anchor["prompt_format"].get("format_hash")
-        train_hash = next(iter(shared))
         if anchor_hash != train_hash:
             problems.append(f"評価アンカーと書式が違う: anchor={anchor_hash} train={train_hash}")
     return _verdict("format hash", problems, f"{len(manifests)} 条件 + アンカーで一致")
+
+
+def _preamble_module() -> Any:
+    """① の前置きの宣言を読むモジュールを遅延 import する(PLAN-026 I7)。
+
+    答える問い: 「preflight は、本実行と**同じ**読み方で前置きの宣言を読めるか」
+
+    遅延にする理由は `_repo_modules` と同じ。**本実行と同じ関数を呼ぶ** —— preflight が
+    別の読み方をすると、壊れた宣言が preflight を通って本実行で落ちる(あるいは逆)。
+    """
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from code.eval import preamble  # noqa: PLC0415
+
+    return preamble
+
+
+def check_format_hash_without_anchor(
+    manifests: Mapping[str, dict[str, Any]], preamble_sha256: str
+) -> CheckResult:
+    """前置きを宣言した run の検査6(PLAN-026 I7・§4.7 読み6)。**アンカーとの比較は行わない。**
+
+    答える問い: 「前置きのある run で、訓練側の書式は揃っているか」
+
+    前置きのある T1 は訓練の書式(`a+b=`)と 1 文字も違わない文面ではなくなるので、
+    **この run の T1 は評価アンカーでない**(PLAN-026 §8 の注記 4)。プールの manifest の書式は
+    B0 と同じままなので、比べれば PASS になる —— それは「訓練と評価が同じ書式」という
+    嘘の報告である。よってアンカーとの比較は「対象が存在しない」= SKIP にし、そう書く。
+    **訓練側の書式の検査はそのまま行い、破れていれば FAIL**(SKIP で隠さない)。
+    """
+    name = "format hash"
+    empty = _no_manifests(name, manifests)
+    if empty is not None:
+        return empty
+    problems, train_hash = _train_format_problems(manifests)
+    if problems:
+        return _verdict(name, problems, "")
+    return CheckResult(
+        name,
+        Status.SKIP,
+        f"評価アンカーとの比較は対象外: この run は eval.preamble(sha256 {preamble_sha256[:12]})を"
+        "宣言しており、前置きのある T1 は評価アンカーでない(PLAN-026 I7・§8 の注記 4)。"
+        f"訓練側の書式は {len(manifests)} 条件で一致 @ {str(train_hash)[:12]}",
+    )
+
+
+def format_hash_result(
+    config: Mapping[str, Any], manifests: Mapping[str, dict[str, Any]]
+) -> CheckResult:
+    """検査6 を、この run の宣言(① の前置きの有無)に合わせて行う(PLAN-026 I7)。
+
+    答える問い: 「この run の T1 は評価アンカーか。そうなら訓練の書式と一致しているか」
+
+    **前置きの無い run は今までどおりアンカーと比べる**(B0・R8・本番の検査6 は変わらない)。
+    宣言が壊れていれば FAIL にする(preflight ごと落とさず、どの検査が止めたかを残す)。
+    """
+    name = "format hash"
+    preamble = _preamble_module()
+    try:
+        lines = preamble.declared_preamble(config)
+    except preamble.ConfigError as exc:
+        return CheckResult(name, Status.FAIL, f"eval.preamble の宣言を読めない: {exc}")
+    try:
+        if lines is None:
+            return check_format_hash(manifests, load_anchor_manifest(config))
+        return check_format_hash_without_anchor(manifests, preamble.preamble_sha256(lines))
+    except ManifestUnavailable as exc:
+        return CheckResult(name, exc.status, exc.detail)
 
 
 def check_coverage_k_floor(
@@ -1163,10 +1244,7 @@ def data_checks(
         floor_result = _sweep_skip("coverage_k floor")
         disjoint_result = _sweep_skip("pool disjoint")
     else:
-        try:
-            format_result = check_format_hash(manifests, load_anchor_manifest(config))
-        except ManifestUnavailable as exc:
-            format_result = CheckResult("format hash", exc.status, exc.detail)
+        format_result = format_hash_result(config, manifests)
         try:
             floor_result = check_coverage_k_floor(manifests, load_eval_cells(config))
         except ManifestUnavailable as exc:

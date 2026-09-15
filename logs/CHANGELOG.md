@@ -5887,3 +5887,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: `code/eval/preamble.py` / `code/eval/run.py` / `code/eval/sweep.py` / `infra/preflight.py` / `configs/exp_order6b_s_preamble.yaml` / `code/tests/test_preamble.py` / `plans/PLAN-026-order6b.md`(ステータス・§4.7(新)・§9 の I6・I7・I8)/ 本項
 - **やっていないこと**: 固定オフセットの ① の config(I8。3 群への絞り方)/ I8〜I12 / §10・§11 の run 数の書き換え(承認を求めるときに直す)/ §5 の凍結(tag)/ main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その59。PLAN-026 I6・I7 の区切り。次は I8 = (d) のテンプレート集合と絞り方)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 2 項目完了 + context-guard の警告 = 約 31.5 万トークンで切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、「repo の状態」に ① の前置きの行を 1 行足した。
+  旧ブロックは `logs/STATE-ARCHIVE.md`「その59」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。400 行 / 54 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I8)向けに書き直した。**絞り方(3 群 / T1b だけ)の鍵の形が決まらなければ、実装せず PLAN に案を書いて人間に聞く**と書いた
+- GPU 0・ポッドは触っていない・main の push はしていない

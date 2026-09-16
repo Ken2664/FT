@@ -41,7 +41,7 @@
 - 本番の T1b・T3・T1・T2 のテンプレート・本番 config・`data/raw/`・プールを書き換える(ADR-078 決定2)
 - Python の `Path.write_text` で `STATE.md` や config を書く(Windows で CRLF になる)。bytes で読み書きする。**長い日本語の Python を Bash の heredoc に流さない** —— Write ツールで scratchpad に書いてから実行する
 - **書き込みを伴うスクリプトは、検査をすべて済ませてから書く**。**作業ツリーの一部のファイル(`code/eval/forced_choice.py`・`engine.py`・`code/tests/test_run_real.py`・`test_forced_choice.py` ほか)は CRLF**(git は `eol=lf` で正規化する)—— バイト列で置き換えるときは改行を合わせる(その62 で 1 度一致せずに止まった)
-- Write / Edit ツールに `�` のようなエスケープを書くと実の文字になることがある(その62)。`chr(0xFFFD)` で書く
+- Write / Edit ツールに `\ufffd` のようなエスケープを書くと実の文字になることがある(その62)。`chr(0xFFFD)` で書く
 - 説明の根拠を確かめずに「原典どおり」と書く(その61)
 
 ## 未解決 / 人間の承認待ち

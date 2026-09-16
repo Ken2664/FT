@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-15(その59)/ by IMPLEMENTER (Opus)
-(**★PLAN-026 の I6・I7(① の前置き)を実装した —— 新しい鍵 `eval.preamble`(ADR-079 決定3 の 4 行)を`run.render_prompts` が全群の文面の先頭に空行を挟んで置く(並びは `item_id` のハッシュで 24 通り。`code/eval/preamble.py`)。前置きの無い run の文面は 1 バイトも変わらない(実装の前の sha256 をテストに固定)。`metrics.json` の `preamble` 欄(無ければ null)。preflight の検査6 は前置きのある run で SKIP(訓練側は検査)。S-① の config(`configs/exp_order6b_s_preamble.yaml`)。**固定オフセットの ① の config は I8**(パイロット用プールを 3 群に絞る仕方を (d) と一緒に決める = 人間の回答)。
-`pytest code/tests -q` → **1184 passed**。commit `96dcf26`。GPU 0・ポッドは触っていない。**)
+最終更新: 2026-09-16(その60)/ by IMPLEMENTER (Opus)
+(**★PLAN-026 の I8(プールの絞りと (d) のテンプレート集合)を実装した —— 新しい鍵 `eval.task_subset`(解くタスク型のリスト。ADR-082。提案 エージェント / 採択 人間)で、1 つのプールの一部だけを解く run を宣言できるようになった(`code/eval/task_subset.py`・`run.solved_pool_items` が群の門と絞りを 1 か所で持つ)。外した (群 × タスク型) と件数は `metrics.json` の `task_subset` 欄と `log.txt` に残る(宣言が無ければ null)。掃引は完全性をプール全体で確かめてから絞り、`threshold_sweep.task_types` は解いた側になる(`r8_fit` が手を入れずに読める)。(d) の文面は順6b 専用の `configs/templates/order6b_d.yaml`(**T3 を入れない**)で、config は 3 本(① 1,440 / (d) 480 / S-(d) 1,200 の dry-run が通る)。**宣言の無い run(B0・R8・S-①)の項目と文面は 1 バイトも変わらない。**
+`pytest code/tests -q` → **1224 passed**。commit `58b0c11`。GPU 0・ポッドは触っていない。**)
 
 ---
 
@@ -66,12 +66,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-09-15(その59・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-026 の I6・I7 を実装した(GPU 0。commit `96dcf26`)。**
-> - **I6・I7**: `eval.preamble` / `code/eval/preamble.py` / `run.render_prompts`(固定オフセットの 2 か所と掃引の経路が通る)/ `metrics.json`・dry-run・`log.txt` の記録 / preflight 検査6 の SKIP + 理由(`format_hash_result`)/ 桁数掃引は前置きを拒む / `configs/exp_order6b_s_preamble.yaml` / `test_preamble.py`(40)。読みは PLAN-026 §4.7(人間が覆せる)
-> - **仕様の穴 → 人間の回答**: 固定オフセットの ① の run はパイロット用プールの 3 群(比較・T1・T2)だけを解くが、`_read_pool_items` は宣言外の群を拒む → **「I8 で (d) と一緒に決める」**。S-(d) も別の config になるので §10・§11 の run 数は 6 → 7(項目・回は 15,626 のまま。§4.7 読み5)
-> - **次は I8**((d) のテンプレート集合 + **3 群・T1b だけへの絞り方を 1 つの仕組みで決める** + 固定オフセットの ① の config)→ I9((c)。**前に PLAN-025 の [11] の原典で綴りを確かめる**)→ I10・I11 → I12 → dry-run → §5 の凍結(tag)→ GPU 承認(§11)
+> **★★2026-09-16(その60・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-026 の I8 を実装した(GPU 0。commit `58b0c11`)。**
+> - **I8**: 絞りの宣言 `eval.task_subset`(ADR-082)/ `code/eval/task_subset.py` / `run.solved_pool_items`(群の門と絞りを 1 か所に集約)/ `metrics.json` の `task_subset` 欄(無ければ null)・`log.txt` は 8 行 / 掃引は完全性をプール全体で確かめてから絞る / (d) の集合 `configs/templates/order6b_d.yaml`(T3 なし)/ config 3 本(`exp_order6b_preamble.yaml`・`exp_order6b_d.yaml`・`exp_order6b_s_d.yaml`)。読みは PLAN-026 §4.8(人間が覆せる)
+> - **dry-run の件数(組合せ論的な帰結であって実験結果ではない)**: ① 1,440(比較 960 + T1 240 + T2 240)/ (d) 480 / S-(d) 1,200。preflight の data_checks は ① で 6 PASS + 検査6 SKIP(前置きがあるため)、(d)・S-(d) で 7 PASS
+> - **次は I9**((c) の内容のない入力による較正。**実装の前に PLAN-025 の [11] の原典で綴り(`N/A` / `[MASK]` / 空文字)を確かめ、食い違えば止めて人間に上げる**。ADR-079 決定7)→ I10・I11 → I12 → dry-run → §5 の凍結(tag)→ GPU 承認(§11。run 数は 7)
 >
-> **★その58 の記録は `logs/STATE-ARCHIVE.md`「その59」にある**(ADR-063 運用規約1)。
+> **★その59 の記録は `logs/STATE-ARCHIVE.md`「その60」にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -182,7 +182,8 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **1184 passed**(2026-09-15 その59 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → ~~957~~ → ~~967~~ → ~~980~~ → ~~1030~~ → ~~1049~~ → ~~1082~~ → ~~1106~~ → ~~1144~~ → **1184**(`test_preamble.py` の 40 を含む) | `code/tests/` |
+| `pytest code/tests -q` → **1224 passed**(2026-09-16 その60 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → ~~957~~ → ~~967~~ → ~~980~~ → ~~1030~~ → ~~1049~~ → ~~1082~~ → ~~1106~~ → ~~1144~~ → ~~1184~~ → **1224**(`test_task_subset.py` の 40 を含む) | `code/tests/` |
+
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **★桁数掃引は 2 本の腕を測る**(2026-09-10。ADR-071)。腕1 = `R(M)` の一様抽出(13 水準 × 200 × 5 = 13,000。**記述**。`build_items` は無変更で sha256 を回帰テストが固定)/ 腕2 = `Q(M)`(`label_main_coverage` が `extrap_magnitude` を返す組。7 水準 × 200 × 5 = 7,000。**判定の材料**)。`metrics.json` は `by_radius`(腕1)/ `grid_shell`(定義 A。記述)/ `quadrant`(腕2)/ `roles`。**config の `shell_*` が ADR-071 からの導出と食い違えば、run ディレクトリを作る前に止まる。`shell_*` の無い config(`smoke.yaml` を含む)も止まる。****`M*` は出さない** | `code/eval/battery/magnitude_sweep.py`、`code/eval/sweep.py`、`test_magnitude_sweep.py`、`test_sweep.py` |
 | **再採点の CLI が動く**(2026-09-11。PLAN-022 §5)。`python -m code.eval.rescore --source-run <run>` が回収済みの `predictions/` を現行の `numeric` パーサで読み直し、別の run(`<timestamp>_rescore_<suffix>`)に `metrics.json`(`sweep.py` と同じ 3 ブロック + `checks` + `rescore`)と `transitions.json` を書く。**C1 / C2 / C4 が外れたら何も書かずに止まる。****掃引の run 専用**(本実行の run は読めない)。**Windows では `PYTHONIOENCODING=utf-8` が要る**(標準出力の cp932 が「—」を符号化できず、最後の `print` で落ちる) | `code/eval/rescore.py`、`test_rescore.py`(13件) |
@@ -214,6 +215,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★閾値掃引(R8・S)の項目プールと記録の経路がある**(2026-09-12 その55 = PLAN-026 I3。ADR-080 決定3 / **2026-09-14 その57 = I4**)。`python -m code.data_gen.sweep_pool --config configs/exp_order6b_pilot.yaml --arm r8|s` → `data/generated/battery/pilot_sweep_r8/`(8,160 項目 = T3 4,080 + T1b 4,080・240 組)/ `pilot_sweep_s/`(2,400 項目。組は R8 と同じ・項目は R8 の部分集合)。θ の水準は pilot の config の `eval.threshold_sweep` にだけある(本番 config には無い)。組は gt・lt を併合したセル(80 組)から `sha256(["threshold_sweep", pool_seed, a, b])` の小さい順に 20。**掃引の項目は 4 値分解に入れない**(R8 の 7,200 項目は `p2` で判別できない)。**記録の経路(I4)**: `python -m code.eval.run --config configs/exp_order6b_r8.yaml [--dry-run]`(pilot の写し。差は 4 欄。**`eval.threshold_sweep_arm` の宣言で `main` が掃引の経路に回す**。manifest の中身から推測しない)→ `predictions/threshold_sweep.<タスク型>.jsonl`(項目ごとの `yes_logp` / `no_logp`・`t`・`threshold_offset`・`truth`・`answer`・併合セル)+ `metrics.json`(`kind: threshold_sweep`。**率なし**。`aggregate.py` は飛ばし `frame.py` は止まる)。**宣言と anchor のプールの種類・manifest と config・項目の欠けの食い違いは、両方の経路で重みを読む前・run ディレクトリを作る前に止まる**。R8 の config で preflight の data_checks は 7 件 PASS。S の config は未作成(I6・I8)。上位 k の欄は無い(I10)。R8 の 240 項目はパイロット用プールの固定オフセットの項目と同じ `item_id`(ADR-030 決定5)。items.jsonl は git に無い | `code/data_gen/sweep_pool.py` / `code/eval/run.py` / `test_sweep_pool.py` / `test_threshold_sweep_run.py` / `plans/PLAN-026` §4.4・§4.5 |
 | **★R8 の当てはめがある**(2026-09-14 その58 = PLAN-026 I5。ADR-081)。`python -m code.analysis.r8_fit --runs <glob> [--ident-run <run>] [--out-dir <dir>]` が掃引の run(`kind: threshold_sweep`)を読み、(タスク型 × 既知性)セルごとに揃え方 (a) の交差点(混ぜた / gt / lt。階段は `(L + U) / 2`)・極性の開き・分類ごとの除外件数・遠いオフセットの correct(θ ≤ −2 / θ ≥ +3。境界は run の config の `eval.threshold_sweep.offsets.s` から導く。**セルごとが §5 (iv) の判定の単位**)を出す。**合否は付けない(I11)**。`Δ̂` は `--ident-run` のときだけ(基準の `lesion_condition` が ident でなければ止める)。**記録が metrics.json と食い違えば止まる**。**`lesion_condition` は adapter = null の run でも config の値(pilot・R8 では p2)**なので表に adapter を並べる | `code/analysis/r8_fit.py` / `test_r8_fit.py`(38)/ `plans/PLAN-026` §3.2.1.1・§4.6 |
 | **★① の前置きの経路がある**(2026-09-15 その59 = PLAN-026 I6・I7。ADR-079 決定3)。config の `eval.preamble`(行のリスト。無い / null = なし)を `run.render_prompts` が全群の文面の先頭に置く(並べた行 + 空行 + 各群の文面。並びは `sha256(canonical_json(["preamble_order", item_id])) mod 24` の辞書順)。固定オフセットの 2 か所(`dry_run`・`evaluate_pool`)と掃引の経路が同じ関数を通る。**前置きの無い run の文面は 1 バイトも変わらない**(パイロット用プール 1,640・R8 8,160・S 2,400 の文面の sha256 をテストが固定)。`metrics.json`(両経路)・dry-run の報告に `preamble` 欄(無ければ null)、`log.txt` に 1 行。**preflight の検査6 は前置きのある run でアンカーと比べず SKIP**(訓練側の書式は検査し、破れていれば FAIL)。桁数掃引は前置きを宣言した config を拒む。config は S-① だけ(`configs/exp_order6b_s_preamble.yaml`。R8 の config との差 4 欄。2,400 項目の `--dry-run` が通り、data_checks は 6 PASS + 検査6 SKIP)。**固定オフセットの ① の config は無い**(3 群への絞り方は I8)。`aggregate.py`・`frame.py` は前置きの有無を見ない(I11) | `code/eval/preamble.py` / `code/eval/run.py` / `infra/preflight.py` / `test_preamble.py`(40)/ `plans/PLAN-026` §4.7 |
+| **★プールの一部だけを解く宣言がある**(2026-09-16 その60 = PLAN-026 I8。ADR-082)。config の `eval.task_subset`(解くタスク型のリスト。ADR-026 の水準名 + `t1_instructed`。無い / null = プール全体)を `run.solved_pool_items` が `eval.batteries` の門と一緒に掛ける —— **宣言だけが「プールに batteries の外の群がある」門を開けられる**。噛み合わない宣言(型の群が batteries に無い / batteries の群に型が無い / 型の項目がプールに無い / 特異性対照を batteries に置く)は**重みを読む前・run ディレクトリを作る前**に止まる。外した (群 × タスク型) と件数は `metrics.json` の `task_subset` 欄(無ければ null)と `log.txt` に残り、`pool.n_items` は解いた件数・`pool.items_sha256` はプールのファイル全体のまま。**掃引は完全性((併合セル × 極性 × θ))をプール全体で確かめてから絞り**、`threshold_sweep.task_types` は解いた側になる(`r8_fit` が手を入れずに読める)。桁数掃引と `eval.dry_run_items` は宣言を拒む。(d) の文面は `configs/templates/order6b_d.yaml`(**T3 を入れない**。本番の `t1b.yaml` + `t3.yaml` の末尾の一文)。config 3 本の `--dry-run` = ① 1,440 / (d) 480 / S-(d) 1,200、data_checks は ① 6 PASS + 検査6 SKIP・他 7 PASS。**宣言の無い run(B0・R8・S-①)の項目と文面は 1 バイトも変わらない** | `code/eval/task_subset.py` / `code/eval/run.py` / `configs/exp_order6b_{preamble,d,s_d}.yaml` / `test_task_subset.py`(40)/ `plans/PLAN-026` §4.8 |
 | **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済) | ポッドを立てた時点で `pip install -e .[dev]` して掛け直す |
 | **設計の主軸を機構線に寄せた。**モデル変種は原典転記、主要指標は強制選択+自由生成の併走、**G7(周期的概念への転移)を副次の最上位に追加** | **ADR-018**(2026-08-22、人間が全部承認) |
 | **訓練プロンプトは裸の式 `a+b=` 一形式。訓練域は `[1,99]^2`。被覆ラベルは4値。`K >= 560`。外挿は2分割** | **ADR-019**(同上) |
@@ -258,11 +260,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
    (経緯は `logs/STATE-ARCHIVE.md`「その33」「その34」「その40」)。
    **★`θ = 0.70` の根拠(値ではない)は依然として未記入である**(ADR-041 決定2 の要求。人間が自分で書く)
 
-2. **★2026-09-15(その59): 順6 の読みは ADR-078 で、PLAN-026(順6b)のレビューは ADR-079 で決まった。いま止めているのは順6b の実装である(I1〜I7 は済。固定オフセットの ① の config は I8)** ——
-   ~~(e) Yes/No の id の復号~~(その51)→ ~~PLAN-026 の起草~~(その52)→ ~~人間のレビュー~~(その53。ADR-079。★F141 を含む)→ ~~I1・I2 パイロット用プール~~(その54。`8e5e24f`)→ ~~I3 掃引の項目~~(その55。`36d37a5`。ADR-080)→ ~~I4 記録の経路~~(その57。`5c2e54f`。配線の読みは PLAN-026 §4.5 = その56)→ ~~I5 当てはめ~~(その58。`9776ff8`。「階段の位置」= ADR-081)→ ~~I6・I7 ① の前置き~~(その59。`96dcf26`。PLAN-026 §4.7)→ **実装 I8〜I12** → dry-run → 選び方の凍結(tag)→ GPU 承認 → 順6b → **二値群 6 セルの判断(人間)**。その後 Δ の値。**事前登録の凍結(順9)はこの後。**
-   T1・T2 の 6 セルは確定済(ADR-078 決定6)。GPU 0 で並行できるのは実装 PLAN(**F140 のパーサ + 本実行 run の再採点経路だけ**。上位 k・極性別の参照線は PLAN-026 の I10・I11 で実装する = ADR-079 決定9)と文書の追随。
-   **★順6 に残る確実な用途は Go/No-Go #0〜#3 である。**`s2_seed` は構造上出ず(F90。ADR-067 で決着済)、`s2_item` / `s2_tmpl` も出るとは言い切れない(★F104)。
-   **★F113 は ADR-069 決定2 で決着済**(Δ の 4 行は順6 を「移し替える」。残る 1 行は §6.5 の P1 から決まり順6 に依存しない。`Documents/05_STATISTICS.md` §5)
+2. **★2026-09-16(その60): 順6 の読みは ADR-078 で、PLAN-026(順6b)のレビューは ADR-079 で決まった。いま止めているのは順6b の実装である(I1〜I8 は済。次は I9 = (c) の較正)** ——
+   ~~(e) Yes/No の id の復号~~(その51)→ ~~PLAN-026 の起草~~(その52)→ ~~人間のレビュー~~(その53。ADR-079。★F141 を含む)→ ~~I1・I2 パイロット用プール~~(その54。`8e5e24f`)→ ~~I3 掃引の項目~~(その55。`36d37a5`。ADR-080)→ ~~I4 記録の経路~~(その57。`5c2e54f`。配線の読みは PLAN-026 §4.5 = その56)→ ~~I5 当てはめ~~(その58。`9776ff8`。「階段の位置」= ADR-081)→ ~~I6・I7 ① の前置き~~(その59。`96dcf26`。PLAN-026 §4.7)→ ~~I8 絞りと (d) の集合~~(その60。`58b0c11`。ADR-082。PLAN-026 §4.8)→ **実装 I9〜I12** → dry-run → 選び方の凍結(tag)→ GPU 承認 → 順6b → **二値群 6 セルの判断(人間)**。その後 Δ の値。**事前登録の凍結(順9)はこの後。**
+
 
 **そのほかに開いているもの:**
 
@@ -360,25 +360,26 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-09-15(その59・最新)。PLAN-026 の I6・I7 を実装した(`96dcf26`。① の前置き)。次は I8。**
+> **★★2026-09-16(その60・最新)。PLAN-026 の I8 を実装した(`58b0c11`。絞り `eval.task_subset` = ADR-082)。次は I9。**
 >
-> 0. ~~(e) の復号~~(その51)/ ~~PLAN-026 の起草~~(その52)/ ~~レビューを ADR に起こす~~(その53。ADR-079)/ ~~I1・I2 パイロット用プールと非交差の検査~~(その54)/ ~~I3 掃引の項目~~(その55。ADR-080)/ ~~I4 の配線の読み~~(その56。PLAN-026 §4.5)/ ~~I4 の実装~~(その57。`5c2e54f`)/ ~~I5 の当てはめ~~(その58。`9776ff8`。ADR-081)/ ~~I6・I7 ① の前置き~~(**その59。`96dcf26`。PLAN-026 §4.7**)
-> 1. **エージェント(IMPLEMENTER): PLAN-026 の I8**((d) の順6b 専用テンプレート集合(本番の `t1b.yaml` は触らない)+ **パイロット用プールを「3 群(比較・T1・T2)」と「T1b だけ」に絞る仕方を 1 つの仕組みで決める**(固定オフセット・掃引の両経路。いまの `_read_pool_items` は宣言外の群を拒む。人間の回答 = その59)+ 固定オフセットの ① の config・(d) の config・S-(d) の config)。仕組みの形が決まらなければ PLAN に案を書いて人間に聞く。
->    その後 I9((c) の較正。**実装の前に PLAN-025 の [11] の原典で綴りを確かめ、食い違えば止めて人間に上げる**。ADR-079 決定7。24 通りの並びは `preamble.nth_order` で引ける)→ I10・I11(上位 k・極性別の参照線・§5 の判定表(**(iv) はセルごと。ADR-081 決定3**)・§7 の感度の行・**① の run を B0 と混ぜない集計**)→ I12
+> 0. ~~(e) の復号~~(その51)/ ~~PLAN-026 の起草~~(その52)/ ~~レビューを ADR に起こす~~(その53。ADR-079)/ ~~I1・I2 パイロット用プールと非交差の検査~~(その54)/ ~~I3 掃引の項目~~(その55。ADR-080)/ ~~I4 の配線の読み~~(その56。PLAN-026 §4.5)/ ~~I4 の実装~~(その57。`5c2e54f`)/ ~~I5 の当てはめ~~(その58。`9776ff8`。ADR-081)/ ~~I6・I7 ① の前置き~~(その59。`96dcf26`)/ ~~I8 絞りと (d) のテンプレート集合~~(**その60。`58b0c11`。ADR-082。PLAN-026 §4.8**)
+> 1. **エージェント(IMPLEMENTER): PLAN-026 の I9**((c) の内容のない入力による較正。`calibration.json`。**実装の前に PLAN-025 の [11] の原典を開いて記号の綴り(`N/A` / `[MASK]` / 空文字)を確かめ、食い違えば止めて人間に上げる**。ADR-079 決定7 / G11。24 通りの並びは `preamble.nth_order` で引ける。真値が無いので `Item` / `classify` を通さない)。
+>    その後 I10・I11(上位 k・極性別の参照線・§5 の判定表(**(iv) はセルごと。ADR-081 決定3**)・§7 の感度の行・**① と (d) の run を B0 と混ぜない集計**)→ I12
 > 2. 実装の後: dry-run → §5 を tag で凍結 → **人間の GPU 承認(§11。run 数は 7 に直す = §4.7 読み5)** → RUNNER が順6b(停止中ポッドを再開するか新しく立てるかは起動の前に人間に確かめる。**ポッドでは pilot の items.jsonl / train.jsonl と掃引の items.jsonl を `configs/exp_order6b_pilot.yaml` 冒頭のコマンドで作り直す**)
 > 3. 並行できる GPU 0 の実装 PLAN: F140 のパーサ + 本実行 run の再採点経路(ADR-078 決定11)/ 文書の追随(`06_THREATS.md` = ★F138・★F139・PLAN-025 §3.6 / `04_EXPERIMENT_PLAN.md` #1・#3 / ADR-047 実装ノート)
 > 4. 順6b の後: **人間が二値群 6 セル・★F139 の (a)/(c)・G12・G15 を決める** → P1 の再定義・検出力分析 → Δ の 5 行(移し替え元の T2 の場面間分散は 0)→ 事前登録の凍結(順9)
-> 5. 人間: **PLAN-026 §4.7(I6・I7 の実装の読み。とくに読み6 = 前置きのある run の検査6 を SKIP にしたこと・読み5 = run 数 7)に異議があれば** / **§4.6(I5 の読み。とくに読み2)** / **§4.5(I4 の配線の読み)** / **ADR-080 決定3(包括の承認で採った)** / 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / **引用の最終確定(PLAN-025 E7。保留)** / `cost.txt`(任意)/ ADR-079 の G17 の読み(承認)に異議があれば
+> 5. 人間: **PLAN-026 §4.8(I8 の読み。とくに読み4 = `task_subset` 欄をすべての run に置くこと・読み5 = 掃引の `task_types` を解いた側にすること)に異議があれば** / **§4.7(I6・I7)/ §4.6(I5)/ §4.5(I4)** / **ADR-080 決定3(包括の承認で採った)** / 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / **引用の最終確定(PLAN-025 E7。保留)** / `cost.txt`(任意)
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-09-15(その59・最新)。IMPLEMENTER (Opus)。PLAN-026 の I6・I7(① の前置きと preflight 検査6)を実装した。GPU 0・ポッドは触っていない。**
+> **★★2026-09-16(その60・最新)。IMPLEMENTER (Opus)。PLAN-026 の I8(プールの絞り `eval.task_subset` と (d) のテンプレート集合・config 3 本)を実装した。GPU 0・ポッドは触っていない。**
 >
-> **★やったこと**: 開始手順 / skill `code-style` / 仕様の穴を 1 問(固定オフセットの ① の run の 3 群への絞り方 → 人間「I8 で (d) と一緒に決める」)/ PLAN-026 §4.7 に読み 1〜7 / 実装の前に前置きの無い文面の sha256 を取った / `code/eval/preamble.py`・`run.py`・`sweep.py`・`infra/preflight.py`・`configs/exp_order6b_s_preamble.yaml`・`test_preamble.py`(40。変異 10 個を注入して落ちることを確認)/ commit `96dcf26`。
-> **★やっていないこと**: 固定オフセットの ① の config(I8)/ I8〜I12 / §10・§11 の run 数の書き換え / §5 の凍結 / main の push(ahead のまま)。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / `plans/PLAN-026-order6b.md` §3.4・§4.5 の読み4・§4.7・§9 の I8 / 人間待ちは `logs/OPEN-ITEMS.md`。
+> **★やったこと**: 開始手順 / skill `code-style` / **絞りの宣言の形を選択式で人間に聞き、「解くタスク型を宣言」を採択(ADR-082)** / PLAN-026 §4.8 に読み 1〜8 / `code/eval/task_subset.py`・`run.py`(`solved_pool_items`・`pool_subset_record`・`ThresholdSweepPool.task_types`/`subset`)・`sweep.py`・`configs/templates/order6b_d.yaml`・config 3 本・`test_task_subset.py`(40。変異 11 個を注入して落ちることを確認)/ commit `58b0c11`。
+> **★やっていないこと**: I9〜I12 / (c) の綴りの原典確認 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push(ahead のまま)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / `plans/PLAN-026-order6b.md` §3.5・§4.8・§9 の I9 / `plans/PLAN-025-binary-methods.md` の [11] / 人間待ちは `logs/OPEN-ITEMS.md`。
+
 ---
 
 ## このファイルの運用規約(★2026-09-08 新設。ADR-063)

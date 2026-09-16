@@ -5927,3 +5927,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `code/tests/test_task_subset.py` / `code/tests/test_preamble.py` / `logs/DECISIONS.md`(ADR-082)/ `plans/PLAN-026-order6b.md`(ステータス・§4.8(新)・§9 の I8)/ 本項
 - **やっていないこと**: I9((c) の較正。**実装の前に PLAN-025 の [11] の原典で綴りを確かめる**)/ I10〜I12 / §10・§11 の run 数の書き換え(6 → 7。承認を求めるときに直す)/ §5 の凍結(tag)/ main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その60。PLAN-026 I8 の区切り。次は I9 = (c) の較正)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目完了で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、「repo の状態」に絞り(`eval.task_subset`)の行を 1 行足した。
+  旧ブロックは `logs/STATE-ARCHIVE.md`「その60」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。401 行 / 54 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I9)向けに書き直した。**実装の前に PLAN-025 [11](Zhao et al. 2021。arXiv:2102.09690)の原典で内容のない入力の綴りを確かめ、食い違えば止めて人間に聞く**と書いた
+- GPU 0・ポッドは触っていない・main の push はしていない

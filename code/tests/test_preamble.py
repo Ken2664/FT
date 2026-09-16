@@ -57,7 +57,9 @@ ADR_079_LINES = ("900>800? Yes", "250>610? No", "340<780? Yes", "920<150? No")
 
 # 前置きを宣言してよい config(順6b の ① の腕だけ。本番・pilot・R8 は持たない。ADR-078 決定2)。
 # **2026-09-16(I8)に固定オフセットの ① の config を足した**(PLAN-026 §4.8 読み7)。
-PREAMBLE_CONFIGS = {S_PREAMBLE_CONFIG.name, PREAMBLE_ARM_CONFIG.name}
+# **2026-09-16(I9)に (c) の較正の config を足した**(前置きの腕に置く。§4.9 読み2。行が同じことは
+# `test_calibration.py` が縛る)。
+PREAMBLE_CONFIGS = {S_PREAMBLE_CONFIG.name, PREAMBLE_ARM_CONFIG.name, "exp_order6b_c.yaml"}
 
 # S-① の config が R8 の config と違ってよい欄(configs/exp_order6b_s_preamble.yaml の冒頭の注記)。
 S_PREAMBLE_DIFFERING_KEYS = {

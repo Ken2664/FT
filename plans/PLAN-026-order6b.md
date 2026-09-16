@@ -8,7 +8,8 @@
   → **★2026-09-14(その57)I4 済み**(掃引項目の記録の経路。`configs/exp_order6b_r8.yaml`・`run.py` の掃引の経路。§4.5 の「実装(その57)」)。~~**次は I5**(**I5 の前に「階段の位置」の定義を §3.2.1 に書く**)~~
   → **★2026-09-14(その58)I5 済み**(「階段の位置」の定義 = §3.2.1.1。人間が確定 = ADR-081。§5 (iv) の単位 = セル。`code/analysis/r8_fit.py`。§4.6)。~~**次は I6〜I9**(①・(d)・(c)。I9 の前に (c) の綴りを原典で確かめる)~~
   → **★2026-09-15(その59)I6・I7 済み**(① の前置き `eval.preamble`・`code/eval/preamble.py`・`run.render_prompts`・preflight 検査6 の SKIP・S-① の config。§4.7)。~~**固定オフセットの ① の config は I8 で作る**(パイロット用プールを 3 群に絞る仕方を (d) と一緒に決める = 人間の回答)~~
-  → **★2026-09-16(その60)I8 済み**(絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / (d) のテンプレート集合 `configs/templates/order6b_d.yaml` / config 3 本(固定 ①・固定 (d)・S-(d))。§4.8)。**次は I9**(**前に (c) の綴りを原典で確かめる**)
+  → **★2026-09-16(その60)I8 済み**(絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / (d) のテンプレート集合 `configs/templates/order6b_d.yaml` / config 3 本(固定 ①・固定 (d)・S-(d))。§4.8)。~~**次は I9**(**前に (c) の綴りを原典で確かめる**)~~
+  → **★2026-09-16(その61)I9 済み**((c) の綴りを原典で確認 = 一致 / 空文字は literal・3 種は生の確率を平均してから正規化 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py` / `configs/exp_order6b_c.yaml`(306 件)。§3.5 の追記・§4.9)。**次は I10・I11**(上位 k・判定表)
   人間の回答は「全て推奨を採用。G6は(b)」。**~~G14 は未記入(推奨が無かった)~~ → その55 に人間が「確定」と記入(ADR-080 決定1)、G17 の承認はエージェントの読み**(ADR-079 決定10)。記入欄は §13。GPU の承認は §11 の文面で、実装・dry-run・§5 の凍結の後に別に取る
 - 正本: **ADR-078**(決定1・2・5・7・8・10)/ **ADR-079**(本 PLAN のレビュー)/ ADR-030(R8。決定6 は ADR-079 決定1 で改めた)/ PLAN-025 §3.1・§3.4・§5 / PLAN-024 §1.3・§3 D2 (c) / PLAN-001 §4.6
 - 材料: `plans/PLAN-026-materials.md`(その51。**この PLAN に写した行番号は原典を開いて照合した**。材料 §B2 に誤りが 1 つあった → §4.1)
@@ -156,9 +157,15 @@
 ### 3.5 (c) 内容のない入力による較正
 
 - 入力: 各(タスク型 × 極性 × 文面)について、テンプレートの `{a}` `{b}` `{threshold}` を内容のない記号に置き換える。**記号の案: `N/A` / `[MASK]` / 空文字の 3 種**(エージェントの案。**文献から転記したものではない**。PLAN-025 の [11] の原典で使われた綴りを実装の前に開いて確かめ、人間が確定する。G11)
+  → **★2026-09-16(その61)原典で確認済(ADR-083 決定0)**: Zhao et al. (2021) §5 "Contextual Calibration" の Implementation Details に、3 種の内容のない入力 `"N/A"`・`"[MASK]"`・空文字の確率を平均すると書かれている(**綴りは 3 種とも案と一致**)。
+  同じ節に、スロットのあるプロンプト(LAMA)では主語だけを置き換える例(`N/A was born in`)があり、**`{a}` `{b}` `{threshold}` だけを置き換える作法の前例**になる。
+  **空文字は literal に差し込む**(`+>?`・`Is the sum of  and  greater than ? ...` の二重空白を詰めない。ADR-083 決定1)
 - 件数: いまの文面(T3・T1b)12 + (d)(T1b)6 + ①(T3・T1b。並びを項目ごとに変える場合は 24 通りすべて)288 = **306 以下**
 - 記録: `yes_logp` / `no_logp`(ADR-047 実装ノートの logsumexp。同じ 12 綴り)/ 上位 k。**4 値分解は通さない**(真値が無い。`scoring.py` 82 行の `CoincidentItemError` の手前で止まる)
 - 補正は**後処理(GPU 0)**。案: 補正後の判定 = `(yes_logp − no_logp) − (cf_yes − cf_no) > 0`(`cf` は同じ(タスク型 × 極性 × 文面)の内容のない入力 3 種の平均)。**同点の扱いは ADR-047 実装ノートと同じ(No)**
+  → **★2026-09-16(その61)「3 種の平均」の中身を確定(ADR-083 決定2)**: **生の確率を記号をまたいで平均してから正規化する**(第一著者の実装 `get_p_content_free` の順。**論文本文は順を書いていない**)。
+  2 値では正規化が差で消えるので、`b = log(mean_s exp(yes_logp_s)) − log(mean_s exp(no_logp_s))`、補正後の判定 = `(yes_logp − no_logp) − b > 0`(同点は No)。
+  ~~記号ごとに正規化してから平均する~~ 読み・~~対数確率を平均する~~ 読みは採らない。実装の読みは §4.9
 - **★F138 との関係(注意)**: 較正は極性ごとに別の定数を引くので、**固定オフセットの項目の上では「gt → No / lt → Yes」の定数戦略に寄せても correct が上がる。**較正が和を読んだ結果かどうかは、同じ補正を R8 の項目に掛けた曲線で確かめる(後処理。GPU 0。§5 の条件 (iv))
 
 ### 3.6 最初の位置の上位 k の記録(ADR-078 決定5)
@@ -351,6 +358,35 @@
   手元で確かめたこと: `--dry-run` が **① 1,440 / (d) 480 / S-(d) 1,200** で通る(組合せ論的な件数)/ preflight の data_checks は ① で 6 PASS + 検査6 SKIP、(d)・S-(d) で 7 PASS / B0 1,640・R8 8,160・S-① 2,400 の文面は `test_preamble.py` の sha256 のまま(1 バイトも変わらない)。
   **変異を 11 個注入し(絞りを効かせない / 宣言の無い run の門を外す / 完全性を絞った後に見る / metrics の task_types をプール側にする / `task_subset` 欄を書かない / 掃引の forward をプール側のタスク型で回す / 宣言した型の不在を見ない / 明示リストとの同時宣言を許す / 桁数掃引が拒まない / (d) の集合に T3 を足す / 特異性対照の門を外す)、それぞれ `test_task_subset.py` が落ちることを確かめた**(scratchpad のスクリプト。終わった後にファイルが元と一致することを確かめた)。`pytest code/tests -q` → **1224 passed**(1184 → +40)
 
+### 4.9 I9 の実装で決めたこと(★2026-09-16 その61。IMPLEMENTER。**綴りの確認と 2 つの決定は ADR-083(人間が選択式で採択)。下の読み 1〜7 は実装の読みで、人間が覆せる**)
+
+- **原典の確認(ADR-079 決定7 の条件)**: §3.5 の追記のとおり。綴りは一致したので実装した。**食い違いは無かった**
+- **読み1(入口)**: **別の CLI** `python -m code.eval.calibration_run --config configs/exp_order6b_c.yaml [--dry-run | --run-dir <dir>]`。
+  (c) は評価プールを読まない(項目が無い)ので、プールの検査を持つ `code.eval.run` の経路には入れない(桁数掃引の `code.eval.sweep` と同じ扱い)。
+  **`code.eval.run`(固定オフセット・掃引の両経路)と桁数掃引は `eval.calibration` を宣言した config を重みを読む前に止め、正しい入口を名指しする**(黙って B0 をもう 1 度解かない)。
+  宣言の読み・入力・記録・後処理は `code/eval/calibration.py`(`run.py` を import しない)、重みと成果物は `code/eval/calibration_run.py`(`run.py` の来歴の関数を使う)に分けた —— `run.py` が宣言を拒むために前者を import しても循環しない
+- **読み2(宣言と config)**: `eval.calibration = {symbols, arms}`。`symbols` = 記号のリスト(config の順)、`arms` = `{name, template_set, preamble}` のリスト。
+  `configs/exp_order6b_c.yaml` は **pilot の config の写しで差は 4 欄**(`experiment.id` / `eval.batteries` = `[comparison]` / `eval.preamble`(① の config と同じ 4 行)/ `eval.calibration`)。
+  腕は **`b0`(`eval_main`・前置きなし)/ `d`(`order6b_d`・なし)/ `preamble`(`eval_main`・あり)**。各腕の文面の組が較正する run の config(pilot・`exp_order6b_d.yaml`・`exp_order6b_preamble.yaml`)の
+  `data.eval_template_set` と `eval.preamble` に一致することをテストが縛る。**R8・S-①・S-(d) は θ が違うだけで文面の組は同じなので、同じ腕の定数を使う**(§3.7「(c) には要らない」)
+- **読み3(入力)**: 腕(config の順)→ category(`t3_comparison.CATEGORY_AXES` の順のうち、テンプレート集合の `comparison` 群にあるもの)→ 並び(前置きのある腕は `nth_order` の 0〜23、無い腕は 1 つ)→ 記号(config の順)。
+  文面 = テンプレートの `str.format(a=s, b=s, threshold=s)`(literal。ADR-083 決定1)。前置きは `preamble.py` と**同じ連結**で置く(`with_preamble_order` を足し、`with_preamble` はそれを呼ぶだけにした = 連結は 1 か所。前置きの無い run の文面は変わらない)。
+  **件数 = 4×3(b0)+ 2×3(d)+ 4×24×3(preamble)= 306**(§3.5 の上限と一致)。同じ文面が 2 度出たら止める
+- **読み4(止める宣言。どれも重みを読む前・run ディレクトリを作る前)**: `symbols` が空・重複・文字列でない / `arms` が空・名前の重複・鍵の過不足・`preamble` が bool でない / 前置きの腕があるのに `eval.preamble` が無い / `eval.preamble` を宣言したのに使う腕が無い /
+  `eval.batteries` が `[comparison]` でない / `eval.task_subset`・`eval.threshold_sweep_arm` を同時に宣言 / テンプレート集合に `comparison` 群が無い・空・`CATEGORY_AXES` に無い category がある
+- **読み5(記録)**: `runs/<id>/calibration.json` = `{run_id, symbols, n_rows, rows}`。1 行 = `arm`・`template_set`・`category`・`task_type`・`polarity`・`symbol`・`preamble_order`(前置きの無い腕は null)・`prompt`・`yes_logp`・`no_logp`。
+  **率も答え(answer)も補正後の値も置かない**(真値が無い。補正は後処理)。**`predictions/` には何も書かない**(`Item` / `classify` / 4 値分解を通らない。空のディレクトリは `prepare_run_dir` が作る)。
+  `metrics.json` は **`kind: calibration`**(`aggregate.py` は飛ばし、`frame.py` は止まる)で、来歴(`generation`・`adapter`・`preamble`・`timing`・`forced_choice` の候補綴り)+ `calibration` 欄(記号・原典・腕ごとの category / 並びの数 / 行数・合計行数・後処理の定義の注記)。
+  **`preamble` 欄は ① の run と `lines`・`sha256`・`n_orders` を同じにし、`order`・`note` だけを較正の中身に差し替える**(① の欄のまま書くと「item_id のハッシュで並びを選んだ」と読め、この run では偽の記録になる)。
+  `log.txt` は来歴の行 + 前置きの 1 行 + 壁時計 + 候補綴り + 腕ごとの行数 + 注記(`run.py` の `run_header_lines` の先頭 5 行を `provenance_lines` に切り出して共有。`run_header_lines` の出力は変えない)
+- **読み6(後処理。GPU 0。ADR-083 決定2)**: `content_free_bias(rows)` = (腕 × category × 並び)ごとに `b = logmeanexp_s(yes_logp_s) − logmeanexp_s(no_logp_s)`。
+  `calibrated_answer(yes_logp, no_logp, bias)` = `(yes_logp − no_logp) − b > 0`(同点は No)。**config の記号がそろっていない鍵・同じ記号が 2 度ある鍵は止める**。
+  **判定表(§5)・R8 の項目への適用(★F138 の確認)・① の項目との突き合わせは I11**(ここでは関数と単体テストだけ)
+- **読み7(① の並び)**: ① の run の項目は `order_index(item_id, 4)` 番目の並びで尋ねられる(§4.7)。**較正の定数も並びごとに持ち、I11 は項目ごとにその並びの `b` を引く**(§3.5 の「24 通りすべて」の趣旨)。並びをまたいで平均した `b` は作らない
+- **実装(★2026-09-16 その61。上の読み 1〜7 のとおり。CPU のみ・GPU 0)**: `code/eval/calibration.py`(新規。宣言・入力・記録・後処理)/ `code/eval/calibration_run.py`(新規。別の CLI)/ `code/eval/preamble.py`(`with_preamble_order`。`with_preamble` はそれを呼ぶだけ)/ `code/eval/run.py`(`refuse_declared_calibration` を固定オフセットの `dry_run`・`load_pool_items`・`execute` と掃引の `load_threshold_sweep_pool` に・`provenance_lines`)/ `code/eval/sweep.py`(`reject_declared_calibration`)/ `configs/exp_order6b_c.yaml`(新規)/ `code/tests/test_calibration.py`(新規 65)/ `code/tests/test_preamble.py`(`PREAMBLE_CONFIGS` に (c) の config)。
+  手元で確かめたこと: `python -m code.eval.calibration_run --config configs/exp_order6b_c.yaml --dry-run` が **306 件(b0 12 / d 6 / preamble 288)**で通る(組合せ論的な件数)。空文字の入力は `+>?`・`Is the sum of  and  greater than ? Answer Yes or No.`。
+  **変異を 16 個注入し(空白を詰める / 偏りを対数確率の平均にする / 同点を Yes にする / 並びを 0 だけにする / 固定オフセットの dry_run・掃引のプール・桁数掃引が較正を拒まない / 使われない前置きを通す / 群の宣言を見ない / 行に答えを足す / 前置きの記録を ① のまま書く / 絞りとの同時宣言を許す / 偏りで記号の重複を見ない / kind を評価 run にする / 連結を ① と別に書く / 記号の重複を許す)、それぞれ `test_calibration.py` が落ちることを確かめた**(最初は 2 個がすり抜けた —— 記号の重複のテストが記号の欠けで先に止まっていた / 明示リストの dry-run を試していなかった。テストを直した。scratchpad のスクリプト。終わった後にファイルが元と一致することを確かめた)。`pytest code/tests -q` → **1289 passed**(1224 → +65)
+
 ---
 
 ## 5. 選び方(**回す前に書く**。PLAN-025 §3.4 (f)、`plans/PLAN-025-binary-methods.md` 185〜188 行)
@@ -438,7 +474,7 @@
 | I6 | 前置き(①) | 新しい鍵(例 `eval.preamble`)。**`eval.few_shot_k` の門(`code/eval/model.py` 150 行)は使い回さない** | 中 | 全群の入力の先頭に連結(G4)/ 並びのハッシュ(G3)/ `metrics.json` に前置きの有無と sha256。**✅ 済(2026-09-15 その59。`eval.preamble`・`code/eval/preamble.py`・`run.render_prompts`・`configs/exp_order6b_s_preamble.yaml`・`test_preamble.py`。§4.7)。固定オフセットの ① の config は I8(3 群への絞り方)** |
 | I7 | preflight 検査6 と前置き | `infra/preflight.py` | 小 | 前置きのある run は「アンカーでない」と宣言して検査6 の比較から外し、その旨を記録する(案)。前置きの無い T1 のアンカーは変えない。**✅ 済(その59。前置きのある run は SKIP + 理由。訓練側の書式は検査して破れていれば FAIL。§4.7 読み6)** |
 | I8 | (d) のテンプレート集合 | `configs/templates/`(順6b 専用) | config のみ | 本番の `t1b.yaml` は触らない。**★その59 追記: 固定オフセットの ① の run(比較・T1・T2)も、パイロット用プールの 5 群のうち 3 群に絞る必要がある(`_read_pool_items` は宣言外の群を拒む)。絞り方は (d)(T1b だけ。固定 480・S 1,200)と 1 つの仕組みで決め、① の config もここで作る(人間の回答。§4.7)**。**✅ 済(2026-09-16 その60。絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / `configs/templates/order6b_d.yaml` / config 3 本。§4.8)** |
-| I9 | (c) の内容のない入力の forward | 小さな新規関数(`scorer_from_model` / `collect_forced_choices` を流用)/ `calibration.json` | 小 | 真値が無いので `Item` / `classify` を通さない |
+| I9 | (c) の内容のない入力の forward | 小さな新規関数(`scorer_from_model` / `collect_forced_choices` を流用)/ `calibration.json` | 小 | 真値が無いので `Item` / `classify` を通さない。**✅ 済(2026-09-16 その61。綴りは原典と一致・空文字と平均の順 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py`(別の CLI)/ `configs/exp_order6b_c.yaml` / `test_calibration.py`。§4.9)** |
 | I10 | 上位 k の記録 | `code/eval/forced_choice.py` の `_score_batch`(357 行)・`ForcedChoice`(72 行)/ `run.py` の `prediction_record`(736 行)・`metrics_payload`(1053 行) | 中 | **判定は触らない**。STATE「次のアクション」3 の並行 PLAN と同じ変更 —— **どちらの PLAN で実装するかを決め、二重に実装しない**(G16)→ **★本 PLAN で実装する(ADR-079 決定9。I11 の極性別の参照線も同じ)** |
 | I11 | 順6b の集計 | `gonogo.py` の #1〜#3 をパイロットの run に / 極性別の参照線(ADR-078 決定7 (b)。これも並行 PLAN と同じ)/ §5 の判定表 / §7 の感度の行 | 中 | 判定表は §5 を機械的に当てるだけ。**解釈はしない** |
 | I12 | テスト | 上のすべて | — | `pytest code/tests -q`。前置きの連結・並びのハッシュ・掃引の件数(8,160 / 3,600)・揃え方の符号(§3.2.1 の算術の例をそのままテストにする)・較正の後処理・上位 k |

@@ -123,7 +123,20 @@ def with_preamble(prompt: str, lines: Sequence[str] | None, item_id: str) -> str
     """
     if lines is None:
         return prompt
-    return preamble_text(lines, order_index(item_id, len(lines))) + PREAMBLE_SEPARATOR + prompt
+    return with_preamble_order(prompt, lines, order_index(item_id, len(lines)))
+
+
+def with_preamble_order(prompt: str, lines: Sequence[str], index: int) -> str:
+    """`index` 番目の並びの前置きを文面の先頭に置く。
+
+    答える問い: 「並びを 1 つ決めたとき、chat template の内側に入る文字列は何か」
+
+    **前置きの連結はここ 1 か所である**(`with_preamble` はこれを呼ぶ)。(c) の較正
+    (PLAN-026 I9。`code/eval/calibration.py`)は `item_id` を持たない入力に n! 通りすべての
+    並びを置くので、並びの番号を直に渡す入口が要る。連結を較正の側に書き写すと、
+    ① の run が尋ねた文面と較正した文面が黙って割れうる(§4.9 読み3)。
+    """
+    return preamble_text(lines, index) + PREAMBLE_SEPARATOR + prompt
 
 
 def preamble_sha256(lines: Sequence[str]) -> str:

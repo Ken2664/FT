@@ -81,6 +81,7 @@ from code.config import ConfigError, load_config, require
 from code.data_gen.battery_items import Item
 from code.eval.battery import magnitude_sweep, numeric_sum
 from code.eval.battery.magnitude_sweep import ShellPlan, SweepPlan
+from code.eval.calibration import CALIBRATION_KEY, declared_calibration
 from code.eval.generate import Generator, build_generator, collect_responses
 from code.eval.model import (
     ADAPTER_KEY,
@@ -607,6 +608,21 @@ def reject_declared_preamble(config: Mapping[str, Any]) -> None:
         )
 
 
+def reject_declared_calibration(config: Mapping[str, Any]) -> None:
+    """(c) の較正を宣言した config で桁数掃引を回さない(PLAN-026 §4.9 読み1)。
+
+    答える問い: 「この掃引は、config が宣言した run の種類か」
+
+    較正の入口は `code/eval/calibration_run.py` である。黙って掃引を回すと、config は
+    「内容のない入力を尋ねる」と書いているのに数値の項目を解いた run が残る。
+    """
+    if declared_calibration(config) is not None:
+        raise ConfigError(
+            f"{CALIBRATION_KEY} が宣言されているが、桁数掃引は較正を解かない"
+            "(入口は python -m code.eval.calibration_run。PLAN-026 I9)。"
+        )
+
+
 def reject_declared_task_subset(config: Mapping[str, Any]) -> None:
     """タスク型の絞りを宣言した config で桁数掃引を回さない(PLAN-026 §4.8 読み8)。
 
@@ -819,6 +835,7 @@ def execute(
     """
     settings = load_generation_settings(config)
     reject_declared_adapter(config)
+    reject_declared_calibration(config)
     reject_declared_preamble(config)
     reject_declared_task_subset(config)
     plan = magnitude_sweep.load_sweep_plan(config)
@@ -882,6 +899,7 @@ def dry_run_summary(config: Mapping[str, Any]) -> dict[str, Any]:
     **correct_rate は出ない。**ここに出るのは組合せ論的な計数であって
     実験結果ではない(CLAUDE.md §2)。2 本の腕の両方を組む(ADR-071)。
     """
+    reject_declared_calibration(config)
     reject_declared_preamble(config)
     reject_declared_task_subset(config)
     plan = magnitude_sweep.load_sweep_plan(config)

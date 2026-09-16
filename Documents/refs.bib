@@ -153,7 +153,11 @@
   source_url = {https://arxiv.org/abs/2102.09690},
   note      = {GPT-3 の few-shot 精度はプロンプト書式・例の選択・例の順序で近乱数〜SOTA まで振れる。
                content-free 入力(“N/A”)への予測から偏りを推定し補正する contextual calibration を提案。
-               著者名は arXiv abs では Tony Z. Zhao 表記(検索結果の Zihao は誤り)。}
+               著者名は arXiv abs では Tony Z. Zhao 表記(検索結果の Zihao は誤り)。
+               2026-09-16 追記(ADR-083 決定0): §5 Contextual Calibration の Implementation Details は
+               3 種の content-free 入力 "N/A"・"[MASK]"・空文字の確率を平均すると書く。LAMA では主語だけを
+               置き換える(N/A was born in)。3 種を正規化の前後どちらで平均するかは本文に無い
+               (第一著者の実装 get_p_content_free は生の確率を平均してから正規化する)。}
 }
 
 @inproceedings{lu2022fantastically,

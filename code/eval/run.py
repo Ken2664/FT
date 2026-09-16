@@ -100,6 +100,7 @@ from code.data_gen.hashing import sha256_file
 from code.data_gen.pool import ANSWER_IN, ANSWER_OUT, Pair, label_answer_range
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.battery.build import build_items_from_entries, entries_by_group
+from code.eval.calibration import CALIBRATION_KEY, declared_calibration
 from code.eval.engine import build_engines
 from code.eval.forced_choice import (
     FORCED_CHOICE_SURFACES,
@@ -644,6 +645,7 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     **閾値掃引を宣言した config は受け付けない**(PLAN-026 §4.5)。掃引の配線確認は
     `threshold_sweep_dry_run` であり、`main` が宣言を見てそちらに回す。
     """
+    refuse_declared_calibration(config)
     refuse_declared_threshold_sweep(config)
     batteries = list(require(config, "eval.batteries"))
     unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
@@ -803,6 +805,21 @@ def is_threshold_sweep_pool(manifest: Mapping[str, Any]) -> bool:
     return fill.get("method") == sweep_pool.FILL_THRESHOLD_SWEEP
 
 
+def refuse_declared_calibration(config: Mapping[str, Any]) -> None:
+    """(c) の較正を宣言した config を、評価プールを解く経路(固定オフセット・掃引)の入口で止める。
+
+    答える問い: 「この入口は、この config が宣言した run の種類を解く経路か」
+
+    較正の run は評価プールを読まない(PLAN-026 §4.9 読み1)。較正の config はパイロット用
+    プールを指す pilot の写しなので、止めなければ B0 をもう 1 度黙って解いてしまう。
+    """
+    if declared_calibration(config) is not None:
+        raise ConfigError(
+            f"この config は (c) の較正の run を宣言している({CALIBRATION_KEY})。評価プールを解く"
+            "この経路では回さない —— 入口は python -m code.eval.calibration_run(PLAN-026 §4.9 読み1)。"
+        )
+
+
 def refuse_declared_threshold_sweep(config: Mapping[str, Any]) -> None:
     """掃引を宣言した config を、固定オフセットの経路(4 値分解)の入口で止める。
 
@@ -858,6 +875,7 @@ def load_pool_items(config: Mapping[str, Any]) -> list[Item]:
     **掃引を宣言した config も、掃引のプールも受け付けない**
     (PLAN-026 §4.5。掃引の経路は `load_threshold_sweep_pool`)。
     """
+    refuse_declared_calibration(config)
     refuse_declared_threshold_sweep(config)
     return solved_pool_items(config, _read_pool_items(config, threshold_sweep=False))
 
@@ -1360,6 +1378,22 @@ def run_header_lines(payload: Mapping[str, Any]) -> list[str]:
     共有する。アダプタ無しの注記(NO_ADAPTER_NOTE)・前置きの有無(PLAN-026 I6)・
     絞りの有無(同 I8)は必ずここに出る。
     """
+    return [
+        *provenance_lines(payload),
+        preamble_line(payload["preamble"]),
+        subset_line(payload["task_subset"]),
+        f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",
+    ]
+
+
+def provenance_lines(payload: Mapping[str, Any]) -> list[str]:
+    """log.txt の来歴の 5 行(どの run が、どの重みで、どの設定で回ったか)。
+
+    答える問い: 「この実行は、どの重みの、どの設定で回ったのか」
+
+    評価プールを解く 2 経路(`run_header_lines`)と、プールを読まない (c) の較正
+    (`code/eval/calibration_run.py`。PLAN-026 §4.9 読み5)が共有する。
+    """
     generation = payload["generation"]
     return [
         f"run_id: {payload['run_id']}",
@@ -1372,9 +1406,6 @@ def run_header_lines(payload: Mapping[str, Any]) -> list[str]:
         f"lesion.condition: {payload['lesion_condition']} / seed: {payload['seed']} / "
         f"adapter: {payload['adapter']}",
         f"注意: {payload['adapter_note']}",
-        preamble_line(payload["preamble"]),
-        subset_line(payload["task_subset"]),
-        f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",
     ]
 
 
@@ -1454,6 +1485,7 @@ def execute(
     (PLAN-026 §4.5)。項目を初めて読むのは `evaluate_pool` —— 重みを読み、run ディレクトリを
     作った後である。そこで止まると、中身の無い run ディレクトリと GPU 時間が残る。
     """
+    refuse_declared_calibration(config)
     refuse_declared_threshold_sweep(config)
     check_pool_kind(config, read_pool_manifest(config), threshold_sweep=False)
     settings = load_generation_settings(config)
@@ -1678,6 +1710,7 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
     **完全性はプール全体で確かめてから絞る**(PLAN-026 §4.8 読み3)—— プールのファイルは
     タスク型を全部解く run(S-①)が読むものと同一で、`items_sha256` もファイル全体の畳み値である。
     """
+    refuse_declared_calibration(config)
     arm = declared_threshold_sweep_arm(config)
     if arm is None:
         raise ConfigError(

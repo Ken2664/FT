@@ -5934,3 +5934,39 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   旧ブロックは `logs/STATE-ARCHIVE.md`「その60」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。401 行 / 54 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I9)向けに書き直した。**実装の前に PLAN-025 [11](Zhao et al. 2021。arXiv:2102.09690)の原典で内容のない入力の綴りを確かめ、食い違えば止めて人間に聞く**と書いた
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-16(その61)
+
+### feat(eval): PLAN-026 I9 —— (c) 内容のない入力による較正の入力・記録・後処理と、較正の run の入口(`code.eval.calibration_run`)・config を実装した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その60)の作業 = PLAN-026 の I9。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- **実装の前に原典を確かめた(ADR-079 決定7 の条件)**: Zhao et al. (2021)(arXiv:2102.09690。本文は ar5iv の HTML 版)§5 Contextual Calibration の Implementation Details に、3 種の内容のない入力 `"N/A"`・`"[MASK]"`・空文字の確率を平均すると書かれている。
+  **エージェントの案と綴りが一致した**ので実装に進んだ。同じ節の LAMA の例(主語だけを置き換える `N/A was born in`)が、`{a}` `{b}` `{threshold}` だけを置き換える作法の前例になる
+- **人間に選択式で 2 点を聞いた = ADR-083**(提案 エージェント / 採択 人間):
+  決定1 空文字は literal に差し込む(`+>?`・二重空白を詰めない。推奨)/
+  決定2 3 種は**生の確率を平均してから正規化**する(`b = logmeanexp(yes) − logmeanexp(no)`。推奨)
+- **★聞き直しの記録**: 最初の選択式でエージェントは「記号ごとに正規化してから平均」を「原典どおり」と説明し、人間はそれを選んだ。ADR に書く前に確かめたところ、**論文本文は正規化と平均の順を書いておらず、第一著者の実装(`tonyzhaozh/few-shot-learning` の `get_p_content_free`)は生の確率を平均してから正規化していた**。
+  説明の誤りを人間に伝えて聞き直し、回答は「生の確率を平均してから正規化(公式実装どおり)」。ADR-083 決定2 はこの回答である
+- 先に PLAN-026 §3.5 に「原典で確認済」と 2 つの決定を追記し、§4.9(新)に実装の読み 1〜7 を書いた(人間が覆せる):
+  読み1 入口は別の CLI(評価プールを読まない。`code.eval.run` の両経路と桁数掃引は較正の config を重みを読む前に止め、正しい入口を名指しする)/
+  読み2 宣言 `eval.calibration = {symbols, arms}`・config は pilot の写しで差 4 欄・腕の文面の組は較正する run の config と一致(テストが縛る)/
+  読み3 入力 = 腕 → category → 並び → 記号、前置きの連結は ① と同じ関数、306 件 / 読み4 止める宣言 / 読み5 記録の形 / 読み6 後処理の関数 / 読み7 `b` は並びごとに持つ
+- `code/eval/calibration.py`(新規。`run.py` を import しない): `declared_calibration`(壊れた宣言・前置きの宣言と腕の噛み合わせ・`eval.batteries` が `[comparison]` でない、で止める)/ `content_free_prompt`(literal)/ `arm_categories` / `calibration_inputs`(同じ文面が重なれば止める)/
+  `calibration_row`・`calibration_rows`(率・答え・補正後の値を置かない)/ `calibration_block` / `calibration_preamble_record`(① の欄と `lines`・`sha256` を同じにし、`order`・`note` だけを差し替える —— そのまま書くと「item_id のハッシュで並びを選んだ」と読める)/
+  `content_free_bias`(ADR-083 決定2。記号の欠け・重複・有限でない偏りで止める)/ `calibrated_answer`(同点は No)
+- `code/eval/calibration_run.py`(新規): `load_calibration_plan`(`eval.task_subset`・`eval.threshold_sweep_arm` との同時宣言も止める)/ `score_calibration`(`collect_forced_choices` を通す)/ `execute_calibration`(検査はすべて run ディレクトリと重みの前)/ `calibration_dry_run` / `main`
+- `code/eval/preamble.py`: `with_preamble_order` を足し、`with_preamble` はそれを呼ぶだけにした(前置きの連結は 1 か所。前置きの無い run・① の run の文面は変わらない —— `test_preamble.py` の sha256 のまま)
+- `code/eval/run.py`: `refuse_declared_calibration`(固定オフセットの `dry_run`・`load_pool_items`・`execute` と掃引の `load_threshold_sweep_pool`)/ `run_header_lines` の先頭 5 行を `provenance_lines` に切り出した(出力は変えない)。`code/eval/sweep.py`: `reject_declared_calibration`
+- `configs/exp_order6b_c.yaml`(新規): pilot の config の写しで差は 4 欄(`experiment.id` / `eval.batteries` = `[comparison]` / `eval.preamble`(① と同じ 4 行)/ `eval.calibration`)
+- 手元で確かめたこと(**組合せ論的な件数であって実験結果ではない**): `python -m code.eval.calibration_run --config configs/exp_order6b_c.yaml --dry-run` が **306 件(b0 12 / d 6 / preamble 288)**で通る。空文字の入力は `+>?`・`Is the sum of  and  greater than ? Answer Yes or No.` のとおり
+- テスト: `code/tests/test_calibration.py`(新規 65)。記号が原典の 3 種 / literal の差し込み / config の差 4 欄・前置きの行・腕と較正する run の config の一致・較正を宣言するのはこの config だけ / 306 件と腕ごとの件数・category・24 通りの並び・① と同じ連結・入力の重複 /
+  壊れた宣言 / 記録の欄(率・答えを持たない)・本数の食い違い / 本実行の成果物(`calibration.json`・`metrics.json` の `kind`・前置きの欄・`log.txt`・`predictions/` が空)/ `aggregate.py` は飛ばし `frame.py` は止まる / dry-run /
+  評価プールの経路・明示リストの dry-run・桁数掃引が較正の config を拒む / `run_header_lines` が 8 行のまま / **偏りが「生の確率の平均」で、「記号ごとに正規化してから平均」・「対数確率の平均」と違う値になること** / 並びごとの偏り / 質量の倍率に依らないこと / 同点は No。
+  `code/tests/test_preamble.py` の `PREAMBLE_CONFIGS` に (c) の config を足した。
+  **変異を 16 個注入し、それぞれ `test_calibration.py` が落ちることを確かめた**(最初の注入で 2 個がすり抜けた —— 記号の重複のテストが記号の欠けで先に止まっていた / 明示リストの dry-run の拒否を試していなかった。テストを直して 16 個とも落ちることを確かめた。scratchpad のスクリプト。終わった後にファイルが元と一致することを確かめた)
+- `pytest code/tests -q` → **1289 passed**(1224 → +65)
+- `Documents/refs.bib`: `zhao2021calibrate` の注記に 3 種と節・正規化の順が本文に無いこと・実装の順を足した(書誌は 2026-09-12 に確認済みのまま)
+- 書いたもの: `code/eval/calibration.py` / `code/eval/calibration_run.py` / `code/eval/preamble.py` / `code/eval/run.py` / `code/eval/sweep.py` / `configs/exp_order6b_c.yaml` / `code/tests/test_calibration.py` / `code/tests/test_preamble.py` /
+  `logs/DECISIONS.md`(ADR-083)/ `plans/PLAN-026-order6b.md`(ステータス・§3.5 の追記・§4.9(新)・§9 の I9)/ `Documents/refs.bib` / 本項
+- **やっていないこと**: I10(上位 k)/ I11(判定表・補正を順6b の項目と R8 に掛ける経路)/ I12 / §10・§11 の run 数の書き換え(6 → 7。承認を求めるときに直す。**(c) は 1 run で数えてある**)/ §5 の凍結(tag)/ main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

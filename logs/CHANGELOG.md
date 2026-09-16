@@ -6007,3 +6007,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: 上記のコードと config / `code/tests/test_top_k.py` ほかテスト 8 本 / `logs/DECISIONS.md`(ADR-084)/ `plans/PLAN-026-order6b.md`(ステータス・§4.10(新)・§9 の I10)/ `STATE.md` / 本項
 - **やっていないこと**: I11(判定表・極性別の参照線・(c) の補正を順6b の項目と R8 に掛ける経路・質量の行き先の表)/ I12 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その62。PLAN-026 I10 の区切り。次は I11 = 順6b の集計)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目完了と context-guard の警告(約 341k)で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、「repo の状態」に上位 k の行を 1 行足した。
+  旧ブロックは `logs/STATE-ARCHIVE.md`「その62」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。検査をすべて済ませてから 1 度だけ書いた)→ 398 行 / 58 KB。`test_repo_hygiene.py` 7 passed。人間待ちの索引は変えていない
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I11 = 順6b の集計。**最初に分け方を決めて 1 つ目だけを仕上げる**)向けに書き直した。**読みを §4.11 に先に書き、形が複数ありうる所は選択式で人間に聞く**と書いた
+- GPU 0・ポッドは触っていない・main の push はしていない

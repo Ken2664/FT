@@ -6145,3 +6145,52 @@ PLAN-026 はレビュー済み・実装待ち。G14 は未記入(推奨が無か
 **★順4 を塞いでいるのは `M*`(順5)であって人間の未決ではない**(`arbitrary_table` /
 `train_size` / `coverage_k` の 3 件は 2026-09-02 に ADR-050 で決着済)。
 **訂正の経緯は `logs/STATE-ARCHIVE.md` §11。**
+
+## ★2026-09-16(その62)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その62 の IMPLEMENTER が `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替えたときに、ここへ機械的に移した(1 文字も削っていない。scratchpad のスクリプトで STATE.md から切り出した文字列をそのまま移した)。「repo の状態」には上位 k の行を 1 行足した(置き換えではない)。
+
+### 冒頭の「最終更新」(その61)
+
+最終更新: 2026-09-16(その61)/ by IMPLEMENTER (Opus)
+(**★PLAN-026 の I9((c) 内容のない入力による較正)を実装した —— 実装の前に Zhao et al. (2021) §5 の原典で記号の綴り(`N/A`・`[MASK]`・空文字)が案と一致することを確かめ、人間が選択式で 2 点を決めた(ADR-083: **空文字は literal に差し込む** / **3 種は生の確率を平均してから正規化する**。後者はエージェントの説明の誤りを訂正して聞き直した回答)。較正の run は評価プールを読まない別の入口 `python -m code.eval.calibration_run`(`code/eval/calibration.py`・`calibration_run.py`)で、`configs/exp_order6b_c.yaml`(pilot の写し・差 4 欄)の dry-run が **306 件**(b0 12 / d 6 / preamble 288)で通る。記録は `calibration.json`(入力ごとの `yes_logp` / `no_logp`)と `metrics.json`(`kind: calibration`。率なし)。`code.eval.run` の両経路と桁数掃引は較正の config を重みを読む前に止める。**前置きの無い run・① の run の文面は 1 バイトも変わらない。**
+`pytest code/tests -q` → **1289 passed**。commit `4d80fcb`。GPU 0・ポッドは触っていない。**)
+
+### 「いま何をしているか」(その61)
+
+> **★★2026-09-16(その61・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-026 の I9 を実装した(GPU 0。commit `4d80fcb`)。**
+> - **原典の確認(ADR-079 決定7 の条件)**: 綴りは一致(ADR-083 決定0)。§5 の LAMA の例(主語だけを置き換える)が、スロットだけを置き換える作法の前例
+> - **人間の決定(ADR-083)**: 決定1 空文字は literal(`+>?`・二重空白を詰めない)/ 決定2 `b = logmeanexp_s(yes_logp) − logmeanexp_s(no_logp)`(第一著者の実装の順。**論文本文は順を書いていない**)・判定 `(yes − no) − b > 0`・同点は No
+> - **I9**: `code/eval/calibration.py`(宣言・入力・記録・後処理。`run.py` を import しない)/ `code/eval/calibration_run.py`(別の CLI)/ `preamble.with_preamble_order`(連結は 1 か所)/ `run.refuse_declared_calibration`・`run.provenance_lines`・`sweep.reject_declared_calibration` / `configs/exp_order6b_c.yaml`。読みは PLAN-026 §4.9(人間が覆せる)
+> - **dry-run の件数(組合せ論的な帰結であって実験結果ではない)**: 306(b0 = `eval_main` の T3・T1b 4 × 記号 3 / d = `order6b_d` の T1b 2 × 3 / preamble = `eval_main` 4 × 並び 24 × 3)
+> - **次は I10・I11**(上位 k・極性別の参照線・§5 の判定表・補正を順6b の項目と R8 に掛ける経路)→ I12 → dry-run → §5 の凍結(tag)→ GPU 承認(§11。run 数は 7)
+>
+> **★その60 の記録は `logs/STATE-ARCHIVE.md`「その61」にある**(ADR-063 運用規約1)。
+
+### 「repo の状態」の pytest の行(その61)
+
+| `pytest code/tests -q` → **1289 passed**(2026-09-16 その61 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → ~~957~~ → ~~967~~ → ~~980~~ → ~~1030~~ → ~~1049~~ → ~~1082~~ → ~~1106~~ → ~~1144~~ → ~~1184~~ → ~~1224~~ → **1289**(`test_calibration.py` の 65 を含む) | `code/tests/` |
+
+### 「現在のブロッカー」の 2 の先頭 2 行(その61)
+
+2. **★2026-09-16(その61): 順6 の読みは ADR-078 で、PLAN-026(順6b)のレビューは ADR-079 で決まった。いま止めているのは順6b の実装である(I1〜I9 は済。次は I10・I11 = 上位 k・判定表)** ——
+   ~~(e) Yes/No の id の復号~~(その51)→ ~~PLAN-026 の起草~~(その52)→ ~~人間のレビュー~~(その53。ADR-079。★F141 を含む)→ ~~I1・I2 パイロット用プール~~(その54。`8e5e24f`)→ ~~I3 掃引の項目~~(その55。`36d37a5`。ADR-080)→ ~~I4 記録の経路~~(その57。`5c2e54f`。配線の読みは PLAN-026 §4.5 = その56)→ ~~I5 当てはめ~~(その58。`9776ff8`。「階段の位置」= ADR-081)→ ~~I6・I7 ① の前置き~~(その59。`96dcf26`。PLAN-026 §4.7)→ ~~I8 絞りと (d) の集合~~(その60。`58b0c11`。ADR-082。PLAN-026 §4.8)→ ~~I9 (c) の較正~~(その61。`4d80fcb`。ADR-083。PLAN-026 §4.9)→ **実装 I10〜I12** → dry-run → 選び方の凍結(tag)→ GPU 承認 → 順6b → **二値群 6 セルの判断(人間)**。その後 Δ の値。**事前登録の凍結(順9)はこの後。**
+
+### 「次のアクション」(その61)
+
+> **★★2026-09-16(その61・最新)。PLAN-026 の I9 を実装した(`4d80fcb`。(c) の較正 = ADR-083)。次は I10・I11。**
+>
+> 0. ~~(e) の復号~~(その51)/ ~~PLAN-026 の起草~~(その52)/ ~~レビューを ADR に起こす~~(その53。ADR-079)/ ~~I1・I2 パイロット用プールと非交差の検査~~(その54)/ ~~I3 掃引の項目~~(その55。ADR-080)/ ~~I4 の配線の読み~~(その56。PLAN-026 §4.5)/ ~~I4 の実装~~(その57。`5c2e54f`)/ ~~I5 の当てはめ~~(その58。`9776ff8`。ADR-081)/ ~~I6・I7 ① の前置き~~(その59。`96dcf26`)/ ~~I8 絞りと (d) のテンプレート集合~~(その60。`58b0c11`。ADR-082)/ ~~I9 (c) の較正~~(**その61。`4d80fcb`。ADR-083。PLAN-026 §4.9**)
+> 1. **エージェント(IMPLEMENTER): PLAN-026 の I10・I11**(上位 k の記録(k = 20。ADR-079 決定7。`forced_choice.py` の `_score_batch`・`ForcedChoice`、`run.py` の記録。**判定規則は変えない**)/ 極性別の参照線(ADR-078 決定7 (b))/ §5 の判定表(**(iv) はセルごと。ADR-081 決定3**)/ §7 の感度の行 / **(c) の補正を順6b の項目と R8 に掛ける経路**(`calibration.content_free_bias` / `calibrated_answer`。① の項目は `preamble.order_index(item_id, 4)` 番目の並びの `b`。PLAN-026 §4.9 読み7)/ **① と (d) と (c) の run を B0 と混ぜない集計**)。**I10 と I11 は 1 セッションに収まらない見込み —— 分けて進める**。**上位 k の記録を (c) の経路(`calibration_run.py`)にも足すか**は I10 の範囲で読む → I12
+> 2. 実装の後: dry-run → §5 を tag で凍結 → **人間の GPU 承認(§11。run 数は 7 に直す = §4.7 読み5)** → RUNNER が順6b(停止中ポッドを再開するか新しく立てるかは起動の前に人間に確かめる。**ポッドでは pilot の items.jsonl / train.jsonl と掃引の items.jsonl を `configs/exp_order6b_pilot.yaml` 冒頭のコマンドで作り直す**。**(c) の入口は `python -m code.eval.calibration_run`**)
+> 3. 並行できる GPU 0 の実装 PLAN: F140 のパーサ + 本実行 run の再採点経路(ADR-078 決定11)/ 文書の追随(`06_THREATS.md` = ★F138・★F139・PLAN-025 §3.6 / `04_EXPERIMENT_PLAN.md` #1・#3 / ADR-047 実装ノート)
+> 4. 順6b の後: **人間が二値群 6 セル・★F139 の (a)/(c)・G12・G15 を決める** → P1 の再定義・検出力分析 → Δ の 5 行(移し替え元の T2 の場面間分散は 0)→ 事前登録の凍結(順9)
+> 5. 人間: **PLAN-026 §4.9(I9 の読み。とくに読み1 = 較正を別の CLI にしたこと・読み7 = `b` を並びごとに持つこと)に異議があれば** / **§4.8(I8)/ §4.7(I6・I7)/ §4.6(I5)/ §4.5(I4)** / **ADR-080 決定3(包括の承認で採った)** / 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / **引用の最終確定(PLAN-025 E7。保留)** / `cost.txt`(任意)
+
+### 「引き継ぎ」(その61)
+
+> **★★2026-09-16(その61・最新)。IMPLEMENTER (Opus)。PLAN-026 の I9((c) 内容のない入力による較正の入力・記録・後処理と別の入口・config)を実装した。GPU 0・ポッドは触っていない。**
+>
+> **★やったこと**: 開始手順 / skill `code-style` / **原典(Zhao et al. 2021 §5)で記号の綴りを確認 = 一致** / **選択式で 2 点を聞き、空文字 literal・生の確率を平均してから正規化を採択(ADR-083)。平均の順はエージェントの説明が誤っていたので訂正して聞き直した** / PLAN-026 §3.5 の追記・§4.9 の読み 1〜7 / `code/eval/calibration.py`・`calibration_run.py`・`preamble.py`・`run.py`・`sweep.py`・`configs/exp_order6b_c.yaml`・`test_calibration.py`(65。変異 16 個を注入して落ちることを確認)/ `Documents/refs.bib` の注記 / commit `4d80fcb`。
+> **★やっていないこと**: I10〜I12 / 補正を判定表・順6b の項目・R8 に掛ける経路(I11)/ §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push(ahead のまま)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / `plans/PLAN-026-order6b.md` §3.6・§4.9・§5・§7・§9 の I10・I11 / 人間待ちは `logs/OPEN-ITEMS.md`。

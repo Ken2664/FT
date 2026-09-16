@@ -5970,3 +5970,12 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `logs/DECISIONS.md`(ADR-083)/ `plans/PLAN-026-order6b.md`(ステータス・§3.5 の追記・§4.9(新)・§9 の I9)/ `Documents/refs.bib` / 本項
 - **やっていないこと**: I10(上位 k)/ I11(判定表・補正を順6b の項目と R8 に掛ける経路)/ I12 / §10・§11 の run 数の書き換え(6 → 7。承認を求めるときに直す。**(c) は 1 run で数えてある**)/ §5 の凍結(tag)/ main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その61。PLAN-026 I9 の区切り。次は I10 = 上位 k の記録)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目完了と context-guard の警告(約 345k)で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、「repo の状態」に (c) の較正の行を 1 行足した。
+  旧ブロックは `logs/STATE-ARCHIVE.md`「その61」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した)。
+  403 行になったので、解決済みの「順4 を塞いでいるのは `M*`」の注記 3 行(`M*` は ADR-074 で決着済)も同じ節へ移した(運用規約6。削っていない)→ 399 行 / 58 KB。`test_repo_hygiene.py` 7 passed。人間待ちの索引は変えていない
+- **途中の失敗の記録**: 更新スクリプトが STATE.md を書いた後に STATE-ARCHIVE.md の末尾の改行の検査で落ち、直す手順の誤りで同じスクリプトをもう 1 度走らせた。どちらも `git checkout -- STATE.md` で HEAD に戻し、検査をすべて済ませてから書く形に直して 1 度だけ当てた
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I10 = 上位 k の記録)向けに書き直した。**読みを §4.10 に先に書き、形が複数ありうる所は選択式で人間に聞く**と書いた
+- GPU 0・ポッドは触っていない・main の push はしていない

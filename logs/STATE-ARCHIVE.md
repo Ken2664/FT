@@ -6090,3 +6090,58 @@ PLAN-026 はレビュー済み・実装待ち。G14 は未記入(推奨が無か
 > **★やったこと**: 開始手順 / skill `code-style` / 仕様の穴を 1 問(固定オフセットの ① の run の 3 群への絞り方 → 人間「I8 で (d) と一緒に決める」)/ PLAN-026 §4.7 に読み 1〜7 / 実装の前に前置きの無い文面の sha256 を取った / `code/eval/preamble.py`・`run.py`・`sweep.py`・`infra/preflight.py`・`configs/exp_order6b_s_preamble.yaml`・`test_preamble.py`(40。変異 10 個を注入して落ちることを確認)/ commit `96dcf26`。
 > **★やっていないこと**: 固定オフセットの ① の config(I8)/ I8〜I12 / §10・§11 の run 数の書き換え / §5 の凍結 / main の push(ahead のまま)。
 > **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / `plans/PLAN-026-order6b.md` §3.4・§4.5 の読み4・§4.7・§9 の I8 / 人間待ちは `logs/OPEN-ITEMS.md`。
+
+---
+
+## ★2026-09-16(その61)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その61 の IMPLEMENTER が `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替えたときに、ここへ機械的に移した(1 文字も削っていない。scratchpad のスクリプトで STATE.md から切り出した文字列をそのまま移した)。「repo の状態」には (c) の較正の行を 1 行足した(置き換えではない)。
+
+### 冒頭の「最終更新」(その60)
+
+最終更新: 2026-09-16(その60)/ by IMPLEMENTER (Opus)
+(**★PLAN-026 の I8(プールの絞りと (d) のテンプレート集合)を実装した —— 新しい鍵 `eval.task_subset`(解くタスク型のリスト。ADR-082。提案 エージェント / 採択 人間)で、1 つのプールの一部だけを解く run を宣言できるようになった(`code/eval/task_subset.py`・`run.solved_pool_items` が群の門と絞りを 1 か所で持つ)。外した (群 × タスク型) と件数は `metrics.json` の `task_subset` 欄と `log.txt` に残る(宣言が無ければ null)。掃引は完全性をプール全体で確かめてから絞り、`threshold_sweep.task_types` は解いた側になる(`r8_fit` が手を入れずに読める)。(d) の文面は順6b 専用の `configs/templates/order6b_d.yaml`(**T3 を入れない**)で、config は 3 本(① 1,440 / (d) 480 / S-(d) 1,200 の dry-run が通る)。**宣言の無い run(B0・R8・S-①)の項目と文面は 1 バイトも変わらない。**
+`pytest code/tests -q` → **1224 passed**。commit `58b0c11`。GPU 0・ポッドは触っていない。**)
+
+### 「いま何をしているか」(その60)
+
+> **★★2026-09-16(その60・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-026 の I8 を実装した(GPU 0。commit `58b0c11`)。**
+> - **I8**: 絞りの宣言 `eval.task_subset`(ADR-082)/ `code/eval/task_subset.py` / `run.solved_pool_items`(群の門と絞りを 1 か所に集約)/ `metrics.json` の `task_subset` 欄(無ければ null)・`log.txt` は 8 行 / 掃引は完全性をプール全体で確かめてから絞る / (d) の集合 `configs/templates/order6b_d.yaml`(T3 なし)/ config 3 本(`exp_order6b_preamble.yaml`・`exp_order6b_d.yaml`・`exp_order6b_s_d.yaml`)。読みは PLAN-026 §4.8(人間が覆せる)
+> - **dry-run の件数(組合せ論的な帰結であって実験結果ではない)**: ① 1,440(比較 960 + T1 240 + T2 240)/ (d) 480 / S-(d) 1,200。preflight の data_checks は ① で 6 PASS + 検査6 SKIP(前置きがあるため)、(d)・S-(d) で 7 PASS
+> - **次は I9**((c) の内容のない入力による較正。**実装の前に PLAN-025 の [11] の原典で綴り(`N/A` / `[MASK]` / 空文字)を確かめ、食い違えば止めて人間に上げる**。ADR-079 決定7)→ I10・I11 → I12 → dry-run → §5 の凍結(tag)→ GPU 承認(§11。run 数は 7)
+>
+> **★その59 の記録は `logs/STATE-ARCHIVE.md`「その60」にある**(ADR-063 運用規約1)。
+
+### 「repo の状態」の pytest の行(その60)
+
+| `pytest code/tests -q` → **1224 passed**(2026-09-16 その60 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → ~~957~~ → ~~967~~ → ~~980~~ → ~~1030~~ → ~~1049~~ → ~~1082~~ → ~~1106~~ → ~~1144~~ → ~~1184~~ → **1224**(`test_task_subset.py` の 40 を含む) | `code/tests/` |
+### 「現在のブロッカー」の 2 の先頭 2 行(その60)
+
+2. **★2026-09-16(その60): 順6 の読みは ADR-078 で、PLAN-026(順6b)のレビューは ADR-079 で決まった。いま止めているのは順6b の実装である(I1〜I8 は済。次は I9 = (c) の較正)** ——
+   ~~(e) Yes/No の id の復号~~(その51)→ ~~PLAN-026 の起草~~(その52)→ ~~人間のレビュー~~(その53。ADR-079。★F141 を含む)→ ~~I1・I2 パイロット用プール~~(その54。`8e5e24f`)→ ~~I3 掃引の項目~~(その55。`36d37a5`。ADR-080)→ ~~I4 記録の経路~~(その57。`5c2e54f`。配線の読みは PLAN-026 §4.5 = その56)→ ~~I5 当てはめ~~(その58。`9776ff8`。「階段の位置」= ADR-081)→ ~~I6・I7 ① の前置き~~(その59。`96dcf26`。PLAN-026 §4.7)→ ~~I8 絞りと (d) の集合~~(その60。`58b0c11`。ADR-082。PLAN-026 §4.8)→ **実装 I9〜I12** → dry-run → 選び方の凍結(tag)→ GPU 承認 → 順6b → **二値群 6 セルの判断(人間)**。その後 Δ の値。**事前登録の凍結(順9)はこの後。**
+
+### 「次のアクション」(その60)
+
+> **★★2026-09-16(その60・最新)。PLAN-026 の I8 を実装した(`58b0c11`。絞り `eval.task_subset` = ADR-082)。次は I9。**
+>
+> 0. ~~(e) の復号~~(その51)/ ~~PLAN-026 の起草~~(その52)/ ~~レビューを ADR に起こす~~(その53。ADR-079)/ ~~I1・I2 パイロット用プールと非交差の検査~~(その54)/ ~~I3 掃引の項目~~(その55。ADR-080)/ ~~I4 の配線の読み~~(その56。PLAN-026 §4.5)/ ~~I4 の実装~~(その57。`5c2e54f`)/ ~~I5 の当てはめ~~(その58。`9776ff8`。ADR-081)/ ~~I6・I7 ① の前置き~~(その59。`96dcf26`)/ ~~I8 絞りと (d) のテンプレート集合~~(**その60。`58b0c11`。ADR-082。PLAN-026 §4.8**)
+> 1. **エージェント(IMPLEMENTER): PLAN-026 の I9**((c) の内容のない入力による較正。`calibration.json`。**実装の前に PLAN-025 の [11] の原典を開いて記号の綴り(`N/A` / `[MASK]` / 空文字)を確かめ、食い違えば止めて人間に上げる**。ADR-079 決定7 / G11。24 通りの並びは `preamble.nth_order` で引ける。真値が無いので `Item` / `classify` を通さない)。
+>    その後 I10・I11(上位 k・極性別の参照線・§5 の判定表(**(iv) はセルごと。ADR-081 決定3**)・§7 の感度の行・**① と (d) の run を B0 と混ぜない集計**)→ I12
+> 2. 実装の後: dry-run → §5 を tag で凍結 → **人間の GPU 承認(§11。run 数は 7 に直す = §4.7 読み5)** → RUNNER が順6b(停止中ポッドを再開するか新しく立てるかは起動の前に人間に確かめる。**ポッドでは pilot の items.jsonl / train.jsonl と掃引の items.jsonl を `configs/exp_order6b_pilot.yaml` 冒頭のコマンドで作り直す**)
+> 3. 並行できる GPU 0 の実装 PLAN: F140 のパーサ + 本実行 run の再採点経路(ADR-078 決定11)/ 文書の追随(`06_THREATS.md` = ★F138・★F139・PLAN-025 §3.6 / `04_EXPERIMENT_PLAN.md` #1・#3 / ADR-047 実装ノート)
+> 4. 順6b の後: **人間が二値群 6 セル・★F139 の (a)/(c)・G12・G15 を決める** → P1 の再定義・検出力分析 → Δ の 5 行(移し替え元の T2 の場面間分散は 0)→ 事前登録の凍結(順9)
+> 5. 人間: **PLAN-026 §4.8(I8 の読み。とくに読み4 = `task_subset` 欄をすべての run に置くこと・読み5 = 掃引の `task_types` を解いた側にすること)に異議があれば** / **§4.7(I6・I7)/ §4.6(I5)/ §4.5(I4)** / **ADR-080 決定3(包括の承認で採った)** / 停止中ポッドの terminate / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / **Phase 1 本実験 40 run の GPU 構成** / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / **引用の最終確定(PLAN-025 E7。保留)** / `cost.txt`(任意)
+
+### 「引き継ぎ」(その60)
+
+> **★★2026-09-16(その60・最新)。IMPLEMENTER (Opus)。PLAN-026 の I8(プールの絞り `eval.task_subset` と (d) のテンプレート集合・config 3 本)を実装した。GPU 0・ポッドは触っていない。**
+>
+> **★やったこと**: 開始手順 / skill `code-style` / **絞りの宣言の形を選択式で人間に聞き、「解くタスク型を宣言」を採択(ADR-082)** / PLAN-026 §4.8 に読み 1〜8 / `code/eval/task_subset.py`・`run.py`(`solved_pool_items`・`pool_subset_record`・`ThresholdSweepPool.task_types`/`subset`)・`sweep.py`・`configs/templates/order6b_d.yaml`・config 3 本・`test_task_subset.py`(40。変異 11 個を注入して落ちることを確認)/ commit `58b0c11`。
+> **★やっていないこと**: I9〜I12 / (c) の綴りの原典確認 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push(ahead のまま)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / `plans/PLAN-026-order6b.md` §3.5・§4.8・§9 の I9 / `plans/PLAN-025-binary-methods.md` の [11] / 人間待ちは `logs/OPEN-ITEMS.md`。
+
+### 「現在のブロッカー」の末尾の注記(その22 以前。`M*` は ADR-074 で決着したので解決済みとして移した。運用規約6)
+
+**★順4 を塞いでいるのは `M*`(順5)であって人間の未決ではない**(`arbitrary_table` /
+`train_size` / `coverage_k` の 3 件は 2026-09-02 に ADR-050 で決着済)。
+**訂正の経緯は `logs/STATE-ARCHIVE.md` §11。**

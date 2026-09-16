@@ -285,7 +285,7 @@ def test_collect_forced_choices_passes_through() -> None:
     def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
         return [_fc(True) for _ in prompts]
 
-    assert collect_forced_choices(["a", "b", "c"], scorer) == [_fc(True)] * 3
+    assert collect_forced_choices(["a", "b", "c"], scorer, top_k=None) == [_fc(True)] * 3
 
 
 @pytest.mark.parametrize("returned", [[], [True], [True, False, True]])
@@ -296,7 +296,7 @@ def test_a_wrong_number_of_choices_stops_the_run(returned: list[bool]) -> None:
         return [_fc(answer) for answer in returned]
 
     with pytest.raises(ForcedChoiceContractError, match="2 件のプロンプト"):
-        collect_forced_choices(["a", "b"], scorer)
+        collect_forced_choices(["a", "b"], scorer, top_k=None)
 
 
 # --------------------------------------------------------------------------

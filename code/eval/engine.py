@@ -46,7 +46,7 @@ class Engines:
 
 
 def build_engines(
-    settings: GenerationSettings, *, adapter: str | None = None
+    settings: GenerationSettings, *, adapter: str | None = None, top_k: int | None
 ) -> Engines:
     """重みを1度だけ読み、生成器と強制選択採点器の両方を作る。
 
@@ -60,10 +60,13 @@ def build_engines(
     候補綴りの写像(`forced_choice_candidates`)も**ここで1度引く。**採点器が
     内部で引くものと同じトークナイザなので同じ結果になるが、記録に残すには
     採点器の外に出ている必要がある(ADR-047 実装ノート 4)。
+
+    `top_k` は上位 k の宣言(`forced_choice.declared_top_k`。None = 記録しない。PLAN-026 §4.10)。
+    **既定値を持たない** —— 呼び出し側が宣言を読み忘れて黙って記録しない、を型のうえで防ぐ。
     """
     model, tokenizer = load_model_and_tokenizer(settings, adapter=adapter)
     return Engines(
         generator=generator_from_model(model, tokenizer, settings),
-        scorer=scorer_from_model(model, tokenizer, settings),
+        scorer=scorer_from_model(model, tokenizer, settings, top_k=top_k),
         forced_choice_candidates=candidate_token_map(tokenizer),
     )

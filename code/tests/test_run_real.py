@@ -514,7 +514,7 @@ def test_metrics_records_which_spellings_were_marginalized(
         scorer=truthful_scorer(config, workspace["items"]),
         forced_choice_candidates={True: {"Yes": 9642, "YES": None}, False: {"No": 2822}},
     )
-    monkeypatch.setattr(run, "build_engines", lambda settings, adapter=None: engines)
+    monkeypatch.setattr(run, "build_engines", lambda settings, adapter=None, top_k=None: engines)
     target = run.execute(
         config, config_path=workspace["config_path"], run_dir=workspace["run_dir"]
     )
@@ -524,6 +524,8 @@ def test_metrics_records_which_spellings_were_marginalized(
         "No": {"No": 2822},
     }
     assert payload["forced_choice"]["note"] == run.FORCED_CHOICE_NOTE
+    # 上位 k を宣言していない config では null(PLAN-026 §4.10 読み7)
+    assert payload["forced_choice"]["top_k"] is None
 
 
 def test_an_explicit_scorer_is_not_overwritten_by_the_loaded_one(
@@ -545,7 +547,7 @@ def test_an_explicit_scorer_is_not_overwritten_by_the_loaded_one(
         scorer=exploding_scorer,
         forced_choice_candidates={True: {"Yes": 1}, False: {"No": 2}},
     )
-    monkeypatch.setattr(run, "build_engines", lambda settings, adapter=None: engines)
+    monkeypatch.setattr(run, "build_engines", lambda settings, adapter=None, top_k=None: engines)
     target = run.execute(
         config,
         config_path=workspace["config_path"],

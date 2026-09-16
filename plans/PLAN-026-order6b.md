@@ -9,7 +9,8 @@
   → **★2026-09-14(その58)I5 済み**(「階段の位置」の定義 = §3.2.1.1。人間が確定 = ADR-081。§5 (iv) の単位 = セル。`code/analysis/r8_fit.py`。§4.6)。~~**次は I6〜I9**(①・(d)・(c)。I9 の前に (c) の綴りを原典で確かめる)~~
   → **★2026-09-15(その59)I6・I7 済み**(① の前置き `eval.preamble`・`code/eval/preamble.py`・`run.render_prompts`・preflight 検査6 の SKIP・S-① の config。§4.7)。~~**固定オフセットの ① の config は I8 で作る**(パイロット用プールを 3 群に絞る仕方を (d) と一緒に決める = 人間の回答)~~
   → **★2026-09-16(その60)I8 済み**(絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / (d) のテンプレート集合 `configs/templates/order6b_d.yaml` / config 3 本(固定 ①・固定 (d)・S-(d))。§4.8)。~~**次は I9**(**前に (c) の綴りを原典で確かめる**)~~
-  → **★2026-09-16(その61)I9 済み**((c) の綴りを原典で確認 = 一致 / 空文字は literal・3 種は生の確率を平均してから正規化 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py` / `configs/exp_order6b_c.yaml`(306 件)。§3.5 の追記・§4.9)。**次は I10・I11**(上位 k・判定表)
+  → **★2026-09-16(その61)I9 済み**((c) の綴りを原典で確認 = 一致 / 空文字は literal・3 種は生の確率を平均してから正規化 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py` / `configs/exp_order6b_c.yaml`(306 件)。§3.5 の追記・§4.9)。~~**次は I10・I11**(上位 k・判定表)~~
+  → **★2026-09-16(その62)I10 済み**(最初の出力位置の上位 k の記録。k の置き場所・綴りの形・固定オフセットの行の欄 = ADR-084(人間が選択式で採択)/ `eval.forced_choice_top_k: 20` を順6b の config 7 本に / 3 経路の行に `top_k`・`top_k_mass`。§4.10)。**次は I11**(判定表・極性別の参照線・(c) の補正を順6b の項目と R8 に掛ける経路)
   人間の回答は「全て推奨を採用。G6は(b)」。**~~G14 は未記入(推奨が無かった)~~ → その55 に人間が「確定」と記入(ADR-080 決定1)、G17 の承認はエージェントの読み**(ADR-079 決定10)。記入欄は §13。GPU の承認は §11 の文面で、実装・dry-run・§5 の凍結の後に別に取る
 - 正本: **ADR-078**(決定1・2・5・7・8・10)/ **ADR-079**(本 PLAN のレビュー)/ ADR-030(R8。決定6 は ADR-079 決定1 で改めた)/ PLAN-025 §3.1・§3.4・§5 / PLAN-024 §1.3・§3 D2 (c) / PLAN-001 §4.6
 - 材料: `plans/PLAN-026-materials.md`(その51。**この PLAN に写した行番号は原典を開いて照合した**。材料 §B2 に誤りが 1 つあった → §4.1)
@@ -387,6 +388,41 @@
   手元で確かめたこと: `python -m code.eval.calibration_run --config configs/exp_order6b_c.yaml --dry-run` が **306 件(b0 12 / d 6 / preamble 288)**で通る(組合せ論的な件数)。空文字の入力は `+>?`・`Is the sum of  and  greater than ? Answer Yes or No.`。
   **変異を 16 個注入し(空白を詰める / 偏りを対数確率の平均にする / 同点を Yes にする / 並びを 0 だけにする / 固定オフセットの dry_run・掃引のプール・桁数掃引が較正を拒まない / 使われない前置きを通す / 群の宣言を見ない / 行に答えを足す / 前置きの記録を ① のまま書く / 絞りとの同時宣言を許す / 偏りで記号の重複を見ない / kind を評価 run にする / 連結を ① と別に書く / 記号の重複を許す)、それぞれ `test_calibration.py` が落ちることを確かめた**(最初は 2 個がすり抜けた —— 記号の重複のテストが記号の欠けで先に止まっていた / 明示リストの dry-run を試していなかった。テストを直した。scratchpad のスクリプト。終わった後にファイルが元と一致することを確かめた)。`pytest code/tests -q` → **1289 passed**(1224 → +65)
 
+### 4.10 I10 の実装で決めたこと(★2026-09-16 その62。IMPLEMENTER。**k の置き場所・綴りの形・固定オフセットの行の欄は ADR-084(人間が選択式で採択。3 点とも推奨)。下の読み 1〜8 は実装の読みで、人間が覆せる**)
+
+- **人間の選択(ADR-084)**: 決定1 **k は順6b の config 7 本にだけ置く**(本番・smoke の config は触らない。鍵の無い run は上位 k を記録しない)/
+  決定2 **綴りは `tokenizer.decode([id])` の文字列だけ**(id と logp は並べて残す)/
+  決定3 **固定オフセットの run の二値群の行に、上位 k に加えて `yes_logp` / `no_logp` の値そのものも足す**(今は応答文字列に小数 4 桁でしか残っていない)
+- **読み1(経路)**: **固定オフセット・掃引・(c) の較正の 3 経路すべてに載せる** —— ADR-079 決定7 が「強制選択のすべての forward」とし、§3.5 の (c) の記録欄が上位 k を挙げている。
+  固定オフセットの `--dry-run` は採点器を通らない(定数の答えを `to_response` に直に渡す。I10 の前から)ので、上位 k の組み立てを dry-run で通すのは掃引と較正の経路だけである
+- **読み2(宣言)**: config の `eval.forced_choice_top_k`(1 以上の整数。無い / null = 記録しない)。**名前に `forced_choice_` を付けるのは、config の注記にあるサンプリングの `top_k`(貪欲では設定しない)と取り違えないため**。
+  値 `20` を pilot と写し 6 本(`r8`・`s_preamble`・`preamble`・`d`・`s_d`・`c`)に置く —— 写しどうしの「差 N 欄」は変わらない。pilot と本番の「違ってよい欄」には、掃引の欄と同じく **pilot にだけある欄**として足す(本番 config には無いことをテストが縛る)。
+  bool・0 以下・整数でない値は**重みを読む前・run ディレクトリを作る前**に止める
+- **読み3(取り方)**: `_score_batch` の既存の log-softmax 行(`float32`)に `topk(k)`(降順)を掛けて `.tolist()` で Python の値にする。
+  **判定は既存の `choose_from_logprobs(row, candidate_ids)` を同じ行に同じ形で呼び、その結果に上位 k を後から付け足すだけ**(`dataclasses.replace`)—— `answer`・`yes_logprob`・`no_logprob` の計算経路は 1 文字も変えない。
+  torch の要らない組み立て(行ごとの判定 + 上位 k の付け足し)を `_score_batch` から関数に切り出し、手元のテストは numpy の行でそこを通す(torch と重みは手元に無い)
+- **読み4(復号)**: `tokenizer.decode([id])`(決定2)。採点器ごとに id → 文字列の写像をキャッシュする(k × forward の回数だけ復号しない)。1 バイトの断片は置換文字に潰れうるが、id が並ぶので区別できる
+- **読み5(型)**: `ForcedChoice` に `top_tokens: tuple[TopToken, ...] | None = None` を足す(**既定値があるので、既存の差し替え採点器の構築はそのまま通る**)。`TopToken = (token_id, text, logprob)`。
+  上位 k の確率の合計は記録を組むときに `Σ exp(logprob)` で出す(型に持たせない)
+- **読み6(検査)**: `collect_forced_choices(prompts, scorer, *, top_k)` が本数の検査と同じ 1 か所で「**宣言あり ⇒ すべての結果がちょうど k 個の上位を持つ / 宣言なし ⇒ どれも持たない**」を確かめる。
+  宣言したのに重みの経路で k を渡し忘れる配線の誤りを、黙って null の記録にしない(`CLAUDE.md` §7)。
+  そのため**順6b の config を差し替え採点器で回すテスト**(`test_threshold_sweep_run.py`・`test_preamble.py`・`test_task_subset.py`・`test_calibration.py`・`test_r8_fit.py`)は、採点器が上位 k を返すように直す。
+  dry-run の定数採点器は宣言された k 個の置き物を返す(**実験の値ではない**。dry-run は何も書かない)
+- **読み7(記録)**: 行の欄 `top_k` = `[{"id", "text", "logp"}, ...]`(logp の降順。k 個)/ `top_k_mass` = 上位 k の確率の合計。**宣言が無ければ両方 null**(欄は置く。「無かった」と「この記録が入る前の run」を区別する。§4.7 読み4 と同じ理由)。
+  - 掃引の行(`threshold_sweep_record`)・較正の行(`calibration_row`)に 2 欄を足す
+  - 固定オフセットの行(`prediction_record`)は **二値群(comparison)の行にだけ** `yes_logp` / `no_logp`(決定3)と 2 欄を足す。**数値群の行と、二値群の応答文字列(`Yes [forced_choice yes_logp=… no_logp=…]`)は変えない**。
+    `yes_logp` / `no_logp` は宣言の有無によらず入る(採点器が既に返している値の記録。本番 config は触らない)
+  - `metrics.json` の `forced_choice` 欄(重みを読んだ run にだけある)に `top_k`(宣言の値。無ければ null)。dry-run の報告(3 経路)にも宣言の値を置き、`log.txt` の候補綴りの行に k を添える
+- **読み8(変えないもの。テストが固定する)**: 判定規則・`answer`・`yes_logp`・`no_logp`(**同じ行から上位 k を付けても付けなくても、ビット単位で同じ**)/ 応答文字列 / 4 値分解・常答戦略の基準線 / 文面・前置き / 較正の後処理。
+  **§3.6 の用途(★F139 の質量の行き先の記述)と、それを判定表に使わないこと(ADR-079 決定5)は変えない**。集計(質量の行き先の表)は I11 以降
+- **実装(★2026-09-16 その62。上の読み 1〜8 のとおり。CPU のみ・GPU 0)**: `code/eval/forced_choice.py`(`TOP_K_KEY`・`TopToken`・`ForcedChoice.top_tokens`・`declared_top_k`・`token_text_decoder`・`top_tokens_from`・`choices_from_rows`・`check_top_tokens`・`top_k_record`・`collect_forced_choices(..., top_k=)`・`scorer_from_model` / `build_forced_choice_scorer` / `_score_batch` の `top_k`)/
+  `code/eval/engine.py`(`build_engines(..., top_k=)`。既定値なし)/ `code/eval/run.py`(`prediction_record(..., forced_choice=)` と群の検査・`evaluate_batch` / `evaluate_pool`・`threshold_sweep_record`・`evaluate_threshold_sweep`・`execute` / `execute_threshold_sweep` が宣言を run ディレクトリの前に読む・`forced_choice_block(..., top_k=)`・`forced_choice_lines`・`DRY_RUN_TOP_TOKEN`・`dry_run_forced_choice_scorer(..., top_k=)`・`top_k_line`・dry-run の報告)/
+  `code/eval/calibration.py`(`calibration_row`)/ `code/eval/calibration_run.py`(`CalibrationPlan.top_k`・採点・本実行・dry-run)/ 順6b の config 7 本 / `code/tests/test_top_k.py`(新規)。
+  既存のテストは、順6b の config を差し替え採点器で回す 5 本(`test_threshold_sweep_run.py`・`test_preamble.py`・`test_task_subset.py`・`test_calibration.py`・`test_r8_fit.py`)が `test_top_k.with_filler_top_tokens` で上位 k の置き物を返すように直し、`test_order6b_pilot.py` に pilot にだけある欄を足し、`test_forced_choice.py`・`test_run_real.py` を新しい署名に合わせた。
+  手元で確かめたこと(**組合せ論的な件数であって実験結果ではない**): 7 本の `--dry-run` の件数は変わらない(pilot 1,640 / ① 1,440 / (d) 480 / R8 8,160 / S-① 2,400 / S-(d) 1,200 / (c) 306)。7 本は「上位 k: 20」、本番 config は「記録しない」と出る。
+  **判定の不変は、torch の要らない組み立て(numpy の行)と、numpy で作った置き物の torch に `scorer_from_model` → `_score_batch` を通したものの両方で、上位 k の有無に対して answer・yes・no がビット単位で同じことを確かめた**(本物の torch と重みは手元に無い)。
+  **変異を 25 個注入し(上位 k を付けない / 降順を見ない / 宣言なしで上位を許す / collect が検査しない / 質量を logp の和にする / 固定の行に yes_logp を置かない / 群の検査をしない / 3 経路の execute が k を渡さない / metrics の top_k を null にする / bool を通す / 宣言を run ディレクトリの後で読む / 生のロジットで topk / 綴りを生のトークン記号にする / 復号をキャッシュしない / dry-run 採点器が上位を付けない / 掃引・較正の行に上位 k を置かない / 固定の dry-run が宣言を報告しない / 応答文字列を変える / 上位 k を付けると yes が丸まる / 較正の plan が宣言を読まない / 掃引の collect に k を渡さない / 行の上位 k の並びを逆にする)、それぞれ `test_top_k.py` が落ちることを確かめた**(すり抜け 0。scratchpad のスクリプト。終わった後に 4 ファイルが元のバイト列と一致することを確かめた)
+
 ---
 
 ## 5. 選び方(**回す前に書く**。PLAN-025 §3.4 (f)、`plans/PLAN-025-binary-methods.md` 185〜188 行)
@@ -475,7 +511,7 @@
 | I7 | preflight 検査6 と前置き | `infra/preflight.py` | 小 | 前置きのある run は「アンカーでない」と宣言して検査6 の比較から外し、その旨を記録する(案)。前置きの無い T1 のアンカーは変えない。**✅ 済(その59。前置きのある run は SKIP + 理由。訓練側の書式は検査して破れていれば FAIL。§4.7 読み6)** |
 | I8 | (d) のテンプレート集合 | `configs/templates/`(順6b 専用) | config のみ | 本番の `t1b.yaml` は触らない。**★その59 追記: 固定オフセットの ① の run(比較・T1・T2)も、パイロット用プールの 5 群のうち 3 群に絞る必要がある(`_read_pool_items` は宣言外の群を拒む)。絞り方は (d)(T1b だけ。固定 480・S 1,200)と 1 つの仕組みで決め、① の config もここで作る(人間の回答。§4.7)**。**✅ 済(2026-09-16 その60。絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / `configs/templates/order6b_d.yaml` / config 3 本。§4.8)** |
 | I9 | (c) の内容のない入力の forward | 小さな新規関数(`scorer_from_model` / `collect_forced_choices` を流用)/ `calibration.json` | 小 | 真値が無いので `Item` / `classify` を通さない。**✅ 済(2026-09-16 その61。綴りは原典と一致・空文字と平均の順 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py`(別の CLI)/ `configs/exp_order6b_c.yaml` / `test_calibration.py`。§4.9)** |
-| I10 | 上位 k の記録 | `code/eval/forced_choice.py` の `_score_batch`(357 行)・`ForcedChoice`(72 行)/ `run.py` の `prediction_record`(736 行)・`metrics_payload`(1053 行) | 中 | **判定は触らない**。STATE「次のアクション」3 の並行 PLAN と同じ変更 —— **どちらの PLAN で実装するかを決め、二重に実装しない**(G16)→ **★本 PLAN で実装する(ADR-079 決定9。I11 の極性別の参照線も同じ)** |
+| I10 | 上位 k の記録 | `code/eval/forced_choice.py` の `_score_batch`(357 行)・`ForcedChoice`(72 行)/ `run.py` の `prediction_record`(736 行)・`metrics_payload`(1053 行) | 中 | **判定は触らない**。STATE「次のアクション」3 の並行 PLAN と同じ変更 —— **どちらの PLAN で実装するかを決め、二重に実装しない**(G16)→ **★本 PLAN で実装する(ADR-079 決定9。I11 の極性別の参照線も同じ)** → **✅ 済(2026-09-16 その62。k の置き場所・綴りの形・固定オフセットの行の欄 = ADR-084 / 3 経路(固定オフセット・掃引・(c) の較正)の行に `top_k`・`top_k_mass`・固定オフセットの二値群の行に `yes_logp` / `no_logp` / `code/tests/test_top_k.py`。§4.10)** |
 | I11 | 順6b の集計 | `gonogo.py` の #1〜#3 をパイロットの run に / 極性別の参照線(ADR-078 決定7 (b)。これも並行 PLAN と同じ)/ §5 の判定表 / §7 の感度の行 | 中 | 判定表は §5 を機械的に当てるだけ。**解釈はしない** |
 | I12 | テスト | 上のすべて | — | `pytest code/tests -q`。前置きの連結・並びのハッシュ・掃引の件数(8,160 / 3,600)・揃え方の符号(§3.2.1 の算術の例をそのままテストにする)・較正の後処理・上位 k |
 

@@ -519,6 +519,12 @@ eval:
   # ([run:20260828_095717_smoke1b] batch 4 対 [run:20260828_100115_smoke1b_b1] batch 1)。
   # 壁時計: batch 4 = 生成 0.276s/item、batch 1 = 0.754s/item(19 項目。timing に残る)
   batch_size: 4            # [MATCHED]
+  # ★2026-09-16 追記(PLAN-026 I10。ADR-084 決定1)。**順6b の config にだけある鍵**(本番 config には無い)。
+  # 強制選択の forward ごとに、最初の出力位置の log-softmax の上位 k の (id, 復号した綴り, logp) と
+  # 上位 k の確率の合計を predictions/(較正の run は calibration.json)の行に残す。**判定には使わない**
+  # (ADR-078 決定5 / ADR-079 決定5・決定7 = k は 20)。サンプリングの top_k(貪欲では設定しない)とは別物。
+  # 無い / null = 記録しない(code/eval/forced_choice.py の declared_top_k)
+  forced_choice_top_k: 20
   # 主要評価項目は**1つだけ**(Documents/05_STATISTICS.md §2)
   primary_endpoint: null
   # T1 アンカー(PLAN-002 §5.2、PLAN-003 §4.2)の manifest。

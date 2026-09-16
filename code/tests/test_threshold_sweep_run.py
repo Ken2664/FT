@@ -39,6 +39,7 @@ from code.data_gen.hashing import sha256_file
 from code.eval import run
 from code.eval.battery import t3_comparison
 from code.eval.forced_choice import ForcedChoice, ForcedChoiceScorer, choose_from_logprobs
+from code.tests.test_top_k import with_filler_top_tokens
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PILOT_CONFIG = REPO_ROOT / "configs" / "exp_order6b_pilot.yaml"
@@ -87,6 +88,7 @@ def rule_scorer() -> tuple[ForcedChoiceScorer, dict[str, ForcedChoice]]:
     """判定規則(`choose_from_logprobs`)で答えを決める採点器と、返した値の控え(プロンプト -> 結果)。
 
     対数尤度はプロンプトの順に変わる値で、`TIE_EVERY` 項目に 1 つは同点にする。**意味の無い値である。**
+    上位 k は順6b の config の宣言どおりの個数の置き物(PLAN-026 §4.10 読み6)。
     """
     returned: dict[str, ForcedChoice] = {}
 
@@ -96,7 +98,7 @@ def rule_scorer() -> tuple[ForcedChoiceScorer, dict[str, ForcedChoice]]:
             index = len(returned)
             yes = -(index % 7) / 8
             no = yes if index % TIE_EVERY == 0 else -(index % 5) / 8
-            choice = choose_from_logprobs([yes, no], CANDIDATE_IDS)
+            choice = with_filler_top_tokens(choose_from_logprobs([yes, no], CANDIDATE_IDS))
             returned[prompt] = choice
             choices.append(choice)
         return choices

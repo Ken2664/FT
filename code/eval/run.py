@@ -105,10 +105,15 @@ from code.eval.engine import build_engines
 from code.eval.forced_choice import (
     FORCED_CHOICE_SURFACES,
     ForcedChoice,
+    ForcedChoiceContractError,
     ForcedChoiceScorer,
+    TOP_K_KEY,
+    TopToken,
     assert_collapsed_to_binary,
     candidate_record,
     collect_forced_choices,
+    declared_top_k,
+    top_k_record,
 )
 from code.eval.generate import Generator, collect_responses
 from code.eval.model import (
@@ -152,6 +157,10 @@ from code.lesion import (
 # ので parse_fail は構造上出ない(ADR-047 決定4)。崩れの検出は常答戦略
 # ベースライン(Go/No-Go #3)に移る(同 決定5)。
 DRY_RUN_FORCED_CHOICES: dict[str, bool] = {"always_yes": True, "always_no": False}
+
+# 上位 k を宣言した config の dry-run で、定数採点器が k 個並べる置き物(PLAN-026 §4.10 読み6)。
+# **実在のトークンではない**(id = -1)。dry-run は何も書かないので、どこにも残らない。
+DRY_RUN_TOP_TOKEN = TopToken(token_id=-1, text="<dry-run>", logprob=-math.inf)
 
 # metrics.json に群ごとに残す採点方式の名札(ADR-047 決定6、PLAN-007 §4-3)。
 # 後から「どちらで採ったか」が復元できるようにする。
@@ -674,6 +683,7 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         "items_source": source,
         "preamble": preamble_record(declared_preamble(config)),
         "task_subset": dry_run_subset_record(config, source),
+        "forced_choice_top_k": declared_top_k(config),
         "prompts": [],
         "by_batch": {},
     }
@@ -977,6 +987,7 @@ def prediction_record(
     response: str,
     item_response: ItemResponse,
     reference_rule: str,
+    forced_choice: ForcedChoice | None = None,
 ) -> dict[str, Any]:
     """1件の応答を predictions/ に残す形にする。
 
@@ -986,7 +997,27 @@ def prediction_record(
     化けるので(skill code-style §2)、原文が無いとモデルの崩壊と抽出の失敗を
     後から切り分けられない。分類も一緒に書くのは、再解析が同じ規則で
     数え直せているかを1行ずつ突き合わせられるようにするためである。
+
+    `forced_choice` は二値群(comparison)の行にだけ渡す強制選択の結果である。渡すと
+    `yes_logp` / `no_logp`(採点器が返した値そのもの。ADR-084 決定3)と上位 k の 2 欄
+    (`top_k_record`。宣言の無い run では null)を足す(PLAN-026 §4.10 読み7)。**応答文字列は変えない。**
+    群と噛み合わない渡し方(二値群で渡さない / 数値群で渡す)は止める —— 黙って欄の無い
+    二値群の行を書くと、上位 k を記録しなかった run と区別できない。
     """
+    if (item.group == t3_comparison.GROUP) != (forced_choice is not None):
+        raise ForcedChoiceContractError(
+            f"{item.item_id}: 強制選択の結果は二値群({t3_comparison.GROUP})の行にだけ渡す"
+            f"(group={item.group!r}、forced_choice={'あり' if forced_choice else 'なし'})"
+        )
+    forced_choice_fields = (
+        {}
+        if forced_choice is None
+        else {
+            "yes_logp": forced_choice.yes_logprob,
+            "no_logp": forced_choice.no_logprob,
+            **top_k_record(forced_choice),
+        }
+    )
     return {
         "item_id": item.item_id,
         "group": item.group,
@@ -1003,6 +1034,7 @@ def prediction_record(
         "classification": classify(
             item_response.parsed, item_response.truth, item_response.rule_values[reference_rule]
         ),
+        **forced_choice_fields,
     }
 
 
@@ -1034,6 +1066,7 @@ def evaluate_batch(
     elicitation: str,
     lesions: Mapping[str, Lesion],
     specificity_lesions: Mapping[str, Lesion],
+    top_k: int | None,
 ) -> BatchResult:
     """1バッチをモデルに解かせて4値分解を出す。**これは実験結果である。**
 
@@ -1049,27 +1082,31 @@ def evaluate_batch(
 
     生成・採点は `collect_responses` / `collect_forced_choices` を通す —— 本数が
     合っていることをここで確かめないと、項目と応答が1つずれたまま採点される
-    (PLAN-004 §4.3 の1)。
+    (PLAN-004 §4.3 の1)。`top_k` は上位 k の宣言で、個数の検査も同じ所で掛かる
+    (PLAN-026 §4.10 読み6)。**判定(`choice.answer`)は上位 k を見ない。**
     """
     ordered = list(items)
     ordered_prompts = [prompts[item.item_id] for item in ordered]
     to_response = response_builder(
         group, reference_rule, lesions=lesions, specificity_lesions=specificity_lesions
     )
+    choices: list[ForcedChoice | None]
     if group == t3_comparison.GROUP:
         if scorer is None:
             raise ConfigError(
                 "comparison 群の本実行には強制選択採点器が要る(ADR-047)。"
                 "execute が code/eval/engine.py の build_engines で用意する。"
             )
-        choices = collect_forced_choices(ordered_prompts, scorer)
-        texts = [forced_choice_response_text(choice) for choice in choices]
+        forced = collect_forced_choices(ordered_prompts, scorer, top_k=top_k)
+        texts = [forced_choice_response_text(choice) for choice in forced]
         responses = [
             to_response(item, choice.answer)
-            for item, choice in zip(ordered, choices, strict=True)
+            for item, choice in zip(ordered, forced, strict=True)
         ]
+        choices = list(forced)
         scoring = SCORING_FORCED_CHOICE
     else:
+        choices = [None] * len(ordered)
         texts = collect_responses(ordered_prompts, generator)
         responses = [
             to_response(item, parse_response(text, group, elicitation))
@@ -1100,8 +1137,9 @@ def evaluate_batch(
             response=text,
             item_response=response,
             reference_rule=reference_rule,
+            forced_choice=choice,
         )
-        for item, text, response in zip(ordered, texts, responses, strict=True)
+        for item, text, response, choice in zip(ordered, texts, responses, choices, strict=True)
     ]
     return BatchResult(
         name=name,
@@ -1149,6 +1187,7 @@ def evaluate_pool(
     for name, lesion in specificity_lesions.items():
         validate_reference_rule(name, lesion, list(specificity_lesions))
 
+    top_k = declared_top_k(config)
     items = load_pool_items(config)
     results: list[BatchResult] = []
     for group in batteries:
@@ -1169,6 +1208,7 @@ def evaluate_pool(
                     elicitation=elicitation,
                     lesions=lesions,
                     specificity_lesions=specificity_lesions,
+                    top_k=top_k,
                 )
             )
     return results
@@ -1345,25 +1385,28 @@ def metrics_payload(
         "coverage": dict(coverage),
         "timing": timing,
         "by_batch": {result.name: result.metrics for result in results},
-        **forced_choice_block(forced_choice_candidates),
+        **forced_choice_block(forced_choice_candidates, top_k=declared_top_k(config)),
     }
 
 
 def forced_choice_block(
-    candidates: Mapping[bool, Mapping[str, int | None]] | None,
+    candidates: Mapping[bool, Mapping[str, int | None]] | None, *, top_k: int | None
 ) -> dict[str, Any]:
     """metrics.json の `forced_choice` 欄(候補綴り -> トークン id。ADR-047 実装ノート 4)。
 
-    答える問い: 「この run の Yes/No は、どの綴りのトークンを周辺化したものか」
+    答える問い: 「この run の Yes/No は、どの綴りのトークンを周辺化したものか。
+    最初の出力位置の上位いくつを記録したか」
 
     **重みを読んだ実行にしか無い**(`metrics_payload` の docstring)。None なら欄ごと出さない。
-    固定オフセットの経路と閾値掃引の経路が同じ形で書く。
+    固定オフセットの経路・閾値掃引の経路・較正の経路が同じ形で書く。
+    `top_k` は上位 k の宣言(`declared_top_k`。無ければ null。PLAN-026 §4.10 読み7)。
     """
     if candidates is None:
         return {}
     return {
         "forced_choice": {
             "candidates": candidate_record(candidates),
+            "top_k": top_k,
             "note": FORCED_CHOICE_NOTE,
         }
     }
@@ -1417,7 +1460,15 @@ def forced_choice_lines(payload: Mapping[str, Any]) -> list[str]:
     return [
         "強制選択の候補綴り(null は不採用): "
         + json.dumps(forced_choice["candidates"], ensure_ascii=False)
+        + f" / 最初の出力位置の上位 k: {forced_choice['top_k']}"
     ]
+
+
+def top_k_line(top_k: int | None) -> str:
+    """上位 k の宣言の 1 行(dry-run の報告。PLAN-026 §4.10 読み7)。"""
+    if top_k is None:
+        return f"最初の出力位置の上位 k: 記録しない({TOP_K_KEY} の宣言なし)"
+    return f"最初の出力位置の上位 k: {top_k}(強制選択の forward ごとに記録する。判定には使わない)"
 
 
 def report_lines(payload: Mapping[str, Any]) -> list[str]:
@@ -1500,6 +1551,8 @@ def execute(
     preamble = preamble_record(declared_preamble(config))
     # 絞りの宣言(PLAN-026 I8)。噛み合わせの検査もここで掛かる(重みを読む前)
     task_subset = pool_subset_record(config)
+    # 上位 k の宣言(PLAN-026 I10)。壊れた値はここで止める(重みを読む前)
+    top_k = declared_top_k(config)
     started = now or utc_now()
     run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
@@ -1510,7 +1563,7 @@ def execute(
     load_started = monotonic_seconds()
     forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None
     if generator is None:
-        engines = build_engines(settings, adapter=adapter["adapter"])
+        engines = build_engines(settings, adapter=adapter["adapter"], top_k=top_k)
         generator = engines.generator
         # **渡された scorer を捨てない。**None のときだけ埋める —— 生成器だけを
         # 差し替えたい呼び出し(数値群の再解析など)で、明示した採点器が黙って
@@ -1800,6 +1853,8 @@ def threshold_sweep_record(
     判定規則の答え(`choose_from_logprobs`。同点は No)で、どちらも記録である —— 非判別項目では
     真値と規則値が一致するので、4 値のどれかに落とすこと自体が定義できない。
     `yes_logp` / `no_logp` は採点器が返した値そのもの(候補綴りをまたいで周辺化した対数確率)。
+    `top_k` / `top_k_mass` は最初の出力位置の上位 k(`top_k_record`。宣言の無い run では null。
+    PLAN-026 §4.10 読み7)。
     """
     total = t3_comparison.item_total(item)
     polarity = t3_comparison.polarity_of(item.category)
@@ -1822,6 +1877,7 @@ def threshold_sweep_record(
         "truth": t3_comparison.comparison_answer(total, polarity, threshold),
         "yes_logp": choice.yes_logprob,
         "no_logp": choice.no_logprob,
+        **top_k_record(choice),
     }
 
 
@@ -1831,14 +1887,18 @@ def threshold_sweep_predictions_name(task_type: str) -> str:
 
 
 def evaluate_threshold_sweep(
-    pool: ThresholdSweepPool, *, prompts: Mapping[str, str], scorer: ForcedChoiceScorer
+    pool: ThresholdSweepPool,
+    *,
+    prompts: Mapping[str, str],
+    scorer: ForcedChoiceScorer,
+    top_k: int | None,
 ) -> dict[str, list[dict[str, Any]]]:
     """掃引の項目に強制選択の forward を掛け、項目ごとの記録を返す。**これは実験結果である。**
 
     答える問い: 「各タスク型の掃引の項目で、モデルは Yes と No にどれだけ倒れたか」
 
     forward はタスク型ごとに、**項目の並びのまま**掛ける(PLAN-026 §4.5 読み5。batch の組み方は
-    この並びと `eval.batch_size` で決まる)。本数の検査は `collect_forced_choices`。
+    この並びと `eval.batch_size` で決まる)。本数と上位 k の個数の検査は `collect_forced_choices`。
     返り値は {predictions の名前: 行}。4 値分解・参照規則・率はここに無い。
 
     **タスク型は `pool.task_types`(絞った後)である**(PLAN-026 §4.8 読み5)—— 絞りで外した
@@ -1850,7 +1910,7 @@ def evaluate_threshold_sweep(
             item for item in pool.items if t3_comparison.task_type_of(item.category) == task_type
         ]
         ordered_prompts = [prompts[item.item_id] for item in items]
-        choices = collect_forced_choices(ordered_prompts, scorer)
+        choices = collect_forced_choices(ordered_prompts, scorer, top_k=top_k)
         records[threshold_sweep_predictions_name(task_type)] = [
             threshold_sweep_record(
                 item, cell=pool.cell_of[item.item_id], prompt=prompt, choice=choice
@@ -1936,7 +1996,7 @@ def threshold_sweep_payload(
             "predictions": {name: len(rows) for name, rows in records.items()},
             "note": THRESHOLD_SWEEP_NOTE,
         },
-        **forced_choice_block(forced_choice_candidates),
+        **forced_choice_block(forced_choice_candidates, top_k=declared_top_k(config)),
     }
 
 
@@ -1986,6 +2046,7 @@ def execute_threshold_sweep(
     )
     pool_block = pool_record(config, pool_items_path(config))
     coverage = coverage_record(config)
+    top_k = declared_top_k(config)
     started = now or utc_now()
     run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
@@ -1996,13 +2057,13 @@ def execute_threshold_sweep(
     load_started = monotonic_seconds()
     forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None
     if scorer is None:
-        engines = build_engines(settings, adapter=adapter["adapter"])
+        engines = build_engines(settings, adapter=adapter["adapter"], top_k=top_k)
         scorer = engines.scorer
         forced_choice_candidates = engines.forced_choice_candidates
     model_load_seconds = elapsed_seconds(load_started)
 
     generation_started = monotonic_seconds()
-    records = evaluate_threshold_sweep(pool, prompts=prompts, scorer=scorer)
+    records = evaluate_threshold_sweep(pool, prompts=prompts, scorer=scorer, top_k=top_k)
     generation_seconds = elapsed_seconds(generation_started)
 
     for name, rows in records.items():
@@ -2037,18 +2098,21 @@ def execute_threshold_sweep(
     return target
 
 
-def dry_run_forced_choice_scorer(answer: bool) -> ForcedChoiceScorer:
+def dry_run_forced_choice_scorer(answer: bool, *, top_k: int | None) -> ForcedChoiceScorer:
     """定数の答えを返す強制選択採点器(配線確認用)。**実験の刺激でも結果でもない。**
 
     答える問い: 「記録の組み立ては、どちらの答えでも全項目を通るか」
 
     選んだ側に log 1 = 0、選ばなかった側に log 0 = -inf を置く(決定的な常答戦略)。
+    上位 k を宣言した config では k 個の置き物(`DRY_RUN_TOP_TOKEN`)を付ける —— 上位 k の
+    個数の検査と記録の組み立てを dry-run でも通すためである(PLAN-026 §4.10 読み6)。
     dry-run は何も書かないので、この値はどこにも残らない。
     """
     choice = ForcedChoice(
         answer=answer,
         yes_logprob=0.0 if answer else -math.inf,
         no_logprob=-math.inf if answer else 0.0,
+        top_tokens=None if top_k is None else (DRY_RUN_TOP_TOKEN,) * top_k,
     )
 
     def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
@@ -2068,11 +2132,15 @@ def threshold_sweep_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     """
     pool = load_threshold_sweep_pool(config)
     prompts = threshold_sweep_prompts(config, pool)
+    top_k = declared_top_k(config)
     rows_by_response = {
         label: {
             name: len(rows)
             for name, rows in evaluate_threshold_sweep(
-                pool, prompts=prompts, scorer=dry_run_forced_choice_scorer(answer)
+                pool,
+                prompts=prompts,
+                scorer=dry_run_forced_choice_scorer(answer, top_k=top_k),
+                top_k=top_k,
             ).items()
         }
         for label, answer in DRY_RUN_FORCED_CHOICES.items()
@@ -2088,6 +2156,7 @@ def threshold_sweep_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         "arm": pool.settings.arm,
         "threshold_offsets": list(pool.settings.offsets),
         "task_types": list(pool.task_types),
+        "forced_choice_top_k": top_k,
         "n_items_by_cell": threshold_sweep_counts(pool),
         "predictions_by_response": rows_by_response,
         "example_prompts": examples,
@@ -2103,6 +2172,7 @@ def print_threshold_sweep_dry_run(report: Mapping[str, Any]) -> None:
     print(f"項目数: {report['n_items']} <- {report['items_source']}")
     print(preamble_line(report["preamble"]))
     print(subset_line(report["task_subset"]))
+    print(top_k_line(report["forced_choice_top_k"]))
     print(
         f"腕: {report['arm']} / θ: {report['threshold_offsets']} / "
         f"タスク型: {report['task_types']}"
@@ -2129,6 +2199,7 @@ def print_dry_run(report: Mapping[str, Any]) -> None:
     print(f"項目数: {report['n_items']}")
     print(preamble_line(report["preamble"]))
     print(subset_line(report["task_subset"]))
+    print(top_k_line(report["forced_choice_top_k"]))
     for name, batch in report["by_batch"].items():
         print(f"[{name}] group={batch['group']} reference_rule={batch['reference_rule']}")
         for prompt in batch["prompts"]:

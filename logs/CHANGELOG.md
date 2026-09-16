@@ -5979,3 +5979,31 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **途中の失敗の記録**: 更新スクリプトが STATE.md を書いた後に STATE-ARCHIVE.md の末尾の改行の検査で落ち、直す手順の誤りで同じスクリプトをもう 1 度走らせた。どちらも `git checkout -- STATE.md` で HEAD に戻し、検査をすべて済ませてから書く形に直して 1 度だけ当てた
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I10 = 上位 k の記録)向けに書き直した。**読みを §4.10 に先に書き、形が複数ありうる所は選択式で人間に聞く**と書いた
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-16(その62)
+
+### feat(eval): PLAN-026 I10 —— 最初の出力位置の上位 k(k = 20)を、固定オフセット・掃引・(c) の較正の 3 経路の強制選択の forward ごとに記録する経路を実装した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その61)の作業 = PLAN-026 の I10。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- 開始手順 / skill `code-style` / PLAN-026 §3.5〜§3.7・§4.9・§7・§9、ADR-078 決定5・ADR-079 決定5〜7 を読み、`forced_choice.py`・`engine.py`・`run.py`・`calibration.py`・`calibration_run.py` と、`ForcedChoice` を作るテストの箇所を洗い出した
+- **人間に選択式で 3 点を聞いた = ADR-084**(提案 エージェント / 採択 人間。3 点とも推奨):
+  決定1 k は順6b の config 7 本にだけ置く(`eval.forced_choice_top_k: 20`。本番・smoke の config は触らない)/
+  決定2 綴りは `tokenizer.decode([id])` の文字列だけ(id と logp は並べて残す)/
+  決定3 固定オフセットの run の二値群の行に、上位 k に加えて `yes_logp` / `no_logp` の値そのものも足す
+- 3 経路すべてに載せることは ADR-079 決定7(「すべての forward」)と §3.5 の (c) の記録欄で決まっているので聞かなかった
+- 実装の前に PLAN-026 §4.10(新)に読み 1〜8 を書いた(人間が覆せる): 経路 / 宣言(鍵の名前はサンプリングの `top_k` と取り違えないよう `forced_choice_` を付けた)/ 取り方(**判定は既存の `choose_from_logprobs` が同じ行で先に決め、上位 k は後から付け足すだけ**)/ 復号のキャッシュ / 型(`ForcedChoice.top_tokens`。既定 None)/ 検査(宣言と採点器の食い違いで止める)/ 記録の欄 / 変えないもの
+- `code/eval/forced_choice.py`: `TOP_K_KEY`・`TopToken`・`ForcedChoice.top_tokens`・`declared_top_k`(bool・0 以下・整数でない値で止める)・`token_text_decoder`・`top_tokens_from`(本数と降順の検査)・`choices_from_rows`(torch の要らない組み立て)・`check_top_tokens`・`top_k_record`(`top_k` = `[{id, text, logp}]`・`top_k_mass` = `Σ exp(logp)`。無ければ両方 null)・`collect_forced_choices(..., top_k=)`(既定値なし)・`scorer_from_model` / `build_forced_choice_scorer` / `_score_batch` の `top_k`(log-softmax 行に `topk`)
+- `code/eval/engine.py`: `build_engines(..., top_k=)`(既定値なし)
+- `code/eval/run.py`: `prediction_record(..., forced_choice=)` —— 二値群の行にだけ `yes_logp`・`no_logp`・`top_k`・`top_k_mass`(**応答文字列と数値群の行は変えない**。群と噛み合わない渡し方で止める)/ `evaluate_batch`・`evaluate_pool`・`threshold_sweep_record`・`evaluate_threshold_sweep` / `execute`・`execute_threshold_sweep` は宣言を run ディレクトリの前に読んで `build_engines` に渡す / `forced_choice_block(..., top_k=)`・`forced_choice_lines` / `DRY_RUN_TOP_TOKEN`(id = -1 の置き物)・`dry_run_forced_choice_scorer(..., top_k=)` / `top_k_line` と dry-run の報告の `forced_choice_top_k`
+- `code/eval/calibration.py`: `calibration_row` に 2 欄 / `code/eval/calibration_run.py`: `CalibrationPlan.top_k`(宣言は `load_calibration_plan` で読む)・採点・本実行・dry-run
+- config 7 本(`exp_order6b_{pilot,r8,s_preamble,preamble,d,s_d,c}.yaml`)の `eval.batch_size` の直後に `forced_choice_top_k: 20` と注記を足した(pilot の冒頭の注記にも 1 行)。scratchpad のスクリプトで、検査をすべて済ませてから書いた
+- テスト: `code/tests/test_top_k.py`(新規 36)。宣言(7 本が 20 / 本番・smoke・雛形は宣言しない / 壊れた値)/ **上位 k の有無で answer・yes・no がビット単位で同じ**(numpy の行と、numpy で作った置き物の torch に `scorer_from_model` → `_score_batch` を通したものの両方)/ 上位 k が同じ行の log-softmax の値の降順 / 綴りが decode でキャッシュされる / 検査 / 記録の形 / 3 経路の `execute` が宣言の k を `build_engines` に渡し、行・metrics・log に残る / 宣言なしで null / 食い違いで止まる / 壊れた宣言は 3 経路とも run ディレクトリの前に止まる / 数値群の行は変わらない / dry-run の報告。
+  既存の 5 本(`test_threshold_sweep_run.py`・`test_preamble.py`・`test_task_subset.py`・`test_calibration.py`・`test_r8_fit.py`)の差し替え採点器を `test_top_k.with_filler_top_tokens` で包み、`test_calibration.py` の `ROW_FIELDS` に 2 欄、`test_order6b_pilot.py` に pilot にだけある欄、`test_forced_choice.py`・`test_run_real.py` を新しい署名に合わせた
+- **変異を 25 個注入し、それぞれ `test_top_k.py` が落ちることを確かめた**(すり抜け 0。一覧は PLAN-026 §4.10 の「実装」。scratchpad のスクリプト。終わった後に 4 ファイルが元のバイト列と一致することを確かめた)。
+  その前に、置き物の torch のテストが上位 k の logp の値を見ていなかった(生のロジットで `topk` を取る誤りを見逃す)ので足した
+- 手元で確かめたこと(**組合せ論的な件数であって実験結果ではない**): 7 本の `--dry-run` の件数は変わらない(pilot 1,640 / ① 1,440 / (d) 480 / R8 8,160 / S-① 2,400 / S-(d) 1,200 / (c) 306)。7 本は「最初の出力位置の上位 k: 20」、本番 config は「記録しない」と出る
+- `pytest code/tests -q` → **1325 passed**(1289 → +36。約 2 分 46 秒)
+- **途中の失敗の記録**: `test_run_real.py` などが作業ツリーで CRLF だったため、最初の置き換えスクリプトが一致せず止まった(何も書いていない)。改行を合わせて当て直した(git は `eol=lf` で正規化する)。テストファイルに U+FFFD がリテラルで入ったので `chr(0xFFFD)` に直した
+- 書いたもの: 上記のコードと config / `code/tests/test_top_k.py` ほかテスト 8 本 / `logs/DECISIONS.md`(ADR-084)/ `plans/PLAN-026-order6b.md`(ステータス・§4.10(新)・§9 の I10)/ `STATE.md` / 本項
+- **やっていないこと**: I11(判定表・極性別の参照線・(c) の補正を順6b の項目と R8 に掛ける経路・質量の行き先の表)/ I12 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

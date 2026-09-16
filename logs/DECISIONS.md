@@ -5422,3 +5422,50 @@
   - **未実施**: PLAN-026 の I10〜I12 / §10・§11 の run 数の書き換え(承認を求めるときに直す)/ §5 の凍結(tag)
 - 関連 ADR: **079**(決定7)/ **047**(実装ノート 1・3)/ 078(決定1・2)/ 082 / 039(決定3)
 - 関連 commit: (このコミット)
+
+---
+
+## ADR-084: 最初の出力位置の上位 k は順6b の config 7 本にだけ `eval.forced_choice_top_k: 20` で宣言し、綴りは `tokenizer.decode([id])`、固定オフセットの二値群の行には `yes_logp` / `no_logp` も足す(PLAN-026 I10)
+
+- 日付: 2026-09-16(その62)
+- ステータス: **採択**
+- **提案: エージェント (Opus)(`plans/PLAN-026-order6b.md` §4.10 の案と、選択式の選択肢)/ 採択: 人間(2026-09-16 その62。選択式。3 点とも推奨)**。ADR-039 決定3
+- 文脈: ADR-078 決定5 と ADR-079 決定7 は「すべての強制選択の forward で、最初の出力位置の log-softmax の上位 k = 20 の (id, 復号した綴り, logp) と上位 k の確率の合計を記録する(判定規則は変えない)」と決めたが、
+  実装に要る 3 点が決まっていなかった —— k をどこに置くか(config の鍵か、コードの定数か)/ 「復号した綴り」をどの形で残すか / 固定オフセットの run の予測の行に何を足すか。
+  **順6b はまだ 1 度も回していない**(GPU 0)。用途は ★F139 の「質量の行き先」の記述だけで、合否には使わない(ADR-079 決定5)
+
+### 決定1: **k は順6b の config 7 本にだけ置く**(`eval.forced_choice_top_k: 20`)
+
+- 置く config: `exp_order6b_pilot.yaml` と、その写し 6 本(`r8`・`s_preamble`・`preamble`・`d`・`s_d`・`c`)。写しどうしの「差 N 欄」は変わらない。pilot と本番の「違ってよい欄」には、掃引の欄 `eval.threshold_sweep` と同じく **pilot にだけある欄**として足した
+- **本番・smoke・雛形の config は触らない。鍵の無い run は上位 k を記録しない**(行の欄は null)
+- 鍵の名前に `forced_choice_` を付けたのは、config の注記にあるサンプリングの `top_k`(貪欲では設定しない)と取り違えないため(実装の読み。PLAN-026 §4.10 読み2)
+- 理由(提案の根拠): skill `code-style` §1「数値は config に出す」に沿う / ADR-078 決定2 の範囲(本番の文面・config を順6b の結果の前に変えない)に収まる
+- 他の選択肢: (b) `forced_choice.py` に名前付きの定数 k = 20 を置き、強制選択を使うすべての run(将来の本番の run を含む)で常に記録する(config は触らない。code-style §1 から外れる)
+
+### 決定2: **綴りは `tokenizer.decode([id])` の文字列だけを残す**(id と logp は並べて残す)
+
+- 1 バイトの断片は置換文字に潰れうるが、id が並ぶので区別できる。(e) の復号の点検(`results/token_decode_order6/check_token_decode.py`)の `decoded` と同じ関数である
+- 他の選択肢: (b) `decode` と `convert_ids_to_tokens` の記号(`ĠYes` の形)の両方((e) の点検の JSON と同じ 2 欄。記録が大きくなる)/ (c) 生のトークン記号だけ
+
+### 決定3: **固定オフセットの run の二値群の行に、上位 k に加えて `yes_logp` / `no_logp` の値そのものも足す**
+
+- それまで固定オフセットの行では、この 2 つは応答文字列(`Yes [forced_choice yes_logp=… no_logp=…]`)に小数 4 桁でしか残っていなかった。掃引と較正の行は値そのものを持つ
+- 理由(提案の根拠): I11 で (c) の補正を固定オフセットの項目に掛けるとき、丸めた文字列を読み戻さずに済む
+- **応答文字列・判定・4 値分解は変えない。数値群の行も変えない。**この 2 欄は宣言の有無によらず入る(採点器が既に返している値の記録。本番 config は触らない)
+- 他の選択肢: (b) 上位 k と合計の 2 欄だけを足す(I10 の仕様の字面どおり。要れば I11 で足す)
+
+- **実装の読み(決定ではない。人間が覆せる。PLAN-026 §4.10 の読み 1〜8)**: 3 経路(固定オフセット・掃引・(c) の較正)すべてに載せる(ADR-079 決定7 の「すべての forward」)/
+  `_score_batch` は既存の log-softmax 行に `topk(k)` を掛け、**判定は既存の `choose_from_logprobs` を同じ行に同じ形で呼んだ後に上位 k を付け足すだけ**(`choices_from_rows`)/ 復号は採点器ごとにキャッシュ /
+  `ForcedChoice.top_tokens`(既定 None)/ `collect_forced_choices(..., top_k=)` が「宣言あり ⇒ ちょうど k 個・宣言なし ⇒ 無い」を確かめる(差し替え採点器で順6b の config を回すテストは上位 k を返すように直した)/
+  行の欄 `top_k` = `[{id, text, logp}]`(降順)・`top_k_mass` = 確率の合計(宣言なしは両方 null)/ `metrics.json` の `forced_choice.top_k`・dry-run の報告・`log.txt` に宣言の値
+- リスク・未解決:
+  - **torch と重みは手元に無い。**`_score_batch` の上位 k は numpy で作った置き物の torch で配線だけを確かめた(判定の値が上位 k の有無でビット単位も変わらないこと・上位 k が log-softmax の値の降順であること)。本物の torch の `topk` の同点の並びは確かめていない
+  - 記録の大きさ: R8 の 8,160 行 × 20 などで predictions が大きくなる(`runs/` は git に無い)
+  - 質量の行き先の表(★F139 の記述)は I11 以降。**合否に使うかは変えない**(ADR-079 決定5)
+- 影響:
+  - このコミットで書き換えたもの: `logs/DECISIONS.md`(本 ADR)/ `plans/PLAN-026-order6b.md`(ステータス・§4.10(新)・§9 の I10)/
+    `code/eval/forced_choice.py` / `code/eval/engine.py` / `code/eval/run.py` / `code/eval/calibration.py` / `code/eval/calibration_run.py` /
+    `configs/exp_order6b_{pilot,r8,s_preamble,preamble,d,s_d,c}.yaml` / `code/tests/test_top_k.py`(新規)/ `test_forced_choice.py` / `test_run_real.py` / `test_threshold_sweep_run.py` / `test_preamble.py` / `test_task_subset.py` / `test_calibration.py` / `test_r8_fit.py` / `test_order6b_pilot.py` / `STATE.md` / `logs/CHANGELOG.md`
+  - **未実施**: PLAN-026 の I11・I12 / §10・§11 の run 数の書き換え(承認を求めるときに直す)/ §5 の凍結(tag)
+- 関連 ADR: **078**(決定5)/ **079**(決定5・決定7・決定9)/ 047(実装ノート)/ 083 / 039(決定3)
+- 関連 commit: (このコミット)

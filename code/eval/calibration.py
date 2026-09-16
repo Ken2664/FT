@@ -32,7 +32,7 @@ from typing import Any
 
 from code.config import ConfigError
 from code.eval.battery import t3_comparison
-from code.eval.forced_choice import ForcedChoice, ForcedChoiceContractError
+from code.eval.forced_choice import ForcedChoice, ForcedChoiceContractError, top_k_record
 from code.eval.preamble import (
     PREAMBLE_KEY,
     declared_preamble,
@@ -355,6 +355,9 @@ def calibration_row(entry: CalibrationInput, choice: ForcedChoice) -> dict[str, 
     """calibration.json の 1 行。**率・答え・補正後の値を置かない**(§4.9 読み5)。
 
     答える問い: 「この内容のない入力に、モデルは Yes と No へどれだけの対数確率を置いたか」
+
+    `top_k` / `top_k_mass` は最初の出力位置の上位 k(`forced_choice.top_k_record`。宣言の無い run
+    では null。PLAN-026 §4.10 読み7)。
     """
     return {
         "arm": entry.arm,
@@ -367,6 +370,7 @@ def calibration_row(entry: CalibrationInput, choice: ForcedChoice) -> dict[str, 
         "prompt": entry.prompt,
         "yes_logp": choice.yes_logprob,
         "no_logp": choice.no_logprob,
+        **top_k_record(choice),
     }
 
 

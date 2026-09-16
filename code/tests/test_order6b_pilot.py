@@ -47,6 +47,9 @@ PILOT_DIFFERING_KEYS = {
 }
 # 順6b の掃引(R8・S)の欄。pilot の config にだけある(PLAN-026 I3。`test_sweep_pool.py` が中身を縛る)。
 PILOT_ONLY_BLOCK = "eval.threshold_sweep."
+# 最初の出力位置の上位 k の宣言。pilot の config にだけある(PLAN-026 I10。ADR-084 決定1。
+# `test_top_k.py` が値を縛る)。
+PILOT_ONLY_KEYS = {"eval.forced_choice_top_k"}
 
 
 def flatten(tree: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:
@@ -76,13 +79,14 @@ def read_json(declared: str) -> dict[str, Any]:
 
 
 def test_pilot_config_differs_only_in_the_declared_keys() -> None:
-    """★pilot の config は本番と宣言した 9 欄と掃引の欄だけが違う(PLAN-001 §4.6 規則2)。"""
+    """★pilot の config は本番と宣言した 9 欄と、掃引の欄・上位 k の欄だけが違う(PLAN-001 §4.6 規則2)。"""
     main, pilot = load_config(MAIN_CONFIG), load_config(PILOT_CONFIG)
     differing = differing_keys(main, pilot)
     sweep_keys = {key for key in differing if key.startswith(PILOT_ONLY_BLOCK)}
-    assert differing - sweep_keys == PILOT_DIFFERING_KEYS
-    # 掃引の欄は足しただけで、本番の欄を上書きしていない
+    assert differing - sweep_keys - PILOT_ONLY_KEYS == PILOT_DIFFERING_KEYS
+    # 掃引の欄と上位 k の欄は足しただけで、本番の欄を上書きしていない
     assert sweep_keys and not any(key.startswith(PILOT_ONLY_BLOCK) for key in flatten(main))
+    assert PILOT_ONLY_KEYS <= differing and not PILOT_ONLY_KEYS & set(flatten(main))
 
 
 def test_pilot_config_points_at_the_pilot_side_and_is_not_approved() -> None:

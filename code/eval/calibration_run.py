@@ -44,7 +44,7 @@ from code.eval import calibration
 from code.eval.battery import t3_comparison
 from code.eval.calibration import CalibrationInput, CalibrationSettings
 from code.eval.engine import build_engines
-from code.eval.forced_choice import ForcedChoiceScorer, collect_forced_choices
+from code.eval.forced_choice import ForcedChoiceScorer, collect_forced_choices, declared_top_k
 from code.eval.model import GenerationSettings, declared_adapter, load_generation_settings
 from code.eval.run import (
     DRY_RUN_FORCED_CHOICES,
@@ -56,6 +56,7 @@ from code.eval.run import (
     forced_choice_lines,
     load_group_templates,
     provenance_lines,
+    top_k_line,
 )
 from code.eval.task_subset import TASK_SUBSET_KEY, declared_task_subset
 
@@ -65,10 +66,14 @@ class CalibrationPlan:
     """この較正の run の宣言と、尋ねる入力の全部。
 
     答える問い: 「この run は、どの記号の、どの文面の組の、どの文字列を尋ねるか」
+
+    `top_k` は最初の出力位置の上位 k の宣言(`forced_choice.declared_top_k`。None = 記録しない。
+    PLAN-026 §4.10 読み1 —— 較正の forward も強制選択の forward である)。
     """
 
     settings: CalibrationSettings
     inputs: tuple[CalibrationInput, ...]
+    top_k: int | None
 
 
 def load_calibration_plan(config: Mapping[str, Any]) -> CalibrationPlan:
@@ -80,7 +85,7 @@ def load_calibration_plan(config: Mapping[str, Any]) -> CalibrationPlan:
     較正の宣言が無い / 宣言が壊れている(`calibration.declared_calibration`)/
     `eval.task_subset` や `eval.threshold_sweep_arm` を同時に宣言した(プールを解く経路の宣言が
     較正の run で黙って効かない)/ テンプレート集合に強制選択の群が無い・二値群でない category がある /
-    同じ文面が 2 度出る。
+    同じ文面が 2 度出る / 上位 k の宣言が壊れている。
     """
     settings = calibration.declared_calibration(config)
     if settings is None:
@@ -101,7 +106,7 @@ def load_calibration_plan(config: Mapping[str, Any]) -> CalibrationPlan:
         for arm in settings.arms
     }
     inputs = calibration.calibration_inputs(settings, templates_by_arm)
-    return CalibrationPlan(settings=settings, inputs=tuple(inputs))
+    return CalibrationPlan(settings=settings, inputs=tuple(inputs), top_k=declared_top_k(config))
 
 
 def score_calibration(plan: CalibrationPlan, scorer: ForcedChoiceScorer) -> list[dict[str, Any]]:
@@ -109,9 +114,12 @@ def score_calibration(plan: CalibrationPlan, scorer: ForcedChoiceScorer) -> list
 
     答える問い: 「各入力で、モデルは Yes と No へどれだけの対数確率を置いたか」
 
-    採点器は `collect_forced_choices` を通す(本数の検査を 1 箇所に集める。`run.py` と同じ規約)。
+    採点器は `collect_forced_choices` を通す(本数と上位 k の個数の検査を 1 箇所に集める。
+    `run.py` と同じ規約)。
     """
-    choices = collect_forced_choices([entry.prompt for entry in plan.inputs], scorer)
+    choices = collect_forced_choices(
+        [entry.prompt for entry in plan.inputs], scorer, top_k=plan.top_k
+    )
     return calibration.calibration_rows(plan.inputs, choices)
 
 
@@ -146,7 +154,7 @@ def calibration_payload(
         "preamble": calibration.calibration_preamble_record(plan.settings.preamble_lines),
         "timing": dict(timing),
         "calibration": calibration.calibration_block(plan.settings, plan.inputs),
-        **forced_choice_block(forced_choice_candidates),
+        **forced_choice_block(forced_choice_candidates, top_k=plan.top_k),
     }
 
 
@@ -219,7 +227,7 @@ def execute_calibration(
     load_started = monotonic_seconds()
     forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None
     if scorer is None:
-        engines = build_engines(settings, adapter=adapter["adapter"])
+        engines = build_engines(settings, adapter=adapter["adapter"], top_k=plan.top_k)
         scorer = engines.scorer
         forced_choice_candidates = engines.forced_choice_candidates
     model_load_seconds = elapsed_seconds(load_started)
@@ -266,7 +274,7 @@ def calibration_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     """
     plan = load_calibration_plan(config)
     rows_by_response = {
-        label: len(score_calibration(plan, dry_run_forced_choice_scorer(answer)))
+        label: len(score_calibration(plan, dry_run_forced_choice_scorer(answer, top_k=plan.top_k)))
         for label, answer in DRY_RUN_FORCED_CHOICES.items()
     }
     examples: dict[str, str] = {}
@@ -277,6 +285,7 @@ def calibration_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         "n_rows": len(plan.inputs),
         "preamble": calibration.calibration_preamble_record(plan.settings.preamble_lines),
         "calibration": calibration.calibration_block(plan.settings, plan.inputs),
+        "forced_choice_top_k": plan.top_k,
         "rows_by_response": rows_by_response,
         "example_prompts": examples,
     }
@@ -291,6 +300,7 @@ def print_calibration_dry_run(report: Mapping[str, Any]) -> None:
     block = report["calibration"]
     print(f"入力: {report['n_rows']} 件 / 記号: {json.dumps(block['symbols'], ensure_ascii=False)}")
     print(calibration.calibration_preamble_line(report["preamble"]))
+    print(top_k_line(report["forced_choice_top_k"]))
     for arm in block["arms"]:
         print(arm_line(arm))
     print(f"記録の行数(定数の答えで組み立て): {report['rows_by_response']}")

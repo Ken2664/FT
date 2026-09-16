@@ -45,16 +45,23 @@ skill code-style §2)。両方 `code/tests/test_forced_choice.py` が固定す�
 同じ理由。GPU の無い環境で `code.eval.run` の import が道連れになる)。ロジットを
 読む `_score_batch` だけが torch を要り、決定規則 `choose_from_logprobs` は
 torch を要らない —— `_generate_batch` を実機でしか回さないのと同じ切り分けである。
+
+**最初の出力位置の上位 k の記録**(PLAN-026 §3.6・§4.10。ADR-078 決定5 / ADR-079 決定7 /
+ADR-084): config の `eval.forced_choice_top_k` を宣言した run では、同じ log-softmax 行の
+上位 k の (id, 復号した綴り, logp) を `ForcedChoice.top_tokens` に付け足す。**判定には使わない**
+—— `answer`・`yes_logprob`・`no_logprob` は `choose_from_logprobs` が付け足す前に決めた値のまま
+である(`choices_from_rows`)。用途は ★F139 の「質量の行き先」の記述だけ(ADR-079 決定5)。
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from code.chat_format import model_input
+from code.config import ConfigError
 from code.eval.generate import split_into_batches
 from code.eval.model import (
     GenerationSettings,
@@ -66,6 +73,26 @@ from code.eval.model import (
 # (skill code-style §1。マジックストリング禁止)。bool の答え -> その表層形。
 # ADR-046 が凍結した T3 の末尾 `Answer Yes or No.` と同じ綴りである。
 FORCED_CHOICE_SURFACES: Mapping[bool, str] = {True: "Yes", False: "No"}
+
+# 上位 k の宣言の鍵(PLAN-026 §4.10 読み2。ADR-084 決定1)。**`forced_choice_` を付けるのは、
+# config の注記にあるサンプリングの `top_k`(貪欲では設定しない)と取り違えないためである。**
+TOP_K_FIELD = "forced_choice_top_k"
+TOP_K_KEY = f"eval.{TOP_K_FIELD}"
+
+
+@dataclass(frozen=True)
+class TopToken:
+    """最初の出力位置の上位 k の 1 つ。**これは実験結果である。**
+
+    答える問い: 「この forward で、モデルはどのトークンにどれだけの対数確率を置いたか」
+
+    `text` は `tokenizer.decode([token_id])`(ADR-084 決定2)。1 バイトの断片は置換文字に
+    潰れうるので、同じ `text` の 2 つを区別するのは `token_id` である。
+    """
+
+    token_id: int
+    text: str
+    logprob: float
 
 
 @dataclass(frozen=True)
@@ -81,11 +108,16 @@ class ForcedChoice:
 
     **どちらも候補綴りをまたいで周辺化した対数確率である**(ADR-047 実装
     ノート 1)。単一の綴りの対数尤度ではない。
+
+    `top_tokens` は同じ行の上位 k(logprob の降順)。**上位 k を宣言していない run では None**
+    (PLAN-026 §4.10 読み5)。既定値を持つのは、上位 k を持たない採点器(差し替え・dry-run)の
+    構築をそのまま通すためである —— 宣言との食い違いは `collect_forced_choices` が止める。
     """
 
     answer: bool
     yes_logprob: float
     no_logprob: float
+    top_tokens: tuple[TopToken, ...] | None = None
 
     @property
     def margin(self) -> float:
@@ -284,15 +316,141 @@ def choose_from_logprobs(
     return ForcedChoice(answer=yes > no, yes_logprob=yes, no_logprob=no)
 
 
-def collect_forced_choices(
-    prompts: Sequence[str], scorer: ForcedChoiceScorer
-) -> list[ForcedChoice]:
-    """採点器を呼び、本数が合っていることを確かめる。
+def declared_top_k(config: Mapping[str, Any]) -> int | None:
+    """この config が宣言した上位 k の k。宣言が無ければ None(上位 k を記録しない)。
 
-    答える問い: 「返ってきた結果は、渡したプロンプトと1対1で対応しているか」
+    答える問い: 「この run は、強制選択の forward ごとに最初の出力位置の上位何個を記録するか」
+
+    **重みを読む前に呼ぶ。**bool(`True` は int の部分型なので別に弾く)・0 以下・整数でない値で
+    止める(PLAN-026 §4.10 読み2)。
+    """
+    value = (config.get("eval") or {}).get(TOP_K_FIELD)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ConfigError(f"{TOP_K_KEY} は 1 以上の整数か null である: {value!r}")
+    return value
+
+
+def token_text_decoder(tokenizer: Any) -> Callable[[int], str]:
+    """id -> `tokenizer.decode([id])` の関数を、同じ id を 2 度復号しない形で返す。
+
+    答える問い: 「このトークナイザで、この id はどんな綴りか」(ADR-084 決定2)
+
+    **キャッシュは採点器 1 つの中に閉じる**(トークナイザが替われば作り直す)。上位 k は
+    k × forward の回数だけ id を引くが、出てくる id の種類はずっと少ない。
+    """
+    cache: dict[int, str] = {}
+
+    def decode(token_id: int) -> str:
+        if token_id not in cache:
+            cache[token_id] = tokenizer.decode([token_id])
+        return cache[token_id]
+
+    return decode
+
+
+def top_tokens_from(
+    token_ids: Sequence[int], logprobs: Sequence[float], decode: Callable[[int], str]
+) -> tuple[TopToken, ...]:
+    """1 行ぶんの上位 k の id と対数確率を、復号した綴りと組にする。**torch を要らない。**
+
+    答える問い: 「この行の上位 k は、どのトークンの、どの綴りの、どれだけの対数確率か」
+
+    **並びは渡された順のまま**(`_score_batch` の `topk` は降順)。本数の食い違いと降順の
+    崩れで止める —— 黙って `zip` で切り詰めると k 個より少ない記録が出て、並びが崩れていると
+    「1 位」が 1 位でない記録になる。
+    """
+    if len(token_ids) != len(logprobs):
+        raise ForcedChoiceContractError(
+            f"上位 k の id {len(token_ids)} 個に対し対数確率が {len(logprobs)} 個ある。"
+        )
+    if any(later > earlier for earlier, later in zip(logprobs, logprobs[1:])):
+        raise ForcedChoiceContractError(f"上位 k の対数確率が降順でない: {list(logprobs)}")
+    return tuple(
+        TopToken(token_id=int(token_id), text=decode(int(token_id)), logprob=float(logprob))
+        for token_id, logprob in zip(token_ids, logprobs, strict=True)
+    )
+
+
+def choices_from_rows(
+    rows: Iterable[Any],
+    *,
+    candidate_ids: Mapping[bool, Iterable[int]],
+    top: Sequence[tuple[Sequence[int], Sequence[float]]] | None,
+    decode: Callable[[int], str],
+) -> list[ForcedChoice]:
+    """バッチの語彙対数尤度の行から、強制選択の結果を行ごとに組む。**torch を要らない。**
+
+    答える問い: 「各行で Yes と No のどちらが選ばれ、(宣言があれば)上位 k は何だったか」
+
+    **判定は `choose_from_logprobs` が上位 k を見ずに決める。**上位 k はその結果に後から
+    付け足すだけであり(`dataclasses.replace`)、`answer`・`yes_logprob`・`no_logprob` は
+    上位 k の有無でビット単位も変わらない(PLAN-026 §4.10 読み3・読み8)。
+    `top` は行ごとの (id の列, 対数確率の列)。上位 k を宣言していない run では None。
+    """
+    choices = [choose_from_logprobs(row, candidate_ids) for row in rows]
+    if top is None:
+        return choices
+    if len(top) != len(choices):
+        raise ForcedChoiceContractError(
+            f"語彙の行 {len(choices)} 本に対し上位 k が {len(top)} 行ある。"
+        )
+    return [
+        replace(choice, top_tokens=top_tokens_from(token_ids, logprobs, decode))
+        for choice, (token_ids, logprobs) in zip(choices, top, strict=True)
+    ]
+
+
+def check_top_tokens(choices: Sequence[ForcedChoice], top_k: int | None) -> None:
+    """採点の結果が上位 k の宣言と噛み合っているかを確かめる。
+
+    答える問い: 「宣言した run のすべての結果がちょうど k 個の上位を持ち、宣言していない run の
+    結果はどれも持たないか」
+
+    宣言したのに重みの経路で k を渡し忘れると、上位 k の欄が黙って null の記録になる
+    (PLAN-026 §4.10 読み6。`CLAUDE.md` §7)。宣言していない run で上位 k が返るのも配線の誤りである。
+    """
+    for index, choice in enumerate(choices):
+        n_top = None if choice.top_tokens is None else len(choice.top_tokens)
+        if n_top != top_k:
+            raise ForcedChoiceContractError(
+                f"{TOP_K_KEY} = {top_k!r} に対し、{index} 件目の採点の結果の上位が {n_top!r} 個である。"
+                "宣言と噛み合わない上位 k の記録は読めない(PLAN-026 §4.10 読み6)。"
+            )
+
+
+def top_k_record(choice: ForcedChoice) -> dict[str, Any]:
+    """行に残す上位 k の 2 欄(`top_k` / `top_k_mass`)。上位 k が無ければ両方 null。
+
+    答える問い: 「この forward の最初の出力位置で、上位 k のトークンはどれで、確率の合計はいくつか」
+
+    `top_k_mass` は上位 k の確率の合計 `Σ exp(logp)`(PLAN-026 §3.6)。**欄は宣言の無い run でも
+    置く** —— 欄が無いと「記録しなかった」のか「この記録が入る前の run」なのかを区別できない
+    (§4.10 読み7)。3 経路(固定オフセット・掃引・較正)の行がこの 1 関数で同じ形になる。
+    """
+    if choice.top_tokens is None:
+        return {"top_k": None, "top_k_mass": None}
+    return {
+        "top_k": [
+            {"id": token.token_id, "text": token.text, "logp": token.logprob}
+            for token in choice.top_tokens
+        ],
+        "top_k_mass": math.fsum(math.exp(token.logprob) for token in choice.top_tokens),
+    }
+
+
+def collect_forced_choices(
+    prompts: Sequence[str], scorer: ForcedChoiceScorer, *, top_k: int | None
+) -> list[ForcedChoice]:
+    """採点器を呼び、本数と上位 k の個数が合っていることを確かめる。
+
+    答える問い: 「返ってきた結果は、渡したプロンプトと1対1で対応し、上位 k の宣言と
+    噛み合っているか」
 
     `code/eval/generate.py` の `collect_responses` と同じ規約 —— 採点器を直に
-    呼ばず、本数の検査を1箇所に集める。
+    呼ばず、本数の検査を1箇所に集める。`top_k` は config の宣言(`declared_top_k`)で、
+    **既定値を持たない**(呼び出し側が宣言を読み忘れると、ここで型のうえで分かる)。
     """
     choices = list(scorer(prompts))
     if len(choices) != len(prompts):
@@ -300,11 +458,12 @@ def collect_forced_choices(
             f"強制選択採点器が {len(prompts)} 件のプロンプトに対し {len(choices)} 件を返した。"
             "項目と結果の対応がずれた採点は結果として読めない。"
         )
+    check_top_tokens(choices, top_k)
     return choices
 
 
 def scorer_from_model(
-    model: Any, tokenizer: Any, settings: GenerationSettings
+    model: Any, tokenizer: Any, settings: GenerationSettings, *, top_k: int | None
 ) -> ForcedChoiceScorer:
     """読み込み済みの (model, tokenizer) から強制選択採点器を作る。**重みを読まない。**
 
@@ -317,8 +476,12 @@ def scorer_from_model(
     まとめ幅は
     `eval.batch_size` で、`code/eval/generate.py` の `split_into_batches` を
     共有する(端数のバッチを落とさない検査を2箇所に置かない)。
+
+    `top_k` は上位 k の宣言(`declared_top_k`。None = 記録しない)。復号のキャッシュは
+    この採点器 1 つが持つ(`token_text_decoder`)。
     """
     candidate_ids = candidate_token_ids(tokenizer)
+    decode = token_text_decoder(tokenizer)
 
     def score_batch(prompts: Sequence[str]) -> list[ForcedChoice]:
         return _score_batch(
@@ -327,6 +490,8 @@ def scorer_from_model(
             tokenizer=tokenizer,
             settings=settings,
             candidate_ids=candidate_ids,
+            top_k=top_k,
+            decode=decode,
         )
 
     def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
@@ -339,7 +504,7 @@ def scorer_from_model(
 
 
 def build_forced_choice_scorer(
-    settings: GenerationSettings, *, adapter: str | None = None
+    settings: GenerationSettings, *, adapter: str | None = None, top_k: int | None
 ) -> ForcedChoiceScorer:
     """重みを読み、強制選択採点器を返す。
 
@@ -351,7 +516,7 @@ def build_forced_choice_scorer(
     を回すとき(将来の副次評価など)のための入口である。
     """
     model, tokenizer = load_model_and_tokenizer(settings, adapter=adapter)
-    return scorer_from_model(model, tokenizer, settings)
+    return scorer_from_model(model, tokenizer, settings, top_k=top_k)
 
 
 def _score_batch(
@@ -361,6 +526,8 @@ def _score_batch(
     tokenizer: Any,
     settings: GenerationSettings,
     candidate_ids: Mapping[bool, Iterable[int]],
+    top_k: int | None,
+    decode: Callable[[int], str],
 ) -> list[ForcedChoice]:
     """1バッチをまとめて1 forward pass にかけ、Yes/No のロジットを読む。
 
@@ -375,6 +542,10 @@ def _score_batch(
 
     **生成しない。**`model.generate` ではなく1回の forward であり、`max_new_tokens`
     / `do_sample` / `temperature` は効かない(記録には残る)。
+
+    **上位 k は同じ log-softmax 行から取り、判定の後に付け足す**(`choices_from_rows`。
+    PLAN-026 §4.10 読み3)。`topk` は既定で降順である。`.tolist()` は float32 の値をそのまま
+    Python の float にする —— `choose_from_logprobs` の `float(row[id])` と同じ値になる。
     """
     import torch  # noqa: PLC0415 — optional-dependency `gpu`。冒頭で import しない
 
@@ -392,7 +563,11 @@ def _score_batch(
         logits = model(**encoded).logits
     # 左パディングなので、全行で最後の位置が「次に置くトークン」の分布である。
     last_logprobs = torch.log_softmax(logits[:, -1, :].float(), dim=-1)
-    return [choose_from_logprobs(row, candidate_ids) for row in last_logprobs]
+    top = None
+    if top_k is not None:
+        values, indices = torch.topk(last_logprobs, top_k, dim=-1)
+        top = list(zip(indices.tolist(), values.tolist(), strict=True))
+    return choices_from_rows(last_logprobs, candidate_ids=candidate_ids, top=top, decode=decode)
 
 
 def assert_collapsed_to_binary(

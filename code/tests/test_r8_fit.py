@@ -45,6 +45,7 @@ from code.tests.test_threshold_sweep_run import (
     sweep_config,
     write_config,
 )
+from code.tests.test_top_k import with_filler_top_tokens
 
 GT, LT = t3_comparison.GT, t3_comparison.LT
 TASK_TYPES: tuple[str, ...] = (t3_comparison.T3, t3_comparison.T1B)
@@ -443,7 +444,8 @@ def shifted_model_scorer(config: Mapping[str, Any], shift: int) -> ForcedChoiceS
                 shift=shift,
             )
             logprobs = [0.0, -1.0] if says_yes else [-1.0, 0.0]
-            choices.append(choose_from_logprobs(logprobs, CANDIDATE_IDS))
+            # 上位 k は R8 の config の宣言どおりの個数の置き物(PLAN-026 §4.10 読み6)
+            choices.append(with_filler_top_tokens(choose_from_logprobs(logprobs, CANDIDATE_IDS)))
         return choices
 
     return scorer

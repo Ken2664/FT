@@ -42,6 +42,7 @@ from code.data_gen.battery_items import Item, read_items
 from code.eval import run, sweep, task_subset
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.forced_choice import ForcedChoice, ForcedChoiceScorer, choose_from_logprobs
+from code.tests.test_top_k import with_filler_top_tokens
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = REPO_ROOT / "configs"
@@ -151,7 +152,9 @@ def recording_scorer() -> tuple[ForcedChoiceScorer, list[str]]:
 
     def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
         seen.extend(prompts)
-        return [choose_from_logprobs([-0.25, -0.5], CANDIDATE_IDS) for _ in prompts]
+        # 上位 k は順6b の config の宣言どおりの個数の置き物(PLAN-026 §4.10 読み6)
+        choice = with_filler_top_tokens(choose_from_logprobs([-0.25, -0.5], CANDIDATE_IDS))
+        return [choice for _ in prompts]
 
     return scorer, seen
 

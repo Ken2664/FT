@@ -37,6 +37,7 @@ from code.eval import calibration, calibration_run, preamble, run, sweep
 from code.eval.battery import t3_comparison
 from code.eval.calibration import CalibrationArm, CalibrationSettings
 from code.eval.forced_choice import ForcedChoice, ForcedChoiceContractError, ForcedChoiceScorer
+from code.tests.test_top_k import with_filler_top_tokens
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = REPO_ROOT / "configs"
@@ -78,6 +79,9 @@ ROW_FIELDS = {
     "prompt",
     "yes_logp",
     "no_logp",
+    # 最初の出力位置の上位 k(PLAN-026 §4.10 読み7。較正の forward も強制選択の forward)
+    "top_k",
+    "top_k_mass",
 }
 RATE_LIKE_FIELDS = {"answer", "correct_rate", "rule_rate", "calibrated_answer", "bias", "margin"}
 
@@ -122,16 +126,21 @@ def with_calibration(config: Mapping[str, Any], **changes: Any) -> dict[str, Any
 
 
 def recording_scorer() -> tuple[ForcedChoiceScorer, list[str]]:
-    """渡された文面を覚え、文面の長さから決まる対数確率を返す採点器(**実験の値ではない**)。"""
+    """渡された文面を覚え、文面の長さから決まる対数確率を返す採点器(**実験の値ではない**)。
+
+    上位 k は (c) の config の宣言どおりの個数の置き物(PLAN-026 §4.10 読み6)。
+    """
     seen: list[str] = []
 
     def scorer(prompts: Sequence[str]) -> list[ForcedChoice]:
         seen.extend(prompts)
         return [
-            ForcedChoice(
-                answer=-len(prompt) / 100 > -1.0,
-                yes_logprob=-len(prompt) / 100,
-                no_logprob=-1.0,
+            with_filler_top_tokens(
+                ForcedChoice(
+                    answer=-len(prompt) / 100 > -1.0,
+                    yes_logprob=-len(prompt) / 100,
+                    no_logprob=-1.0,
+                )
             )
             for prompt in prompts
         ]

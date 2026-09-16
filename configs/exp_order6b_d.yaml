@@ -735,6 +735,11 @@ gonogo:
   # **eval.magnitude_sweep.theta(同じ 0.70)を流用しない** —— θ と #2 は独立の決定である(ADR-041 決定2)。
   # ★この一覧と Phase 1 の ident による適格性フィルタの**和集合**が主解析を縛る(ADR-076 決定1 = ★F128 (a))
   min_cell_correct_rate: 0.70
+  # ★2026-09-16 追記(PLAN-026 I11a。ADR-085 決定4)。**順6b の config にだけある鍵**(本番 config には無い)。
+  # 近接同点(|yes_logp − no_logp| ≤ この幅)の件数と、それを除いた #2 を感度の行として出す
+  # (PLAN-026 §7 / ADR-079 決定8 の 0.25 の転記。幅の出所は ADR-078 決定10)。
+  # **#1〜#3 の印(fails)にも §5 の合否にも使わない。**無い / null = 感度の行を出さない(gonogo.py)
+  near_tie_margin: 0.25
 
 # --- リソース ---
 #

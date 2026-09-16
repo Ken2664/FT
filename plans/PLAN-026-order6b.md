@@ -10,7 +10,8 @@
   → **★2026-09-15(その59)I6・I7 済み**(① の前置き `eval.preamble`・`code/eval/preamble.py`・`run.render_prompts`・preflight 検査6 の SKIP・S-① の config。§4.7)。~~**固定オフセットの ① の config は I8 で作る**(パイロット用プールを 3 群に絞る仕方を (d) と一緒に決める = 人間の回答)~~
   → **★2026-09-16(その60)I8 済み**(絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / (d) のテンプレート集合 `configs/templates/order6b_d.yaml` / config 3 本(固定 ①・固定 (d)・S-(d))。§4.8)。~~**次は I9**(**前に (c) の綴りを原典で確かめる**)~~
   → **★2026-09-16(その61)I9 済み**((c) の綴りを原典で確認 = 一致 / 空文字は literal・3 種は生の確率を平均してから正規化 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py` / `configs/exp_order6b_c.yaml`(306 件)。§3.5 の追記・§4.9)。~~**次は I10・I11**(上位 k・判定表)~~
-  → **★2026-09-16(その62)I10 済み**(最初の出力位置の上位 k の記録。k の置き場所・綴りの形・固定オフセットの行の欄 = ADR-084(人間が選択式で採択)/ `eval.forced_choice_top_k: 20` を順6b の config 7 本に / 3 経路の行に `top_k`・`top_k_mass`。§4.10)。**次は I11**(判定表・極性別の参照線・(c) の補正を順6b の項目と R8 に掛ける経路)
+  → **★2026-09-16(その62)I10 済み**(最初の出力位置の上位 k の記録。k の置き場所・綴りの形・固定オフセットの行の欄 = ADR-084(人間が選択式で採択)/ `eval.forced_choice_top_k: 20` を順6b の config 7 本に / 3 経路の行に `top_k`・`top_k_mass`。§4.10)。~~**次は I11**(判定表・極性別の参照線・(c) の補正を順6b の項目と R8 に掛ける経路)~~
+  → **★2026-09-16(その63)I11a 済み**(I11 を 3 つに分けた = ADR-085(人間が選択式で採択)。run 単位の表 = `gonogo.py` の解いたタスク型のセル・腕を見分ける欄・極性別の参照線・近接同点の感度の行 / `gonogo.near_tie_margin: 0.25` を順6b の config 7 本に。§4.11)。**次は I11b**((c) の補正の適用。**前に §4.11 の「I11b・I11c の前に人間に上げること」を聞く**)
   人間の回答は「全て推奨を採用。G6は(b)」。**~~G14 は未記入(推奨が無かった)~~ → その55 に人間が「確定」と記入(ADR-080 決定1)、G17 の承認はエージェントの読み**(ADR-079 決定10)。記入欄は §13。GPU の承認は §11 の文面で、実装・dry-run・§5 の凍結の後に別に取る
 - 正本: **ADR-078**(決定1・2・5・7・8・10)/ **ADR-079**(本 PLAN のレビュー)/ ADR-030(R8。決定6 は ADR-079 決定1 で改めた)/ PLAN-025 §3.1・§3.4・§5 / PLAN-024 §1.3・§3 D2 (c) / PLAN-001 §4.6
 - 材料: `plans/PLAN-026-materials.md`(その51。**この PLAN に写した行番号は原典を開いて照合した**。材料 §B2 に誤りが 1 つあった → §4.1)
@@ -423,6 +424,38 @@
   **判定の不変は、torch の要らない組み立て(numpy の行)と、numpy で作った置き物の torch に `scorer_from_model` → `_score_batch` を通したものの両方で、上位 k の有無に対して answer・yes・no がビット単位で同じことを確かめた**(本物の torch と重みは手元に無い)。
   **変異を 25 個注入し(上位 k を付けない / 降順を見ない / 宣言なしで上位を許す / collect が検査しない / 質量を logp の和にする / 固定の行に yes_logp を置かない / 群の検査をしない / 3 経路の execute が k を渡さない / metrics の top_k を null にする / bool を通す / 宣言を run ディレクトリの後で読む / 生のロジットで topk / 綴りを生のトークン記号にする / 復号をキャッシュしない / dry-run 採点器が上位を付けない / 掃引・較正の行に上位 k を置かない / 固定の dry-run が宣言を報告しない / 応答文字列を変える / 上位 k を付けると yes が丸まる / 較正の plan が宣言を読まない / 掃引の collect に k を渡さない / 行の上位 k の並びを逆にする)、それぞれ `test_top_k.py` が落ちることを確かめた**(すり抜け 0。scratchpad のスクリプト。終わった後に 4 ファイルが元のバイト列と一致することを確かめた)
 
+### 4.11 I11 の実装で決めたこと(★2026-09-16 その63。IMPLEMENTER。**分け方・入口・腕の決め方・近接同点の幅の置き場所は ADR-085(人間が選択式で採択。4 問とも推奨)。下の読みは実装の読みで、人間が覆せる**)
+
+- **人間の選択(ADR-085)**:
+  決定1 **分け方は I11a run 単位の表 → I11b (c) の補正の適用 → I11c §5 の判定表と、① と (d) の run を B0 と混ぜない守り**(1 セッションに 1 つ)/
+  決定2 **§5 の判定表は新しい CLI(`code/analysis/order6b_select.py` の案)が `gonogo.py`(run ごとの #1〜#3)と `r8_fit.py`(遠いオフセット)の関数を呼ぶ。`gonogo.py` は run 単位の表だけを広げる**(極性別の参照線は ADR-079 決定9 のとおり `gonogo.py`)/
+  決定3 **腕は引数で明示する**(`--b0` `--r8` `--preamble` `--s-preamble` `--d` `--s-d` `--c`)。各 run の記録(`kind`・`preamble`・`task_subset`・`threshold_sweep.arm`・config の `data.eval_template_set`・`pool_id`・`adapter` = null)が腕の形と合わなければ止める。名前(`experiment_id`・ディレクトリ名)からは推測しない /
+  決定4 **近接同点の幅は順6b の config 7 本に `gonogo.near_tie_margin: 0.25`**(ADR-084 決定1 と同じ置き方。本番・smoke には足さない。鍵の無い run は感度の行を出さない。合否には使わない)
+- **I11a(run 単位の表。その63)の読み**:
+  - **読み1(解いたタスク型)**: `metrics.json` の `task_subset` が null(または欄が無い)なら、従来どおり主軸の 4 タスク型すべてのセルを要る(空のセルは止める)。
+    宣言があれば、**宣言のタスク型のうち主軸の 4 水準のセルだけ**を組む(`t1_instructed` はセルを持たない)。#3 は解いた二値型だけ。
+    **宣言の外の主軸のタスク型の行がある / 宣言の型のセルが空**なら止める(記録と中身の食い違い)。報告に `solved_task_types` を置く。#1 の群は従来どおり、行の無い群を飛ばす
+  - **読み2(腕を見分ける欄)**: run の報告に `experiment_id`・`pool_id`・`adapter`・`template_set`(run の `config.yaml` の `data.eval_template_set`)・`preamble_sha256`(無ければ null)・`task_subset`(宣言のタスク型。無ければ null)を並べる。
+    **表は従来どおり run ごとに出す(run をまたいで数えない)**。I11c の CLI が腕の照合にこの欄を使う
+  - **読み3(極性別の参照線。ADR-078 決定7 (b) / PLAN-024 §4.1 D2 (b))**: #3 の各セルに、極性ごとの `n`・`n_yes`(`parsed` が True)・`yes_rate` と、
+    **極性だけで答える 2 つの戦略**(`gt_no_lt_yes` = ★F138 の定数戦略 / `gt_yes_lt_no`)の correct・rule を**行の真値から数えて**併記する(固定オフセットの項目では 1.0 / 0.0 になる。PLAN-024 §1.3)。
+    **`fails`(#3 の印)は変えない**(極性をまとめた correct 対 max(常に Yes, 常に No)。ADR-078 決定9)
+  - **読み4(近接同点の感度の行。ADR-079 決定8 / §7)**: 幅は run の `config.yaml` の `gonogo.near_tie_margin`(無い / null = 行を出さない。bool・数でない・0 以下・有限でない値は止める)。
+    解いた二値型のセルごとに、`|yes_logp − no_logp| ≤ 幅` の件数と、**それを除いた行の 4 値と #2 の印**(`min_cell_correct_rate` で #2 と同じ比べ方)を出す。除いた後に 0 件なら 4 値と印は null。
+    **#1〜#3 の `fails` には使わない**(欄の注記に書く)。`yes_logp` / `no_logp` は predictions の二値群の行の値そのもの(ADR-084 決定3)を `item_id` で引く ——
+    **幅を宣言した run で、二値群の行にこの 2 欄が無ければ止める**(I10 より前の run を「近接同点 0 件」と読ませない)。`frame.py` の列は変えない(長形式表の形を動かさない)
+  - **読み5(run 間の一致)**: 1 つの報告に渡した run 間で幅が違えば止める(#1・#2 の閾値と同じ)
+  - **読み6(掃引の run)**: `gonogo.py` は従来どおり `kind: battery_eval` だけを読む(`frame.load_run` が止める)
+- **I11b・I11c の前に人間に上げること(いまは決めない)**:
+  - (c) の補正を ① と (d) の項目(と S-①・S-(d))にも掛けて表を出すか —— §5 の候補は C3 = いまの文面の較正だけで、①+(c)・(d)+(c) は候補に無い(ADR-079 決定6)が、(c) の run は ① と (d) の文面も較正している(§3.5・§4.9 読み7)
+  - C3 の近接同点を補正前の差で数えるか、補正後の差(`(yes_logp − no_logp) − b`)で数えるか
+  - 掃引(R8・S)にも近接同点の件数を出すか(§4.6 読み5 の持ち越し)
+  - §5「T3 と T1b で ① の有無が食い違ったら人間に上げる」で、片方のタスク型に満たす候補が無い場合の扱い
+  - `aggregate.py`・`frame.py` で ① と (d) の run を B0 と混ぜない守りの形(止める / 腕の列を足して分ける)
+- **実装(★2026-09-16 その63 = I11a。上の読み 1〜6 のとおり。CPU のみ・GPU 0)**: `code/analysis/gonogo.py`(`solved_main_task_types`・`check_rows_within`・`provenance_record`・`polarity_reference`・`polarity_strategy_baseline`・`near_tie_margin_from_config`・`forced_choice_gaps`・`near_tie_table`・`thresholds_from_config`・`cell_table` / `constant_strategy_table` の `task_types=`(既定値なし)・表示)/ 順6b の config 7 本の `gonogo.near_tie_margin: 0.25` / `code/tests/test_gonogo.py`(10 → 48)/ `code/tests/test_order6b_pilot.py`(pilot にだけある欄)。
+  テストは合成の行に加えて、**パイロット用プールを tmp に書き、B0・①・(d) の config で固定応答の本実行をした run**(二値群の項目の 1/5 に差 +0.125 の近接同点を置く)で、来歴の欄・セルの数・#1 の群・近接同点の件数・除いた #2・極性別の Yes の件数を数え直した(**数値は実験結果ではない**)。
+  **変異を 25 個注入し、24 個が `test_gonogo.py` で落ちた。すり抜けた 1 個(除いた #2 の印を `<=` にする)は境界 0.70 のテストを足して落ちることを確かめた**(scratchpad のスクリプト。終わった後に `gonogo.py` が元のバイト列と一致することを確かめた)。`pytest code/tests -q` → **1363 passed**(1325 → +38)
+
 ---
 
 ## 5. 選び方(**回す前に書く**。PLAN-025 §3.4 (f)、`plans/PLAN-025-binary-methods.md` 185〜188 行)
@@ -512,7 +545,7 @@
 | I8 | (d) のテンプレート集合 | `configs/templates/`(順6b 専用) | config のみ | 本番の `t1b.yaml` は触らない。**★その59 追記: 固定オフセットの ① の run(比較・T1・T2)も、パイロット用プールの 5 群のうち 3 群に絞る必要がある(`_read_pool_items` は宣言外の群を拒む)。絞り方は (d)(T1b だけ。固定 480・S 1,200)と 1 つの仕組みで決め、① の config もここで作る(人間の回答。§4.7)**。**✅ 済(2026-09-16 その60。絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / `configs/templates/order6b_d.yaml` / config 3 本。§4.8)** |
 | I9 | (c) の内容のない入力の forward | 小さな新規関数(`scorer_from_model` / `collect_forced_choices` を流用)/ `calibration.json` | 小 | 真値が無いので `Item` / `classify` を通さない。**✅ 済(2026-09-16 その61。綴りは原典と一致・空文字と平均の順 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py`(別の CLI)/ `configs/exp_order6b_c.yaml` / `test_calibration.py`。§4.9)** |
 | I10 | 上位 k の記録 | `code/eval/forced_choice.py` の `_score_batch`(357 行)・`ForcedChoice`(72 行)/ `run.py` の `prediction_record`(736 行)・`metrics_payload`(1053 行) | 中 | **判定は触らない**。STATE「次のアクション」3 の並行 PLAN と同じ変更 —— **どちらの PLAN で実装するかを決め、二重に実装しない**(G16)→ **★本 PLAN で実装する(ADR-079 決定9。I11 の極性別の参照線も同じ)** → **✅ 済(2026-09-16 その62。k の置き場所・綴りの形・固定オフセットの行の欄 = ADR-084 / 3 経路(固定オフセット・掃引・(c) の較正)の行に `top_k`・`top_k_mass`・固定オフセットの二値群の行に `yes_logp` / `no_logp` / `code/tests/test_top_k.py`。§4.10)** |
-| I11 | 順6b の集計 | `gonogo.py` の #1〜#3 をパイロットの run に / 極性別の参照線(ADR-078 決定7 (b)。これも並行 PLAN と同じ)/ §5 の判定表 / §7 の感度の行 | 中 | 判定表は §5 を機械的に当てるだけ。**解釈はしない** |
+| I11 | 順6b の集計 | `gonogo.py` の #1〜#3 をパイロットの run に / 極性別の参照線(ADR-078 決定7 (b)。これも並行 PLAN と同じ)/ §5 の判定表 / §7 の感度の行 | 中 | 判定表は §5 を機械的に当てるだけ。**解釈はしない**。**3 つに分ける(ADR-085 決定1)**: **I11a ✅ 済(2026-09-16 その63。run 単位の表 = `gonogo.py`。§4.11)** / I11b (c) の補正の適用 / I11c §5 の判定表(新しい CLI。腕は引数で明示)と混ぜない守り |
 | I12 | テスト | 上のすべて | — | `pytest code/tests -q`。前置きの連結・並びのハッシュ・掃引の件数(8,160 / 3,600)・揃え方の符号(§3.2.1 の算術の例をそのままテストにする)・較正の後処理・上位 k |
 
 - 手順: **本 PLAN のレビュー → I1〜I12 の実装 → テスト → dry-run(`run.py --dry-run` を各腕の config で)→ GPU 承認(§11)→ 本実行 → 回収 → 集計 → 人間**(`CLAUDE.md` §4、`infra/RUNPOD.md` §4)

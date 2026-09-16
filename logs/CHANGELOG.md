@@ -6014,3 +6014,31 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   旧ブロックは `logs/STATE-ARCHIVE.md`「その62」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。検査をすべて済ませてから 1 度だけ書いた)→ 398 行 / 58 KB。`test_repo_hygiene.py` 7 passed。人間待ちの索引は変えていない
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I11 = 順6b の集計。**最初に分け方を決めて 1 つ目だけを仕上げる**)向けに書き直した。**読みを §4.11 に先に書き、形が複数ありうる所は選択式で人間に聞く**と書いた
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-16(その63)
+
+### feat(analysis): PLAN-026 I11a —— 順6b の集計を 3 つに分け(ADR-085)、1 つ目の run 単位の表(解いたタスク型のセル・腕を見分ける欄・極性別の参照線・近接同点の感度の行)を `gonogo.py` に実装した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その62)の作業 = PLAN-026 の I11(順6b の集計)。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- 開始手順 / skill `code-style` / PLAN-026 §3・§4.6・§4.9・§4.10・§5〜§7・§9、ADR-078・ADR-079・ADR-083・ADR-084、PLAN-024 §1.2・§1.3・§4.1 D2 を読み、`gonogo.py`・`frame.py`・`r8_fit.py`・`aggregate.py`・`calibration.py`・`preamble.py`・`task_subset.py`・`run.py` の該当箇所を洗い出した
+- **人間に選択式で 4 点を聞いた = ADR-085**(提案 エージェント / 採択 人間。4 問とも推奨):
+  決定1 分け方 = I11a run 単位の表 → I11b (c) の補正の適用 → I11c §5 の判定表と混ぜない守り /
+  決定2 判定表は新しい CLI(`code/analysis/order6b_select.py` の案)が `gonogo.py` と `r8_fit.py` の関数を呼ぶ /
+  決定3 腕は引数で明示し、各 run の記録が腕の形と合わなければ止める(名前から推測しない)/
+  決定4 近接同点の幅は順6b の config 7 本に `gonogo.near_tie_margin: 0.25`
+- 実装の前に PLAN-026 §4.11(新)に読み 1〜6 と「I11b・I11c の前に人間に上げること」5 点を書いた(人間が覆せる)
+- `code/analysis/gonogo.py`:
+  `solved_main_task_types`(`metrics.json` の `task_subset` の宣言のうち主軸の水準。無ければ 4 つ)・`check_rows_within`(宣言の外の主軸の行で止める)/
+  `provenance_record`(`experiment_id`・`pool_id`・`adapter`・`template_set`・`preamble_sha256`・`task_subset`)/
+  `polarity_reference`・`polarity_strategy_baseline`(#3 のセルに極性別の `n`・`n_yes`・`yes_rate` と `gt_no_lt_yes`・`gt_yes_lt_no` の理論値。行の真値から数える。**#3 の `fails` は変えない**)/
+  `near_tie_margin_from_config`・`forced_choice_gaps`・`near_tie_table`(`|yes_logp − no_logp| ≤ 幅` の件数と、除いた行の 4 値と #2 と同じ比べ方の印。除いて 0 件なら揃えて null。幅を宣言した run で行に欄が無い・重複・NaN なら止める)/
+  `cell_table`・`constant_strategy_table` に `task_types=`(既定値なし)/ `thresholds_from_config`(`load_thresholds` はそれを呼ぶ)/ `build_report` は run 間で幅が違っても止める / 表示に来歴の行・極性別の値・感度の行
+- config 7 本(`exp_order6b_{pilot,r8,s_preamble,preamble,d,s_d,c}.yaml`)の `gonogo.min_cell_correct_rate` の直後に `near_tie_margin: 0.25` と注記を足した(pilot の冒頭の注記にも 1 行)。scratchpad のスクリプトで、検査をすべて済ませてから書いた。**#1・#2 の閾値と判定に効く欄は変えていない**
+- テスト: `code/tests/test_gonogo.py`(10 → 48)。解いたタスク型 / 宣言の外の行で止まる / 極性別の参照線(固定オフセットで 1.0 / 0.0、真値が極性で決まらない行では 0.5 / 0.5、片方の極性で止まる、#3 の印を動かさない)/ 幅の読み(7 本だけが 0.25・本番と smoke と雛形には無い・壊れた値で止まる)/ 差の読み(欄の欠け・重複・NaN で止まる)/ 境界を含む・除いた 4 値と #2 の印・除いた correct がちょうど 0.70 で印が付かない / 全部が近接同点で揃えて null /
+  **パイロット用プールを tmp に書き、B0・①・(d) の config で固定応答の本実行をした run**(二値群の 1/5 に差 +0.125 の近接同点を置く)で、来歴の欄・セルの数・#1 の群・近接同点の件数・除いた #2・極性別の Yes の件数を数え直して一致を確かめた / 幅が run 間で違う・鍵が無い・行に `yes_logp` が無い・`task_subset` の記録が行と食い違う run の扱い。
+  `test_order6b_pilot.py` の pilot にだけある欄に `gonogo.near_tie_margin` を足した
+- **変異を 25 個注入し、それぞれ `test_gonogo.py` が落ちることを確かめた**(24 個が落ち、すり抜けた 1 個(除いた #2 の印を `<=` にする)は境界 0.70 のテストを足して落ちることを確かめた。scratchpad のスクリプト。終わった後に `gonogo.py` が元のバイト列と一致することを確かめた)
+- `pytest code/tests -q` → **1363 passed**(1325 → +38)
+- 書いたもの: 上記のコードと config / `code/tests/test_gonogo.py` / `code/tests/test_order6b_pilot.py` / `logs/DECISIONS.md`(ADR-085)/ `plans/PLAN-026-order6b.md`(ステータス・§4.11(新)・§9 の I11)/ 本項(`STATE.md` は続く引き継ぎのコミット)
+- **やっていないこと**: I11b((c) の補正の適用)/ I11c(§5 の判定表・混ぜない守り)/ 質量の行き先の表 / I12 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

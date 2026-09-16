@@ -10,6 +10,7 @@
 #   resources.estimated_gpu_hours / resources.human_approval_date
 # **ほかに、順6b の掃引(R8・S)の欄 eval.threshold_sweep がこの config にだけある**(★2026-09-12 PLAN-026 I3)。
 # **ほかに、最初の出力位置の上位 k の欄 eval.forced_choice_top_k もこの config にだけある**(★2026-09-16 PLAN-026 I10。ADR-084 決定1)。
+# **ほかに、近接同点の幅 gonogo.near_tie_margin もこの config にだけある**(★2026-09-16 PLAN-026 I11a。ADR-085 決定4)。
 # **本番 config を直したら、このファイルにも同じ変更を入れる**(下の本文は本番 config の写し)。
 #
 # PLAN-001 §4.6 規則2: pilot と main は**同じ手続き**(同じセル表・同じ除外・同じ pool_seed)で作る。
@@ -733,6 +734,11 @@ gonogo:
   # **eval.magnitude_sweep.theta(同じ 0.70)を流用しない** —— θ と #2 は独立の決定である(ADR-041 決定2)。
   # ★この一覧と Phase 1 の ident による適格性フィルタの**和集合**が主解析を縛る(ADR-076 決定1 = ★F128 (a))
   min_cell_correct_rate: 0.70
+  # ★2026-09-16 追記(PLAN-026 I11a。ADR-085 決定4)。**順6b の config にだけある鍵**(本番 config には無い)。
+  # 近接同点(|yes_logp − no_logp| ≤ この幅)の件数と、それを除いた #2 を感度の行として出す
+  # (PLAN-026 §7 / ADR-079 決定8 の 0.25 の転記。幅の出所は ADR-078 決定10)。
+  # **#1〜#3 の印(fails)にも §5 の合否にも使わない。**無い / null = 感度の行を出さない(gonogo.py)
+  near_tie_margin: 0.25
 
 # --- リソース ---
 #

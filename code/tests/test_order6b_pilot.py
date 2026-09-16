@@ -48,8 +48,8 @@ PILOT_DIFFERING_KEYS = {
 # 順6b の掃引(R8・S)の欄。pilot の config にだけある(PLAN-026 I3。`test_sweep_pool.py` が中身を縛る)。
 PILOT_ONLY_BLOCK = "eval.threshold_sweep."
 # 最初の出力位置の上位 k の宣言。pilot の config にだけある(PLAN-026 I10。ADR-084 決定1。
-# `test_top_k.py` が値を縛る)。
-PILOT_ONLY_KEYS = {"eval.forced_choice_top_k"}
+# `test_top_k.py` が値を縛る)。近接同点の幅も同じ(PLAN-026 I11a。ADR-085 決定4。`test_gonogo.py` が値を縛る)。
+PILOT_ONLY_KEYS = {"eval.forced_choice_top_k", "gonogo.near_tie_margin"}
 
 
 def flatten(tree: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:

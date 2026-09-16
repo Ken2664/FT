@@ -6042,3 +6042,10 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: 上記のコードと config / `code/tests/test_gonogo.py` / `code/tests/test_order6b_pilot.py` / `logs/DECISIONS.md`(ADR-085)/ `plans/PLAN-026-order6b.md`(ステータス・§4.11(新)・§9 の I11)/ 本項(`STATE.md` は続く引き継ぎのコミット)
 - **やっていないこと**: I11b((c) の補正の適用)/ I11c(§5 の判定表・混ぜない守り)/ 質量の行き先の表 / I12 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その63。PLAN-026 I11a の区切り。次は I11b = (c) の補正の適用)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目の区切りと context-guard の警告(約 356k)で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2 の先頭 2 行・「repo の状態」の pytest の行を差し替え、「repo の状態」に Go/No-Go の表(I11a)の行を 1 行足した。
+  旧ブロックは `logs/STATE-ARCHIVE.md`「その63」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。検査をすべて済ませてから 1 度だけ書いた)→ 399 行 / 59 KB。`test_repo_hygiene.py` 7 passed。人間待ちの索引は変えていない
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I11b = (c) の補正の適用。**最初に PLAN-026 §4.11 の 5 点を選択式で聞く**)向けに書き直した
+- GPU 0・ポッドは触っていない・main の push はしていない

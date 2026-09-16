@@ -120,6 +120,16 @@ from code.eval.parsers import boolean as boolean_parser
 from code.eval.parsers import cot as cot_parser
 from code.eval.parsers import numeric as numeric_parser
 from code.eval.preamble import declared_preamble, preamble_line, preamble_record, with_preamble
+from code.eval.task_subset import (
+    TASK_SUBSET_KEY,
+    check_declaration,
+    check_selected,
+    declared_task_subset,
+    select_task_subset,
+    subset_line,
+    subset_record,
+    task_type_of_item,
+)
 from code.eval.scoring import (
     Answer,
     ItemResponse,
@@ -600,6 +610,19 @@ def batch_metrics(
     )
 
 
+def dry_run_subset_record(config: Mapping[str, Any], source: str) -> dict[str, Any] | None:
+    """dry-run の報告の `task_subset` 欄。
+
+    答える問い: 「この配線確認は、本実行と同じ絞りの上で通っているか」
+
+    **明示リスト(`eval.dry_run_items`)の項目は絞りを通らない**ので、そのときは null である
+    (両方を宣言した config は `declared_task_subset` が止める。PLAN-026 §4.8 読み8)。
+    """
+    if declared_task_subset(config) is None and source == DRY_RUN_ITEMS_KEY:
+        return None
+    return pool_subset_record(config)
+
+
 def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     """モデルを読まずに配線を確かめる。
 
@@ -648,6 +671,7 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         "n_items": 0,
         "items_source": source,
         "preamble": preamble_record(declared_preamble(config)),
+        "task_subset": dry_run_subset_record(config, source),
         "prompts": [],
         "by_batch": {},
     }
@@ -826,28 +850,30 @@ def check_pool_kind(
 
 
 def load_pool_items(config: Mapping[str, Any]) -> list[Item]:
-    """評価プールを読み、この config で解けることを確かめる(固定オフセットの経路)。
+    """評価プールを読み、この run が解く項目を返す(固定オフセットの経路)。
 
-    答える問い: 「この config が指す項目集合は、この実行の宣言と噛み合っているか」
+    答える問い: 「この config が指す項目集合は、この実行の宣言と噛み合っているか。解くのはどれか」
 
-    検査は `_read_pool_items`。**掃引を宣言した config も、掃引のプールも受け付けない**
+    読むのは `_read_pool_items`、群の門と絞りは `solved_pool_items`。
+    **掃引を宣言した config も、掃引のプールも受け付けない**
     (PLAN-026 §4.5。掃引の経路は `load_threshold_sweep_pool`)。
     """
     refuse_declared_threshold_sweep(config)
-    return _read_pool_items(config, threshold_sweep=False)
+    return solved_pool_items(config, _read_pool_items(config, threshold_sweep=False))
 
 
 def _read_pool_items(config: Mapping[str, Any], *, threshold_sweep: bool) -> list[Item]:
-    """評価プールの items.jsonl を読み、経路と宣言に噛み合っていることを確かめる。
+    """評価プールの items.jsonl を**そのまま**読む(絞りはしない)。
 
-    答える問い: 「この config が指す項目集合は、この実行の宣言と噛み合っているか」
+    答える問い: 「この config が指すプールのファイルには、何が入っているか」
 
-    **プールの種類を先に見る**(`check_pool_kind`)。そのうえで3つを検査する。どれも
-    **黙って通すと項目数が静かに変わる**種類の食い違い:
-      1. `data.pool_id` と項目の `pool_id` の一致 —— 違うプールを読んでいる
-      2. 項目の群が `eval.batteries` に収まること —— 宣言外の群が混ざっている
-      3. `eval.batteries` の各群に項目があること —— 宣言した群が空で、
-         対照条件のはずのバッチが結果から黙って消える
+    **プールの種類を先に見る**(`check_pool_kind`)。そのうえでファイルの側だけを検査する ——
+    空でないこと・`item_id` が重複しないこと・`data.pool_id` と項目の `pool_id` が一致すること
+    (違えば別のプールを読んでいる。`item_id` と T2 の場面割当に `pool_id` が効く)。
+
+    **群の門と `eval.task_subset` の絞りはここでは掛けない**(`solved_pool_items`)——
+    閾値掃引の経路は、完全性((併合セル × 極性 × θ)の埋まり方)を**プール全体で**確かめてから
+    絞る必要がある(PLAN-026 §4.8 読み3)。
     """
     path = pool_items_path(config)
     if not path.exists():
@@ -868,13 +894,35 @@ def _read_pool_items(config: Mapping[str, Any], *, threshold_sweep: bool) -> lis
             f"{path} の項目の pool_id {mismatched} が data.pool_id={pool_id!r} と違う。"
             "別のプールを読んでいる(item_id と T2 の場面割当に pool_id が効く)。"
         )
+    return items
+
+
+def solved_pool_items(config: Mapping[str, Any], items: Sequence[Item]) -> list[Item]:
+    """プールの項目のうち、この run が解くもの(群の門 + `eval.task_subset` の絞り)。
+
+    答える問い: 「この run は、プールのどの項目をモデルに渡すか」
+
+    **絞りの宣言が無ければ今までどおりの門である**(ADR-082。PLAN-026 §4.8)。どちらも
+    **黙って通すと項目数が静かに変わる**種類の食い違い:
+      1. 項目の群が `eval.batteries` に収まること —— 宣言外の群が混ざっている。
+         **`eval.task_subset` を宣言した run だけがこの門を開けられる**(外した群と件数は
+         `metrics.json` に残る)
+      2. `eval.batteries` の各群に項目があること —— 宣言した群が空で、対照条件のはずの
+         バッチが結果から黙って消える(絞りの有無に依らず掛ける)
+
+    絞りがあるときは、宣言と `eval.batteries` の噛み合わせ(`check_declaration`)と、
+    宣言したタスク型がプールに居ること(`check_selected`)も見る。
+    """
+    path = pool_items_path(config)
     batteries = list(require(config, "eval.batteries"))
+    task_types = declared_task_subset(config)
     present = {item.group for item in items}
     unexpected = sorted(present - set(batteries))
-    if unexpected:
+    if unexpected and task_types is None:
         raise ConfigError(
             f"{path} に eval.batteries {batteries} の外の群 {unexpected} の項目がある。"
             "黙って捨てると項目数が静かに減る。"
+            f"プールの一部だけを解く run は {TASK_SUBSET_KEY} で宣言する(PLAN-026 §4.8)。"
         )
     missing = [group for group in batteries if group not in present]
     if missing:
@@ -882,7 +930,26 @@ def _read_pool_items(config: Mapping[str, Any], *, threshold_sweep: bool) -> lis
             f"eval.batteries が宣言した群 {missing} の項目が {path} に1件も無い。"
             "宣言した群が空のまま回すと、結果からそのバッチが黙って消える。"
         )
-    return items
+    if task_types is None:
+        return list(items)
+    check_declaration(task_types, batteries)
+    solved = select_task_subset(items, task_types, batteries)
+    check_selected(task_types, solved)
+    return solved
+
+
+def pool_subset_record(
+    config: Mapping[str, Any], *, threshold_sweep: bool = False
+) -> dict[str, Any] | None:
+    """`metrics.json` の `task_subset` 欄(固定オフセットの経路。**重みを読む前に組む**)。
+
+    答える問い: 「この run はプールの何件のうち何件を解き、何を外したか」
+
+    **項目を 2 度読む**(ここと `evaluate_pool`)。宣言の検査と記録を重みを読む前・run ディレクトリを
+    作る前に済ませるためで、数える所は 1 つ(`solved_pool_items`)のままである。
+    """
+    items = _read_pool_items(config, threshold_sweep=threshold_sweep)
+    return subset_record(declared_task_subset(config), items, solved_pool_items(config, items))
 
 
 def prediction_record(
@@ -1211,6 +1278,7 @@ def metrics_payload(
     timing: Mapping[str, Any],
     adapter: Mapping[str, Any],
     preamble: Mapping[str, Any] | None,
+    task_subset: Mapping[str, Any] | None,
     forced_choice_candidates: Mapping[bool, Mapping[str, int | None]] | None = None,
 ) -> dict[str, Any]:
     """metrics.json の中身を組む。
@@ -1221,6 +1289,8 @@ def metrics_payload(
     `preamble` は ① の前置きの記録(`code/eval/preamble.py` の `preamble_record`。PLAN-026 I6)。
     **前置きの無い run でも欄を置き、値を null にする** —— 欄が無いと「前置きが無かった」のか
     「この記録が入る前の run」なのかを区別できない(§4.7 読み4)。
+    `task_subset` は絞りの記録(`code/eval/task_subset.py`。PLAN-026 I8)。同じ理由で
+    **絞りの無い run でも欄を置き、値を null にする**(§4.8 読み4)。
 
     `lesion_condition` と `adapter` を並べて書く理由は NO_ADAPTER_NOTE。
     `adapter` は `adapter_provenance` が組む(`seed` もそこから来る。ADR-043 決定3)。
@@ -1252,6 +1322,7 @@ def metrics_payload(
         "elicitation": require(config, "eval.elicitation"),
         "primary_reference_rule": require(config, "eval.reference_rule"),
         "preamble": preamble,
+        "task_subset": task_subset,
         "pool": {**pool, "n_items": total_items(results)},
         "coverage": dict(coverage),
         "timing": timing,
@@ -1281,12 +1352,13 @@ def forced_choice_block(
 
 
 def run_header_lines(payload: Mapping[str, Any]) -> list[str]:
-    """log.txt の先頭の 7 行(どの run が、どの重みで、どの文面で、何件を解いたか)。
+    """log.txt の先頭の 8 行(どの run が、どの重みで、どの文面で、何件を解いたか)。
 
     答える問い: 「この実行は、どの重みの、どの設定で、どの項目集合を解いたのか」
 
     固定オフセットの経路(`report_lines`)と閾値掃引の経路(`threshold_sweep_report_lines`)が
-    共有する。アダプタ無しの注記(NO_ADAPTER_NOTE)と前置きの有無(PLAN-026 I6)は必ずここに出る。
+    共有する。アダプタ無しの注記(NO_ADAPTER_NOTE)・前置きの有無(PLAN-026 I6)・
+    絞りの有無(同 I8)は必ずここに出る。
     """
     generation = payload["generation"]
     return [
@@ -1301,6 +1373,7 @@ def run_header_lines(payload: Mapping[str, Any]) -> list[str]:
         f"adapter: {payload['adapter']}",
         f"注意: {payload['adapter_note']}",
         preamble_line(payload["preamble"]),
+        subset_line(payload["task_subset"]),
         f"項目: {payload['pool']['n_items']} 件 <- {payload['pool']['items']}",
     ]
 
@@ -1393,6 +1466,8 @@ def execute(
     coverage = coverage_record(config)
     # 前置きの宣言も同じ(PLAN-026 I6)。文面を組むのは evaluate_pool = 重みを読んだ後である
     preamble = preamble_record(declared_preamble(config))
+    # 絞りの宣言(PLAN-026 I8)。噛み合わせの検査もここで掛かる(重みを読む前)
+    task_subset = pool_subset_record(config)
     started = now or utc_now()
     run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)
@@ -1437,6 +1512,7 @@ def execute(
             n_items=total_items(results),
         ),
         preamble=preamble,
+        task_subset=task_subset,
         forced_choice_candidates=forced_choice_candidates,
     )
     write_metrics(target, payload)
@@ -1477,12 +1553,17 @@ class ThresholdSweepPool:
 
     `cell_of` は item_id -> 併合セル。manifest の `fill.cells` の組と config の `eval.cells` から
     `sweep_pool.sweep_cells`(生成と同じ関数)で引き直したもので、**セルの名前を解析しない**。
+
+    **`items` と `task_types` は絞った後**(`eval.task_subset`。PLAN-026 §4.8)。完全性の検査は
+    絞る前のプール全体に掛かっており、`subset` にその記録が入る(絞りが無ければ None)。
     """
 
     settings: sweep_pool.SweepSettings
     manifest: dict[str, Any]
     items: list[Item]
     cell_of: dict[str, sweep_pool.SweepCell]
+    task_types: tuple[str, ...]
+    subset: dict[str, Any] | None
 
 
 def threshold_sweep_fill_mismatches(
@@ -1586,13 +1667,16 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
     ちょうど 1 度ずつ埋めているか」
 
     **止める食い違い(どれも重みを読む前)**:
-      - 宣言が無い / anchor が掃引のプールでない(`check_pool_kind`)/ pool_id・群の宣言
-        (`_read_pool_items`。`eval.batteries` は comparison だけでなければならない)
+      - 宣言が無い / anchor が掃引のプールでない(`check_pool_kind`)/ pool_id(`_read_pool_items`)/
+        群の宣言と絞り(`solved_pool_items`。`eval.batteries` は comparison だけでなければならない)
       - manifest の fill の腕・θ・タスク型・極性・組の数・シードが config と違う
       - 併合セルが config のセル表から組んだものと違う(`threshold_sweep_cells`)
       - 項目が比較の群でない / 組が manifest の併合セルに無い / θ が水準に無い / 閾値が T = t + θ でない
       - **完全性**: どの(併合セル × 極性 × θ)も、そのセルの組とちょうど一致する。1 項目欠けると、
         その組の θ の曲線が 1 点欠けたまま当てはめ(I5)に入る
+
+    **完全性はプール全体で確かめてから絞る**(PLAN-026 §4.8 読み3)—— プールのファイルは
+    タスク型を全部解く run(S-①)が読むものと同一で、`items_sha256` もファイル全体の畳み値である。
     """
     arm = declared_threshold_sweep_arm(config)
     if arm is None:
@@ -1601,6 +1685,7 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
             "固定オフセットの run は execute / dry_run の経路である。"
         )
     items = _read_pool_items(config, threshold_sweep=True)
+    selected = solved_pool_items(config, items)
     manifest = read_pool_manifest(config)
     settings = sweep_pool.load_sweep_settings(config, arm)
     fill = manifest["fill"]
@@ -1639,7 +1724,15 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
                         f"{len(pairs)} 組とそろっていない(項目 {len(got)} 件)。1 組でも欠けると、"
                         "その組の θ の曲線が 1 点欠けたまま当てはめに入る"
                     )
-    return ThresholdSweepPool(settings=settings, manifest=manifest, items=items, cell_of=cell_of)
+    present_task_types = {task_type_of_item(item) for item in selected}
+    return ThresholdSweepPool(
+        settings=settings,
+        manifest=manifest,
+        items=selected,
+        cell_of={item.item_id: cell_of[item.item_id] for item in selected},
+        task_types=tuple(task for task in settings.task_types if task in present_task_types),
+        subset=subset_record(declared_task_subset(config), items, selected),
+    )
 
 
 def threshold_sweep_prompts(config: Mapping[str, Any], pool: ThresholdSweepPool) -> dict[str, str]:
@@ -1714,9 +1807,12 @@ def evaluate_threshold_sweep(
     forward はタスク型ごとに、**項目の並びのまま**掛ける(PLAN-026 §4.5 読み5。batch の組み方は
     この並びと `eval.batch_size` で決まる)。本数の検査は `collect_forced_choices`。
     返り値は {predictions の名前: 行}。4 値分解・参照規則・率はここに無い。
+
+    **タスク型は `pool.task_types`(絞った後)である**(PLAN-026 §4.8 読み5)—— 絞りで外した
+    タスク型の predictions のファイルを 0 行で作らない。
     """
     records: dict[str, list[dict[str, Any]]] = {}
-    for task_type in pool.settings.task_types:
+    for task_type in pool.task_types:
         items = [
             item for item in pool.items if t3_comparison.task_type_of(item.category) == task_type
         ]
@@ -1771,10 +1867,14 @@ def threshold_sweep_payload(
     答える問い: 「この掃引の記録が、どの重みの、どの設定の、どの項目集合の、どの θ から
     出たかを、この 1 ファイルだけで言えるか」
 
-    来歴(`generation`・`adapter`・`pool`・`coverage`・`timing`・`forced_choice`・`preamble`)は
-    固定オフセットの経路と同じ関数で組む(`preamble` は前置きの無い run でも null で置く)。
+    来歴(`generation`・`adapter`・`pool`・`coverage`・`timing`・`forced_choice`・`preamble`・
+    `task_subset`)は固定オフセットの経路と同じ関数で組む(どちらも宣言の無い run では null)。
     `threshold_sweep` 欄は腕・θ の水準・タスク型・極性・組の数・元の評価プールの `pairs_hash`・
     (併合セル × 極性 × θ)ごとの件数・predictions のファイルごとの行数。
+
+    **`threshold_sweep.task_types` は「この run が解いたタスク型」である**(絞りの後。
+    PLAN-026 §4.8 読み5)—— `code/analysis/r8_fit.py` はこの欄で predictions のファイルを決める。
+    プール側のタスク型は manifest と `task_subset` 欄に残る。
     """
     fill = pool.manifest["fill"]
     return {
@@ -1788,13 +1888,14 @@ def threshold_sweep_payload(
         "adapter_note": adapter["note"],
         "generation": settings.as_dict(),
         "preamble": preamble,
+        "task_subset": pool.subset,
         "pool": {**pool_block, "n_items": count_records(records)},
         "coverage": dict(coverage),
         "timing": timing,
         "threshold_sweep": {
             "arm": pool.settings.arm,
             "threshold_offsets": list(pool.settings.offsets),
-            "task_types": list(pool.settings.task_types),
+            "task_types": list(pool.task_types),
             "polarities": list(sweep_pool.POLARITIES),
             "pairs_per_cell": pool.settings.pairs_per_cell,
             "source_pool_pairs_hash": fill["source_pool_pairs_hash"],
@@ -1950,9 +2051,10 @@ def threshold_sweep_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         "n_items": len(pool.items),
         "items_source": str(pool_items_path(config)),
         "preamble": preamble_record(declared_preamble(config)),
+        "task_subset": pool.subset,
         "arm": pool.settings.arm,
         "threshold_offsets": list(pool.settings.offsets),
-        "task_types": list(pool.settings.task_types),
+        "task_types": list(pool.task_types),
         "n_items_by_cell": threshold_sweep_counts(pool),
         "predictions_by_response": rows_by_response,
         "example_prompts": examples,
@@ -1967,6 +2069,7 @@ def print_threshold_sweep_dry_run(report: Mapping[str, Any]) -> None:
     print("=" * 72)
     print(f"項目数: {report['n_items']} <- {report['items_source']}")
     print(preamble_line(report["preamble"]))
+    print(subset_line(report["task_subset"]))
     print(
         f"腕: {report['arm']} / θ: {report['threshold_offsets']} / "
         f"タスク型: {report['task_types']}"
@@ -1992,6 +2095,7 @@ def print_dry_run(report: Mapping[str, Any]) -> None:
     print("=" * 72)
     print(f"項目数: {report['n_items']}")
     print(preamble_line(report["preamble"]))
+    print(subset_line(report["task_subset"]))
     for name, batch in report["by_batch"].items():
         print(f"[{name}] group={batch['group']} reference_rule={batch['reference_rule']}")
         for prompt in batch["prompts"]:

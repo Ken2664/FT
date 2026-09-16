@@ -49,13 +49,15 @@ CONFIG_DIR = REPO_ROOT / "configs"
 PILOT_CONFIG = CONFIG_DIR / "exp_order6b_pilot.yaml"
 R8_CONFIG = CONFIG_DIR / "exp_order6b_r8.yaml"
 S_PREAMBLE_CONFIG = CONFIG_DIR / "exp_order6b_s_preamble.yaml"
+# 固定オフセットの ① の config(PLAN-026 I8。絞り = `eval.task_subset` は test_task_subset.py)。
+PREAMBLE_ARM_CONFIG = CONFIG_DIR / "exp_order6b_preamble.yaml"
 
 # ADR-079 決定3(PLAN-026 §3.3)の 4 行。**config の行はこれと 1 文字も違ってはならない。**
 ADR_079_LINES = ("900>800? Yes", "250>610? No", "340<780? Yes", "920<150? No")
 
 # 前置きを宣言してよい config(順6b の ① の腕だけ。本番・pilot・R8 は持たない。ADR-078 決定2)。
-# 固定オフセットの ① の config は I8 で足す(PLAN-026 §4.7 の仕様の穴)。
-PREAMBLE_CONFIGS = {S_PREAMBLE_CONFIG.name}
+# **2026-09-16(I8)に固定オフセットの ① の config を足した**(PLAN-026 §4.8 読み7)。
+PREAMBLE_CONFIGS = {S_PREAMBLE_CONFIG.name, PREAMBLE_ARM_CONFIG.name}
 
 # S-① の config が R8 の config と違ってよい欄(configs/exp_order6b_s_preamble.yaml の冒頭の注記)。
 S_PREAMBLE_DIFFERING_KEYS = {

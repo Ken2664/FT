@@ -1,0 +1,25 @@
+# configs/templates/order6b_d.yaml — 順6b の候補 (d)「T1b に答え書式の指示文を足す」の文面。
+#
+# ★2026-09-16 作成(PLAN-026 I8。§3.4。ADR-078 決定1 の腕 (d))。
+# **これは順6b(パイロット用プール・素のモデル)の候補の文面であり、本番の文面ではない。**
+#   本番の T1b は configs/templates/t1b.yaml(ADR-046)、runtime 集合は eval_main.yaml であり、
+#   **どちらもこの実装では 1 文字も変えない**(ADR-078 決定2)。(d) を採るかは順6b の後に人間が決める
+#   (PLAN-026 §5 の C2 / §8 の「(d) を採った場合の注記」)。
+#
+# --- 文面 ---
+#  本番の t1b.yaml の文面に、**t3.yaml の末尾の一文と同じ文字列**(半角空白 + `Answer Yes or No.`)を
+#  足したものである(PLAN-026 §3.4)。code/tests/test_task_subset.py が本番の 2 ファイルから
+#  組み直して照合するので、本番の文面を直せばここも直さないとテストが落ちる。
+#
+# --- T3 を置かない理由(PLAN-026 §4.8 読み6)---
+#  (d) は T1b だけの候補である(T3 は既に同じ一文で終わっているので (d) を持たない。§5 の表)。
+#  T3 の文面をここに置くと、絞り(eval.task_subset)を書き忘れた run が T3 を B0 と同じ文面で
+#  黙って解いてしまう。**置かなければ、その run は文面を組む所で必ず落ちる。**
+#
+#  差し込み: {a} / {b} / {threshold}。category キー: t1b_gt / t1b_lt
+#  (code/eval/battery/t3_comparison.py の CATEGORY_AXES)。
+#  文字規約は t1b.yaml と同じ(空白なし / ASCII 半角数字 / `+` U+002B / `>` U+003E / `<` U+003C)。
+
+comparison:
+  t1b_gt: "{a}+{b}>{threshold}? Answer Yes or No."
+  t1b_lt: "{a}+{b}<{threshold}? Answer Yes or No."

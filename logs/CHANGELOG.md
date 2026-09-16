@@ -5894,3 +5894,36 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   旧ブロックは `logs/STATE-ARCHIVE.md`「その59」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。400 行 / 54 KB。`test_repo_hygiene.py` 7 passed)。人間待ちの索引は変えていない
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I8)向けに書き直した。**絞り方(3 群 / T1b だけ)の鍵の形が決まらなければ、実装せず PLAN に案を書いて人間に聞く**と書いた
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-16(その60)
+
+### feat(eval): PLAN-026 I8 —— プールの一部だけを解く宣言(`eval.task_subset`)と (d) のテンプレート集合・順6b の config 3 本を実装した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その59)の作業 = PLAN-026 の I8。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- **絞りの宣言の形を選択式で聞き、人間が「解くタスク型を宣言(推奨)」を採択した = ADR-082**(他の選択肢: 外す部分を宣言する `eval.pool_exclusions` / 絞ったプールを別に書き出す)。
+  その59 の穴(① は 5 群のうち 3 群、(d) は比較群の T1b だけを解くが、`_read_pool_items` は宣言外の群を拒み、掃引は manifest のタスク型をすべて解く)の決着である
+- 先に読みを PLAN-026 §4.8(新)に書いた(人間が覆せる): 読み1 鍵 = `eval.task_subset`(タスク型名のリスト。無い / null = プール全体。名前は `CATEGORY_AXES` から引く)/
+  読み2 噛み合わせの検査 4 通り / 読み3 `_read_pool_items` は読むだけにし、門と絞りを `solved_pool_items` 1 か所に集める(**掃引の完全性はプール全体で確かめてから絞る**)/
+  読み4 `metrics.json` の `task_subset` 欄はすべての run で置く(無ければ null)・`log.txt` は 7 → 8 行 / 読み5 掃引の `threshold_sweep.task_types` は解いたタスク型(r8_fit が手を入れずに読める)/
+  読み6 (d) の集合に T3 を入れない / 読み7 config 3 本 / 読み8 桁数掃引と明示リストは宣言を拒む
+- `code/eval/task_subset.py`(新規): `task_types_by_group`(表を作らず `numeric_sum` / `t3_comparison` の `CATEGORY_AXES` から引く)/ `task_type_of_item`(特異性対照は None・未知の category で止める)/
+  `declared_task_subset`(壊れた宣言 9 通り + `eval.dry_run_items` との同時宣言で止める)/ `check_declaration` / `select_task_subset` / `check_selected` / `dropped_counts` / `subset_record` / `subset_line`
+- `code/eval/run.py`: `_read_pool_items` はファイルの側だけ見る / `solved_pool_items`(群の門 + 絞り)/ `pool_subset_record` / `dry_run_subset_record` / `metrics_payload` と `threshold_sweep_payload` の `task_subset` 欄 /
+  `run_header_lines` に 1 行 / `execute` は run ディレクトリの前に宣言を読む / `ThresholdSweepPool` に `task_types`(解いた側)と `subset` / `evaluate_threshold_sweep` は解いたタスク型だけを回す。
+  `code/eval/sweep.py`: `reject_declared_task_subset`(`execute`・`dry_run_summary`)
+- `configs/templates/order6b_d.yaml`(新規): `comparison` 群に `t1b_gt` / `t1b_lt` の 2 つだけ(**T3 を入れない** = 絞りを書き忘れた run は文面を組む所で落ちる)。
+  文面は本番の `t1b.yaml` + `t3.yaml` の末尾の一文で、テストが本番の 2 ファイルから組み直して照合する。**本番の `t1b.yaml`・`t3.yaml`・`eval_main.yaml` は触っていない**
+- config 3 本(新規。どれも写しで、差は宣言した欄だけ): `exp_order6b_preamble.yaml`(固定オフセットの ①。pilot との差 4 欄)/ `exp_order6b_d.yaml`(固定オフセットの (d)。pilot との差 4 欄)/
+  `exp_order6b_s_d.yaml`(S-(d)。R8 との差 5 欄)
+- 手元で確かめたこと(**組合せ論的な件数であって実験結果ではない**): `--dry-run` が ① 1,440 / (d) 480 / S-(d) 1,200 で通る / preflight の data_checks は ① で 6 PASS + 検査6 SKIP(前置きがあるため)、(d)・S-(d) で 7 PASS /
+  B0 1,640・R8 8,160・S-① 2,400 の文面は `test_preamble.py` の sha256 のまま(1 バイトも変わらない)
+- テスト: `code/tests/test_task_subset.py`(新規 40)。宣言の読みと名前・噛み合わせの 4 通り・記録の中身と 1 行・config 3 本の差と宣言・(d) の文面が本番の 2 ファイルから組み直せること・本番のテンプレートが変わっていないこと /
+  固定オフセットの経路(件数・文面・本実行の metrics と log・dry-run・宣言の無い run が 1,640 のまま・宣言の無いまま群を減らせば今までどおり止まる)/
+  掃引の経路(S-(d) は 1,200・`task_types` = `[t1b]`・predictions は t1b だけ・**T3 が 1 件欠けたプールは T1b だけを解く run でも止まる**・`r8_fit.run_report` が読める)/ 桁数掃引が拒む / preflight 3 本。
+  `code/tests/test_preamble.py` の `PREAMBLE_CONFIGS` に ① の config を足した。
+  **変異を 11 個注入し、それぞれ `test_task_subset.py` が落ちることを確かめた**(scratchpad のスクリプト。終わった後にファイルが元と一致することを確かめた)
+- `pytest code/tests -q` → **1224 passed**(1184 → +40)
+- 書いたもの: `code/eval/task_subset.py` / `code/eval/run.py` / `code/eval/sweep.py` / `configs/templates/order6b_d.yaml` / `configs/exp_order6b_preamble.yaml` / `configs/exp_order6b_d.yaml` / `configs/exp_order6b_s_d.yaml` /
+  `code/tests/test_task_subset.py` / `code/tests/test_preamble.py` / `logs/DECISIONS.md`(ADR-082)/ `plans/PLAN-026-order6b.md`(ステータス・§4.8(新)・§9 の I8)/ 本項
+- **やっていないこと**: I9((c) の較正。**実装の前に PLAN-025 の [11] の原典で綴りを確かめる**)/ I10〜I12 / §10・§11 の run 数の書き換え(6 → 7。承認を求めるときに直す)/ §5 の凍結(tag)/ main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

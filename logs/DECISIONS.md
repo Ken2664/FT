@@ -5311,3 +5311,59 @@
   - **未実施**: PLAN-026 の I6〜I12 / (c) の綴りの原典確認(I9 の前)/ §5 の凍結(tag)
 - 関連 ADR: **030**(決定6)/ **079**(決定1・決定6・決定8)/ 078(決定5)/ 039(決定3)
 - 関連 commit: (このコミット)
+
+---
+
+## ADR-082: run ごとにプールの一部だけを解く宣言は `eval.task_subset`(解くタスク型のリスト)とする(PLAN-026 I8)
+
+- 日付: 2026-09-16(その60)
+- ステータス: **採択**
+- **提案: エージェント (Opus)(`plans/PLAN-026-order6b.md` §4.8 の案と、選択式の選択肢)/ 採択: 人間(2026-09-16 その60。選択式で推奨を選んだ)**。ADR-039 決定3
+  —— 他の選択肢: **(b) 外す部分を宣言する**(`eval.pool_exclusions = {groups, task_types}`。プールの群が「batteries ∪ 外す群」とちょうど一致することを要求する)/
+  **(c) 絞ったプールを別に書き出す**(同じ `item_id` が複数の manifest に入り、preflight の非交差(`pool disjoint`)と `items_sha256` の照合が割れる)
+- 文脈: 順6b の腕は 1 つのプールの**一部**を解く(PLAN-026 §3 の表)—— ① は パイロット用プール 1,640 のうち 3 群 1,440(比較・T1・T2)、
+  (d) は比較群の T1b だけ(固定オフセット 480 / S の掃引 1,200)。しかし `code/eval/run.py` の `_read_pool_items` は `eval.batteries` の外の群があると止め(黙って項目数が減るのを防ぐ門)、
+  掃引の経路は manifest の `fill.task_types` をすべて解く。**その59(I6・I7)にこの穴を人間に上げ、「I8 で (d) と一緒に決める」という回答を得ていた**(PLAN-026 §4.7)。
+  **順6b はまだ 1 度も回していない**(GPU 0。素のモデルの結果も FT モデルの結果も誰も見ていない)
+
+### 決定1: **鍵は `eval.task_subset` = この run が解くタスク型の名前のリスト**(無い / null = プール全体)
+
+- 名前は **ADR-026 の水準名そのもの**(`t1` / `t2` / `t3` / `t1b`)+ 指示付き T1(`t1_instructed`)。**名前の表は作らず**、
+  `numeric_sum.CATEGORY_AXES` と `t3_comparison.CATEGORY_AXES` から引く(`code/analysis/frame.py` の `task_type_of` と同じ作法)
+- **宣言が無い run は 1 項目も変わらない** —— 今までの門(プールの群 ⊆ `eval.batteries` かつ各群に項目がある)がそのまま掛かる。
+  B0・R8・S-① の項目と文面は 1 バイトも変わらない(`code/tests/test_preamble.py` の sha256 が固定している)
+- **宣言だけがこの門を開ける。**噛み合わせは重みを読む前に両方向で見る —— 宣言した型の群が `eval.batteries` に無い / `eval.batteries` の群に宣言した型が 1 つも無い /
+  宣言した型の項目がプールに 1 件も無い / **特異性対照(タスク型を持たない)を `eval.batteries` に置いた**、のどれでも止める
+- **外した (群 × タスク型) と件数を `metrics.json` の `task_subset` 欄と `log.txt` に必ず残す**(宣言が無ければ `null`)。
+  門の役目は「黙って項目数が減らないこと」であり、開ける側にその記録を義務づける
+- 却下した (b): (d) の config が外す群を 4 つ並べることになり、宣言がプールの中身に依る / 却下した (c): 上の非交差と照合が割れる(HANDOFF その59 が避けるよう書いていた)
+
+### 決定2: **掃引の経路は、完全性をプール全体で確かめてから絞る**
+
+- `load_threshold_sweep_pool` は (併合セル × 極性 × θ)がそのセルの組とちょうど一致することを**絞る前の全項目**で確かめ、そのうえで宣言したタスク型に絞る。
+  プールのファイルは S-①(2,400 をすべて解く)が読むものと同一で、`pool.items_sha256` もファイル全体の畳み値である
+- **`metrics.json` の `threshold_sweep.task_types` は「この run が解いたタスク型」**(S-(d) なら `[t1b]`)。`code/analysis/r8_fit.py`(I5)はこの欄で predictions のファイルを決めるので、
+  絞った run を**手を入れずに**読める。プール側のタスク型は manifest と `task_subset` 欄に残る
+
+### 決定3: **(d) のテンプレート集合は順6b 専用の `configs/templates/order6b_d.yaml` に置き、T3 を入れない**
+
+- 中身は `comparison` 群の `t1b_gt` / `t1b_lt` の 2 つだけで、文面は**本番の `t1b.yaml` の文面に `t3.yaml` の末尾の一文(`Answer Yes or No.`)を半角空白 1 つで足したもの**
+  (PLAN-026 §3.4)。テストが本番の 2 ファイルから組み直して照合する
+- **T3 を入れない**のは、絞り(決定1)を書き忘れた run が T3 を B0 と同じ文面で黙って解くのを防ぐため —— 入れなければ文面を組む所で必ず落ちる
+- **本番の `t1b.yaml`・`t3.yaml`・`eval_main.yaml` は 1 文字も変えない**(ADR-078 決定2)。(d) を採るかは順6b の後に人間が決める(PLAN-026 §5 の C2)
+
+- **実装の読み(決定ではない。人間が覆せる。PLAN-026 §4.8 の読み 1〜8)**: `_read_pool_items` は読むだけにし門と絞りを `solved_pool_items` 1 か所に集めた /
+  `metrics.json` の `task_subset` 欄はすべての run で置く(無ければ null。前置きと同じ形)/ `pool.n_items` は解いた件数・`pool.items_sha256` はファイル全体 /
+  config 3 本(`exp_order6b_preamble.yaml` = pilot との差 4 欄 / `exp_order6b_d.yaml` = 同 4 欄 / `exp_order6b_s_d.yaml` = R8 との差 5 欄)/
+  桁数掃引は宣言を拒み、`eval.dry_run_items`(明示リスト)との同時宣言も止める
+- リスク・未解決:
+  - `code/analysis/aggregate.py`・`frame.py` は絞りを見ない —— ① や (d) の run を B0 と同じ glob で集めると混ざる(前置きと同じ。順6b の集計は I11)
+  - 絞りは**この run が何を解いたか**の宣言であって、何を測るかの決定ではない。腕の中身は ADR-078 決定1・決定8 と ADR-079 決定4 のままである
+  - 本番 config(Phase 1)はこの鍵を持たない。持たせる必要が出たら、そのときに別に決める
+- 影響:
+  - このコミットで書き換えたもの: `logs/DECISIONS.md`(本 ADR)/ `plans/PLAN-026-order6b.md`(ステータス・§4.8(新)・§9 の I8)/
+    `code/eval/task_subset.py`(新規)/ `code/eval/run.py` / `code/eval/sweep.py` / `configs/templates/order6b_d.yaml`(新規)/
+    `configs/exp_order6b_preamble.yaml`・`exp_order6b_d.yaml`・`exp_order6b_s_d.yaml`(新規)/ `code/tests/test_task_subset.py`(新規 40)/ `code/tests/test_preamble.py` / `STATE.md` / `logs/CHANGELOG.md`
+  - **未実施**: PLAN-026 の I9〜I12 /(c) の綴りの原典確認(I9 の前)/ §10・§11 の run 数の書き換え(承認を求めるときに直す)/ §5 の凍結(tag)
+- 関連 ADR: **078**(決定1・決定2・決定8)/ **079**(決定3・決定4)/ 080(決定3)/ 030(決定5)/ 026 / 039(決定3)
+- 関連 commit: (このコミット)

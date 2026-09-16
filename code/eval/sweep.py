@@ -91,6 +91,7 @@ from code.eval.model import (
 from code.eval.preamble import PREAMBLE_KEY, declared_preamble
 from code.eval.run import NO_ADAPTER_NOTE, parse_numeric_response, prediction_record
 from code.eval.scoring import RateBreakdown, aggregate, score, validate_reference_rule
+from code.eval.task_subset import TASK_SUBSET_KEY, declared_task_subset
 from code.lesion import Lesion, reference_lesions_from_config
 from code.rates import RATE_FIELDS
 
@@ -606,6 +607,21 @@ def reject_declared_preamble(config: Mapping[str, Any]) -> None:
         )
 
 
+def reject_declared_task_subset(config: Mapping[str, Any]) -> None:
+    """タスク型の絞りを宣言した config で桁数掃引を回さない(PLAN-026 §4.8 読み8)。
+
+    答える問い: 「この掃引は、config が宣言した項目の上で回ったか」
+
+    **桁数掃引は評価プールを読まない**(項目は `magnitude_sweep` が半径ごとに作る)。
+    黙って絞り無しで回すと、config は「一部だけを解く」と書いているのに全部解いた run が残る。
+    """
+    if declared_task_subset(config) is not None:
+        raise ConfigError(
+            f"{TASK_SUBSET_KEY} が宣言されているが、桁数掃引は評価プールを読まないので"
+            "絞りが効かない(絞りは順6b の評価の経路 = code/eval/run.py だけ。PLAN-026 I8)。"
+        )
+
+
 def total_items(results: Sequence[RadiusResult]) -> int:
     """掃引全体で解いた項目数。
 
@@ -804,6 +820,7 @@ def execute(
     settings = load_generation_settings(config)
     reject_declared_adapter(config)
     reject_declared_preamble(config)
+    reject_declared_task_subset(config)
     plan = magnitude_sweep.load_sweep_plan(config)
     shell = magnitude_sweep.load_shell_plan(config, plan)
     started = now or utc_now()
@@ -866,6 +883,7 @@ def dry_run_summary(config: Mapping[str, Any]) -> dict[str, Any]:
     実験結果ではない(CLAUDE.md §2)。2 本の腕の両方を組む(ADR-071)。
     """
     reject_declared_preamble(config)
+    reject_declared_task_subset(config)
     plan = magnitude_sweep.load_sweep_plan(config)
     shell = magnitude_sweep.load_shell_plan(config, plan)
     pool_id = require(config, "data.pool_id")

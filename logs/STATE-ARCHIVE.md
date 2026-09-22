@@ -6719,3 +6719,42 @@ PLAN-026 はレビュー済み・実装待ち。G14 は未記入(推奨が無か
 
 - **★(e) Yes/No の id の復号(その51。GPU 0。`results/token_decode_order6/token_decode.json`)**: 取り違えは無い —— 12 綴りの復号・再符号化・本番コード経路での引き直しが R1〜R4 の `forced_choice_tokens.json` と完全一致 / トークナイザの同一性(revision・chat_template の sha・`prompt_ids` 12/12)/ 二値群 R1〜R4 各 960 件でラベル・真値(プロンプトから計算し直し)・分類の食い違い 0。詳細は `plans/PLAN-024` §1.9
 - **★その47 の数え上げ(`plans/PLAN-024` §1.9)** [run:20260911_141547_order6_r1]: T3 gt の Yes 率は off0 .35 / off1 .29、和 < 100 .67 / 100〜198 .17 / ≥ 200 .04。T3 lt は全条件 0/240。T1 ans_in の応答で数字だけは 0/160、ans_out で 3 行以上 31/80
+
+## ★2026-09-23(その72)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### ヘッダ(最終更新の行)の旧ブロック(その71)
+
+最終更新: 2026-09-22(その71)/ by IMPLEMENTER (Opus)
+(★PLAN-027 §5 の手順1〜6 を実装した。★F140 の規則 C が `numeric` パーサに入り、本実行の run を採点し直す CLI(`code/eval/rescore_run.py`)ができた。
+規則 C の「最終の非空行」の読み方が 2 通りあり、実装前に実測で切り分けて人間に諮った(ADR-089 決定1 = 正規化後の全文の最後の `is`)。
+9 本を再採点した(順6 R1〜R4 + 順5 の掃引 + 順6b の本実行 3 本)—— C1 / C2 / C4 は全本 pass、C3 は見積りと完全一致、★C5(Go/No-Go の印)は 1 つも動かなかった。
+数値の解釈と採否は人間である(`CLAUDE.md` §8)。`pytest code/tests -q` → 1579 passed。GPU は 1 秒も使っていない。
+元の run の `metrics.json` / `predictions/`・`data/raw/`・プール・config・凍結した PLAN-026 §5 は 1 バイトも変えていない。)
+
+### 「いま何をしているか」の旧ブロック(その71)
+
+> ★★2026-09-22(その71)。Phase 0。IMPLEMENTER (Opus)。PLAN-027 の実装が終わった。次は人間の判断である。
+> - ★規則 C を実装した(`code/eval/parsers/base.py` の `closing_statement_integer` + `numeric.parse` の手順4)。`ANSWER_MARKERS` は 1 バイトも触っていない(候補 A を採らない)
+> - ★「最終の非空行」の読み方を人間が選んだ(ADR-089 決定1)。PLAN-027 §3 の数値はすべて「正規化後の全文」で測られており、「生応答の最終行」では 17 行ずれる(実測)
+> - ★本実行の run の再採点 CLI を作った —— `python -m code.eval.rescore_run --source-run runs/<id>`。GPU 0。元の run には何も書かない(ADR-074 決定2)
+> - ★9 本を再採点し、旧・新を並べた(`results/rescore_f140/summary.json`)。C5 の印は 1 つも動かなかった。解釈と採否は人間
+> - `data/raw/`・プール・config・順6b の run の中身・凍結した PLAN-026 §5 と tag は 1 バイトも変えていない
+
+### 「次のアクション」の旧ブロック(その71)
+
+> ★★2026-09-22(その71・最新)。PLAN-027 の実装は終わった。次は人間の判断である。
+>
+> 0. PLAN-027 §10 の完了条件は 5 つとも埋まった(commit `23131fc`)。順6b の回収は commit `664ea2f`
+> 1. ★人間が二値群 6 セルを決める(その70 から変わらず) —— 材料は `results/order6b_select/order6b_select.json` と 7 本の `metrics.json`。判定表は「T3・T1b とも採る候補なし」。§6 の分岐 A / B / C の読みも人間(`CLAUDE.md` §8)
+> 2. ★人間が ★F140 の再採点を読む —— 印は 1 つも動かなかった(PLAN-024 §4.1 の見込みどおり)。
+>    どちらを正本にするか(旧パーサの数値か、再採点後か)は人間が決める(ADR-088 のリスク欄)。★F139 の (a)/(c)・G12・G15 も同じ場で
+> 3. 人間: P1 の再定義・検出力分析 → Δ の 5 行 → 事前登録の凍結(順9)
+> 4. 人間: `cost.txt` の記入(順6b の 7 本。1.215 時間 × $0.74/時)/ 停止中ポッド 8 本の terminate(全部 `EXITED`)/ `runs/preflight/` の扱い(未追跡)/ PLAN-026 §4.5〜§4.14 の「実装の読み」/ ADR-080 決定3 / ★`θ` の根拠 / ★F104 / ★F114 の実行先 / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
+
+### 「引き継ぎ」の旧ブロック(その71)
+
+> ★★2026-09-22(その71・最新)。IMPLEMENTER (Opus)。PLAN-027 §5 の手順1〜6 を実装し、9 本を再採点した。★GPU は 1 秒も使っていない。
+>
+> ★やったこと: 規則 C の実装(`base.closing_statement_integer` + `numeric.parse` 手順4)/ 「最終の非空行」の 2 通りの読み方を実測で切り分け、人間に諮って確定(ADR-089)/ `code/eval/rescore_run.py`(新規)= 本実行の run の再採点 CLI(C1〜C5。C5 は中で `gonogo` を呼ぶ)/ `rescore.py` の C3 期待値を 2 組にし `--parser-rule` で選ぶ(ADR-088 決定3)/ `run.evaluate_batch` から `batch_metrics_record` を抽出(式は不変)/ `artifacts.METRICS_FILE` / テスト +170 行 + 新規 16 件 / 9 本の再採点/ CHANGELOG・ADR-089・PLAN-027 の更新 / commit `23131fc`。`pytest code/tests -q` → 1579 passed。
+> ★やっていないこと: 数値の解釈・採否(`CLAUDE.md` §8)/ 印の置き直し / `M*` の置き直し / `cost.txt`・terminate(人間)/ `runs/preflight/` の処置(未追跡のまま)/ main の push(ahead のまま)/ `data/raw/`・プール・config・順6b の run の中身・凍結した PLAN-026 §5 と tag の変更(1 バイトも)。
+> ★次セッションが引き継ぐもの: `logs/HANDOFF.md` / 人間の判断待ちは `logs/OPEN-ITEMS.md` / ★F140 の結果は `results/rescore_f140/summary.json` と `STATE.md`「★F140 の再採点」。

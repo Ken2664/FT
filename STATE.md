@@ -8,12 +8,13 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-22(その71)/ by IMPLEMENTER (Opus)
-(**★PLAN-027 §5 の手順1〜6 を実装した。★F140 の規則 C が `numeric` パーサに入り、本実行の run を採点し直す CLI(`code/eval/rescore_run.py`)ができた。**
-**規則 C の「最終の非空行」の読み方が 2 通りあり、実装前に実測で切り分けて人間に諮った**(ADR-089 決定1 = 正規化後の全文の最後の `is`)。
-**9 本を再採点した**(順6 R1〜R5 + 順5 の掃引 + 順6b の本実行 3 本)—— **C1 / C2 / C4 は全本 pass、C3 は見積りと完全一致、★C5(Go/No-Go の印)は 1 つも動かなかった。**
-**数値の解釈と採否は人間である**(`CLAUDE.md` §8)。`pytest code/tests -q` → **1579 passed**。**GPU は 1 秒も使っていない。**
-**元の run の `metrics.json` / `predictions/`・`data/raw/`・プール・config・凍結した PLAN-026 §5 は 1 バイトも変えていない。**)
+最終更新: 2026-09-23(その72)/ by PLANNER (Opus)
+(**★ユーザーに実験結果(順5・順6・順6b・★F140再採点)を説明し、二値群(T3・T1b)の扱いと★F140の正本について人間の決定を得た。**
+**決定1: 二値群(T3・T1b)は追加の前段FT(③-ii / ③-iii の検討)で対応する**(PLAN-026 §6 分岐C相当。どちらを採るか・両方かは未確定)。
+**決定2: ★F140 は採点後の数値(規則C込み)を正本とする**(ADR-088 のリスク欄への回答)。
+**この2件はまだADR化していない**(次セッション最優先。`logs/HANDOFF.md` 参照)。
+さらに検出力分析(★F104: `s2_item`/`s2_tmpl` の取得元)の選択肢を人間に説明した(`plans/PLAN-019-validity-decisions.md` §10.13.5 が記入欄)。
+**コード変更・実験実行は無し(GPU 0)。**コンテキスト超過のため skill `handoff` で引き継ぐ。)
 
 ---
 
@@ -70,14 +71,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-22(その71・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-027 の実装が終わった。次は人間の判断である。**
-> - **★規則 C を実装した**(`code/eval/parsers/base.py` の `closing_statement_integer` + `numeric.parse` の手順4)。**`ANSWER_MARKERS` は 1 バイトも触っていない**(候補 A を採らない)
-> - **★「最終の非空行」の読み方を人間が選んだ**(ADR-089 決定1)。**PLAN-027 §3 の数値はすべて「正規化後の全文」で測られており、「生応答の最終行」では 17 行ずれる**(実測。下の「わかっていること」)
-> - **★本実行の run の再採点 CLI を作った** —— `python -m code.eval.rescore_run --source-run runs/<id>`。**GPU 0。元の run には何も書かない**(ADR-074 決定2)
-> - **★9 本を再採点し、旧・新を並べた**(`results/rescore_f140/summary.json`)。**C5 の印は 1 つも動かなかった。解釈と採否は人間**
-> - **`data/raw/`・プール・config・順6b の run の中身・凍結した PLAN-026 §5 と tag は 1 バイトも変えていない**
+> **★★2026-09-23(その72・最新)。Phase 0。PLANNER (Opus)。人間に実験結果を説明し、2件の決定を得た。次はADR化。**
+> - **★決定1(二値群の扱い)**: 選択肢A(追加の前段FT)を人間が選んだ。PLAN-026 §6 分岐C相当。③-ii(数どうしの比較の前段FT)/ ③-iii(Yes/No書式だけの前段FT)のどちらを採るか未確定
+> - **★決定2(★F140 の正本)**: 採点後の数値(規則C込み)を正本とする、と人間が選んだ
+> - **★どちらもファイルに書き込んでいない**(会話のみ)。`logs/HANDOFF.md` に次セッションのタスクとして明記した。**次セッションがまずやること**
+> - **検出力分析(★F104)の選択肢**(`s2_item`: 案B掃引 / 案C 1点仮定、`s2_tmpl`: 案C')**をユーザーに説明した。まだ人間の決定は無い**(`plans/PLAN-019-validity-decisions.md` §10.13.5 が記入欄)
 >
-> **★その70 の記録は `logs/STATE-ARCHIVE.md`「その71」にある**(ADR-063 運用規約1)。
+> **★その71 の記録は `logs/STATE-ARCHIVE.md`「その72」にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -391,25 +391,26 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-22(その71・最新)。PLAN-027 の実装は終わった。次は人間の判断である。**
+> **★★2026-09-23(その72・最新)。次は「その71までの実装」ではなく「その72で得た2決定のADR化」が最優先である。**
 >
-> 0. **PLAN-027 §10 の完了条件は 5 つとも埋まった**(commit `23131fc`)。**順6b の回収は commit `664ea2f`**
-> 1. **★人間が二値群 6 セルを決める**(その70 から変わらず) —— 材料は `results/order6b_select/order6b_select.json` と 7 本の `metrics.json`。**判定表は「T3・T1b とも採る候補なし」**。§6 の分岐 A / B / C の読みも人間(`CLAUDE.md` §8)
-> 2. **★人間が ★F140 の再採点を読む** —— **印は 1 つも動かなかった**(PLAN-024 §4.1 の見込みどおり)。
->    **どちらを正本にするか(旧パーサの数値か、再採点後か)は人間が決める**(ADR-088 のリスク欄)。**★F139 の (a)/(c)・G12・G15 も同じ場で**
-> 3. 人間: P1 の再定義・検出力分析 → Δ の 5 行 → 事前登録の凍結(順9)
-> 4. 人間: **`cost.txt` の記入**(順6b の 7 本。1.215 時間 × $0.74/時)/ **停止中ポッド 8 本の terminate**(全部 `EXITED`)/ **`runs/preflight/` の扱い**(未追跡)/ PLAN-026 §4.5〜§4.14 の「実装の読み」/ ADR-080 決定3 / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
+> 1. **★最優先: その72 の2決定を ADR 化する**(`CLAUDE.md` §8 / ADR-039 決定3 の形式。提案者と採択者を分ける)
+>    - 二値群(T3・T1b)→ 選択肢A(追加の前段FT)。`logs/OPEN-ITEMS.md` の該当行を閉じ、`plans/PLAN-026-order6b.md` §6 に分岐Cの読みを記入
+>    - ★F140 → 採点後の数値を正本。`logs/OPEN-ITEMS.md` の該当行を閉じる
+> 2. **③-ii と ③-iii のどちらを採るか(または両方)を人間に確認する**(`plans/PLAN-025-binary-methods.md` §3.3。③-iii が侵襲最小)。決まれば新規PLANの起草
+> 3. **★F104(検出力分析)の決定を得る** —— `plans/PLAN-019-validity-decisions.md` §10.13.5(F104-a: `s2_item` の取得元 案B/案C、F104-b: `s2_tmpl` の取得元、F104-c: 値そのもの)
+> 4. 3 が決まれば ★F114 の実行先(この機械 vs RunPod CPUポッド)。案Bなら186〜372時間、案Cなら62時間のまま
+> 5. その他(変わらず): **`cost.txt` の記入**(順6b の 7 本。1.215 時間 × $0.74/時)/ **停止中ポッド 8 本の terminate**(全部 `EXITED`)/ **`runs/preflight/` の扱い**(未追跡)/ **★`θ` の根拠** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-09-22(その71・最新)。IMPLEMENTER (Opus)。PLAN-027 §5 の手順1〜6 を実装し、9 本を再採点した。★GPU は 1 秒も使っていない。**
+> **★★2026-09-23(その72・最新)。PLANNER (Opus)。実験結果の説明と、二値群・★F140正本の2決定の聴取。コードは1バイトも変えていない。GPU 0。**
 >
-> **★やったこと**: 規則 C の実装(`base.closing_statement_integer` + `numeric.parse` 手順4)/ **「最終の非空行」の 2 通りの読み方を実測で切り分け、人間に諮って確定**(ADR-089)/ **`code/eval/rescore_run.py`(新規)**= 本実行の run の再採点 CLI(C1〜C5。C5 は中で `gonogo` を呼ぶ)/ `rescore.py` の C3 期待値を 2 組にし `--parser-rule` で選ぶ(ADR-088 決定3)/ `run.evaluate_batch` から `batch_metrics_record` を抽出(**式は不変**)/ `artifacts.METRICS_FILE` / テスト +170 行 + 新規 16 件 / **9 本の再採点**/ CHANGELOG・ADR-089・PLAN-027 の更新 / **commit `23131fc`**。`pytest code/tests -q` → **1579 passed**。
-> **★やっていないこと**: **数値の解釈・採否**(`CLAUDE.md` §8)/ **印の置き直し** / `M*` の置き直し / **`cost.txt`・terminate**(人間)/ **`runs/preflight/` の処置**(未追跡のまま)/ **main の push**(ahead のまま)/ `data/raw/`・プール・config・順6b の run の中身・凍結した PLAN-026 §5 と tag の変更(1 バイトも)。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / **人間の判断待ちは `logs/OPEN-ITEMS.md`** / ★F140 の結果は `results/rescore_f140/summary.json` と `STATE.md`「★F140 の再採点」。
+> **★やったこと**: `STATE.md`・`logs/OPEN-ITEMS.md`・`plans/PLAN-026-order6b.md` §5・§6・`results/order6b_select/order6b_select.json`・`plans/PLAN-019-validity-decisions.md` §10.13 を読み、実験結果(順5・順6・順6b・★F140再採点)と次の決定事項(二値群・★F140正本・検出力分析F104/F114)をユーザーに説明した。ユーザーから2つの決定を得た(上記)。
+> **★やっていないこと**: **ADR記入**(`logs/DECISIONS.md`)/ **`logs/OPEN-ITEMS.md`・`plans/PLAN-026` の反映**/ ③-ii・③-iii のどちらを採るかの確認 / ★F104 の人間の決定の取得 / コード変更・実験実行(GPU 0)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(そのまま貼れるプロンプト)/ **2決定の詳細はこのブロックと `logs/HANDOFF.md` のみに書かれている**(他のファイルには未反映)。
 
 ---
 

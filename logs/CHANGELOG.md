@@ -6086,3 +6086,11 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: 上記のコードとテスト / `logs/DECISIONS.md`(ADR-086)/ `plans/PLAN-026-order6b.md`(ステータス・§4.12(新)・§9 の I11)/ 本項(`STATE.md` は続く引き継ぎのコミット)
 - **やっていないこと**: I11c(§5 の判定表の CLI `order6b_select.py`・決定4 の「候補なし」の印・決定5 の `aggregate.py` の守り)/ I12 / 質量の行き先の表 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その64。PLAN-026 I11b の区切り。次は I11c = §5 の判定表と混ぜない守り)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目の区切りと context-guard の警告(約 318k)で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 1 と 2・「repo の状態」の pytest の行を差し替え、「repo の状態」に (c) の補正(I11b)の行を 1 行足した。
+  旧ブロックと、打ち消し線の積もった「現在のブロッカー」の 1・人間待ちの表の解決済み 2 行・その44 に本文を移した順5 の見出しは `logs/STATE-ARCHIVE.md`「その64」へ機械的に移した(切り出した文字列をそのまま移した)→ **393 行 / 60,190 バイト**。`test_repo_hygiene.py` 7 passed。人間待ちの索引の中身は変えていない
+- **`Path.write_text` で `STATE.md` を書いて CRLF になり、`test_repo_hygiene.py` の LF の検査が落ちた。**バイト列に直して通した(HANDOFF の注意書きに残した)
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I11c = §5 の判定表の CLI と `aggregate.py` の守り)向けに書き直した
+- GPU 0・ポッドは触っていない・main の push はしていない

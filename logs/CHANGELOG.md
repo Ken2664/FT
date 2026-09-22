@@ -6530,3 +6530,13 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   **`code/` の改行コードがファイルごとに CRLF / LF で割れている**ことを明記した(書き戻し事故の防止)
 - **ポッドは起動していない**(`CLAUDE.md` §9 の確認項目。**その70 で停止済み。所有 8 本すべて `EXITED`**)。
   **main の push はしていない**(ahead のまま)。**`runs/preflight/` は未追跡のまま触っていない**
+
+### fix(plan): 誤って追跡した `runs/preflight/` の 2 ファイルを追跡から外した(その71)   [actor: IMPLEMENTER (Opus)]
+
+- **★引き継ぎのコミット(`f42dcf0`)で `git add -A` が `runs/preflight/forced_choice_tokens.json` と
+  `token_boundary.json` を巻き込んだ。**この 2 つは**その69 以降ずっと「人間が扱いを決めるまで未追跡のまま置く」
+  という開いた項目**であり(`logs/OPEN-ITEMS.md` / `STATE.md`「未解決」)、**エージェントが決めてよい事項ではない**
+  (`CLAUDE.md` §8)。`git rm --cached` で**元の未追跡の状態に戻した(ファイルは消していない)**
+- **`.gitignore` の規則そのものは 2 ファイルを追跡対象にしうる**(`runs/*` を `!runs/*/` が開けるため)。
+  **つまり「追跡する」が既定の振る舞いであり、放置の選択は人間の明示的な判断である。**扱いは引き続き人間待ち
+- 再発防止: `runs/` を含むコミットでは `git add -A` を使わず、**パスを明示して `git add` すること**

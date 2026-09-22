@@ -6325,3 +6325,56 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   → **401 行 / 60,417 バイト**。`test_repo_hygiene.py` 7 passed
 - `logs/HANDOFF.md` を書き直した。**次のセッションは RUNNER(順6b)か IMPLEMENTER(PLAN-027 の実装。順6b の後)のどちらか**である形にした
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-22(その69)
+
+### exp(eval): 順6b の GPU を起動した(PLAN-026 §11 / ADR-088 決定7。7 本のチェーンがポッド上で実行中。回収は次セッション)   [actor: RUNNER (Opus)]
+
+- **起動の前に人間に 4 問を確かめ、4 問とも推奨が採択された**(`CLAUDE.md` §2「人間の承認なくポッドを起動しない」):
+  **ポッド = `omjvbdanmbrzc8` を再開** / **コードの渡し方 = `git bundle` + scp(push しない)** / **`runs/preflight/` = 今は放置** /
+  (start 失敗後に改めて)**代替 = EU-RO-1 に新規 + ネットワークボリューム `r963j7swke`**
+- **RunPod を読み直した(MCP。実測)**: RTX 4090 SECURE **$0.74/時**(2026-09-10 から据え置き)。
+  **在庫は EU-CZ-1 / EU-RO-1 / EUR-IS-1 / EUR-IS-2 / US-IL-1 の全 DC で LOW。****停止中のポッドは 7 本、すべて `EXITED`**
+- **★`omjvbdanmbrzc8`(EUR-IS-1。順5・順6 を回した実体)の start は 2 回とも失敗した** ——
+  `400 There are not enough free GPUs on the host machine to start this pod`。
+  **ホストローカルの永続ストレージ(`mounts.persistent`)はホスト機に固定されるため、そのホストに空き GPU が出るまで start できない。**
+  **ネットワークボリュームのポッドにはこの制約が無い**(この事実を人間に上げ、代替案を選んでもらった)。**GPU は 1 秒も使っていない(課金 0)**
+- **`jn8bink3rkkri7`(`translesion-order6b` / EU-RO-1 / RTX 4090 SECURE $0.74/時 / container 30GB / ネットワークボリューム `r963j7swke` を `/workspace` に)を作成**
+  (**課金開始 2026-09-22T11:48:36Z**。SSH `root@213.173.108.142 -p 14769`。**ポートは起動のたびに変わる**)。**3 時間の打ち切りは 14:48Z**
+- **ボリュームに順1b の資産が残っていた** —— HF トークン / `HF_HOME=/workspace/.cache/huggingface`(30G。
+  **`meta-llama/Llama-3.1-8B-Instruct` の snapshot は `0e9e39f249a16976918f6564b8830bc894c89659` = config の `model.revision` と一致**)/ venv(torch 2.8.0+cu128)。
+  **重みの再取得も人間の HF ログインも要らなかった**
+- **コードは `git bundle`(main)を scp して `25aa0df` → `b5838c0` へ fast-forward した(push はしていない)。**
+  順1b の未追跡 run 2 本(`20260828_095717_smoke1b` / `20260828_100115_smoke1b_b1`)が追跡済みファイルと衝突したので
+  **`/workspace/pod_moved_aside_order6b/` へ退避した(消していない)**
+- **bootstrap**: `infra/requirements.lock` の **187 件が全件 `already satisfied`**(この venv が lock の出所そのものである)。
+  **`pytest code/tests -q` → 1514 passed**(手元と同数)。警告 1 件 = `runs/` に中身があるのでリンクしなかった(repo 自体がボリューム上にあるので実害なし)
+- **データ再生成は決定的だった**(`configs/exp_order6b_pilot.yaml` 冒頭の手順。FT 5 条件 + 評価プール + 掃引 2 腕):
+  **`git diff --stat data/generated/battery` は空**、FT manifest の差は **`created_at` と `git_commit` だけ** → `git checkout -- data/generated` で捨てた。
+  件数は **pilot 1,640 / pilot_sweep_r8 8,160 / pilot_sweep_s 2,400** で §4.14 の dry-run と 1 件も違わない。
+  `items.jsonl` の sha256 先頭 16 桁は pilot `c5072f488607f6e9` / r8 `05902c908a95dd80` / s `97d763971b2b58fc`
+- **§3 の preflight(config 無し)は全項目 PASS** —— RTX 4090 24,564 MiB / torch 2.8.0+cu128 / transformers 5.16.1 / lock 187 件 /
+  **pytest 1514 passed** / **git クリーン @ `b5838c0`**
+- **`/workspace/order6b_chain.sh` を 12:14:55Z に `setsid nohup` で起動した。**
+  **run ごとに `python infra/preflight.py --config <cfg> --run-dir runs/<id>` を通してから入口を呼び、非 0 で止まる。**
+  順は **B0 → R8 → ① → (d) → (c) → S-① → S-(d)**、**(c) だけ `python -m code.eval.calibration_run`**(他は `python -m code.eval.run`)。
+  成功した run の id は `/workspace/order6b_runs.txt` に溜まる。**1 本目 = `runs/20260922_121455_order6b_b0`**
+- **B0 の preflight は FAIL 0 / WARN 1**(WARN は run ディレクトリ自身の未追跡。順6 と同じ)。
+  `pool disjoint` = **pilot 1,560 組 × main 1,560 組の積が空** / `forced choice tokens` = **12 綴りすべて単一トークン** /
+  `matched stream` 5 条件一致 @ `2711eb5d12f6` / `t_holdout` 5 条件同一 @ `57da6eac9aab`
+- **★コンテキストが約 18.6 万トークンに達したので、実行中のまま引き継いだ**(`logs/HANDOFF.md`)。
+  **ポッドは RUNNING のまま**(チェーンが使っている)。**回収・停止・`cost.txt` は次セッションと人間**
+- **数値は 1 つも読んでいない。**`code/` とテスト・本番の文面・`data/raw/`・プール・順6b の config・
+  凍結した PLAN-026 §5 は **1 バイトも変えていない**
+
+### docs(plan): セッション引き継ぎを記録(その69。順6b 実行中のまま引き継ぐ。ポッドは RUNNING)   [actor: RUNNER (Opus)]
+
+- skill `handoff` の規約どおり `STATE.md` のヘッダ・「いま何をしているか」・「次のアクション」・「引き継ぎ」・
+  **「現在のブロッカー」2 番**を差し替えた。**旧ブロック 5 つは `logs/STATE-ARCHIVE.md`「その69」へ機械的に移した**
+  (**切り出した文字列をそのまま移した。1 文字も削っていない**。スクリプトで「旧 `STATE.md` の行のうち、
+  新 `STATE.md` にもアーカイブにも無い行」が **0 件**であることを確認した)→ **399 行 / 60,019 バイト**。
+  `pytest code/tests/test_repo_hygiene.py -q` → **7 passed**
+- `logs/HANDOFF.md` を書き直した。**次のセッションは RUNNER(チェーンの見届け → 回収 → ポッド停止)である**。
+  ポッドの口(`ssh -n -p 14769 root@213.173.108.142`)・打ち切り時刻(14:48Z)・失敗していたときの降り方を書いた
+- **ポッドは停止していない**(`CLAUDE.md` §9 の確認項目。**チェーンが使っているため意図的に RUNNING のままにした**)。
+  **main の push はしていない**(ahead のまま)

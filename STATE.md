@@ -8,11 +8,12 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-22(その69)/ by RUNNER (Opus)
-(**★順6b の GPU を起動し、7 本のチェーンをポッド上で走らせたまま引き継いだ。**
-**停止中の `omjvbdanmbrzc8`(EUR-IS-1。順5・順6 を回した実体)の start は 2 回とも 400「There are not enough free GPUs on the host machine」で失敗した**ので、**人間の選択で EU-RO-1 に新規ポッド `jn8bink3rkkri7` を作り、ネットワークボリューム `r963j7swke` を `/workspace` に付けた**(RTX 4090 SECURE **$0.74/時** = 起動直前に読み直した実測値。**課金開始 2026-09-22T11:48:36Z。3 時間の打ち切りは 14:48Z**)。
-ボリュームに順1b の重み(revision `0e9e39f249a16976918f6564b8830bc894c89659`)・HF トークン・venv が残っていたので、重みの再取得も人間の HF ログインも要らなかった。
-**★ポッドは RUNNING のまま引き継ぐ**(チェーンが使っている)。**回収・停止は次セッション。**`code/` とテスト・文書・config は 1 バイトも変えていない。**)
+最終更新: 2026-09-22(その70)/ by RUNNER (Opus)
+(**★順6b の 7 本のチェーンは完走した(`CHAIN_DONE [12:56:54Z]`)。7 本すべてを回収してコミットし、ポッド `jn8bink3rkkri7` を停止した(`EXITED`)。**
+稼働は 12:14:55Z → 12:56:54Z の **42 分**で、§10 の見積り(約 1.7 時間)より短く、3 時間の打ち切り(14:48Z)には届かなかった。
+**件数は PLAN-026 §4.14 の dry-run と 1 件も違わない**(合計 **15,626**)。**4 値の合計は全ブロックで 1.0**、**`items_sha256` は 3 つのプールの manifest と一致**、**`git_diff.patch` は 7 本とも 0 バイト**(追跡ファイルの変更なし @ `b5838c0`)。
+判定表は `results/order6b_select/order6b_select.json` に出した —— **T3・T1b とも「採る候補 = なし」。採用・解釈は人間である**(`CLAUDE.md` §8)。
+**`cost.txt` と terminate は人間。**`code/` とテスト・文書・config・`data/raw/`・凍結した PLAN-026 §5 は 1 バイトも変えていない。**)
 
 ---
 
@@ -69,14 +70,14 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-22(その69・最新)。Phase 0。RUNNER (Opus)。順6b の 7 本のチェーンをポッド上で実行中のまま引き継いだ。数値は 1 つも読んでいない。**
-> - **★ポッド**: `jn8bink3rkkri7` / `translesion-order6b` / **EU-RO-1** / RTX 4090 SECURE **$0.74/時** / ネットワークボリューム **`r963j7swke`** を `/workspace` に / container 30GB / SSH `root@213.173.108.142 -p 14769`(**ポートは起動のたびに変わる**)。**課金開始 2026-09-22T11:48:36Z・3 時間の打ち切りは 14:48Z**
-> - **★`omjvbdanmbrzc8` は再開できなかった**(400「There are not enough free GPUs on the host machine」が 2 回)。**ホストローカルの永続ストレージはホスト機に固定される**ためである。**人間が「EU-RO-1 に新規 + `r963j7swke`」を選んだ**(在庫は全 DC で LOW)
-> - **準備は全部通った**: bundle で `b5838c0` へ fast-forward(**push はしていない**。順1b の未追跡 run 2 本は `/workspace/pod_moved_aside_order6b/` へ退避。**消していない**)/ bootstrap(**lock 187 件は全件 already satisfied**・**`pytest code/tests -q` 1514 passed**)/ **データ再生成は決定的**(`git diff --stat data/generated/battery` が**空**、件数は pilot 1,640 / r8 8,160 / s 2,400。FT manifest の差は `created_at`・`git_commit` だけ → `git checkout --` で捨てた)/ **§3 の preflight は全項目 PASS**(RTX 4090 24,564 MiB / torch 2.8.0+cu128 / transformers 5.16.1 / git クリーン @ `b5838c0`)
-> - **★チェーンは `/workspace/order6b_chain.sh` が 12:14:55Z に起動した**(`setsid nohup`)。**run ごとに `preflight --config --run-dir` を通してから入口を呼び、非 0 で止まる。**順は **B0 → R8 → ① → (d) → (c) → S-① → S-(d)**、**(c) だけ `code.eval.calibration_run`**。**1 本目 = `runs/20260922_121455_order6b_b0`**。id は `/workspace/order6b_runs.txt` に溜まる
-> - **まだ 1 本も回収していない。`code/` とテスト・文書・config・`data/raw/` は 1 バイトも変えていない**
+> **★★2026-09-22(その70・最新)。Phase 0。RUNNER (Opus)。順6b は完走・回収・コミットが済み、ポッドは停止した。次は人間の判断である。**
+> - **★7 本すべて成功した** —— `/workspace/order6b_chain.log` の終端が **`CHAIN_DONE [12:56:54Z]`**。**`PREFLIGHT_FAIL` / `RUN_FAIL` は 1 件も出ていない**
+> - **★回収の検査はすべて通った**(下の「わかっていること」の順6b ブロックに run_id つきで書いた)。**7 本とも commit `664ea2f` に入っている**(`metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` / `token_boundary.json` / `forced_choice_tokens.json` / `git_sha.txt` / `git_diff.patch`。`predictions/` と `log.txt` は .gitignore)
+> - **★判定表は出した。T3・T1b とも「採る候補 = なし」**(`results/order6b_select/order6b_select.json`)。**これは `order6b_select` が §5 を機械的に当てた出力であって、採用でも解釈でもない**(ADR-078 決定2・PLAN-026 §6)
+> - **★ポッド `jn8bink3rkkri7` は停止した**(`status: EXITED`。稼働 4,373 秒 = **1.215 時間**)。`list-pods` で**所有する 8 本すべてが `EXITED`** であることを確かめた。**`cost.txt` の記入と terminate は人間**
+> - **`code/` とテスト・文書・config・`data/raw/`・プール・順6b の config・凍結した PLAN-026 §5 は 1 バイトも変えていない**
 >
-> **★その68 の記録は `logs/STATE-ARCHIVE.md`「その69」にある**(ADR-063 運用規約1)。
+> **★その69 の記録は `logs/STATE-ARCHIVE.md`「その70」にある**(ADR-063 運用規約1)。
 
 ---
 
@@ -105,6 +106,27 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 - **★その46 の数え上げ(`plans/PLAN-024` §1.8。読み取りだけ)**: ★F140 の形は順5 の腕2 で残った parse_fail 22 件中 21 件(N = 真値)[run:20260910_215422_rescore_sweep_m] / R4 対 R1 で分類が変わった 16 件は二値群 13・`spec_mul` 3 で **T1・指示付き T1・T2 は 0 件** [run:20260911_161738_order6_r4]
 - **★(e) Yes/No の id の復号(その51。GPU 0。`results/token_decode_order6/token_decode.json`)**: 取り違えは無い —— 12 綴りの復号・再符号化・本番コード経路での引き直しが R1〜R4 の `forced_choice_tokens.json` と完全一致 / トークナイザの同一性(revision・chat_template の sha・`prompt_ids` 12/12)/ 二値群 R1〜R4 各 960 件でラベル・真値(プロンプトから計算し直し)・分類の食い違い 0。詳細は `plans/PLAN-024` §1.9
 - **★その47 の数え上げ(`plans/PLAN-024` §1.9)** [run:20260911_141547_order6_r1]: T3 gt の Yes 率は off0 .35 / off1 .29、和 < 100 .67 / 100〜198 .17 / ≥ 200 .04。T3 lt は全条件 0/240。T1 ans_in の応答で数字だけは 0/160、ans_out で 3 行以上 31/80
+
+### ★順6b(2026-09-22 その70。素の `Llama-3.1-8B-Instruct` / adapter null / RTX 4090 / pool_id `pilot`。**解釈はしていない。印は `order6b_select` が §5 を機械的に当てたもの**)
+
+**7 本すべて成功した**(`CHAIN_DONE [12:56:54Z]`)。**件数は PLAN-026 §4.14 の dry-run と 1 件も違わない**(合計 15,626)。**`git_sha.txt` は 7 本とも `b5838c0` で `git_diff.patch` は 0 バイト**(追跡ファイルの変更は 1 件も無い)。
+
+| 腕 | run_id | 件数 | 壁時計 | 4 値のブロック | `items_sha256` |
+|---|---|---|---|---|---|
+| B0 | [run:20260922_121455_order6b_b0] | 1,640 | 247.359s | 31(全て 1.0) | pilot `c5072f488607f6e9…` |
+| R8 | [run:20260922_122247_order6b_r8] | 8,160 | 152.725s | —(`threshold_sweep`) | pilot_sweep_r8 `05902c908a95dd80…` |
+| ① | [run:20260922_122908_order6b_preamble] | 1,440 | 241.338s | 25(全て 1.0) | pilot `c5072f488607f6e9…` |
+| (d) | [run:20260922_123640_order6b_d] | 480 | 93.691s | 11(全て 1.0) | pilot `c5072f488607f6e9…` |
+| (c) | [run:20260922_124141_order6b_c] | 306 | 88.105s | —(`calibration`) | —(プールを読まない) |
+| S-① | [run:20260922_124632_order6b_s_preamble] | 2,400 | 106.425s | —(`threshold_sweep`) | pilot_sweep_s `97d763971b2b58fc…` |
+| S-(d) | [run:20260922_125131_order6b_s_d] | 1,200 | 113.966s | —(`threshold_sweep`) | pilot_sweep_s `97d763971b2b58fc…` |
+
+- **掃引 3 本と較正 1 本が 4 値分解を持たないのは設計である**(PLAN-026 §3.2・§4.5 読み2)。取りこぼしではない —— run の `log.txt` に同じ注記が出ており、`metrics.json` の `kind` でも確かめた
+- **★判定表(`results/order6b_select/order6b_select.json`。`python -m code.analysis.order6b_select` に 7 本すべてを渡した)**:
+  **T3 = 採る候補なし / T1b = 採る候補なし。**C0・C3・C1(T1b は C2 も)がどれも §5 の (i)〜(iv) を満たさなかった。
+  `preamble_mismatch` は `None`。**これは §5 を機械的に当てた出力であって、採用でも解釈でもない**(ADR-078 決定2・PLAN-026 §6。**採用と分岐の読みは人間**)
+- **`pool_id: pilot` の数値は主張の根拠に使わない**(PLAN-001 §4.6 規則4)
+
 
 ### ★順5 の再採点 [run:20260910_215422_rescore_sweep_m](2026-09-11 その40。PLAN-022 §5。**解釈はしていない。`M*` は置き直さない**(ADR-074 決定1))
 
@@ -183,7 +205,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **1514 passed**(2026-09-22 その65 実測)。~~40~~ → ~~227~~ → ~~427~~ → ~~589~~ → ~~831~~ → ~~838~~ → ~~839~~ → ~~874~~ → ~~898~~ → ~~900~~ → ~~912~~ → ~~914~~ → ~~956~~ → ~~957~~ → ~~967~~ → ~~980~~ → ~~1030~~ → ~~1049~~ → ~~1082~~ → ~~1106~~ → ~~1144~~ → ~~1184~~ → ~~1224~~ → ~~1289~~ → ~~1325~~ → ~~1363~~ → ~~1402~~ → **1514**(`test_order6b_select.py` の 107 を含む) | `code/tests/` |
+| `pytest code/tests -q` → **1514 passed**(2026-09-22 その65 実測)。**件数の履歴(~~40~~ → … → ~~1402~~)は `logs/STATE-ARCHIVE.md`「その70」へ移した**(ADR-063 運用規約6)。**1514 は `test_order6b_select.py` の 107 を含む** | `code/tests/` |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **★桁数掃引は 2 本の腕を測る**(2026-09-10。ADR-071)。腕1 = `R(M)` の一様抽出(13 水準 × 200 × 5 = 13,000。**記述**。`build_items` は無変更で sha256 を回帰テストが固定)/ 腕2 = `Q(M)`(`label_main_coverage` が `extrap_magnitude` を返す組。7 水準 × 200 × 5 = 7,000。**判定の材料**)。`metrics.json` は `by_radius`(腕1)/ `grid_shell`(定義 A。記述)/ `quadrant`(腕2)/ `roles`。**config の `shell_*` が ADR-071 からの導出と食い違えば、run ディレクトリを作る前に止まる。`shell_*` の無い config(`smoke.yaml` を含む)も止まる。****`M*` は出さない** | `code/eval/battery/magnitude_sweep.py`、`code/eval/sweep.py`、`test_magnitude_sweep.py`、`test_sweep.py` |
@@ -264,8 +286,8 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 1. **★`θ = 0.70` の根拠(値ではない)は依然として未記入である**(ADR-041 決定2 の要求。人間が自分で書く)。1 本目の残り(`θ` → 殻 → ★F125 → 順5 → `M*`)はADR-070〜074 と PLAN-022 で決着済(経緯は `logs/STATE-ARCHIVE.md`「その33」「その34」「その40」「その64」)
 
 
-2. **★2026-09-22(その69): 順6b はポッド上で実行中である**(チェーンを 12:14:55Z に起動した)。**次は見届けと回収と停止である** ——
-   ~~(e) Yes/No の id の復号~~(その51)→ ~~PLAN-026 の起草~~(その52)→ ~~人間のレビュー~~(その53。ADR-079。★F141 を含む)→ ~~I1・I2 パイロット用プール~~(その54。`8e5e24f`)→ ~~I3 掃引の項目~~(その55。`36d37a5`。ADR-080)→ ~~I4 記録の経路~~(その57。`5c2e54f`)→ ~~I5 当てはめ~~(その58。`9776ff8`。ADR-081)→ ~~I6・I7 ① の前置き~~(その59。`96dcf26`)→ ~~I8 絞りと (d) の集合~~(その60。`58b0c11`。ADR-082)→ ~~I9 (c) の較正~~(その61。`4d80fcb`。ADR-083)→ ~~I10 上位 k~~(その62。`0e556d0`。ADR-084)→ ~~I11a run 単位の表~~(その63。`af6725a`。ADR-085)→ ~~I11b (c) の補正の適用~~(その64。`a0acb30`。ADR-086)→ ~~I11c §5 の判定表と混ぜない守り~~(その65。`3d8b081`。ADR-087。PLAN-026 §4.13)→ ~~I12 = 7 本の dry-run~~(その66。`403d1c7`。PLAN-026 §4.14。**§10・§11 の run 数を 6 → 7 に直した**)→ ~~選び方の凍結(tag)~~(**その68。人間が打った**)→ ~~GPU 承認~~(**その68。ADR-088 決定7**)→ **順6b(その69 に起動。ポッド上で実行中)** → **二値群 6 セルの判断(人間)**。その後 Δ の値。**事前登録の凍結(順9)はこの後。**
+2. **★2026-09-22(その70): 順6b は完走・回収・コミットが済んだ**(`CHAIN_DONE`。commit `664ea2f`。ポッドは停止)。**次は人間が二値群 6 セルを決めることである** ——
+   **ここまでの段の並び(I1〜I12 → §5 の凍結 tag → GPU 承認 → 順6b の実行・回収)は`logs/STATE-ARCHIVE.md`「その70」へ移した**(ADR-063 運用規約6。**全部が履歴になったため**)。
 
 **そのほかに開いているもの:**
 
@@ -357,26 +379,24 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-22(その69・最新)。順6b のチェーンがポッド上で走っている。次は見届けと回収と停止である。**
+> **★★2026-09-22(その70・最新)。順6b は終わった。次は人間の判断と PLAN-027 の実装である。**
 >
-> 0. ~~I1〜I12~~(その54〜その66)/ ~~§5 の凍結 tag~~(その68。**人間が打った**)/ ~~GPU 承認~~(その68。ADR-088 決定7)/ ~~ポッドの起動とチェーンの投入~~(**その69**)
-> 1. **★RUNNER がチェーンを見届け、7 本を回収してコミットする** —— `ssh -p 14769 root@213.173.108.142` で `/workspace/order6b_chain.log` を読む(`CHAIN_DONE` / `PREFLIGHT_FAIL` / `RUN_FAIL` のどれかで終わる)。run の id は `/workspace/order6b_runs.txt`。
->    **4 値の合計が全ブロックで 1.0 か**と **`items_sha256` が manifest と一致するか**を確かめてから run ごとにコミットする(**`metrics.json` と `config.yaml` は必ず**)。**解釈はしない**(`CLAUDE.md` §8)。
->    **終わったらポッドを停止する**(`infra/RUNPOD.md` §7。**terminate は人間**)。**3 時間の打ち切りは 14:48Z**
-> 2. **順6b の後**: IMPLEMENTER が **PLAN-027 §5 の手順1〜6 を実装する**(規則 C。ADR-088 決定6)。§6 の再採点 CLI で**順6b の run も読み直し、旧・新を並べて報告する**(解釈は人間)
-> 3. 順6b の後: **人間が二値群 6 セル・★F139 の (a)/(c)・G12・G15 を決める** → P1 の再定義・検出力分析 → Δ の 5 行 → 事前登録の凍結(順9)
-> 4. 人間: **停止中ポッド 7 本の terminate**(**`jn8bink3rkkri7` は回収・停止まで terminate しない**)/ **`runs/preflight/` の扱い**(未追跡。**その69 は人間の選択で「今は放置」**)/ PLAN-026 §4.5〜§4.14 の「実装の読み」/ ADR-080 決定3 / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
+> 0. **済んだ段の並びは `logs/STATE-ARCHIVE.md`「その70」へ移した**(ADR-063 運用規約6)。**順6b は commit `664ea2f` で完了している**
+> 1. **★人間が二値群 6 セルを決める** —— 材料は `results/order6b_select/order6b_select.json` と 7 本の `metrics.json`。**`order6b_select` の出力は「T3・T1b とも採る候補 = なし」であり、これは §5 を機械的に当てた結果であって採用ではない**(ADR-078 決定2)。**§6 の分岐 A / B / C の読みも人間**(`CLAUDE.md` §8)
+> 2. **IMPLEMENTER が PLAN-027 §5 の手順1〜6 を実装する**(規則 C。ADR-088 決定6。**順6b が終わったので着手できる**)。§6 の再採点 CLI で**順6b の run も読み直し、旧・新を並べて報告する**(解釈は人間)
+> 3. 人間: **★F139 の (a)/(c)・G12・G15** → P1 の再定義・検出力分析 → Δ の 5 行 → 事前登録の凍結(順9)
+> 4. 人間: **`cost.txt` の記入**(順6b の 7 本。稼働 1.215 時間 × $0.74/時)/ **停止中ポッド 8 本の terminate**(**全部 `EXITED`**)/ **`runs/preflight/` の扱い**(未追跡。その69 は「今は放置」)/ PLAN-026 §4.5〜§4.14 の「実装の読み」/ ADR-080 決定3 / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-09-22(その69・最新)。RUNNER (Opus)。順6b の 7 本のチェーンを起動し、実行中のまま引き継いだ。★ポッドは RUNNING のままである。**
+> **★★2026-09-22(その70・最新)。RUNNER (Opus)。順6b を完走・回収・コミットし、ポッドを停止した。★数値は判定表の形でしか読んでいない(解釈はしていない)。**
 >
-> **★やったこと**: 開始手順 / RunPod の読み直し(**RTX 4090 SECURE $0.74/時・在庫は全 DC で LOW**。カタログの実測)/ **人間に 4 問を確認**(ポッド / コードの渡し方 / `runs/preflight/` / start 失敗後の代替案。**4 問とも推奨を採択**)/ **`omjvbdanmbrzc8` の start 失敗 2 回** → **`jn8bink3rkkri7`(EU-RO-1 + `r963j7swke`)を作成** → **bundle で `b5838c0` へ fast-forward** → **bootstrap(1514 passed)** → **データ再生成(決定的)** → **§3 preflight 全項目 PASS** → **7 本のチェーンを 12:14:55Z に起動**。
-> **★やっていないこと**: **run の回収・コミット(1 本も)** / **数値の読み取り(1 つも)** / **ポッドの停止**(**チェーンが使っているので RUNNING のまま**)/ `cost.txt` の記入(**人間**)/ `code/`・テスト・文書・config・`data/raw/` の変更(1 バイトも)/ **main の push**(bundle で渡した)/ PLAN-027 の実装(順6b の後)。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / **RUNNER は `infra/RUNPOD.md` §4・§7 と `plans/PLAN-026-order6b.md` §10・§11** / 人間待ちは `logs/OPEN-ITEMS.md`。
+> **★やったこと**: 開始手順 / チェーンの見届け(**`CHAIN_DONE [12:56:54Z]`。7 本すべて成功**)/ **7 本の `scp` 回収**(約 49 MB)/ **回収の検査 3 件すべて pass**(4 値合計 1.0 / `items_sha256` 一致 / 必須成果物)/ **commit `664ea2f`** / **判定表の CLI を 7 本で実行**(`results/order6b_select/order6b_select.json`)/ **ポッド `jn8bink3rkkri7` を停止**(`EXITED`)/ `list-pods` で全 8 本 `EXITED` を確認。
+> **★やっていないこと**: **数値の解釈**(`CLAUDE.md` §8)/ **`cost.txt` の記入**(人間)/ **terminate**(人間)/ **`runs/preflight/` の処置**(その69 の選択どおり放置)/ **main の push**(ahead のまま)/ PLAN-027 の実装 / `code/`・テスト・文書・config・`data/raw/`・凍結した PLAN-026 §5 の変更(1 バイトも)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / **人間の判断待ちは `logs/OPEN-ITEMS.md`** / IMPLEMENTER は `plans/PLAN-027-f140-parser-rescore.md` §5・§6 と ADR-088 決定6。
 
 ---
 

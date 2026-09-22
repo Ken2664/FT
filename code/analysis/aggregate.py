@@ -21,6 +21,13 @@
 
 後ろ2つは件数だけ報告して表には入れない。混ぜると、掃引の点が条件の
 セルとして並んでしまう。
+
+**腕も混ぜない**(★2026-09-22。ADR-086 決定5 / ADR-087 決定2)。`metrics.json` が
+`preamble`(① の前置き)か `task_subset`(解く群・タスク型の絞り)を宣言していれば、
+**種別を問わず止める**。順6b の候補の腕は文面か項目の集合が B0 と違うので、条件×シードの
+表に並べると腕の違いが条件の差として読まれる。順6b の集計は
+`code.analysis.order6b_select`(§5 の判定表)と `code.analysis.gonogo`(run 単位の表)から行う。
+**`frame.py` の列は変えていない**(長形式表の形を動かさない)。
 """
 
 from __future__ import annotations
@@ -66,6 +73,18 @@ NO_SEED_WARNING = (
 DUPLICATE_WARNING = (
     "同じ (条件, シード) の run が複数ある行がある。**平均は run 単位で取っている**ため、"
     "重複した条件が二重に効いている。再実行を残したのか取り違えたのかを確かめること。"
+)
+
+# 順6b の候補の腕を見分ける metrics.json の欄(`code/eval/run.py` の metrics_payload)。
+# `preamble` = ① の前置き(PLAN-026 I6)/ `task_subset` = 解く群・タスク型の絞り(同 I8)。
+ORDER6B_FIELDS: tuple[str, ...] = ("preamble", "task_subset")
+ORDER6B_ENTRY_POINT = "python -m code.analysis.order6b_select"
+ORDER6B_MESSAGE = (
+    "{path} は {declared} を宣言した run である(順6b の候補の腕。PLAN-026 I6 / I8)。"
+    "**B0 と同じ表に並べない** —— 前置きのある run は全群の入力の先頭に例示が置かれ、"
+    "絞りのある run はプールの一部しか解いていない。腕の違いが条件の差として読まれる。"
+    f"順6b の集計は {ORDER6B_ENTRY_POINT}(§5 の判定表)と "
+    "python -m code.analysis.gonogo(run 単位の表)から行う(ADR-086 決定5 / ADR-087 決定2)。"
 )
 
 MIXED_SCORING_WARNING = (
@@ -296,6 +315,23 @@ def rows_from_metrics(payload: Mapping[str, Any], *, path: Path) -> list[Row]:
     return rows
 
 
+def check_not_order6b(payload: Mapping[str, Any], *, path: Path) -> None:
+    """順6b の候補の腕(① / (d))の run を見つけたら止める(ADR-086 決定5 / ADR-087 決定2)。
+
+    答える問い: 「この run は、B0 と同じ表に並べてよい文面・同じ項目の集合で測られたか」
+
+    前置き(`eval.preamble`)を宣言した run は**全群の入力の先頭に例示が置かれて**おり、
+    絞り(`eval.task_subset`)を宣言した run は**プールの一部しか解いていない**。どちらも
+    条件×シードの表に並べると、腕の違いが条件の差として読まれる。**種別は問わない**
+    (ADR-087 決定2) —— 掃引も較正も同じ止まり方をする。
+
+    本番・smoke の config はどちらも宣言しないので、既存の run の集計は1バイトも変わらない。
+    """
+    declared = [field for field in ORDER6B_FIELDS if payload.get(field) is not None]
+    if declared:
+        raise AggregateError(ORDER6B_MESSAGE.format(path=path, declared=declared))
+
+
 def collect(paths: Iterable[Path]) -> Collection:
     """metrics.json を読み、条件×シードのセルに畳む。
 
@@ -303,6 +339,8 @@ def collect(paths: Iterable[Path]) -> Collection:
 
     **種別が違うものは件数だけ数えて落とす。**掃引の点や訓練の損失を
     条件のセルとして並べると、表を見た人がそれを4値分解と読む。
+
+    **前置き・絞りを宣言した run では止める**(`check_not_order6b`)。
     """
     rows: list[Row] = []
     skipped: dict[str, int] = {}
@@ -310,6 +348,7 @@ def collect(paths: Iterable[Path]) -> Collection:
     for path in paths:
         n_files += 1
         payload = json.loads(path.read_text(encoding="utf-8"))
+        check_not_order6b(payload, path=path)
         kind = payload.get("kind")
         if kind != EVAL_KIND:
             skipped[str(kind)] = skipped.get(str(kind), 0) + 1

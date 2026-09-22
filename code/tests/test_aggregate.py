@@ -117,6 +117,60 @@ def test_only_the_evaluation_kind_enters_the_table(runs: Path) -> None:
     }
 
 
+PREAMBLE_RECORD = {"lines": ["a", "b"], "sha256": "0" * 64}
+TASK_SUBSET_RECORD = {"task_types": ["t1b"], "n_pool_items": 10, "n_items": 4, "n_dropped": 6}
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("preamble", PREAMBLE_RECORD), ("task_subset", TASK_SUBSET_RECORD)],
+)
+def test_an_order6b_arm_stops_the_aggregation(tmp_path: Path, field: str, value: Any) -> None:
+    """★前置きか絞りを宣言した run は B0 と同じ表に並べない(ADR-086 決定5)。
+
+    止めたうえで順6b 専用の入口を名指しする。**警告ではなく止める** ——
+    表に並んでしまえば、腕の違いが条件の差として読まれる。
+    """
+    write_run(
+        tmp_path,
+        "20260901_000004_order6b",
+        {**eval_metrics(run_id="20260901_000004_order6b"), field: value},
+    )
+    with pytest.raises(aggregate.AggregateError, match="order6b_select"):
+        collect_from(tmp_path)
+
+
+@pytest.mark.parametrize("kind", ["threshold_sweep", "calibration"])
+def test_the_order6b_guard_does_not_look_at_the_kind(tmp_path: Path, kind: str) -> None:
+    """★種別を問わず止める(ADR-087 決定2)。掃引・較正の run も「件数だけ数えて飛ばす」にしない。"""
+    write_run(
+        tmp_path,
+        "20260901_000005_order6b",
+        {"run_id": "20260901_000005_order6b", "kind": kind, "preamble": PREAMBLE_RECORD},
+    )
+    with pytest.raises(aggregate.AggregateError, match="order6b_select"):
+        collect_from(tmp_path)
+
+
+def test_a_run_that_declares_neither_is_untouched(runs: Path) -> None:
+    """★宣言が null / 欄が無い run は 1 バイトも変わらない(本番・smoke の config は宣言しない)。"""
+    write_run(
+        runs,
+        "20260901_000006_null",
+        {
+            **eval_metrics(run_id="20260901_000006_null", seed=1),
+            "preamble": None,
+            "task_subset": None,
+        },
+    )
+    collection = collect_from(runs)
+    assert collection.n_metrics_files == 4
+    assert {row.run_id for row in collection.rows} == {
+        "20260901_000001_smoke",
+        "20260901_000006_null",
+    }
+
+
 def test_no_matching_run_stops_the_aggregation(tmp_path: Path) -> None:
     """★0件の集計を黙って空表にしないこと。
 

@@ -15,7 +15,7 @@
   - **偏りは記号をまたいで生の確率を平均してから正規化する**(ADR-083 決定2)—— 記号ごとに正規化してから
     平均した値・対数確率の平均とは違う値になることを並べて固定する。同点は No
   - 記録は `yes_logp` / `no_logp` だけで、率・答え・補正後の値を置かない。`metrics.json` は
-    `kind: calibration` で、`aggregate.py` は飛ばし `frame.py` は止まる
+    `kind: calibration` で、**`aggregate.py` は止まり**(前置きを宣言しているため。ADR-086 決定5 / ADR-087 決定2)`frame.py` も止まる
   - 評価プールを解く経路(固定オフセット・掃引)と桁数掃引は、較正の config を重みを読む前に止める
 """
 
@@ -541,13 +541,18 @@ def test_the_log_and_the_artifacts(executed: tuple[Path, list[str]]) -> None:
     assert list((run_dir / artifacts.PREDICTIONS_DIR).iterdir()) == []
 
 
-def test_aggregate_skips_and_frame_refuses_a_calibration_run(
+def test_aggregate_stops_and_frame_refuses_a_calibration_run(
     executed: tuple[Path, list[str]],
 ) -> None:
+    """★(c) の run は `aggregate` で**止まる**(ADR-086 決定5 / ADR-087 決定2)。
+
+    ~~種別が違うので件数だけ数えて飛ばす~~ → **止める**(2026-09-22。I11c)。
+    この run は前置き(`eval.preamble`)を宣言しており、順6b の腕は B0 と同じ表に並べない。
+    `frame` は従来どおり `kind` で断る。
+    """
     run_dir, _ = executed
-    collection = aggregate.collect([run_dir / "metrics.json"])
-    assert collection.cells == ()
-    assert collection.skipped_kinds == {calibration.CALIBRATION_KIND: 1}
+    with pytest.raises(aggregate.AggregateError, match="order6b_select"):
+        aggregate.collect([run_dir / "metrics.json"])
     with pytest.raises(frame.FrameError, match="kind"):
         frame.load_run(run_dir / "metrics.json")
 

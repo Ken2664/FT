@@ -6094,3 +6094,42 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **`Path.write_text` で `STATE.md` を書いて CRLF になり、`test_repo_hygiene.py` の LF の検査が落ちた。**バイト列に直して通した(HANDOFF の注意書きに残した)
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I11c = §5 の判定表の CLI と `aggregate.py` の守り)向けに書き直した
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### feat(analysis): PLAN-026 I11c §5 の判定表の CLI(order6b_select.py)と、① と (d) の run を B0 と混ぜない守りを実装した(その65。ADR-087。GPU 0)   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その64)の作業 = PLAN-026 の I11c(§5 の判定表と混ぜない守り)。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- 開始手順 / skill `code-style` / PLAN-026 §4.11・§4.12・§5・§6・§7・§9、ADR-078 決定11、ADR-086、`calibrated.py`・`gonogo.py`・`r8_fit.py`・`aggregate.py`・`preamble.py`・順6b の config 7 本の該当箇所を読んだ
+- **人間に選択式で 4 点を聞いた = ADR-087**(提案 エージェント / 採択 人間。**4 問とも推奨**):
+  決定1 CLI は **7 本の run すべてを要求**し、1 本でも欠けたら何も出さずに止める(腕が欠けた表は「候補が無かった」「満たさなかった」「測っていない」を 1 つに潰す)/
+  決定2 `aggregate.py` の守りは**種別(`kind`)を問わない**(ADR-086 決定5 の文面どおりの読み)/
+  決定3 記述の腕(①+(c) / (d)+(c))は**別ブロックに値と来歴と注記だけ**を置き、(i)〜(iv) の合否の印を付けない /
+  決定4 判定表の JSON は**判定に使った値 + 近接同点の感度の行 + 来歴**。#1〜#3 の全表と当てはめは入れない
+- 実装の前に PLAN-026 §4.13(新)に読み 1〜11 を書いた(人間が覆せる)
+- `code/analysis/order6b_select.py`(新規。解析層):
+  `ArmSpec`・`ARM_SPECS`(7 本の腕に「あるべき記録の形」。`configs/exp_order6b_*.yaml` の転記)/
+  `load_arm`・`_check_shape`(`kind`・`data.eval_template_set`・前置きの有無・`task_subset.task_types`・`threshold_sweep.arm`・`pool_id`・`adapter` を照合して止める。**名前からは推測しない**)/
+  `check_preambles`(①・S-①・(c) の前置きの sha256 が揃うか)/ `check_calibration_arms`(3 腕の形)/
+  `settings_of`(閾値と近接同点の幅が 7 本で揃うか)/
+  `CandidateSpec`・`CANDIDATES`(C0 < C3 < C2 < C1。**集合も順序も §5 の表**)・`DESCRIPTIVE`(①+(c) / (d)+(c))/
+  `Reports`(腕 × 較正の腕ごとに `gonogo.run_report` / `calibrated_run_report` / `r8_fit.run_report` / `calibrated_run_report` を 1 度だけ呼ぶ)/
+  `cells_i`(#2)・`cells_ii`(#3)・`numeric_gate`((iii)。#1 は judged の群すべて。**0 件なら止める**)・`far_offsets_iv`((iv)。セルごとに両側)/
+  `evaluate`(そのタスク型に候補が無ければ `applicable: false`)・`select_for`(表の順で最初に満たしたもの。無ければ `selected = null` + `no_candidate`)/
+  `preamble_mismatch`(片方が候補なしなら null)/ `describe`(記述の腕。**感度の行からも #2 の印を落とす**)/ `build_report`・`report_lines`・`main`
+- `code/analysis/aggregate.py`: `check_not_order6b`(`metrics.json` が `preamble` か `task_subset` を非 null で宣言していれば、**種別を問わず**止め、`order6b_select` と `gonogo` を名指しする)を `collect` に足した。
+  **`expand_metrics_paths` には置いていない**(`gonogo.py` が同じ関数を使っており、そこで止めると順6b の集計そのものができなくなる)。**`frame.py` の列は変えていない**
+- **`gonogo.py` / `r8_fit.py` / `calibrated.py` / `code/eval/` / 順6b の config / `data/raw/` / プールは 1 バイトも変えていない**
+- テスト: `code/tests/test_order6b_select.py`(新規 107)。
+  **パイロット用プールと R8・S の掃引プールを tmp に書き、7 本の腕(B0・R8・①・S-①・(d)・S-(d)・(c))を固定応答で本実行した run**で、
+  腕の形が config の転記であること(両方向)/ 候補の集合と順序が §5 の表であること / 来歴が 7 本を記録の形で並べること /
+  腕の取り違え・欠けた腕・2 本に当たる glob・幅の食い違いで止まること /
+  (i)・(ii)・(iv) の印が `gonogo.py` / `r8_fit.py` の `fails` そのものであること / (iii) が C1 だけで judged の群と T1・T2 の 6 セルを見ること /
+  C3 が補正後の表を読んでいること(補正前の掃引と数字が違う)/ 採るのが表の順で最初に満たした候補であること /
+  T3 の C2 が `applicable: false` であること / 記述の腕に `fails` / `passed` の鍵が 1 つも無いこと。
+  選び方そのものは合成の表(`FakeReports`)で、候補なし・食い違いの null・(i)〜(iv) の AND・(iv) の両側・欠けたセル・judged 0 件を固定した。**数値は実験結果ではない**
+- `code/tests/test_aggregate.py`(+5): 前置き / 絞りを宣言した run で止まること・種別を問わないこと・宣言が null の run は 1 バイトも変わらないこと
+- `code/tests/test_calibration.py`: **(c) の run は `aggregate` で「飛ばす」から「止まる」に変わった**(前置きを宣言しているため)。既存のテストと docstring を打ち消し線付きで直した
+- **変異を 34 個注入し、それぞれテストが落ちることを確かめた**(最初は 13 個がすり抜けた —— 腕を丸ごと取り違えたときは 7 つの検査が互いに冗長で、1 つずつは固定されていなかった(01〜07)/ 前置きの sha256 の一致(08)/ 較正の腕の形(09)/ (iii) の #1 と #2(16・17)/ (iv) の境界 `>=`(18)/ (iv) の高い側(19)。**形の 7 つを 1 つずつ壊すテスト・前置きと較正の腕のテスト・(iii) の #1 と #2 を別々に割るテスト・(iv) の境界と両側のテストを足して 13 個とも落ちることを確かめた**。scratchpad のスクリプト。終わった後に 2 つのファイルが元のバイト列と一致することを確かめた)
+- `pytest code/tests -q` → **1514 passed**(1402 → +112。全体で 3 分 43 秒)
+- 書いたもの: 上記のコードとテスト / `logs/DECISIONS.md`(ADR-087)/ `plans/PLAN-026-order6b.md`(ステータス・§4.13(新)・§9 の I11)/ 本項(`STATE.md` は続く引き継ぎのコミット)
+- **やっていないこと**: I12 / dry-run / 質量の行き先の表 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結(tag)/ main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

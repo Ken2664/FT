@@ -8,12 +8,12 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-22(その70)/ by RUNNER (Opus)
-(**★順6b の 7 本のチェーンは完走した(`CHAIN_DONE [12:56:54Z]`)。7 本すべてを回収してコミットし、ポッド `jn8bink3rkkri7` を停止した(`EXITED`)。**
-稼働は 12:14:55Z → 12:56:54Z の **42 分**で、§10 の見積り(約 1.7 時間)より短く、3 時間の打ち切り(14:48Z)には届かなかった。
-**件数は PLAN-026 §4.14 の dry-run と 1 件も違わない**(合計 **15,626**)。**4 値の合計は全ブロックで 1.0**、**`items_sha256` は 3 つのプールの manifest と一致**、**`git_diff.patch` は 7 本とも 0 バイト**(追跡ファイルの変更なし @ `b5838c0`)。
-判定表は `results/order6b_select/order6b_select.json` に出した —— **T3・T1b とも「採る候補 = なし」。採用・解釈は人間である**(`CLAUDE.md` §8)。
-**`cost.txt` と terminate は人間。**`code/` とテスト・文書・config・`data/raw/`・凍結した PLAN-026 §5 は 1 バイトも変えていない。**)
+最終更新: 2026-09-22(その71)/ by IMPLEMENTER (Opus)
+(**★PLAN-027 §5 の手順1〜6 を実装した。★F140 の規則 C が `numeric` パーサに入り、本実行の run を採点し直す CLI(`code/eval/rescore_run.py`)ができた。**
+**規則 C の「最終の非空行」の読み方が 2 通りあり、実装前に実測で切り分けて人間に諮った**(ADR-089 決定1 = 正規化後の全文の最後の `is`)。
+**9 本を再採点した**(順6 R1〜R5 + 順5 の掃引 + 順6b の本実行 3 本)—— **C1 / C2 / C4 は全本 pass、C3 は見積りと完全一致、★C5(Go/No-Go の印)は 1 つも動かなかった。**
+**数値の解釈と採否は人間である**(`CLAUDE.md` §8)。`pytest code/tests -q` → **1579 passed**。**GPU は 1 秒も使っていない。**
+**元の run の `metrics.json` / `predictions/`・`data/raw/`・プール・config・凍結した PLAN-026 §5 は 1 バイトも変えていない。**)
 
 ---
 
@@ -70,18 +70,50 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-22(その70・最新)。Phase 0。RUNNER (Opus)。順6b は完走・回収・コミットが済み、ポッドは停止した。次は人間の判断である。**
-> - **★7 本すべて成功した** —— `/workspace/order6b_chain.log` の終端が **`CHAIN_DONE [12:56:54Z]`**。**`PREFLIGHT_FAIL` / `RUN_FAIL` は 1 件も出ていない**
-> - **★回収の検査はすべて通った**(下の「わかっていること」の順6b ブロックに run_id つきで書いた)。**7 本とも commit `664ea2f` に入っている**(`metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` / `token_boundary.json` / `forced_choice_tokens.json` / `git_sha.txt` / `git_diff.patch`。`predictions/` と `log.txt` は .gitignore)
-> - **★判定表は出した。T3・T1b とも「採る候補 = なし」**(`results/order6b_select/order6b_select.json`)。**これは `order6b_select` が §5 を機械的に当てた出力であって、採用でも解釈でもない**(ADR-078 決定2・PLAN-026 §6)
-> - **★ポッド `jn8bink3rkkri7` は停止した**(`status: EXITED`。稼働 4,373 秒 = **1.215 時間**)。`list-pods` で**所有する 8 本すべてが `EXITED`** であることを確かめた。**`cost.txt` の記入と terminate は人間**
-> - **`code/` とテスト・文書・config・`data/raw/`・プール・順6b の config・凍結した PLAN-026 §5 は 1 バイトも変えていない**
+> **★★2026-09-22(その71・最新)。Phase 0。IMPLEMENTER (Opus)。PLAN-027 の実装が終わった。次は人間の判断である。**
+> - **★規則 C を実装した**(`code/eval/parsers/base.py` の `closing_statement_integer` + `numeric.parse` の手順4)。**`ANSWER_MARKERS` は 1 バイトも触っていない**(候補 A を採らない)
+> - **★「最終の非空行」の読み方を人間が選んだ**(ADR-089 決定1)。**PLAN-027 §3 の数値はすべて「正規化後の全文」で測られており、「生応答の最終行」では 17 行ずれる**(実測。下の「わかっていること」)
+> - **★本実行の run の再採点 CLI を作った** —— `python -m code.eval.rescore_run --source-run runs/<id>`。**GPU 0。元の run には何も書かない**(ADR-074 決定2)
+> - **★9 本を再採点し、旧・新を並べた**(`results/rescore_f140/summary.json`)。**C5 の印は 1 つも動かなかった。解釈と採否は人間**
+> - **`data/raw/`・プール・config・順6b の run の中身・凍結した PLAN-026 §5 と tag は 1 バイトも変えていない**
 >
-> **★その69 の記録は `logs/STATE-ARCHIVE.md`「その70」にある**(ADR-063 運用規約1)。
+> **★その70 の記録は `logs/STATE-ARCHIVE.md`「その71」にある**(ADR-063 運用規約1)。
 
 ---
 
 ## わかっていること
+
+### ★F140 の再採点(2026-09-22 その71。PLAN-027 §5・§6。**GPU 0。解釈はしていない**)
+
+**規則 C** = 現行の経路が `None` を返したときだけ、**正規化後の全文の最後の `is`**(語境界つき・大小無視)より後ろに `unanimous_integer` を掛ける(ADR-088 決定1 + **ADR-089 決定1 で錨の範囲を確定**)。
+
+**★「最終の非空行」の 2 通りの読み方(実測。読み取りのみ)**: [run:20260910_215422_rescore_sweep_m] の旧 `parse_fail` 924 件に当てると、
+**正規化後の全文 = correct 509 / other_error 92 / 残り 323**(= PLAN-027 §3.2 の C 列に一致)/ **生応答の最終行 = correct 508 / other_error 76 / 残り 340**。
+**候補 B も同じで、§3.2 の B 列(486 / 67 / 371)は前者でのみ再現する。**人間は前者を選んだ(ADR-089)。
+
+**★再採点 9 本の検査**(`results/rescore_f140/summary.json`)。**C1 / C2 / C4 は 9 本すべて pass。**
+
+| 元の run | 再採点 run | C3(旧 parse_fail の行き先) | C5(Go/No-Go の印) |
+|---|---|---|---|
+| [run:20260911_141547_order6_r1] | [run:20260922_134107_rescore_order6_r1] | correct 2(見積りと一致) | **22 個すべて一致** |
+| [run:20260911_160132_order6_r2] | [run:20260922_134108_rescore_order6_r2] | correct 2(一致) | 22 個すべて一致 |
+| [run:20260911_160937_order6_r3] | [run:20260922_134109_rescore_order6_r3] | correct 2(一致) | 22 個すべて一致 |
+| [run:20260911_161738_order6_r4] | [run:20260922_134110_rescore_order6_r4] | correct 3(一致) | 22 個すべて一致 |
+| [run:20260911_163337_order6_r5] | [run:20260922_134110_rescore_order6_r5] | 0 件(一致) | **表を組めない**(T2 交差。人間に上げる) |
+| [run:20260922_121455_order6b_b0] | [run:20260922_134111_rescore_order6b_b0] | correct 2 / other_error 1(**見積りなし**) | 22 個すべて一致 |
+| [run:20260922_122908_order6b_preamble] | [run:20260922_134112_rescore_order6b_preamble] | correct 1 / parse_fail 1(見積りなし) | 20 個すべて一致 |
+| [run:20260922_123640_order6b_d] | [run:20260922_134113_rescore_order6b_d] | 0 件(見積りなし) | 6 個すべて一致 |
+| [run:20260910_104249_sweep_m] | [run:20260922_134116_rescore_sweep_m] | 腕1 correct 1,752 / other_error 184 / rule 0 / 残り 322、腕2 correct 154 / other_error 5 / rule 0 / 残り 1(**両腕とも一致**) | 腕2 correct ≥ 0.75 は全水準 pass |
+
+**★4 値が動いたバッチ(旧 → 新。4 値すべて)**:
+- 順6 R1〜R4 と順6b B0 の **`bare_sum.ans_out`**: parse_fail .0250 → 0(R1〜R4 は correct .9750 → 1.0000)
+- 順6 R4 の **`spec_mul`**: correct .7167 → .7333 / parse_fail .0167 → 0(other_error .2667 のまま)
+- **順6b B0 の `spec_mul`: correct .8000 のまま / other_error .1833 → .2000 / parse_fail .0167 → 0**(回収された 1 件は correct ではない)
+- **順6b ①(前置き)の `bare_sum.ans_out`**: correct .9750 → .9875 / parse_fail .0250 → .0125(2 件中 1 件だけ回収)
+- 順6b (d) は動いた行が 1 件も無い
+- 順5 掃引 腕1(`by_radius`): parse_fail M=25 .032→.004 / M=100 .080→.024 / M=999 .080→.027、correct .943→.971 / .881→.932 / .818→.846、**other_error も上がる**(M=999 .102→.127)。**`rule` は全水準 0 のまま**
+
+- **`M*` は置き直さない**(ADR-088 決定5)。**元の run の `metrics.json` / `predictions/` は 1 バイトも書き換えていない**(ADR-074 決定2)
 
 ### ★順6(2026-09-11 その44。素の `Llama-3.1-8B-Instruct` / adapter null / RTX 4090。**解釈はしていない。印は `gonogo.py` が付けたもの**)
 
@@ -104,8 +136,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 - **★F140(その45)**: T1 の parse_fail 2 件は最終文 `The sum of a and b is N.`(N は真値)をパーサが `None` にしたもの。**#1 をセルで読むと T1 × `extrap_magnitude` が .025**
 - **R4 で表を組んでも印の位置は R1 と同じ。**R4 で分類が変わった強制選択 13 件は、両方の run で |yes_logp − no_logp| ≤ 0.25(R1 で ≤ 0.25 は 55/960)。詳細は `plans/PLAN-024` §1
 - **★その46 の数え上げ(`plans/PLAN-024` §1.8。読み取りだけ)**: ★F140 の形は順5 の腕2 で残った parse_fail 22 件中 21 件(N = 真値)[run:20260910_215422_rescore_sweep_m] / R4 対 R1 で分類が変わった 16 件は二値群 13・`spec_mul` 3 で **T1・指示付き T1・T2 は 0 件** [run:20260911_161738_order6_r4]
-- **★(e) Yes/No の id の復号(その51。GPU 0。`results/token_decode_order6/token_decode.json`)**: 取り違えは無い —— 12 綴りの復号・再符号化・本番コード経路での引き直しが R1〜R4 の `forced_choice_tokens.json` と完全一致 / トークナイザの同一性(revision・chat_template の sha・`prompt_ids` 12/12)/ 二値群 R1〜R4 各 960 件でラベル・真値(プロンプトから計算し直し)・分類の食い違い 0。詳細は `plans/PLAN-024` §1.9
-- **★その47 の数え上げ(`plans/PLAN-024` §1.9)** [run:20260911_141547_order6_r1]: T3 gt の Yes 率は off0 .35 / off1 .29、和 < 100 .67 / 100〜198 .17 / ≥ 200 .04。T3 lt は全条件 0/240。T1 ans_in の応答で数字だけは 0/160、ans_out で 3 行以上 31/80
+- **★その46・その47 の数え上げと ★(e) Yes/No の id の復号(その51)は `logs/STATE-ARCHIVE.md`「その71」へ移した**(ADR-063 運用規約6。**正本は `plans/PLAN-024` §1.8・§1.9**)
 
 ### ★順6b(2026-09-22 その70。素の `Llama-3.1-8B-Instruct` / adapter null / RTX 4090 / pool_id `pilot`。**解釈はしていない。印は `order6b_select` が §5 を機械的に当てたもの**)
 
@@ -128,30 +159,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 - **`pool_id: pilot` の数値は主張の根拠に使わない**(PLAN-001 §4.6 規則4)
 
 
-### ★順5 の再採点 [run:20260910_215422_rescore_sweep_m](2026-09-11 その40。PLAN-022 §5。**解釈はしていない。`M*` は置き直さない**(ADR-074 決定1))
+### ★順5 の再採点 [run:20260910_215422_rescore_sweep_m](2026-09-11 その40)★2026-09-22(その71)にアーカイブへ移した
 
-元の run `20260910_104249_sweep_m` の `predictions/` を新しい規則2(`unanimous_integer`。ADR-074 決定2)で読み直した(GPU 0。元の run は書き換えていない)。
-**PLAN-022 §5.1 の C1〜C5 はすべて pass。**C3(旧 `parse_fail` の行き先)は期待値と完全一致 —— 腕2 160 件 → correct 133 / other_error 5 / rule 0 / 残り 22、
-腕1 2,258 件 → correct 1,264 / other_error 92 / rule 0 / 残り 902。**遷移表で動いたのは旧 `parse_fail` の行だけ。4 値の合計は全ブロック・全水準・全シードで 1.0**
-
-**腕2 = `quadrant`(判定の材料)。旧 → 新(シード平均)**
-
-| M | 125 | 150 | 175 | 200 | 300 | 500 | 999 |
-|---|---|---|---|---|---|---|---|
-| correct | .991→.998 | .998→1.000 | .991→1.000 | .987→1.000 | .980→.998 | .951→.995 | .940→.980 |
-| rule | 0→0 | 0→0 | 0→0 | 0→0 | 0→0 | 0→0 | 0→0 |
-| other_error | .000→.000 | .000→.000 | .000→.000 | .000→.000 | .001→.001 | .001→.002 | .000→.004 |
-| parse_fail | .009→.002 | .002→.000 | .009→.000 | .013→.000 | .019→.001 | .048→.003 | .060→.016 |
-| SD correct(新) | .0027 | 0 | 0 | 0 | .0027 | .0035 | .0079 |
-
-**腕1 = `by_radius`(記述)。新**(旧は上の表。`rule` は全水準で旧と同じ。格子殻の新しい値は `metrics.json` の `grid_shell`)
-
-| M | 25 | 50 | 75 | 99 | 100 | 110 | 125 | 150 | 175 | 200 | 300 | 500 | 999 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| correct | .943 | .922 | .920 | .895 | .881 | .880 | .878 | .860 | .857 | .869 | .816 | .850 | .818 |
-| rule | .009 | .007 | .003 | .002 | .001 | .000 | .001 | .001 | .001 | .000 | .001 | .000 | .000 |
-| other_error | .016 | .026 | .026 | .036 | .038 | .038 | .045 | .056 | .058 | .072 | .082 | .088 | .102 |
-| parse_fail | .032 | .045 | .051 | .067 | .080 | .082 | .076 | .083 | .084 | .059 | .101 | .062 | .080 |
+> **本文(C1〜C5 の結果と腕1・腕2 の 13 水準の表)は `logs/STATE-ARCHIVE.md`「その71」へ丸ごと移した**
+> (ADR-063 運用規約6。**1 文字も削っていない**)。**数値の正本は run の `metrics.json` である。**
+> **同じ run を ★F140 込みで読み直した結果は上の「★F140 の再採点」にある**(`M*` は置き直さない。ADR-074 決定1)。
 
 ### 文献から(出典は Documents/02_RELATED_WORK.md)
 
@@ -379,24 +391,25 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-22(その70・最新)。順6b は終わった。次は人間の判断と PLAN-027 の実装である。**
+> **★★2026-09-22(その71・最新)。PLAN-027 の実装は終わった。次は人間の判断である。**
 >
-> 0. **済んだ段の並びは `logs/STATE-ARCHIVE.md`「その70」へ移した**(ADR-063 運用規約6)。**順6b は commit `664ea2f` で完了している**
-> 1. **★人間が二値群 6 セルを決める** —— 材料は `results/order6b_select/order6b_select.json` と 7 本の `metrics.json`。**`order6b_select` の出力は「T3・T1b とも採る候補 = なし」であり、これは §5 を機械的に当てた結果であって採用ではない**(ADR-078 決定2)。**§6 の分岐 A / B / C の読みも人間**(`CLAUDE.md` §8)
-> 2. **IMPLEMENTER が PLAN-027 §5 の手順1〜6 を実装する**(規則 C。ADR-088 決定6。**順6b が終わったので着手できる**)。§6 の再採点 CLI で**順6b の run も読み直し、旧・新を並べて報告する**(解釈は人間)
-> 3. 人間: **★F139 の (a)/(c)・G12・G15** → P1 の再定義・検出力分析 → Δ の 5 行 → 事前登録の凍結(順9)
-> 4. 人間: **`cost.txt` の記入**(順6b の 7 本。稼働 1.215 時間 × $0.74/時)/ **停止中ポッド 8 本の terminate**(**全部 `EXITED`**)/ **`runs/preflight/` の扱い**(未追跡。その69 は「今は放置」)/ PLAN-026 §4.5〜§4.14 の「実装の読み」/ ADR-080 決定3 / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
+> 0. **PLAN-027 §10 の完了条件は 5 つとも埋まった**(commit `23131fc`)。**順6b の回収は commit `664ea2f`**
+> 1. **★人間が二値群 6 セルを決める**(その70 から変わらず) —— 材料は `results/order6b_select/order6b_select.json` と 7 本の `metrics.json`。**判定表は「T3・T1b とも採る候補なし」**。§6 の分岐 A / B / C の読みも人間(`CLAUDE.md` §8)
+> 2. **★人間が ★F140 の再採点を読む** —— **印は 1 つも動かなかった**(PLAN-024 §4.1 の見込みどおり)。
+>    **どちらを正本にするか(旧パーサの数値か、再採点後か)は人間が決める**(ADR-088 のリスク欄)。**★F139 の (a)/(c)・G12・G15 も同じ場で**
+> 3. 人間: P1 の再定義・検出力分析 → Δ の 5 行 → 事前登録の凍結(順9)
+> 4. 人間: **`cost.txt` の記入**(順6b の 7 本。1.215 時間 × $0.74/時)/ **停止中ポッド 8 本の terminate**(全部 `EXITED`)/ **`runs/preflight/` の扱い**(未追跡)/ PLAN-026 §4.5〜§4.14 の「実装の読み」/ ADR-080 決定3 / **★`θ` の根拠** / **★F104** / **★F114 の実行先** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-09-22(その70・最新)。RUNNER (Opus)。順6b を完走・回収・コミットし、ポッドを停止した。★数値は判定表の形でしか読んでいない(解釈はしていない)。**
+> **★★2026-09-22(その71・最新)。IMPLEMENTER (Opus)。PLAN-027 §5 の手順1〜6 を実装し、9 本を再採点した。★GPU は 1 秒も使っていない。**
 >
-> **★やったこと**: 開始手順 / チェーンの見届け(**`CHAIN_DONE [12:56:54Z]`。7 本すべて成功**)/ **7 本の `scp` 回収**(約 49 MB)/ **回収の検査 3 件すべて pass**(4 値合計 1.0 / `items_sha256` 一致 / 必須成果物)/ **commit `664ea2f`** / **判定表の CLI を 7 本で実行**(`results/order6b_select/order6b_select.json`)/ **ポッド `jn8bink3rkkri7` を停止**(`EXITED`)/ `list-pods` で全 8 本 `EXITED` を確認。
-> **★やっていないこと**: **数値の解釈**(`CLAUDE.md` §8)/ **`cost.txt` の記入**(人間)/ **terminate**(人間)/ **`runs/preflight/` の処置**(その69 の選択どおり放置)/ **main の push**(ahead のまま)/ PLAN-027 の実装 / `code/`・テスト・文書・config・`data/raw/`・凍結した PLAN-026 §5 の変更(1 バイトも)。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / **人間の判断待ちは `logs/OPEN-ITEMS.md`** / IMPLEMENTER は `plans/PLAN-027-f140-parser-rescore.md` §5・§6 と ADR-088 決定6。
+> **★やったこと**: 規則 C の実装(`base.closing_statement_integer` + `numeric.parse` 手順4)/ **「最終の非空行」の 2 通りの読み方を実測で切り分け、人間に諮って確定**(ADR-089)/ **`code/eval/rescore_run.py`(新規)**= 本実行の run の再採点 CLI(C1〜C5。C5 は中で `gonogo` を呼ぶ)/ `rescore.py` の C3 期待値を 2 組にし `--parser-rule` で選ぶ(ADR-088 決定3)/ `run.evaluate_batch` から `batch_metrics_record` を抽出(**式は不変**)/ `artifacts.METRICS_FILE` / テスト +170 行 + 新規 16 件 / **9 本の再採点**/ CHANGELOG・ADR-089・PLAN-027 の更新 / **commit `23131fc`**。`pytest code/tests -q` → **1579 passed**。
+> **★やっていないこと**: **数値の解釈・採否**(`CLAUDE.md` §8)/ **印の置き直し** / `M*` の置き直し / **`cost.txt`・terminate**(人間)/ **`runs/preflight/` の処置**(未追跡のまま)/ **main の push**(ahead のまま)/ `data/raw/`・プール・config・順6b の run の中身・凍結した PLAN-026 §5 と tag の変更(1 バイトも)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md` / **人間の判断待ちは `logs/OPEN-ITEMS.md`** / ★F140 の結果は `results/rescore_f140/summary.json` と `STATE.md`「★F140 の再採点」。
 
 ---
 

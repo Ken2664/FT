@@ -1,0 +1,612 @@
+diff --git a/code/artifacts.py b/code/artifacts.py
+index be3d814..e97b84b 100644
+--- a/code/artifacts.py
++++ b/code/artifacts.py
+@@ -36,6 +36,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
+ RUNS_ROOT = REPO_ROOT / "runs"
+ 
+ PREDICTIONS_DIR = "predictions"
++# 4値分解を書くファイルの名前。`code/analysis/` 側は run ディレクトリからこの
++# ファイルを指して読む(`frame.load_run` / `gonogo.run_report`)ので、名前を
++# 1箇所に置く。
++METRICS_FILE = "metrics.json"
+ # 学習済み LoRA アダプタの置き場所(ADR-043 決定2)。**中身はアダプタ重みのみ**
+ # (`adapter_model.safetensors` + `adapter_config.json`)。optimizer state と
+ # スケジューラ状態は残さない —— 訓練を再開しないためである(同 決定1)。
+@@ -188,7 +192,7 @@ def read_metrics(run_dir: Path) -> dict[str, Any]:
+     評価が**アダプタの出どころ**を引くために要る(ADR-043 決定3)——
+     評価 run の `seed` 欄は、そのアダプタを作った訓練 run から来る。
+     """
+-    path = run_dir / "metrics.json"
++    path = run_dir / METRICS_FILE
+     if not path.is_file():
+         raise FileNotFoundError(f"{path} が無い")
+     return json.loads(path.read_text(encoding="utf-8"))
+@@ -258,7 +262,7 @@ def write_timestamps(run_dir: Path, *, started: datetime, ended: datetime) -> No
+ 
+ def write_metrics(run_dir: Path, payload: Mapping[str, Any]) -> Path:
+     """全指標の生値。**これは実験結果である**(--dry-run の出力とは違う)。"""
+-    path = run_dir / "metrics.json"
++    path = run_dir / METRICS_FILE
+     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+     return path
+ 
+diff --git a/code/eval/parsers/base.py b/code/eval/parsers/base.py
+index c80a405..a10cbae 100644
+--- a/code/eval/parsers/base.py
++++ b/code/eval/parsers/base.py
+@@ -199,3 +199,41 @@ def unanimous_integer(text: str) -> int | None:
+     if len(set(tokens)) != 1:
+         return None
+     return tokens[0]
++
++
++# --------------------------------------------------------------------------
++# 言い切りの文からの抽出(★F140。規則 C。ADR-078 決定11 / ADR-088 決定1)
++# --------------------------------------------------------------------------
++
++# 「... is N.」で言い切る応答の錨。**`ANSWER_MARKERS` には足さない** —— 足すと
++# 「印の後ろにさらに is が来る」形(`The answer is 7, which is correct.` = 現行 7)を
++# 壊す(PLAN-027 §3.3。候補 A を採らなかった理由)。ここは numeric.parse が値を
++# 返せなかったときだけ通る道であり、現行で読めている応答には触らない。
++#
++# 語境界を要求するのは `This` / `basis` / `history` の中の is で錨を打たないため
++# である(2026-09-22 その71 の実装判断)。順5 の旧 parse_fail 924 件では語境界の
++# 有無で行き先が1件も変わらなかったが、規則としては別物である。
++_CLOSING_IS = re.compile(r"\bis\b", re.IGNORECASE)
++
++
++def closing_statement_integer(text: str) -> int | None:
++    """正規化済みの文字列の最後の `is` より後ろが1つの整数を指すなら、その値を返す。
++
++    答える問い: 「`The sum of 152 and 474 is 626.` は、どの数を主張しているか」(★F140)
++
++    **受け取るのは `normalize_text` を通した後の文字列である。**正規化は改行を
++    空白へ畳む(`_WHITESPACE`)ので、ここでの「最終の非空行」は正規化後の文字列
++    そのものを指す —— PLAN-027 §4 / ADR-088 決定1 の文面の読み方であり、
++    **2026-09-22(その71)に人間が選んだ**(PLAN-027 §3.2 の C 列 601 件の回収は
++    この読み方でのみ再現する。生応答を改行で割る読み方では 584 件になる)。
++
++    名詞表(sum / result / answer / …)を持たないのは、表の継ぎ足しが際限なく続く
++    ためである(候補 B を採らなかった理由。PLAN-027 §3.4)。その代償として
++    **`36 is negative` のような別の `is` でも錨を打つ**(ADR-088 決定1 のリスク欄)。
++    それでも `unanimous_integer` が値の違う数を弾くので、拾えるのは「錨より後ろに
++    現れる数がすべて同じ整数」のときだけである。
++    """
++    matches = list(_CLOSING_IS.finditer(text))
++    if not matches:
++        return None
++    return unanimous_integer(text[matches[-1].end() :])
+diff --git a/code/eval/parsers/numeric.py b/code/eval/parsers/numeric.py
+index 2db2bea..f0edb17 100644
+--- a/code/eval/parsers/numeric.py
++++ b/code/eval/parsers/numeric.py
+@@ -13,6 +13,7 @@ from __future__ import annotations
+ from code.eval.parsers.base import (
+     ANSWER_MARKERS,
+     ParseResult,
++    closing_statement_integer,
+     normalize_text,
+     split_after_last_marker,
+     unanimous_integer,
+@@ -32,16 +33,26 @@ def parse(raw: str) -> ParseResult:
+       3. 数が1つ以上あり、すべて同じ整数値ならその値。0個、値の違う数が2つ以上、
+          または整数でない数(7.5)を含むなら parse_fail(ADR-074 決定2。旧規則は
+          「整数がちょうど1つ」で、同じ答えの言い直しを落としていた)
++      4. **3 が値を返せなかったときだけ**、最後の `is` より後ろを同じ規則に掛ける
++         (★F140 の規則 C。`closing_statement_integer`)
+ 
+     値の違う数を失敗にするのは、途中計算や問題文の復唱を拾わないため。
+     ここを「最後の数を採る」に変えると parse_fail_rate は下がるが、
+     その分だけ誤りが correct / rule に流れ込む(PLAN-001 §5.4 の 4)。
++
++    **手順4 は ★F140 への対応である**(ADR-078 決定11 = 案 (b)「パーサに足して
++    再採点する」/ 規則の形は ADR-088 決定1 = 候補 C)。順6 の T1 で
++    `The sum of a and b is N.`(N は真値)が parse_fail に落ちていた。
++    **3 が値を返したら手順4 は走らない**ので、新パーサは旧パーサの上位集合である
++    ことがこの制御の形から言える(PLAN-027 §3.3 / §6.1 の C2)。
+     """
+     text = normalize_text(raw)
+     if not text:
+         return ParseResult.failure(raw, PARSER_NAME)
+     segment = split_after_last_marker(text, ANSWER_MARKERS)
+     value = unanimous_integer(segment)
++    if value is None:
++        value = closing_statement_integer(text)
+     if value is None:
+         return ParseResult.failure(raw, PARSER_NAME)
+     return ParseResult(value=value, raw=raw, parser=PARSER_NAME)
+diff --git a/code/eval/rescore.py b/code/eval/rescore.py
+index 9ca9d73..4d15689 100644
+--- a/code/eval/rescore.py
++++ b/code/eval/rescore.py
+@@ -64,13 +64,26 @@ from code.rates import (
+     TOTAL_TOLERANCE,
+ )
+ 
+-# PLAN-022 §4 で置いた新しい規則2 の名前(code/eval/parsers/base.py の関数名と同じ)。
+-# metrics.json / config.yaml の記録に使う。ここでは値そのものを変えない
+-# (パーサは触らない。このモジュールの責務は再採点だけ)。
+-PARSER_RULE_NAME = "unanimous_integer"
+-
+-# この再採点の根拠になった ADR。config.yaml / metrics.json の記録に使う。
+-ADR_REFERENCE = "ADR-074"
++# 採点規則の名前(code/eval/parsers/base.py の関数名と同じ)。metrics.json /
++# config.yaml の記録に使う。ここでは値そのものを変えない(パーサは触らない。
++# このモジュールの責務は再採点だけ)。
++#
++# **2 組ある**(★2026-09-22 その71。ADR-088 決定3)。規則2 だけだった頃の期待値を
++# 捨てずに残し、★F140 の規則 C(ADR-088 決定1)を足した後の期待値と引数で選ぶ ——
++# 足した後に「規則2 のみ」の期待値で C3 を掛けると必ず外れ、掛けるたびに黙って
++# 「人間に上げる」印が付く(PLAN-027 §6.2)。
++PARSER_RULE_UNANIMOUS = "unanimous_integer"
++PARSER_RULE_WITH_F140 = "unanimous_integer+f140"
++
++# 既定は**いまのパーサが実際に行う規則**である(規則2 + ★F140)。
++PARSER_RULE_NAME = PARSER_RULE_WITH_F140
++
++# 採点規則ごとの根拠 ADR。config.yaml / metrics.json の記録に使う。
++ADR_BY_PARSER_RULE: dict[str, str] = {
++    PARSER_RULE_UNANIMOUS: "ADR-074",
++    PARSER_RULE_WITH_F140: "ADR-074 / ADR-088",
++}
++ADR_REFERENCE = ADR_BY_PARSER_RULE[PARSER_RULE_NAME]
+ 
+ # 新しい run の id に足す接頭辞。`<timestamp>_rescore_<元 run の suffix>` の形にする
+ # (PLAN-022 §5 の入口案そのまま)。
+@@ -85,18 +98,41 @@ QUADRANT_CORRECT_RATE_MIN = 0.75
+ # 新しい分類でどこへ散るかの期待値。**診断であって公式の指標ではない。**
+ # 外れても止めない(止めるのは C1 / C2 / C4 だけ)。腕の名前は
+ # `code.eval.sweep` の predictions プレフィクスと合わせる。
+-EXPECTED_C3_TRANSITIONS: dict[str, dict[str, int]] = {
+-    sweep.QUADRANT_PREDICTIONS_PREFIX: {
+-        CORRECT: 133,
+-        OTHER_ERROR: 5,
+-        RULE: 0,
+-        PARSE_FAIL: 22,
++# **採点規則ごとに 1 組**(ADR-088 決定3 = (a))。過去の期待値を上書きも放置もしない。
++EXPECTED_C3_TRANSITIONS: dict[str, dict[str, dict[str, int]]] = {
++    # 規則2 のみ(ADR-074 決定2 の時点。2026-09-11 その40 に実測と完全一致した)。
++    PARSER_RULE_UNANIMOUS: {
++        sweep.QUADRANT_PREDICTIONS_PREFIX: {
++            CORRECT: 133,
++            OTHER_ERROR: 5,
++            RULE: 0,
++            PARSE_FAIL: 22,
++        },
++        sweep.PREDICTIONS_PREFIX: {
++            CORRECT: 1264,
++            OTHER_ERROR: 92,
++            RULE: 0,
++            PARSE_FAIL: 902,
++        },
+     },
+-    sweep.PREDICTIONS_PREFIX: {
+-        CORRECT: 1264,
+-        OTHER_ERROR: 92,
+-        RULE: 0,
+-        PARSE_FAIL: 902,
++    # 規則2 + ★F140 の規則 C。上の組に、**残った parse_fail(腕2 22 / 腕1 902)へ
++    # 規則 C を当てた行き先**を足したものである。足した数の出どころは
++    # PLAN-027 §3.2 の C 列(腕2 correct 21 / 残り 1、腕1 correct 488 /
++    # other_error 92 / 残り 322)で、**実装前に回収済みの predictions を候補規則で
++    # 読み直して数えた見積り**である(§3 の前書き)。合計は 160 / 2,258 のまま。
++    PARSER_RULE_WITH_F140: {
++        sweep.QUADRANT_PREDICTIONS_PREFIX: {
++            CORRECT: 154,
++            OTHER_ERROR: 5,
++            RULE: 0,
++            PARSE_FAIL: 1,
++        },
++        sweep.PREDICTIONS_PREFIX: {
++            CORRECT: 1752,
++            OTHER_ERROR: 184,
++            RULE: 0,
++            PARSE_FAIL: 322,
++        },
+     },
+ }
+ 
+@@ -396,7 +432,7 @@ def parse_fail_transition_counts(
+ 
+ 
+ def check_c3_parse_fail_transitions(
+-    arm1: ArmRescore, arm2: ArmRescore
++    arm1: ArmRescore, arm2: ArmRescore, *, parser_rule: str = PARSER_RULE_NAME
+ ) -> dict[str, Any]:
+     """C3: 旧 parse_fail 行の行き先を、期待値(★F126 の診断)と突き合わせる。
+ 
+@@ -406,13 +442,15 @@ def check_c3_parse_fail_transitions(
+     **外れても止めない。**診断の数え方と新パーサの実装が違う可能性はあるが、
+     それを判断するのは人間である(CLAUDE.md §8)。実測をそのまま記録する。
+     """
++    expected = EXPECTED_C3_TRANSITIONS[parser_rule]
+     actual = {
+         sweep.PREDICTIONS_PREFIX: parse_fail_transition_counts(arm1.before, arm1.after),
+         sweep.QUADRANT_PREDICTIONS_PREFIX: parse_fail_transition_counts(arm2.before, arm2.after),
+     }
+-    matches = actual == EXPECTED_C3_TRANSITIONS
++    matches = actual == expected
+     return {
+-        "expected": EXPECTED_C3_TRANSITIONS,
++        "parser_rule": parser_rule,
++        "expected": expected,
+         "actual": actual,
+         "matches": matches,
+         "status": "pass" if matches else "flagged_for_human",
+@@ -519,7 +557,7 @@ def prepare_rescore_run_dir(run_id: str, *, explicit: Path | None) -> Path:
+     return run_dir
+ 
+ 
+-def rescore_record(source_run_id: str) -> dict[str, str]:
++def rescore_record(source_run_id: str, *, parser_rule: str = PARSER_RULE_NAME) -> dict[str, str]:
+     """この再採点が何を、どの規則で採点し直したかの記録。
+ 
+     答える問い: 「この run は、元の run のどれを、どの規則で採点し直したものか」
+@@ -529,13 +567,20 @@ def rescore_record(source_run_id: str) -> dict[str, str]:
+     """
+     return {
+         "source_run_id": source_run_id,
+-        "parser_rule": PARSER_RULE_NAME,
+-        "adr": ADR_REFERENCE,
++        "parser_rule": parser_rule,
++        "adr": ADR_BY_PARSER_RULE[parser_rule],
+     }
+ 
+ 
++DEFAULT_CONFIG_NOTE = "\n# --- 以下は再採点(PLAN-022 §5)が付記した記録。元の config には無い ---\n"
++
++
+ def write_rescore_config(
+-    run_dir: Path, source_config_path: Path, record: Mapping[str, str]
++    run_dir: Path,
++    source_config_path: Path,
++    record: Mapping[str, str],
++    *,
++    note: str = DEFAULT_CONFIG_NOTE,
+ ) -> None:
+     """元の config をコピーし、末尾に再採点の記録(`rescore_record`)を足す。
+ 
+@@ -551,7 +596,7 @@ def write_rescore_config(
+     artifacts.write_config_copy(run_dir, source_config_path)
+     block = yaml.safe_dump({"rescore": dict(record)}, allow_unicode=True, sort_keys=False)
+     with (run_dir / "config.yaml").open("a", encoding="utf-8", newline="\n") as handle:
+-        handle.write("\n# --- 以下は再採点(PLAN-022 §5)が付記した記録。元の config には無い ---\n")
++        handle.write(note)
+         handle.write(block)
+ 
+ 
+@@ -639,7 +684,13 @@ def _checks_lines(checks: Mapping[str, Any]) -> list[str]:
+ # --------------------------------------------------------------------------
+ 
+ 
+-def execute(*, source_run_dir: Path, run_dir: Path | None = None, now: datetime | None = None) -> Path:
++def execute(
++    *,
++    source_run_dir: Path,
++    run_dir: Path | None = None,
++    now: datetime | None = None,
++    parser_rule: str = PARSER_RULE_NAME,
++) -> Path:
+     """順5 を新しい規則2 で採点し直し、成果物を新しい run ディレクトリに書く。
+ 
+     答える問い: 「新パーサで読み直すと、順5 の4値分解と C1-C5 はどうなるか」
+@@ -701,9 +752,9 @@ def execute(*, source_run_dir: Path, run_dir: Path | None = None, now: datetime
+         shell=shell, quadrant=arm2.after,
+         run_id=run_id, timing=timing,
+     )
+-    record = rescore_record(source_run_id)
++    record = rescore_record(source_run_id, parser_rule=parser_rule)
+     payload["rescore"] = record
+-    c3 = check_c3_parse_fail_transitions(arm1, arm2)
++    c3 = check_c3_parse_fail_transitions(arm1, arm2, parser_rule=parser_rule)
+     c5 = check_c5_quadrant_correct_rate(payload)
+     # C4: 止める。書き出す直前の payload そのものを走査する。checks ブロックに
+     # 足す前に呼ぶのは、C4 が payload の rate_fields だけを見て checks を見ないため
+@@ -749,8 +800,16 @@ def main(argv: Sequence[str] | None = None) -> int:
+         "--run-dir", type=Path, default=None,
+         help="成果物の書き出し先。既定は runs/<timestamp>_rescore_<元 run の suffix>/",
+     )
++    parser.add_argument(
++        "--parser-rule",
++        choices=sorted(EXPECTED_C3_TRANSITIONS),
++        default=PARSER_RULE_NAME,
++        help="C3 の期待値と記録に使う採点規則の名前(ADR-088 決定3)。既定は現行のパーサの規則",
++    )
+     args = parser.parse_args(argv)
+-    target = execute(source_run_dir=args.source_run, run_dir=args.run_dir)
++    target = execute(
++        source_run_dir=args.source_run, run_dir=args.run_dir, parser_rule=args.parser_rule
++    )
+     print(f"再採点の成果物: {target}")
+     return 0
+ 
+diff --git a/code/eval/run.py b/code/eval/run.py
+index ae9051e..4128ff5 100644
+--- a/code/eval/run.py
++++ b/code/eval/run.py
+@@ -1054,6 +1054,39 @@ def forced_choice_response_text(choice: Any) -> str:
+     )
+ 
+ 
++def batch_metrics_record(
++    group: str,
++    scoring: str,
++    responses: Sequence[ItemResponse],
++    reference_rule: str,
++) -> dict[str, Any]:
++    """1採点バッチの `metrics.json` の中身(4値分解 + 二値群の常答戦略)。
++
++    答える問い: 「このバッチの応答は、どの参照規則から見て 4 値にどう分かれたか」
++
++    **本実行(`evaluate_batch`)と再採点(`code/eval/rescore_run.py`)が同じ関数を通る。**
++    集計の式を2箇所に持つと、片方だけを直したときに再採点の `by_batch` が本実行と
++    食い違っても誰も気づかない(PLAN-027 §6)。
++    """
++    metrics: dict[str, Any] = {
++        "group": group,
++        "scoring": scoring,
++        "n_items": len(responses),
++        **metrics_by_reference_rule(responses, reference_rule),
++    }
++    if group == t3_comparison.GROUP:
++        # 強制選択なら parse_fail / other_error は構造上 0(ADR-047 決定4)。
++        # 0 でなければ実装バグ —— 合計 1.0 の検査に足す(PLAN-007 §4-4)。
++        assert_collapsed_to_binary(metrics["by_reference_rule"])
++        # 二値項目だけの話である(PLAN-001 §5.1)。**実測がこの理論値を
++        # 超えていることを必ず確認する。**強制選択でも「常に Yes」に倒れうる。
++        metrics["constant_answer_baselines"] = {
++            "always_yes": constant_answer_baseline(responses, True, reference_rule).as_dict(),
++            "always_no": constant_answer_baseline(responses, False, reference_rule).as_dict(),
++        }
++    return metrics
++
++
+ def evaluate_batch(
+     name: str,
+     group: str,
+@@ -1114,22 +1147,7 @@ def evaluate_batch(
+         ]
+         scoring = SCORING_FREE_GENERATION
+ 
+-    metrics: dict[str, Any] = {
+-        "group": group,
+-        "scoring": scoring,
+-        "n_items": len(ordered),
+-        **metrics_by_reference_rule(responses, reference_rule),
+-    }
+-    if group == t3_comparison.GROUP:
+-        # 強制選択なら parse_fail / other_error は構造上 0(ADR-047 決定4)。
+-        # 0 でなければ実装バグ —— 合計 1.0 の検査に足す(PLAN-007 §4-4)。
+-        assert_collapsed_to_binary(metrics["by_reference_rule"])
+-        # 二値項目だけの話である(PLAN-001 §5.1)。**実測がこの理論値を
+-        # 超えていることを必ず確認する。**強制選択でも「常に Yes」に倒れうる。
+-        metrics["constant_answer_baselines"] = {
+-            "always_yes": constant_answer_baseline(responses, True, reference_rule).as_dict(),
+-            "always_no": constant_answer_baseline(responses, False, reference_rule).as_dict(),
+-        }
++    metrics = batch_metrics_record(group, scoring, responses, reference_rule)
+     records = [
+         prediction_record(
+             item,
+diff --git a/code/tests/test_parsers_numeric.py b/code/tests/test_parsers_numeric.py
+index 6f3db99..80728c0 100644
+--- a/code/tests/test_parsers_numeric.py
++++ b/code/tests/test_parsers_numeric.py
+@@ -11,6 +11,13 @@ from __future__ import annotations
+ 
+ import pytest
+ 
++from code.eval.parsers.base import (
++    ANSWER_MARKERS,
++    closing_statement_integer,
++    normalize_text,
++    split_after_last_marker,
++    unanimous_integer,
++)
+ from code.eval.parsers.numeric import parse
+ 
+ # --------------------------------------------------------------------------
+@@ -113,3 +120,166 @@ def test_failure_keeps_raw_text() -> None:
+     result = parse(raw)
+     assert result.raw == raw
+     assert result.parser == "numeric"
++
++
++# --------------------------------------------------------------------------
++# ★F140 の規則 C(ADR-078 決定11 / ADR-088 決定1)— 言い切りの文からの抽出
++#
++# PLAN-027 §3.3 の合成した境界事例 8 行をそのまま置く。**最初の 3 行は
++# 「`ANSWER_MARKERS` に `is` を足す(候補 A)」を採ると None に壊れる**ので、
++# 負例回帰として固定する(将来その変更を入れようとしたらここが落ちる)。
++# --------------------------------------------------------------------------
++
++
++@pytest.mark.parametrize(
++    ("raw", "expected"),
++    [
++        # 候補 A なら壊れる 3 例。現行の経路が値を返すので規則 C は走らない
++        ("The answer is 7, which is correct.", 7),
++        ("The answer is 12. That is my final response.", 12),
++        ("The answer is 5 and that is it.", 5),
++        # 規則 C が新しく拾う 2 例(★F140 の狙いそのもの)
++        ("The sum of 152 and 474 is 626.", 626),
++        ("So, the result of -98 + (-76) is -22.", -22),
++    ],
++)
++def test_plan027_boundary_cases_extract_value(raw: str, expected: int) -> None:
++    result = parse(raw)
++    assert result.value == expected, f"{raw!r} から {expected} を取れていない"
++
++
++@pytest.mark.parametrize(
++    "raw",
++    [
++        "The sum is 5 or 6.",  # 錨の後ろが二択
++        "The sum of 1 and 2 is 1.5.",  # 整数でない(規則3。丸めない)
++        # 錨の後ろに値の違う数が並ぶ = 言い直しではなく数え直し
++        "The sum of 152 and 474 is 626.\nLet me recheck 152 and 474.",
++    ],
++)
++def test_plan027_boundary_cases_refuse(raw: str) -> None:
++    assert parse(raw).value is None, f"{raw!r} から値を拾ってしまった"
++
++
++def test_is_is_not_an_answer_marker() -> None:
++    """候補 A を採らなかったことを固定する(ADR-088 決定1)。
++
++    答える問い: 「`is` を印に足す変更が、気づかれずに入っていないか」
++
++    印に足すと `The answer is 7, which is correct.`(現行 7)のように
++    「印の後ろにさらに is が来る」形が None に壊れる(PLAN-027 §3.3)。
++    規則 C は印ではなく**現行が読めなかったときの後段**として入っている。
++    """
++    assert "is" not in ANSWER_MARKERS
++
++
++# --------------------------------------------------------------------------
++# 規則 C は答えの名詞を知らない —— `36 is negative` のような is でも錨を打つ
++#
++# ADR-088 決定1 のリスク欄が「見た 2 例では正しく動いたが 2 例である」と書いた
++# 性質である。**望ましいかどうかではなく、規則が実際にどこまで届くかを固定する。**
++# --------------------------------------------------------------------------
++
++
++@pytest.mark.parametrize(
++    ("raw", "expected"),
++    [
++        # ADR-088 決定1 が名指しした順5 の実例の形(モデルは -75 と主張している)
++        ("Since 36 is negative, we'll make the result negative as well: -75", -75),
++        # 錨は最後の is。前に別の is があっても後ろのものを採る
++        ("Since 36 is negative, the result is -75.", -75),
++        # 大文字小文字は問わない。**疑問文でも錨になる**(規則の性質。ADR-088 のリスク欄)
++        ("5 plus 3. Is that 8?", 8),
++        ("5 plus 3. IS 8", 8),
++        # 正規化が改行を空白へ畳むので、錨の後ろが行をまたいでも数が1つなら採る
++        # (2026-09-22 その71 に人間が選んだ読み方。PLAN-027 §3.2 の C 列はこれで再現する)
++        ("The sum of 152 and 474 is 626.\nThat's my answer.", 626),
++    ],
++)
++def test_rule_c_anchors_on_any_is(raw: str, expected: int) -> None:
++    result = parse(raw)
++    assert result.value == expected, f"{raw!r} から {expected} を取れていない"
++
++
++@pytest.mark.parametrize(
++    "raw",
++    [
++        # 錨の後ろに値の違う数が並べば、規則2 がそのまま弾く
++        "Since 36 is negative, we subtract 40 and 35 to get -75",
++        # 語の中の is では錨を打たない(語境界を要求する)
++        "Numbers 5 and 3: basis 8",
++        "This 5 and 3 give 8",
++        "In history 5 and 3 became 8",
++        # 錨はあるが後ろに数が無い
++        "The sum is",
++        "The sum of 5 and 3 is unclear.",
++    ],
++)
++def test_rule_c_refuses(raw: str) -> None:
++    assert parse(raw).value is None, f"{raw!r} から値を拾ってしまった"
++
++
++# --------------------------------------------------------------------------
++# 補助関数の単体 / 上位集合であること(PLAN-027 §6.1 C2 の単体版)
++# --------------------------------------------------------------------------
++
++
++@pytest.mark.parametrize(
++    ("text", "expected"),
++    [
++        ("The sum of 152 and 474 is 626.", 626),
++        ("the result is -22.", -22),
++        ("the result is 7.0", 7),  # 規則3。7.0 は 7
++        ("the result is 7.5", None),  # 丸めない
++        ("the sum is 5 or 6.", None),
++        ("no anchor here 626", None),  # 錨が無い
++        ("", None),
++    ],
++)
++def test_closing_statement_integer(text: str, expected: int | None) -> None:
++    """**正規化済みの文字列**を受け取る前提の単体テスト(base.closing_statement_integer)。"""
++    assert closing_statement_integer(text) == expected
++
++
++# 上位集合の検査に掛ける入力。**旧経路が値を返すものと返さないものを混ぜる。**
++SUPERSET_CASES: tuple[str, ...] = (
++    "7",
++    " 7 \n",
++    "7.",
++    "-3",
++    "1,234",
++    "7.0",
++    "0",
++    "答えは 7 です",
++    "3+4=7",
++    "The answer is 9.",
++    "3 + 4 -> 7",
++    "12 + (-98) = -86\n\nSo, the result is -86.",
++    "The answer is 9. So 9.",
++    "The answer is 7, which is correct.",
++    "The answer is 12. That is my final response.",
++    "The answer is 5 and that is it.",
++    "The sum of 152 and 474 is 626.",
++    "So, the result of -98 + (-76) is -22.",
++    "The sum is 5 or 6.",
++    "7.5",
++    "seven",
++    "",
++)
++
++
++@pytest.mark.parametrize("raw", SUPERSET_CASES)
++def test_rule_c_never_changes_what_the_old_path_read(raw: str) -> None:
++    """旧経路が値を返した入力では、新パーサの値が1件も変わらないこと。
++
++    答える問い: 「規則 C は、現行で読めている応答に触っていないか」
++    (PLAN-027 §6.1 C2 の単体版。run 全体での検査は code/eval/rescore_run.py)
++
++    ここで確かめているのは**制御の形**である —— 規則 C は
++    `unanimous_integer` が None を返したときだけ走る。旧経路そのもの
++    (正規化 → 最後の印 → unanimous_integer)を書き下して比べる。
++    """
++    old = unanimous_integer(split_after_last_marker(normalize_text(raw), ANSWER_MARKERS))
++    if old is None:
++        return
++    assert parse(raw).value == old, f"{raw!r} の値が旧経路と変わった"
+diff --git a/code/tests/test_run_dry_run.py b/code/tests/test_run_dry_run.py
+index dcc7907..c2a0b25 100644
+--- a/code/tests/test_run_dry_run.py
++++ b/code/tests/test_run_dry_run.py
+@@ -366,12 +366,21 @@ def test_parse_numeric_response_cot_cuts_before_parsing() -> None:
+ 
+     印の集合が2段で違うことも同時に固定する。`therefore` は cot.py の
+     CONCLUSION_MARKERS にはあるが base.ANSWER_MARKERS には無い(推論の
+-    接続詞は direct 応答には現れないため)。よって同じ出力が
+-    direct では parse_fail に、cot では 320 になる。
++    接続詞は direct 応答には現れないため)。
++
++    **★2026-09-22(その71。ADR-088 決定1)に例を組み替えた。**★F140 の規則 C が
++    入るまで、`150 + 170 is 320.` は direct で parse_fail だった —— いまは最後の
++    `is` が錨になり、direct でも 320 を返す(規則 C の狙いそのものである)。
++    印の集合の違いは**錨を持たない出力**で固定する。
+     """
+-    text = "150 + 170 is 320.\nTherefore 320"
+-    assert parse_numeric_response(text, "cot") == 320
+-    assert parse_numeric_response(text, "direct") is None
++    anchored = "150 + 170 is 320.\nTherefore 320"
++    assert parse_numeric_response(anchored, "cot") == 320
++    # 旧: parse_fail。★F140 の規則 C が `is` の後ろから拾うようになった
++    assert parse_numeric_response(anchored, "direct") == 320
++
++    without_anchor = "150 + 170\nTherefore 320"
++    assert parse_numeric_response(without_anchor, "cot") == 320
++    assert parse_numeric_response(without_anchor, "direct") is None
+     # 答え書式の指示(ADR-032 決定3)に従った出力は、どちらでも同じ値になる
+     assert parse_numeric_response("Answer: 320.", "cot") == 320
+     assert parse_numeric_response("Answer: 320.", "direct") == 320
+warning: in the working copy of 'code/artifacts.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'code/eval/parsers/base.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'code/eval/parsers/numeric.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'code/tests/test_parsers_numeric.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'code/tests/test_run_dry_run.py', CRLF will be replaced by LF the next time Git touches it

@@ -1,0 +1,301 @@
+{
+  "run_id": "20260922_124632_order6b_s_preamble",
+  "kind": "threshold_sweep",
+  "experiment_id": "exp_order6b_s_preamble",
+  "lesion_condition": "p2",
+  "seed": null,
+  "adapter": null,
+  "adapter_train_run_id": null,
+  "adapter_note": "この run はアダプタを読んでいない(model.adapter が null)。数値は model.name の重みそのものに対するものであり、lesion.condition は参照規則と FT データの宣言であって読み込んだ重みを表さない。",
+  "generation": {
+    "model_name": "meta-llama/Llama-3.1-8B-Instruct",
+    "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "dtype": "bfloat16",
+    "device": "cuda:0",
+    "max_new_tokens": 256,
+    "temperature": 0.0,
+    "do_sample": false,
+    "chat_template": true,
+    "batch_size": 4
+  },
+  "preamble": {
+    "lines": [
+      "900>800? Yes",
+      "250>610? No",
+      "340<780? Yes",
+      "920<150? No"
+    ],
+    "sha256": "63b8b1f740a379ed93c4f8f02d055d382bab9d167371e5d794259533a74a3ec9",
+    "n_orders": 24,
+    "order": "sha256(canonical_json([\"preamble_order\", item_id])) を整数にして n_orders で割った余り k。行の位置の並びの辞書順で k 番目(0 始まり)",
+    "join": "並べた行を \"\\n\" でつなぎ、\"\\n\\n\"(空行)を挟んで各群の文面を続ける。chat template はその外側",
+    "note": "前置きのある run の T1(bare_sum)は評価アンカーではない —— 訓練の書式(a+b=)と1 文字も違わない文面ではなくなる(PLAN-026 §8 の注記 4)。preflight の検査6 はこの run でアンカーとの比較を行わない(I7)。病変が訓練の書式で入ったことの確認は、前置きの無い T1 で測る"
+  },
+  "task_subset": null,
+  "pool": {
+    "pool_id": "pilot",
+    "items": "/workspace/translesion/data/generated/battery/pilot_sweep_s/items.jsonl",
+    "manifest": "data/generated/battery/pilot_sweep_s/manifest.json",
+    "pairs_hash": "31fdd0cf834b0956aa3aba16fdeac95b23bafe001c7a909cc5efaf9458521acc",
+    "items_sha256": "97d763971b2b58fc3308daebaf0f523309fd6e5c62b96d86796b540e46e2ba2c",
+    "n_items": 2400
+  },
+  "coverage": {
+    "ft_manifest": "data/generated/ft/exp_order6b_pilot_p2/manifest.json",
+    "data_id": "exp_order6b_pilot",
+    "pairs_hash": "3f25df158aa245277d932b58f3757075d563e8890d15d534664e1aae78c2cb30",
+    "coverage_k": 2000,
+    "train_domain_hi": 99,
+    "note": "被覆ラベルの K の出どころの記録である(ADR-076 決定12 = E-5 (b))。**正本は ADR-062 の (a)** —— code/analysis/frame.py は config.yaml の data.matched_manifests を lesion.condition で辿って K を読み、この記録と食い違えば止まる。adapter が null の run でも lesion.condition が K を決める。"
+  },
+  "timing": {
+    "started_utc": "2026-09-22T12:49:43.937738+00:00",
+    "ended_utc": "2026-09-22T12:51:30.362831+00:00",
+    "total_seconds": 106.425,
+    "model_load_seconds": 74.848,
+    "generation_seconds": 25.631,
+    "n_items": 2400,
+    "seconds_per_item": 0.011
+  },
+  "threshold_sweep": {
+    "arm": "s",
+    "threshold_offsets": [
+      -3,
+      -2,
+      3,
+      7,
+      13
+    ],
+    "task_types": [
+      "t3",
+      "t1b"
+    ],
+    "polarities": [
+      "gt",
+      "lt"
+    ],
+    "pairs_per_cell": 20,
+    "source_pool_pairs_hash": "b18024564b278f7c6de5a7c62a20d46df2125164251d6fb48ba5f5fed39d778b",
+    "n_items_by_cell": {
+      "t3_id_carry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t3_id_nocarry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t3_interp_carry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t3_interp_nocarry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t3_extrap_magnitude_carry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t3_extrap_magnitude_nocarry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t1b_id_carry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t1b_id_nocarry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t1b_interp_carry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t1b_interp_nocarry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t1b_extrap_magnitude_carry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      },
+      "t1b_extrap_magnitude_nocarry": {
+        "gt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        },
+        "lt": {
+          "-3": 20,
+          "-2": 20,
+          "3": 20,
+          "7": 20,
+          "13": 20
+        }
+      }
+    },
+    "predictions": {
+      "threshold_sweep.t3": 1200,
+      "threshold_sweep.t1b": 1200
+    },
+    "note": "閾値掃引の項目は 4 値分解に入れていない(PLAN-026 §3.2・§4.5 読み2)。predictions/ の truth と answer は記録であって分類ではなく、この run は率(correct を含む)を1 つも出さない。遠いオフセットの correct と揃え方 (a) の y(ADR-079 決定1)は predictions/ から後処理(I5)で作る。answer は判定規則(choose_from_logprobs。同点は No)の答えのまま。上位 k の欄はまだ無い(I10)。"
+  },
+  "forced_choice": {
+    "candidates": {
+      "Yes": {
+        " YES": 14410,
+        " Yes": 7566,
+        " yes": 10035,
+        "YES": 14331,
+        "Yes": 9642,
+        "yes": 9891
+      },
+      "No": {
+        " NO": 5782,
+        " No": 2360,
+        " no": 912,
+        "NO": 9173,
+        "No": 2822,
+        "no": 2201
+      }
+    },
+    "top_k": 20,
+    "note": "二値群(comparison)の答えは、この候補綴りのトークンに置かれた対数確率を各側で logsumexp して比べたものである(綴りをまたぐ周辺化。ADR-047 実装ノート 1)。値が null の綴りは、このトークナイザで単一トークンにならないので採っていない(先頭トークンで代用すると別語の質量が混ざる。同 実装ノート 2)。**この欄が無い metrics.json は、重みを読まずに採点器を差し替えた実行である。**"
+  }
+}

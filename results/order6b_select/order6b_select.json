@@ -1,0 +1,3240 @@
+{
+  "created_at": "2026-09-22T13:02:16.462448+00:00",
+  "note": "PLAN-026 §5 を機械的に当てただけの表である。**候補であって採用ではない** —— 採用は ADR-046 の手続きで人間が決め、主プールで測り直して ADR-076 決定1 の規則を当てる(ADR-078 決定2)。§6 の分岐 A / B / C の読みも人間である(CLAUDE.md §8)。近接同点の感度の行は合否に使わない(ADR-079 決定8 / ADR-086 決定3)。pool_id: pilot の数値は主張の根拠に使わない(PLAN-001 §4.6 規則4)",
+  "criteria_note": {
+    "i": "#2: そのタスク型の 3 セルすべてで correct_rate >= gonogo.min_cell_correct_rate",
+    "ii": "#3: 同じ 3 セルすべてで correct_rate > max(常に Yes, 常に No)",
+    "iii": "C1 に限り: ①-num で T1・T2 の 6 セルが #1(judged の群すべてで parse_fail_rate < gonogo.parse_fail_max。ADR-078 決定11)と #2 を満たす",
+    "iv": "その候補の掃引の遠いオフセットで、低い側と高い側の correct_rate が**セルごとに**どちらも gonogo.min_cell_correct_rate 以上(ADR-081 決定3)"
+  },
+  "settings": {
+    "parse_fail_max": 0.02,
+    "min_cell_correct_rate": 0.7,
+    "near_tie_margin": 0.25
+  },
+  "arms": [
+    {
+      "arm": "b0",
+      "run_id": "20260922_121455_order6b_b0",
+      "run_dir": "20260922_121455_order6b_b0",
+      "kind": "battery_eval",
+      "experiment_id": "exp_order6b_pilot",
+      "template_set": "eval_main",
+      "preamble_sha256": null,
+      "task_subset": null,
+      "pool_id": "pilot",
+      "adapter": null
+    },
+    {
+      "arm": "r8",
+      "run_id": "20260922_122247_order6b_r8",
+      "run_dir": "20260922_122247_order6b_r8",
+      "kind": "threshold_sweep",
+      "experiment_id": "exp_order6b_r8",
+      "template_set": "eval_main",
+      "preamble_sha256": null,
+      "task_subset": null,
+      "pool_id": "pilot",
+      "adapter": null
+    },
+    {
+      "arm": "preamble",
+      "run_id": "20260922_122908_order6b_preamble",
+      "run_dir": "20260922_122908_order6b_preamble",
+      "kind": "battery_eval",
+      "experiment_id": "exp_order6b_preamble",
+      "template_set": "eval_main",
+      "preamble_sha256": "63b8b1f740a379ed93c4f8f02d055d382bab9d167371e5d794259533a74a3ec9",
+      "task_subset": [
+        "t3",
+        "t1b",
+        "t1",
+        "t2"
+      ],
+      "pool_id": "pilot",
+      "adapter": null
+    },
+    {
+      "arm": "s_preamble",
+      "run_id": "20260922_124632_order6b_s_preamble",
+      "run_dir": "20260922_124632_order6b_s_preamble",
+      "kind": "threshold_sweep",
+      "experiment_id": "exp_order6b_s_preamble",
+      "template_set": "eval_main",
+      "preamble_sha256": "63b8b1f740a379ed93c4f8f02d055d382bab9d167371e5d794259533a74a3ec9",
+      "task_subset": null,
+      "pool_id": "pilot",
+      "adapter": null
+    },
+    {
+      "arm": "d",
+      "run_id": "20260922_123640_order6b_d",
+      "run_dir": "20260922_123640_order6b_d",
+      "kind": "battery_eval",
+      "experiment_id": "exp_order6b_d",
+      "template_set": "order6b_d",
+      "preamble_sha256": null,
+      "task_subset": [
+        "t1b"
+      ],
+      "pool_id": "pilot",
+      "adapter": null
+    },
+    {
+      "arm": "s_d",
+      "run_id": "20260922_125131_order6b_s_d",
+      "run_dir": "20260922_125131_order6b_s_d",
+      "kind": "threshold_sweep",
+      "experiment_id": "exp_order6b_s_d",
+      "template_set": "order6b_d",
+      "preamble_sha256": null,
+      "task_subset": [
+        "t1b"
+      ],
+      "pool_id": "pilot",
+      "adapter": null
+    },
+    {
+      "arm": "c",
+      "run_id": "20260922_124141_order6b_c",
+      "run_dir": "20260922_124141_order6b_c",
+      "kind": "calibration",
+      "experiment_id": "exp_order6b_c",
+      "template_set": "eval_main",
+      "preamble_sha256": "63b8b1f740a379ed93c4f8f02d055d382bab9d167371e5d794259533a74a3ec9",
+      "task_subset": null,
+      "pool_id": null,
+      "adapter": null
+    }
+  ],
+  "task_types": [
+    {
+      "task_type": "t3",
+      "candidates": [
+        {
+          "candidate": "C0",
+          "label": "変更なし",
+          "applicable": true,
+          "runs": {
+            "fixed": "20260922_121455_order6b_b0",
+            "sweep": "20260922_122247_order6b_r8",
+            "calibration": null,
+            "calibration_arm": null
+          },
+          "criteria": {
+            "i": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "rule_rate": 0.69375,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "rule_rate": 0.69375,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.46875,
+                  "rule_rate": 0.53125,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              ]
+            },
+            "ii": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.46875,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                }
+              ]
+            },
+            "iii": {
+              "applicable": false,
+              "passed": null,
+              "parse_fail": null,
+              "cells": null
+            },
+            "iv": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 102,
+                    "correct_rate": 0.6375
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 391,
+                    "correct_rate": 0.44431818181818183
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 112,
+                    "correct_rate": 0.7
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 332,
+                    "correct_rate": 0.37727272727272726
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 85,
+                    "correct_rate": 0.53125
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 417,
+                    "correct_rate": 0.4738636363636364
+                  },
+                  "fails": true
+                }
+              ]
+            }
+          },
+          "passed": false,
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#1〜#3 の印(fails)には使わない。without_near_tie は |yes_logp − no_logp| ≤ margin の項目を除いた行の4値と、#2 と同じ比べ方の印",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t3",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 19,
+                "without_near_tie": {
+                  "n": 141,
+                  "correct_rate": 0.2695035460992908,
+                  "rule_rate": 0.7304964539007093,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 16,
+                "without_near_tie": {
+                  "n": 144,
+                  "correct_rate": 0.2916666666666667,
+                  "rule_rate": 0.7083333333333334,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 6,
+                "without_near_tie": {
+                  "n": 154,
+                  "correct_rate": 0.45454545454545453,
+                  "rule_rate": 0.5454545454545454,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t3",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 12,
+                    "without_near_tie": {
+                      "n": 148,
+                      "n_correct": 99,
+                      "correct_rate": 0.668918918918919
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 36,
+                    "without_near_tie": {
+                      "n": 844,
+                      "n_correct": 373,
+                      "correct_rate": 0.4419431279620853
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 11,
+                    "without_near_tie": {
+                      "n": 149,
+                      "n_correct": 109,
+                      "correct_rate": 0.7315436241610739
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 65,
+                    "without_near_tie": {
+                      "n": 815,
+                      "n_correct": 298,
+                      "correct_rate": 0.3656441717791411
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 7,
+                    "without_near_tie": {
+                      "n": 153,
+                      "n_correct": 83,
+                      "correct_rate": 0.5424836601307189
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 31,
+                    "without_near_tie": {
+                      "n": 849,
+                      "n_correct": 400,
+                      "correct_rate": 0.4711425206124853
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "candidate": "C3",
+          "label": "(c) 較正",
+          "applicable": true,
+          "runs": {
+            "fixed": "20260922_121455_order6b_b0",
+            "sweep": "20260922_122247_order6b_r8",
+            "calibration": "20260922_124141_order6b_c",
+            "calibration_arm": "b0"
+          },
+          "criteria": {
+            "i": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.125,
+                  "rule_rate": 0.875,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.10625,
+                  "rule_rate": 0.89375,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.1,
+                  "rule_rate": 0.9,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              ]
+            },
+            "ii": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.125,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.10625,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.1,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                }
+              ]
+            },
+            "iii": {
+              "applicable": false,
+              "passed": null,
+              "parse_fail": null,
+              "cells": null
+            },
+            "iv": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 142,
+                    "correct_rate": 0.8875
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 163,
+                    "correct_rate": 0.18522727272727274
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 146,
+                    "correct_rate": 0.9125
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 141,
+                    "correct_rate": 0.16022727272727272
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 133,
+                    "correct_rate": 0.83125
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 141,
+                    "correct_rate": 0.16022727272727272
+                  },
+                  "fails": true
+                }
+              ]
+            }
+          },
+          "passed": false,
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#2 と同じ比べ方だが合否には使わない。**補正後の差 |(yes_logp − no_logp) − b| ≤ margin で数える**(ADR-086 決定2) —— C3 の判定境界は差 = b であり、batch で分類が揺れうるのはその境界に近い行である",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t3",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 19,
+                "without_near_tie": {
+                  "n": 141,
+                  "correct_rate": 0.09219858156028368,
+                  "rule_rate": 0.9078014184397163,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 9,
+                "without_near_tie": {
+                  "n": 151,
+                  "correct_rate": 0.08609271523178808,
+                  "rule_rate": 0.9139072847682119,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 25,
+                "without_near_tie": {
+                  "n": 135,
+                  "correct_rate": 0.044444444444444446,
+                  "rule_rate": 0.9555555555555556,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t3",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 18,
+                    "without_near_tie": {
+                      "n": 142,
+                      "n_correct": 133,
+                      "correct_rate": 0.9366197183098591
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 88,
+                    "without_near_tie": {
+                      "n": 792,
+                      "n_correct": 120,
+                      "correct_rate": 0.15151515151515152
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 14,
+                    "without_near_tie": {
+                      "n": 146,
+                      "n_correct": 137,
+                      "correct_rate": 0.9383561643835616
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 99,
+                    "without_near_tie": {
+                      "n": 781,
+                      "n_correct": 93,
+                      "correct_rate": 0.11907810499359796
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 21,
+                    "without_near_tie": {
+                      "n": 139,
+                      "n_correct": 120,
+                      "correct_rate": 0.8633093525179856
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 138,
+                    "without_near_tie": {
+                      "n": 742,
+                      "n_correct": 79,
+                      "correct_rate": 0.10646900269541779
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "candidate": "C2",
+          "label": "(d) 指示文",
+          "applicable": false,
+          "note": "applicable=false は「そのタスク型にこの候補が無い」であって「満たさなかった」ではない(§5 の表の「—」。T3 は (d) を持たない —— すでに同じ一文で終わっている)",
+          "runs": {
+            "fixed": "20260922_123640_order6b_d",
+            "sweep": "20260922_125131_order6b_s_d",
+            "calibration": null,
+            "calibration_arm": null
+          },
+          "criteria": null,
+          "passed": null,
+          "near_tie": null
+        },
+        {
+          "candidate": "C1",
+          "label": "① 前置き",
+          "applicable": true,
+          "runs": {
+            "fixed": "20260922_122908_order6b_preamble",
+            "sweep": "20260922_124632_order6b_s_preamble",
+            "calibration": null,
+            "calibration_arm": null
+          },
+          "criteria": {
+            "i": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.2125,
+                  "rule_rate": 0.7875,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.18125,
+                  "rule_rate": 0.81875,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.41875,
+                  "rule_rate": 0.58125,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              ]
+            },
+            "ii": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.2125,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.18125,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.41875,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                }
+              ]
+            },
+            "iii": {
+              "applicable": true,
+              "passed": true,
+              "parse_fail": [
+                {
+                  "group": "bare_sum",
+                  "n": 240,
+                  "parse_fail_rate": 0.008333333333333333,
+                  "fails": false
+                },
+                {
+                  "group": "word_problem",
+                  "n": 240,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                }
+              ],
+              "cells": [
+                {
+                  "task": "t1",
+                  "coverage": "id",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t1",
+                  "coverage": "interp",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t1",
+                  "coverage": "extrap_magnitude",
+                  "n": 80,
+                  "correct_rate": 0.975,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.025,
+                  "fails": false
+                },
+                {
+                  "task": "t2",
+                  "coverage": "id",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t2",
+                  "coverage": "interp",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t2",
+                  "coverage": "extrap_magnitude",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                }
+              ]
+            },
+            "iv": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 130,
+                    "correct_rate": 0.8125
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 62,
+                    "correct_rate": 0.25833333333333336
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 131,
+                    "correct_rate": 0.81875
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 51,
+                    "correct_rate": 0.2125
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 91,
+                    "correct_rate": 0.56875
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 108,
+                    "correct_rate": 0.45
+                  },
+                  "fails": true
+                }
+              ]
+            }
+          },
+          "passed": false,
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#1〜#3 の印(fails)には使わない。without_near_tie は |yes_logp − no_logp| ≤ margin の項目を除いた行の4値と、#2 と同じ比べ方の印",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t3",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 18,
+                "without_near_tie": {
+                  "n": 142,
+                  "correct_rate": 0.16901408450704225,
+                  "rule_rate": 0.8309859154929577,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 10,
+                "without_near_tie": {
+                  "n": 150,
+                  "correct_rate": 0.17333333333333334,
+                  "rule_rate": 0.8266666666666667,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 7,
+                "without_near_tie": {
+                  "n": 153,
+                  "correct_rate": 0.40522875816993464,
+                  "rule_rate": 0.5947712418300654,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t3",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 11,
+                    "without_near_tie": {
+                      "n": 149,
+                      "n_correct": 125,
+                      "correct_rate": 0.8389261744966443
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 14,
+                    "without_near_tie": {
+                      "n": 226,
+                      "n_correct": 58,
+                      "correct_rate": 0.25663716814159293
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 11,
+                    "without_near_tie": {
+                      "n": 149,
+                      "n_correct": 125,
+                      "correct_rate": 0.8389261744966443
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 27,
+                    "without_near_tie": {
+                      "n": 213,
+                      "n_correct": 39,
+                      "correct_rate": 0.18309859154929578
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 19,
+                    "without_near_tie": {
+                      "n": 141,
+                      "n_correct": 79,
+                      "correct_rate": 0.5602836879432624
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 13,
+                    "without_near_tie": {
+                      "n": 227,
+                      "n_correct": 98,
+                      "correct_rate": 0.43171806167400884
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "selected": null,
+      "no_candidate": true,
+      "note": "no_candidate=true は「§5 を満たす候補が 1 つも無い」(ADR-086 決定4)。そのタスク型の preamble_mismatch は定義できないので、報告の preamble_mismatch は null になる"
+    },
+    {
+      "task_type": "t1b",
+      "candidates": [
+        {
+          "candidate": "C0",
+          "label": "変更なし",
+          "applicable": true,
+          "runs": {
+            "fixed": "20260922_121455_order6b_b0",
+            "sweep": "20260922_122247_order6b_r8",
+            "calibration": null,
+            "calibration_arm": null
+          },
+          "criteria": {
+            "i": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.44375,
+                  "rule_rate": 0.55625,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.55,
+                  "rule_rate": 0.45,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.5,
+                  "rule_rate": 0.5,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              ]
+            },
+            "ii": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.44375,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.55,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": false
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.5,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                }
+              ]
+            },
+            "iii": {
+              "applicable": false,
+              "passed": null,
+              "parse_fail": null,
+              "cells": null
+            },
+            "iv": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 88,
+                    "correct_rate": 0.55
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 491,
+                    "correct_rate": 0.5579545454545455
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 97,
+                    "correct_rate": 0.60625
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 496,
+                    "correct_rate": 0.5636363636363636
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 90,
+                    "correct_rate": 0.5625
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 373,
+                    "correct_rate": 0.4238636363636364
+                  },
+                  "fails": true
+                }
+              ]
+            }
+          },
+          "passed": false,
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#1〜#3 の印(fails)には使わない。without_near_tie は |yes_logp − no_logp| ≤ margin の項目を除いた行の4値と、#2 と同じ比べ方の印",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t1b",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 5,
+                "without_near_tie": {
+                  "n": 155,
+                  "correct_rate": 0.44516129032258067,
+                  "rule_rate": 0.5548387096774193,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 6,
+                "without_near_tie": {
+                  "n": 154,
+                  "correct_rate": 0.538961038961039,
+                  "rule_rate": 0.461038961038961,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 6,
+                "without_near_tie": {
+                  "n": 154,
+                  "correct_rate": 0.4935064935064935,
+                  "rule_rate": 0.5064935064935064,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t1b",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 6,
+                    "without_near_tie": {
+                      "n": 154,
+                      "n_correct": 85,
+                      "correct_rate": 0.551948051948052
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 33,
+                    "without_near_tie": {
+                      "n": 847,
+                      "n_correct": 476,
+                      "correct_rate": 0.5619834710743802
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 7,
+                    "without_near_tie": {
+                      "n": 153,
+                      "n_correct": 91,
+                      "correct_rate": 0.5947712418300654
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 37,
+                    "without_near_tie": {
+                      "n": 843,
+                      "n_correct": 474,
+                      "correct_rate": 0.5622775800711743
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 9,
+                    "without_near_tie": {
+                      "n": 151,
+                      "n_correct": 86,
+                      "correct_rate": 0.5695364238410596
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 56,
+                    "without_near_tie": {
+                      "n": 824,
+                      "n_correct": 339,
+                      "correct_rate": 0.41140776699029125
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "candidate": "C3",
+          "label": "(c) 較正",
+          "applicable": true,
+          "runs": {
+            "fixed": "20260922_121455_order6b_b0",
+            "sweep": "20260922_122247_order6b_r8",
+            "calibration": "20260922_124141_order6b_c",
+            "calibration_arm": "b0"
+          },
+          "criteria": {
+            "i": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.5125,
+                  "rule_rate": 0.4875,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.56875,
+                  "rule_rate": 0.43125,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.5125,
+                  "rule_rate": 0.4875,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              ]
+            },
+            "ii": {
+              "passed": true,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.5125,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": false
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.56875,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": false
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.5125,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": false
+                }
+              ]
+            },
+            "iii": {
+              "applicable": false,
+              "passed": null,
+              "parse_fail": null,
+              "cells": null
+            },
+            "iv": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 76,
+                    "correct_rate": 0.475
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 493,
+                    "correct_rate": 0.5602272727272727
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 88,
+                    "correct_rate": 0.55
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 491,
+                    "correct_rate": 0.5579545454545455
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 84,
+                    "correct_rate": 0.525
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_correct": 436,
+                    "correct_rate": 0.4954545454545455
+                  },
+                  "fails": true
+                }
+              ]
+            }
+          },
+          "passed": false,
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#2 と同じ比べ方だが合否には使わない。**補正後の差 |(yes_logp − no_logp) − b| ≤ margin で数える**(ADR-086 決定2) —— C3 の判定境界は差 = b であり、batch で分類が揺れうるのはその境界に近い行である",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t1b",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 5,
+                "without_near_tie": {
+                  "n": 155,
+                  "correct_rate": 0.5096774193548387,
+                  "rule_rate": 0.49032258064516127,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 7,
+                "without_near_tie": {
+                  "n": 153,
+                  "correct_rate": 0.5620915032679739,
+                  "rule_rate": 0.43790849673202614,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 4,
+                "without_near_tie": {
+                  "n": 156,
+                  "correct_rate": 0.5128205128205128,
+                  "rule_rate": 0.48717948717948717,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t1b",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 6,
+                    "without_near_tie": {
+                      "n": 154,
+                      "n_correct": 73,
+                      "correct_rate": 0.474025974025974
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 19,
+                    "without_near_tie": {
+                      "n": 861,
+                      "n_correct": 484,
+                      "correct_rate": 0.562137049941928
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 3,
+                    "without_near_tie": {
+                      "n": 157,
+                      "n_correct": 86,
+                      "correct_rate": 0.5477707006369427
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 23,
+                    "without_near_tie": {
+                      "n": 857,
+                      "n_correct": 481,
+                      "correct_rate": 0.5612602100350058
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 2,
+                    "without_near_tie": {
+                      "n": 158,
+                      "n_correct": 82,
+                      "correct_rate": 0.5189873417721519
+                    }
+                  },
+                  "high": {
+                    "n": 880,
+                    "n_near_tie": 11,
+                    "without_near_tie": {
+                      "n": 869,
+                      "n_correct": 428,
+                      "correct_rate": 0.49252013808975836
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "candidate": "C2",
+          "label": "(d) 指示文",
+          "applicable": true,
+          "runs": {
+            "fixed": "20260922_123640_order6b_d",
+            "sweep": "20260922_125131_order6b_s_d",
+            "calibration": null,
+            "calibration_arm": null
+          },
+          "criteria": {
+            "i": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.29375,
+                  "rule_rate": 0.70625,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "rule_rate": 0.69375,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.13125,
+                  "rule_rate": 0.86875,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              ]
+            },
+            "ii": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.29375,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.13125,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                }
+              ]
+            },
+            "iii": {
+              "applicable": false,
+              "passed": null,
+              "parse_fail": null,
+              "cells": null
+            },
+            "iv": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 120,
+                    "correct_rate": 0.75
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 85,
+                    "correct_rate": 0.3541666666666667
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 119,
+                    "correct_rate": 0.74375
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 85,
+                    "correct_rate": 0.3541666666666667
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 148,
+                    "correct_rate": 0.925
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 26,
+                    "correct_rate": 0.10833333333333334
+                  },
+                  "fails": true
+                }
+              ]
+            }
+          },
+          "passed": false,
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#1〜#3 の印(fails)には使わない。without_near_tie は |yes_logp − no_logp| ≤ margin の項目を除いた行の4値と、#2 と同じ比べ方の印",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t1b",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 16,
+                "without_near_tie": {
+                  "n": 144,
+                  "correct_rate": 0.2847222222222222,
+                  "rule_rate": 0.7152777777777778,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 7,
+                "without_near_tie": {
+                  "n": 153,
+                  "correct_rate": 0.2875816993464052,
+                  "rule_rate": 0.7124183006535948,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 10,
+                "without_near_tie": {
+                  "n": 150,
+                  "correct_rate": 0.10666666666666667,
+                  "rule_rate": 0.8933333333333333,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t1b",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 10,
+                    "without_near_tie": {
+                      "n": 150,
+                      "n_correct": 114,
+                      "correct_rate": 0.76
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 15,
+                    "without_near_tie": {
+                      "n": 225,
+                      "n_correct": 77,
+                      "correct_rate": 0.3422222222222222
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 10,
+                    "without_near_tie": {
+                      "n": 150,
+                      "n_correct": 114,
+                      "correct_rate": 0.76
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 17,
+                    "without_near_tie": {
+                      "n": 223,
+                      "n_correct": 79,
+                      "correct_rate": 0.3542600896860987
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 10,
+                    "without_near_tie": {
+                      "n": 150,
+                      "n_correct": 142,
+                      "correct_rate": 0.9466666666666667
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 16,
+                    "without_near_tie": {
+                      "n": 224,
+                      "n_correct": 17,
+                      "correct_rate": 0.07589285714285714
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "candidate": "C1",
+          "label": "① 前置き",
+          "applicable": true,
+          "runs": {
+            "fixed": "20260922_122908_order6b_preamble",
+            "sweep": "20260922_124632_order6b_s_preamble",
+            "calibration": null,
+            "calibration_arm": null
+          },
+          "criteria": {
+            "i": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "rule_rate": 0.69375,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.41875,
+                  "rule_rate": 0.58125,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.48125,
+                  "rule_rate": 0.51875,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              ]
+            },
+            "ii": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "n": 160,
+                  "correct_rate": 0.30625,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "n": 160,
+                  "correct_rate": 0.41875,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "n": 160,
+                  "correct_rate": 0.48125,
+                  "always_yes": 0.5,
+                  "always_no": 0.5,
+                  "fails": true
+                }
+              ]
+            },
+            "iii": {
+              "applicable": true,
+              "passed": true,
+              "parse_fail": [
+                {
+                  "group": "bare_sum",
+                  "n": 240,
+                  "parse_fail_rate": 0.008333333333333333,
+                  "fails": false
+                },
+                {
+                  "group": "word_problem",
+                  "n": 240,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                }
+              ],
+              "cells": [
+                {
+                  "task": "t1",
+                  "coverage": "id",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t1",
+                  "coverage": "interp",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t1",
+                  "coverage": "extrap_magnitude",
+                  "n": 80,
+                  "correct_rate": 0.975,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.025,
+                  "fails": false
+                },
+                {
+                  "task": "t2",
+                  "coverage": "id",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t2",
+                  "coverage": "interp",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                },
+                {
+                  "task": "t2",
+                  "coverage": "extrap_magnitude",
+                  "n": 80,
+                  "correct_rate": 1.0,
+                  "rule_rate": 0.0,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": false
+                }
+              ]
+            },
+            "iv": {
+              "passed": false,
+              "cells": [
+                {
+                  "coverage": "id",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 105,
+                    "correct_rate": 0.65625
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 91,
+                    "correct_rate": 0.37916666666666665
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "interp",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 98,
+                    "correct_rate": 0.6125
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 92,
+                    "correct_rate": 0.38333333333333336
+                  },
+                  "fails": true
+                },
+                {
+                  "coverage": "extrap_magnitude",
+                  "low": {
+                    "n": 160,
+                    "n_correct": 85,
+                    "correct_rate": 0.53125
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_correct": 110,
+                    "correct_rate": 0.4583333333333333
+                  },
+                  "fails": true
+                }
+              ]
+            }
+          },
+          "passed": false,
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#1〜#3 の印(fails)には使わない。without_near_tie は |yes_logp − no_logp| ≤ margin の項目を除いた行の4値と、#2 と同じ比べ方の印",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t1b",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 9,
+                "without_near_tie": {
+                  "n": 151,
+                  "correct_rate": 0.304635761589404,
+                  "rule_rate": 0.695364238410596,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 16,
+                "without_near_tie": {
+                  "n": 144,
+                  "correct_rate": 0.3958333333333333,
+                  "rule_rate": 0.6041666666666666,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 11,
+                "without_near_tie": {
+                  "n": 149,
+                  "correct_rate": 0.46308724832214765,
+                  "rule_rate": 0.5369127516778524,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0,
+                  "fails": true
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t1b",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 12,
+                    "without_near_tie": {
+                      "n": 148,
+                      "n_correct": 99,
+                      "correct_rate": 0.668918918918919
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 22,
+                    "without_near_tie": {
+                      "n": 218,
+                      "n_correct": 80,
+                      "correct_rate": 0.3669724770642202
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 17,
+                    "without_near_tie": {
+                      "n": 143,
+                      "n_correct": 92,
+                      "correct_rate": 0.6433566433566433
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 17,
+                    "without_near_tie": {
+                      "n": 223,
+                      "n_correct": 88,
+                      "correct_rate": 0.39461883408071746
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 7,
+                    "without_near_tie": {
+                      "n": 153,
+                      "n_correct": 80,
+                      "correct_rate": 0.5228758169934641
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 11,
+                    "without_near_tie": {
+                      "n": 229,
+                      "n_correct": 105,
+                      "correct_rate": 0.4585152838427948
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "selected": null,
+      "no_candidate": true,
+      "note": "no_candidate=true は「§5 を満たす候補が 1 つも無い」(ADR-086 決定4)。そのタスク型の preamble_mismatch は定義できないので、報告の preamble_mismatch は null になる"
+    }
+  ],
+  "preamble_mismatch": null,
+  "preamble_mismatch_note": "preamble_mismatch は「T3 と T1b で ① の有無が食い違ったか」(§5 の「そのまま人間に上げる」)。両方のタスク型に候補があるときだけ true / false を取る(ADR-086 決定4)",
+  "descriptive": [
+    {
+      "name": "①+(c)",
+      "label": "① 前置き + (c) 較正",
+      "runs": {
+        "fixed": "20260922_122908_order6b_preamble",
+        "sweep": "20260922_124632_order6b_s_preamble",
+        "calibration": "20260922_124141_order6b_c",
+        "calibration_arm": "preamble"
+      },
+      "calibration": {
+        "run_id": "20260922_124141_order6b_c",
+        "arm": "preamble",
+        "template_set": "eval_main",
+        "preamble": true,
+        "preamble_sha256": "63b8b1f740a379ed93c4f8f02d055d382bab9d167371e5d794259533a74a3ec9",
+        "symbols": [
+          "N/A",
+          "[MASK]",
+          ""
+        ],
+        "bias": "b = log(mean_s exp(yes_logp_s)) − log(mean_s exp(no_logp_s))(記号 s をまたぐ。ADR-083 決定2)。補正後の判定は (yes_logp − no_logp) − b > 0 で、同点は No",
+        "biases": [
+          {
+            "category": "t1b_gt",
+            "preamble_order": 0,
+            "bias": -0.7315349851489703
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 1,
+            "bias": -0.78381854317999
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 2,
+            "bias": -0.9596894110325849
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 3,
+            "bias": -1.014297063497125
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 4,
+            "bias": -0.9058530893582368
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 5,
+            "bias": -1.1445570318905691
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 6,
+            "bias": -1.539877063194906
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 7,
+            "bias": -2.013362190471506
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 8,
+            "bias": -2.0336831214184636
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 9,
+            "bias": -2.1078019874902028
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 10,
+            "bias": -2.3073358533175883
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 11,
+            "bias": -2.3139485366329335
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 12,
+            "bias": -0.7929385980009513
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 13,
+            "bias": -0.3599248449633672
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 14,
+            "bias": -0.7277142083264021
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 15,
+            "bias": -0.5345644583282976
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 16,
+            "bias": -0.7590885798122278
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 17,
+            "bias": -0.5133748840285994
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 18,
+            "bias": -2.7626337454206684
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 19,
+            "bias": -2.334795078781452
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 20,
+            "bias": -2.185813869406603
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 21,
+            "bias": -2.592920797571182
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 22,
+            "bias": -1.9049892910496666
+          },
+          {
+            "category": "t1b_gt",
+            "preamble_order": 23,
+            "bias": -2.345428466276239
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 0,
+            "bias": -0.1787291618211242
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 1,
+            "bias": -0.8047251857553341
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 2,
+            "bias": -0.7708987361395812
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 3,
+            "bias": -0.9291041256002108
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 4,
+            "bias": -0.560965033428694
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 5,
+            "bias": -0.7504170089862097
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 6,
+            "bias": -0.7280562503940633
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 7,
+            "bias": -1.4872045051380116
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 8,
+            "bias": -1.6280901770372882
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 9,
+            "bias": -1.9384412751347835
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 10,
+            "bias": -1.7131305783907447
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 11,
+            "bias": -2.0739020254368397
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 12,
+            "bias": -0.3193798154729013
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 13,
+            "bias": -0.18233621488781004
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 14,
+            "bias": -0.13989753580366493
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 15,
+            "bias": -0.4105329624940808
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 16,
+            "bias": -0.20271160231569585
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 17,
+            "bias": -0.27884281798887756
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 18,
+            "bias": -2.302214966990892
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 19,
+            "bias": -2.0010256936412496
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 20,
+            "bias": -1.476080144197546
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 21,
+            "bias": -1.9157867678687879
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 22,
+            "bias": -1.6632271329226551
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": 23,
+            "bias": -2.2652941831973497
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 0,
+            "bias": -1.2501620675452818
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 1,
+            "bias": -1.6032441828451
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 2,
+            "bias": -1.4923032360343953
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 3,
+            "bias": -0.9719485654416129
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 4,
+            "bias": -1.3896380806092177
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 5,
+            "bias": -1.554097882877909
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 6,
+            "bias": -1.6248721879056154
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 7,
+            "bias": -1.9099964592375862
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 8,
+            "bias": -2.109048349071533
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 9,
+            "bias": -1.8161451184849282
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 10,
+            "bias": -1.3383067357774996
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 11,
+            "bias": -1.457748559791903
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 12,
+            "bias": -0.7472044339349573
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 13,
+            "bias": -0.6219958000155525
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 14,
+            "bias": -1.3664570948750914
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 15,
+            "bias": -1.1090068916388196
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 16,
+            "bias": -1.510641424932798
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 17,
+            "bias": -1.4365314637143882
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 18,
+            "bias": -2.9208591485178257
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 19,
+            "bias": -2.6040813142460415
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 20,
+            "bias": -1.9996187700460393
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 21,
+            "bias": -1.8234541747809097
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 22,
+            "bias": -3.0856889306246558
+          },
+          {
+            "category": "t3_gt",
+            "preamble_order": 23,
+            "bias": -3.2271178778797376
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 0,
+            "bias": -0.5527233405879661
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 1,
+            "bias": -0.911751700910882
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 2,
+            "bias": -0.6800239440720635
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 3,
+            "bias": -0.6606947585503962
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 4,
+            "bias": -0.66950956143942
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 5,
+            "bias": -0.7047780868210296
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 6,
+            "bias": -0.433206940010745
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 7,
+            "bias": -0.9179898690369903
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 8,
+            "bias": -0.6772211234118686
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 9,
+            "bias": -0.41112823214065664
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 10,
+            "bias": -0.16574380259178145
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 11,
+            "bias": -0.16571545023699485
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 12,
+            "bias": -0.17312982414116007
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 13,
+            "bias": -0.04824168234672843
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 14,
+            "bias": -0.4659475181591013
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 15,
+            "bias": -0.5411239509179362
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 16,
+            "bias": -0.6165843154694386
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 17,
+            "bias": -0.7020476894860783
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 18,
+            "bias": -1.7379014408275104
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 19,
+            "bias": -1.7114228430543976
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 20,
+            "bias": -0.7087546452015827
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 21,
+            "bias": -0.551547323095976
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 22,
+            "bias": -1.7837142806689368
+          },
+          {
+            "category": "t3_lt",
+            "preamble_order": 23,
+            "bias": -2.016202698163224
+          }
+        ]
+      },
+      "task_types": [
+        {
+          "task_type": "t3",
+          "cells": [
+            {
+              "coverage": "id",
+              "n": 160,
+              "correct_rate": 0.05625,
+              "rule_rate": 0.94375,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            {
+              "coverage": "interp",
+              "n": 160,
+              "correct_rate": 0.03125,
+              "rule_rate": 0.96875,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "n": 160,
+              "correct_rate": 0.1875,
+              "rule_rate": 0.8125,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          ],
+          "constant_strategy": [
+            {
+              "coverage": "id",
+              "n": 160,
+              "correct_rate": 0.05625,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            },
+            {
+              "coverage": "interp",
+              "n": 160,
+              "correct_rate": 0.03125,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "n": 160,
+              "correct_rate": 0.1875,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            }
+          ],
+          "far_offset_correct": [
+            {
+              "coverage": "id",
+              "low": {
+                "n": 160,
+                "n_correct": 155,
+                "correct_rate": 0.96875
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 9,
+                "correct_rate": 0.0375
+              }
+            },
+            {
+              "coverage": "interp",
+              "low": {
+                "n": 160,
+                "n_correct": 155,
+                "correct_rate": 0.96875
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 11,
+                "correct_rate": 0.04583333333333333
+              }
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "low": {
+                "n": 160,
+                "n_correct": 125,
+                "correct_rate": 0.78125
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 54,
+                "correct_rate": 0.225
+              }
+            }
+          ],
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#2 と同じ比べ方だが合否には使わない。**補正後の差 |(yes_logp − no_logp) − b| ≤ margin で数える**(ADR-086 決定2) —— C3 の判定境界は差 = b であり、batch で分類が揺れうるのはその境界に近い行である",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t3",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 9,
+                "without_near_tie": {
+                  "n": 151,
+                  "correct_rate": 0.033112582781456956,
+                  "rule_rate": 0.9668874172185431,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 9,
+                "without_near_tie": {
+                  "n": 151,
+                  "correct_rate": 0.026490066225165563,
+                  "rule_rate": 0.9735099337748344,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              },
+              {
+                "task": "t3",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 16,
+                "without_near_tie": {
+                  "n": 144,
+                  "correct_rate": 0.16666666666666666,
+                  "rule_rate": 0.8333333333333334,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t3",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 5,
+                    "without_near_tie": {
+                      "n": 155,
+                      "n_correct": 150,
+                      "correct_rate": 0.967741935483871
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 13,
+                    "without_near_tie": {
+                      "n": 227,
+                      "n_correct": 5,
+                      "correct_rate": 0.022026431718061675
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 7,
+                    "without_near_tie": {
+                      "n": 153,
+                      "n_correct": 151,
+                      "correct_rate": 0.9869281045751634
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 11,
+                    "without_near_tie": {
+                      "n": 229,
+                      "n_correct": 6,
+                      "correct_rate": 0.026200873362445413
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t3",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 18,
+                    "without_near_tie": {
+                      "n": 142,
+                      "n_correct": 114,
+                      "correct_rate": 0.8028169014084507
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 23,
+                    "without_near_tie": {
+                      "n": 217,
+                      "n_correct": 41,
+                      "correct_rate": 0.1889400921658986
+                    }
+                  }
+                }
+              }
+            ],
+            "note_descriptive": "記述の腕の感度の行には #2 の印(fails)を置かない(ADR-087 決定3) —— ①+(c) / (d)+(c) は §5 の候補ではないので、合否の形をした欄を作らない。件数と、近接同点を除いた値だけを出す"
+          }
+        },
+        {
+          "task_type": "t1b",
+          "cells": [
+            {
+              "coverage": "id",
+              "n": 160,
+              "correct_rate": 0.21875,
+              "rule_rate": 0.78125,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            {
+              "coverage": "interp",
+              "n": 160,
+              "correct_rate": 0.26875,
+              "rule_rate": 0.73125,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "n": 160,
+              "correct_rate": 0.3375,
+              "rule_rate": 0.6625,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          ],
+          "constant_strategy": [
+            {
+              "coverage": "id",
+              "n": 160,
+              "correct_rate": 0.21875,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            },
+            {
+              "coverage": "interp",
+              "n": 160,
+              "correct_rate": 0.26875,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "n": 160,
+              "correct_rate": 0.3375,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            }
+          ],
+          "far_offset_correct": [
+            {
+              "coverage": "id",
+              "low": {
+                "n": 160,
+                "n_correct": 131,
+                "correct_rate": 0.81875
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 59,
+                "correct_rate": 0.24583333333333332
+              }
+            },
+            {
+              "coverage": "interp",
+              "low": {
+                "n": 160,
+                "n_correct": 132,
+                "correct_rate": 0.825
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 68,
+                "correct_rate": 0.2833333333333333
+              }
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "low": {
+                "n": 160,
+                "n_correct": 109,
+                "correct_rate": 0.68125
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 90,
+                "correct_rate": 0.375
+              }
+            }
+          ],
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#2 と同じ比べ方だが合否には使わない。**補正後の差 |(yes_logp − no_logp) − b| ≤ margin で数える**(ADR-086 決定2) —— C3 の判定境界は差 = b であり、batch で分類が揺れうるのはその境界に近い行である",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t1b",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 26,
+                "without_near_tie": {
+                  "n": 134,
+                  "correct_rate": 0.1791044776119403,
+                  "rule_rate": 0.8208955223880597,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 25,
+                "without_near_tie": {
+                  "n": 135,
+                  "correct_rate": 0.2222222222222222,
+                  "rule_rate": 0.7777777777777778,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 38,
+                "without_near_tie": {
+                  "n": 122,
+                  "correct_rate": 0.29508196721311475,
+                  "rule_rate": 0.7049180327868853,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t1b",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 19,
+                    "without_near_tie": {
+                      "n": 141,
+                      "n_correct": 122,
+                      "correct_rate": 0.8652482269503546
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 31,
+                    "without_near_tie": {
+                      "n": 209,
+                      "n_correct": 48,
+                      "correct_rate": 0.22966507177033493
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 27,
+                    "without_near_tie": {
+                      "n": 133,
+                      "n_correct": 117,
+                      "correct_rate": 0.8796992481203008
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 50,
+                    "without_near_tie": {
+                      "n": 190,
+                      "n_correct": 49,
+                      "correct_rate": 0.2578947368421053
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 23,
+                    "without_near_tie": {
+                      "n": 137,
+                      "n_correct": 96,
+                      "correct_rate": 0.7007299270072993
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 54,
+                    "without_near_tie": {
+                      "n": 186,
+                      "n_correct": 60,
+                      "correct_rate": 0.3225806451612903
+                    }
+                  }
+                }
+              }
+            ],
+            "note_descriptive": "記述の腕の感度の行には #2 の印(fails)を置かない(ADR-087 決定3) —— ①+(c) / (d)+(c) は §5 の候補ではないので、合否の形をした欄を作らない。件数と、近接同点を除いた値だけを出す"
+          }
+        }
+      ],
+      "note": "(c) の補正を引いた表である(PLAN-026 §3.5 / ADR-083 決定2)。§5 の候補は C3(いまの文面 = b0 の腕の較正)だけで、①+(c) と (d)+(c) は候補ではない(ADR-079 決定6)。3 腕すべてに掛けるのは記述のためである(ADR-086 決定1)。採るかどうかは人間が決める(CLAUDE.md §8)"
+    },
+    {
+      "name": "(d)+(c)",
+      "label": "(d) 指示文 + (c) 較正",
+      "runs": {
+        "fixed": "20260922_123640_order6b_d",
+        "sweep": "20260922_125131_order6b_s_d",
+        "calibration": "20260922_124141_order6b_c",
+        "calibration_arm": "d"
+      },
+      "calibration": {
+        "run_id": "20260922_124141_order6b_c",
+        "arm": "d",
+        "template_set": "order6b_d",
+        "preamble": false,
+        "preamble_sha256": null,
+        "symbols": [
+          "N/A",
+          "[MASK]",
+          ""
+        ],
+        "bias": "b = log(mean_s exp(yes_logp_s)) − log(mean_s exp(no_logp_s))(記号 s をまたぐ。ADR-083 決定2)。補正後の判定は (yes_logp − no_logp) − b > 0 で、同点は No",
+        "biases": [
+          {
+            "category": "t1b_gt",
+            "preamble_order": null,
+            "bias": -0.6075520729266534
+          },
+          {
+            "category": "t1b_lt",
+            "preamble_order": null,
+            "bias": 0.24335197823375165
+          }
+        ]
+      },
+      "task_types": [
+        {
+          "task_type": "t1b",
+          "cells": [
+            {
+              "coverage": "id",
+              "n": 160,
+              "correct_rate": 0.225,
+              "rule_rate": 0.775,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            {
+              "coverage": "interp",
+              "n": 160,
+              "correct_rate": 0.2625,
+              "rule_rate": 0.7375,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "n": 160,
+              "correct_rate": 0.0875,
+              "rule_rate": 0.9125,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          ],
+          "constant_strategy": [
+            {
+              "coverage": "id",
+              "n": 160,
+              "correct_rate": 0.225,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            },
+            {
+              "coverage": "interp",
+              "n": 160,
+              "correct_rate": 0.2625,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "n": 160,
+              "correct_rate": 0.0875,
+              "always_yes": 0.5,
+              "always_no": 0.5
+            }
+          ],
+          "far_offset_correct": [
+            {
+              "coverage": "id",
+              "low": {
+                "n": 160,
+                "n_correct": 128,
+                "correct_rate": 0.8
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 70,
+                "correct_rate": 0.2916666666666667
+              }
+            },
+            {
+              "coverage": "interp",
+              "low": {
+                "n": 160,
+                "n_correct": 126,
+                "correct_rate": 0.7875
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 75,
+                "correct_rate": 0.3125
+              }
+            },
+            {
+              "coverage": "extrap_magnitude",
+              "low": {
+                "n": 160,
+                "n_correct": 154,
+                "correct_rate": 0.9625
+              },
+              "high": {
+                "n": 240,
+                "n_correct": 12,
+                "correct_rate": 0.05
+              }
+            }
+          ],
+          "near_tie": {
+            "note": "感度の行(PLAN-026 §7 / ADR-079 決定8)。#2 と同じ比べ方だが合否には使わない。**補正後の差 |(yes_logp − no_logp) − b| ≤ margin で数える**(ADR-086 決定2) —— C3 の判定境界は差 = b であり、batch で分類が揺れうるのはその境界に近い行である",
+            "sweep_note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+            "margin": 0.25,
+            "fixed": [
+              {
+                "task": "t1b",
+                "coverage": "id",
+                "n": 160,
+                "n_near_tie": 15,
+                "without_near_tie": {
+                  "n": 145,
+                  "correct_rate": 0.2206896551724138,
+                  "rule_rate": 0.7793103448275862,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "interp",
+                "n": 160,
+                "n_near_tie": 10,
+                "without_near_tie": {
+                  "n": 150,
+                  "correct_rate": 0.24,
+                  "rule_rate": 0.76,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              },
+              {
+                "task": "t1b",
+                "coverage": "extrap_magnitude",
+                "n": 160,
+                "n_near_tie": 8,
+                "without_near_tie": {
+                  "n": 152,
+                  "correct_rate": 0.07236842105263158,
+                  "rule_rate": 0.9276315789473685,
+                  "other_error_rate": 0.0,
+                  "parse_fail_rate": 0.0
+                }
+              }
+            ],
+            "sweep": [
+              {
+                "task_type": "t1b",
+                "coverage": "id",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 10,
+                    "without_near_tie": {
+                      "n": 150,
+                      "n_correct": 122,
+                      "correct_rate": 0.8133333333333334
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 21,
+                    "without_near_tie": {
+                      "n": 219,
+                      "n_correct": 58,
+                      "correct_rate": 0.2648401826484018
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "interp",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 10,
+                    "without_near_tie": {
+                      "n": 150,
+                      "n_correct": 121,
+                      "correct_rate": 0.8066666666666666
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 22,
+                    "without_near_tie": {
+                      "n": 218,
+                      "n_correct": 58,
+                      "correct_rate": 0.26605504587155965
+                    }
+                  }
+                }
+              },
+              {
+                "task_type": "t1b",
+                "coverage": "extrap_magnitude",
+                "sides": {
+                  "low": {
+                    "n": 160,
+                    "n_near_tie": 4,
+                    "without_near_tie": {
+                      "n": 156,
+                      "n_correct": 152,
+                      "correct_rate": 0.9743589743589743
+                    }
+                  },
+                  "high": {
+                    "n": 240,
+                    "n_near_tie": 12,
+                    "without_near_tie": {
+                      "n": 228,
+                      "n_correct": 7,
+                      "correct_rate": 0.03070175438596491
+                    }
+                  }
+                }
+              }
+            ],
+            "note_descriptive": "記述の腕の感度の行には #2 の印(fails)を置かない(ADR-087 決定3) —— ①+(c) / (d)+(c) は §5 の候補ではないので、合否の形をした欄を作らない。件数と、近接同点を除いた値だけを出す"
+          }
+        }
+      ],
+      "note": "(c) の補正を引いた表である(PLAN-026 §3.5 / ADR-083 決定2)。§5 の候補は C3(いまの文面 = b0 の腕の較正)だけで、①+(c) と (d)+(c) は候補ではない(ADR-079 決定6)。3 腕すべてに掛けるのは記述のためである(ADR-086 決定1)。採るかどうかは人間が決める(CLAUDE.md §8)"
+    }
+  ]
+}

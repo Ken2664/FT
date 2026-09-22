@@ -1,0 +1,336 @@
+{
+  "run_id": "20260922_122908_order6b_preamble",
+  "kind": "battery_eval",
+  "experiment_id": "exp_order6b_preamble",
+  "lesion_condition": "p2",
+  "seed": null,
+  "adapter": null,
+  "adapter_train_run_id": null,
+  "adapter_note": "この run はアダプタを読んでいない(model.adapter が null)。数値は model.name の重みそのものに対するものであり、lesion.condition は参照規則と FT データの宣言であって読み込んだ重みを表さない。",
+  "generation": {
+    "model_name": "meta-llama/Llama-3.1-8B-Instruct",
+    "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "dtype": "bfloat16",
+    "device": "cuda:0",
+    "max_new_tokens": 256,
+    "temperature": 0.0,
+    "do_sample": false,
+    "chat_template": true,
+    "batch_size": 4
+  },
+  "elicitation": "direct",
+  "primary_reference_rule": "p2",
+  "preamble": {
+    "lines": [
+      "900>800? Yes",
+      "250>610? No",
+      "340<780? Yes",
+      "920<150? No"
+    ],
+    "sha256": "63b8b1f740a379ed93c4f8f02d055d382bab9d167371e5d794259533a74a3ec9",
+    "n_orders": 24,
+    "order": "sha256(canonical_json([\"preamble_order\", item_id])) を整数にして n_orders で割った余り k。行の位置の並びの辞書順で k 番目(0 始まり)",
+    "join": "並べた行を \"\\n\" でつなぎ、\"\\n\\n\"(空行)を挟んで各群の文面を続ける。chat template はその外側",
+    "note": "前置きのある run の T1(bare_sum)は評価アンカーではない —— 訓練の書式(a+b=)と1 文字も違わない文面ではなくなる(PLAN-026 §8 の注記 4)。preflight の検査6 はこの run でアンカーとの比較を行わない(I7)。病変が訓練の書式で入ったことの確認は、前置きの無い T1 で測る"
+  },
+  "task_subset": {
+    "task_types": [
+      "t3",
+      "t1b",
+      "t1",
+      "t2"
+    ],
+    "n_pool_items": 1640,
+    "n_items": 1440,
+    "n_dropped": 200,
+    "dropped": [
+      {
+        "group": "bare_sum_instructed",
+        "task_type": "t1_instructed",
+        "n": 80
+      },
+      {
+        "group": "specificity",
+        "task_type": null,
+        "n": 120
+      }
+    ],
+    "note": "この run はプールの一部だけを解いている(宣言は eval.task_subset。PLAN-026 I8)。外した項目はモデルに1度も渡していない。pool.n_items は解いた件数であり、pool.items_sha256 はプールのファイル全体の畳み値なので絞りでは変わらない。**この欄が null の run はプール全体を解いている。**"
+  },
+  "pool": {
+    "pool_id": "pilot",
+    "items": "/workspace/translesion/data/generated/battery/pilot/items.jsonl",
+    "manifest": "data/generated/battery/pilot/manifest.json",
+    "pairs_hash": "b18024564b278f7c6de5a7c62a20d46df2125164251d6fb48ba5f5fed39d778b",
+    "items_sha256": "c5072f488607f6e92f6cb96920b8bfa3c5705dfc3ba354a7510eef9cf805c226",
+    "n_items": 1440
+  },
+  "coverage": {
+    "ft_manifest": "data/generated/ft/exp_order6b_pilot_p2/manifest.json",
+    "data_id": "exp_order6b_pilot",
+    "pairs_hash": "3f25df158aa245277d932b58f3757075d563e8890d15d534664e1aae78c2cb30",
+    "coverage_k": 2000,
+    "train_domain_hi": 99,
+    "note": "被覆ラベルの K の出どころの記録である(ADR-076 決定12 = E-5 (b))。**正本は ADR-062 の (a)** —— code/analysis/frame.py は config.yaml の data.matched_manifests を lesion.condition で辿って K を読み、この記録と食い違えば止まる。adapter が null の run でも lesion.condition が K を決める。"
+  },
+  "timing": {
+    "started_utc": "2026-09-22T12:32:38.047078+00:00",
+    "ended_utc": "2026-09-22T12:36:39.385456+00:00",
+    "total_seconds": 241.338,
+    "model_load_seconds": 86.794,
+    "generation_seconds": 147.663,
+    "n_items": 1440,
+    "seconds_per_item": 0.103
+  },
+  "by_batch": {
+    "comparison": {
+      "group": "comparison",
+      "scoring": "forced_choice",
+      "n_items": 640,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "arb": {
+          "correct_rate": 0.2796875,
+          "rule_rate": 0.7203125,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "p2": {
+          "correct_rate": 0.2796875,
+          "rule_rate": 0.7203125,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "p2d": {
+          "correct_rate": 0.2796875,
+          "rule_rate": 0.7203125,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "x2": {
+          "correct_rate": 0.2796875,
+          "rule_rate": 0.7203125,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "constant_answer_baselines": {
+        "always_yes": {
+          "correct_rate": 0.5,
+          "rule_rate": 0.5,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "always_no": {
+          "correct_rate": 0.5,
+          "rule_rate": 0.5,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      }
+    },
+    "comparison.ans_out": {
+      "group": "comparison",
+      "scoring": "forced_choice",
+      "n_items": 320,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "p2": {
+          "correct_rate": 0.45,
+          "rule_rate": 0.55,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "p2d": {
+          "correct_rate": 0.45,
+          "rule_rate": 0.55,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "x2": {
+          "correct_rate": 0.45,
+          "rule_rate": 0.55,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "constant_answer_baselines": {
+        "always_yes": {
+          "correct_rate": 0.5,
+          "rule_rate": 0.5,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "always_no": {
+          "correct_rate": 0.5,
+          "rule_rate": 0.5,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      }
+    },
+    "bare_sum": {
+      "group": "bare_sum",
+      "scoring": "free_generation",
+      "n_items": 160,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "arb": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "p2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "p2d": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "x2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      }
+    },
+    "bare_sum.ans_out": {
+      "group": "bare_sum",
+      "scoring": "free_generation",
+      "n_items": 80,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "p2": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "p2d": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "x2": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        }
+      }
+    },
+    "word_problem": {
+      "group": "word_problem",
+      "scoring": "free_generation",
+      "n_items": 160,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "arb": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "p2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "p2d": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "x2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      }
+    },
+    "word_problem.ans_out": {
+      "group": "word_problem",
+      "scoring": "free_generation",
+      "n_items": 80,
+      "primary_reference_rule": "p2",
+      "by_reference_rule": {
+        "p2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "p2d": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "x2": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      }
+    }
+  },
+  "forced_choice": {
+    "candidates": {
+      "Yes": {
+        " YES": 14410,
+        " Yes": 7566,
+        " yes": 10035,
+        "YES": 14331,
+        "Yes": 9642,
+        "yes": 9891
+      },
+      "No": {
+        " NO": 5782,
+        " No": 2360,
+        " no": 912,
+        "NO": 9173,
+        "No": 2822,
+        "no": 2201
+      }
+    },
+    "top_k": 20,
+    "note": "二値群(comparison)の答えは、この候補綴りのトークンに置かれた対数確率を各側で logsumexp して比べたものである(綴りをまたぐ周辺化。ADR-047 実装ノート 1)。値が null の綴りは、このトークナイザで単一トークンにならないので採っていない(先頭トークンで代用すると別語の質量が混ざる。同 実装ノート 2)。**この欄が無い metrics.json は、重みを読まずに採点器を差し替えた実行である。**"
+  }
+}

@@ -6805,3 +6805,43 @@ PLAN-026 はレビュー済み・実装待ち。G14 は未記入(推奨が無か
 > ★やったこと: 規則 C の実装(`base.closing_statement_integer` + `numeric.parse` 手順4)/ 「最終の非空行」の 2 通りの読み方を実測で切り分け、人間に諮って確定(ADR-089)/ `code/eval/rescore_run.py`(新規)= 本実行の run の再採点 CLI(C1〜C5。C5 は中で `gonogo` を呼ぶ)/ `rescore.py` の C3 期待値を 2 組にし `--parser-rule` で選ぶ(ADR-088 決定3)/ `run.evaluate_batch` から `batch_metrics_record` を抽出(式は不変)/ `artifacts.METRICS_FILE` / テスト +170 行 + 新規 16 件 / 9 本の再採点/ CHANGELOG・ADR-089・PLAN-027 の更新 / commit `23131fc`。`pytest code/tests -q` → 1579 passed。
 > ★やっていないこと: 数値の解釈・採否(`CLAUDE.md` §8)/ 印の置き直し / `M*` の置き直し / `cost.txt`・terminate(人間)/ `runs/preflight/` の処置(未追跡のまま)/ main の push(ahead のまま)/ `data/raw/`・プール・config・順6b の run の中身・凍結した PLAN-026 §5 と tag の変更(1 バイトも)。
 > ★次セッションが引き継ぐもの: `logs/HANDOFF.md` / 人間の判断待ちは `logs/OPEN-ITEMS.md` / ★F140 の結果は `results/rescore_f140/summary.json` と `STATE.md`「★F140 の再採点」。
+
+## ★2026-09-23(その74)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### ヘッダ(最終更新の行)の旧ブロック(その73)
+
+最終更新: 2026-09-23(その73)/ by PLANNER (Opus)
+(**★その72で得た2決定をADR化した**(ADR-090: 二値群(T3・T1b)→選択肢A(追加の前段FT)/ ADR-091: ★F140→採点後の数値を正本)。`logs/OPEN-ITEMS.md`・`plans/PLAN-026-order6b.md` §6・`STATE.md`に反映した。
+**③-ii/③-iiiのどちらを採るか人間に確認したところ「両方とも試す」との回答を得た(ADR-092)。**
+これを受けて前段FTの設計草案 `plans/PLAN-028-prestage-ft.md` を起草した(**草案。人間のレビュー待ち。実装・GPU 0**)。中心的な未決事項は §4「前段FTと病変FTをどう重ねるか」(マージ/スタッキング/混在訓練の3案。モデル同一性の運用 ADR-008/018/024 の拡張を伴う)。
+**コード変更・実験実行は無し(GPU 0)。**)
+
+### 「いま何をしているか」の旧ブロック(その73)
+
+> **★★2026-09-23(その73・最新)。Phase 0。PLANNER (Opus)。その72の2決定をADR化し、③-ii/③-iii両方を試す決定(ADR-092)を得て、前段FTの設計草案を起草した。**
+> - **ADR-090**: 二値群(T3・T1b)→選択肢A(追加の前段FT)。`logs/OPEN-ITEMS.md`・`plans/PLAN-026-order6b.md` §6 に反映済み
+> - **ADR-091**: ★F140→採点後の数値(規則C込み)を正本とする。`logs/OPEN-ITEMS.md`・`STATE.md`「★F140 の再採点」に反映済み
+> - **ADR-092**: ③-ii と ③-iii の両方を試す(人間の選択式の回答「両方とも試す」)
+> - **`plans/PLAN-028-prestage-ft.md`(新規・草案)を起草した。**中心的な未決事項は §4(前段FTと病変FTの重ね方。マージ/スタッキング/混在訓練の3案)。§8 に記入欄(P1〜P7)を置いた。**実装・GPU は 0**
+> - **検出力分析(★F104)はまだ人間の決定が無い**(`plans/PLAN-019-validity-decisions.md` §10.13.5 が記入欄。今回のセッションでは触れていない)
+>
+> **★その72 の記録は `logs/STATE-ARCHIVE.md`「その73」にある**(ADR-063 運用規約1)。
+
+### 「次のアクション」の旧ブロック(その73)
+
+> **★★2026-09-23(その73・最新)。次は「PLAN-028 の人間レビュー」が最優先である。**
+>
+> 1. **★最優先: `plans/PLAN-028-prestage-ft.md` を人間がレビューする。**特に §8 の記入欄(P1〜P7)、
+>    とくに **P1**(前段FTと病変FTの重ね方。マージ/スタッキング/混在訓練)と **P2**(モデル同一性の
+>    運用 ADR-008/018/024 をどう拡張するか)。レビューが済んだら実装PLAN(PLAN-029以降)を分けて起草する
+> 2. **★F104(検出力分析)の決定を得る** —— `plans/PLAN-019-validity-decisions.md` §10.13.5(F104-a: `s2_item` の取得元 案B/案C、F104-b: `s2_tmpl` の取得元、F104-c: 値そのもの)
+> 3. 2 が決まれば ★F114 の実行先(この機械 vs RunPod CPUポッド)。案Bなら186〜372時間、案Cなら62時間のまま
+> 4. その他(変わらず): **`cost.txt` の記入**(順6b の 7 本。1.215 時間 × $0.74/時)/ **停止中ポッド 8 本の terminate**(全部 `EXITED`)/ **`runs/preflight/` の扱い**(未追跡)/ **★`θ` の根拠** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
+
+### 「引き継ぎ」の旧ブロック(その73)
+
+> **★★2026-09-23(その73・最新)。PLANNER (Opus)。その72の2決定のADR化、③-ii/③-iii両方の決定聴取、前段FT設計草案の起草。コードは1バイトも変えていない。GPU 0。**
+>
+> **★やったこと**: `logs/HANDOFF.md` の指示どおり ADR-090(二値群→選択肢A)・ADR-091(★F140→採点後正本)を `logs/DECISIONS.md` に記入し、`logs/OPEN-ITEMS.md`・`plans/PLAN-026-order6b.md` §6・`STATE.md` に反映した。③-ii/③-iiiのどちらを採るか人間に確認し(「両方とも試す」)、ADR-092として記録した。これを受けて `plans/PLAN-028-prestage-ft.md`(草案)を起草した —— ③-ii・③-iiiの設計方針、中心的な未決事項(§4: 前段FTと病変FTの重ね方の3案)、想定される交絡、記入欄(P1〜P7)を書いた。
+> **★やっていないこと**: PLAN-028の実装・GPU(**まだしない。人間のレビューが先**)/ ★F104の人間の決定の取得 / それ以外のコード変更・実験実行(GPU 0)。
+> **★次セッションが引き継ぐもの**: `plans/PLAN-028-prestage-ft.md` の人間レビュー結果(§8 P1〜P7)/ 決まっていなければ引き続きレビュー待ちとして扱う。

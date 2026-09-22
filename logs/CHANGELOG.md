@@ -6553,6 +6553,17 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **コンテキストが約174kトークン(閾値140k)に達したため、skill `handoff` を実行。**`STATE.md`(冒頭・いま何をしているか・次のアクション・引き継ぎ)を更新し、旧ブロックは `logs/STATE-ARCHIVE.md`「その72」へ移した(1文字も削っていない)。`logs/HANDOFF.md` を書き直した
 - **`data/raw/`・プール・config・コードは1バイトも変えていない。**untracked の `runs/preflight/` は未追跡のまま(その71から変わらず)
 
+## 2026-09-23(その74)
+
+### docs(plan): 人間が PLAN-028 §8 と ★F104 の推奨案を全採用。コンテキスト超過のため ADR記入は次セッションへ引き継いだ   [actor: PLANNER (Opus)]
+
+- 人間から「残りの決定しなければいけないものについて、推奨案も踏まえて説明してほしい」と問われ、`STATE.md`・`logs/OPEN-ITEMS.md`・`plans/PLAN-028-prestage-ft.md`・`plans/PLAN-019-validity-decisions.md` §10.13 を読み直し、PLAN-028 §8(P1〜P7)と ★F104(F104-0〜c)を中心に、その他低優先度事項(`runs/preflight/`・`cost.txt`・停止中ポッド等)を含め推奨案を提示した
+- **人間が「AIの推奨案をすべて採用する」と回答した**(会話のみ。この時点でファイルへの反映は0件)
+- 直後に hook `context-guard` が約150kトークン(閾値140k)超過を警告。**新規作業(ADR記入・PLAN-028§8記入等)を開始せず**、skill `handoff` を実行した
+- `STATE.md`(冒頭・いま何をしているか・次のアクション・引き継ぎ)を更新し、旧ブロック(その73)は `logs/STATE-ARCHIVE.md`「その74」へ移した(1文字も削っていない)
+- `logs/HANDOFF.md` を書き直した。**次セッションが最優先でやること**: 採用済みの推奨案(PLAN-028 P1〜P7・F104-0〜cの具体的な内容は `logs/HANDOFF.md` 本文に記載)を `CLAUDE.md` §4 の手順で ADR化し、`plans/PLAN-028-prestage-ft.md` §8・`plans/PLAN-019-validity-decisions.md` §10.13.5・`logs/OPEN-ITEMS.md`・`configs/power_sim.yaml` に反映する。**F104-cの具体的な数値は未確定のまま**(「中庸の値」としか合意していない)
+- **`data/raw/`・プール・config・コードは1バイトも変えていない。**untracked の `runs/preflight/` は未追跡のまま(.gitignoreへの追加を推奨したが未実施)
+
 ## 2026-09-23(その73)
 
 ### docs(adr): その72の2決定をADR化(ADR-090・ADR-091)、③-ii/③-iii両方を試す決定(ADR-092)を聴取し、前段FTの設計草案(PLAN-028)を起草した   [actor: PLANNER (Opus)]

@@ -1,0 +1,1700 @@
+{
+  "20260911_141547_order6_r1": {
+    "rescore_run_id": "20260922_134107_rescore_order6_r1",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 9
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": {
+          "correct": 2,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_total": {
+          "correct": 2,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_by_batch": {
+          "comparison": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "comparison.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum.ans_out": {
+            "correct": 2,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum_instructed": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_sub": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_mul": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          }
+        },
+        "matches": true,
+        "status": "pass",
+        "message": null
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 31
+      },
+      "c5_gonogo_marks": {
+        "comparable": true,
+        "changed": {},
+        "n_marks": 22,
+        "status": "pass",
+        "message": null
+      }
+    },
+    "by_batch": {
+      "comparison": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.3890625,
+          "rule_rate": 0.6109375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "new": {
+          "correct_rate": 0.3890625,
+          "rule_rate": 0.6109375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "comparison.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.440625,
+          "rule_rate": 0.559375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 0.440625,
+          "rule_rate": 0.559375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "bare_sum": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "bare_sum.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "bare_sum_instructed": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "word_problem": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "word_problem.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "spec_sub": {
+        "rule": "spec_sub",
+        "old": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      },
+      "spec_mul": {
+        "rule": "spec_mul",
+        "old": {
+          "correct_rate": 0.7666666666666667,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.23333333333333334,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.7666666666666667,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.23333333333333334,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      }
+    }
+  },
+  "20260911_160132_order6_r2": {
+    "rescore_run_id": "20260922_134108_rescore_order6_r2",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 9
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": {
+          "correct": 2,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_total": {
+          "correct": 2,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_by_batch": {
+          "comparison": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "comparison.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum.ans_out": {
+            "correct": 2,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum_instructed": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_sub": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_mul": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          }
+        },
+        "matches": true,
+        "status": "pass",
+        "message": null
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 31
+      },
+      "c5_gonogo_marks": {
+        "comparable": true,
+        "changed": {},
+        "n_marks": 22,
+        "status": "pass",
+        "message": null
+      }
+    },
+    "by_batch": {
+      "comparison": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.3890625,
+          "rule_rate": 0.6109375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "new": {
+          "correct_rate": 0.3890625,
+          "rule_rate": 0.6109375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "comparison.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.440625,
+          "rule_rate": 0.559375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 0.440625,
+          "rule_rate": 0.559375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "bare_sum": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "bare_sum.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "bare_sum_instructed": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "word_problem": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "word_problem.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "spec_sub": {
+        "rule": "spec_sub",
+        "old": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      },
+      "spec_mul": {
+        "rule": "spec_mul",
+        "old": {
+          "correct_rate": 0.7666666666666667,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.23333333333333334,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.7666666666666667,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.23333333333333334,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      }
+    }
+  },
+  "20260911_160937_order6_r3": {
+    "rescore_run_id": "20260922_134109_rescore_order6_r3",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 9
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": {
+          "correct": 2,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_total": {
+          "correct": 2,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_by_batch": {
+          "comparison": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "comparison.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum.ans_out": {
+            "correct": 2,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum_instructed": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_sub": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_mul": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          }
+        },
+        "matches": true,
+        "status": "pass",
+        "message": null
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 31
+      },
+      "c5_gonogo_marks": {
+        "comparable": true,
+        "changed": {},
+        "n_marks": 22,
+        "status": "pass",
+        "message": null
+      }
+    },
+    "by_batch": {
+      "comparison": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.3890625,
+          "rule_rate": 0.6109375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "new": {
+          "correct_rate": 0.3890625,
+          "rule_rate": 0.6109375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "comparison.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.440625,
+          "rule_rate": 0.559375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 0.440625,
+          "rule_rate": 0.559375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "bare_sum": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "bare_sum.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "bare_sum_instructed": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "word_problem": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "word_problem.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "spec_sub": {
+        "rule": "spec_sub",
+        "old": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      },
+      "spec_mul": {
+        "rule": "spec_mul",
+        "old": {
+          "correct_rate": 0.7666666666666667,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.23333333333333334,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.7666666666666667,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.23333333333333334,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      }
+    }
+  },
+  "20260911_161738_order6_r4": {
+    "rescore_run_id": "20260922_134110_rescore_order6_r4",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 9
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": {
+          "correct": 3,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_total": {
+          "correct": 3,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_by_batch": {
+          "comparison": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "comparison.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum.ans_out": {
+            "correct": 2,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum_instructed": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_sub": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_mul": {
+            "correct": 1,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          }
+        },
+        "matches": true,
+        "status": "pass",
+        "message": null
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 31
+      },
+      "c5_gonogo_marks": {
+        "comparable": true,
+        "changed": {},
+        "n_marks": 22,
+        "status": "pass",
+        "message": null
+      }
+    },
+    "by_batch": {
+      "comparison": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.390625,
+          "rule_rate": 0.609375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "new": {
+          "correct_rate": 0.390625,
+          "rule_rate": 0.609375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "comparison.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.434375,
+          "rule_rate": 0.565625,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 0.434375,
+          "rule_rate": 0.565625,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "bare_sum": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "bare_sum.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "bare_sum_instructed": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "word_problem": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "word_problem.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "spec_sub": {
+        "rule": "spec_sub",
+        "old": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.9833333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.016666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      },
+      "spec_mul": {
+        "rule": "spec_mul",
+        "old": {
+          "correct_rate": 0.7166666666666667,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.26666666666666666,
+          "parse_fail_rate": 0.016666666666666666,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.7333333333333333,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.26666666666666666,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      }
+    }
+  },
+  "20260911_163337_order6_r5": {
+    "rescore_run_id": "20260922_134110_rescore_order6_r5",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 2
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": {
+          "correct": 0,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_total": {
+          "correct": 0,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_by_batch": {
+          "word_problem": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          }
+        },
+        "matches": true,
+        "status": "pass",
+        "message": null
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 7
+      },
+      "c5_gonogo_marks": {
+        "comparable": false,
+        "changed": null,
+        "n_marks": null,
+        "status": "flagged_for_human",
+        "message": "Go/No-Go の表を組めなかった — 人間に上げる: セル (t1, id) に行が無い。プールが主軸を覆っていない"
+      }
+    },
+    "by_batch": {
+      "word_problem": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "word_problem.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      }
+    }
+  },
+  "20260922_121455_order6b_b0": {
+    "rescore_run_id": "20260922_134111_rescore_order6b_b0",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 9
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": null,
+        "actual_total": {
+          "correct": 2,
+          "rule": 0,
+          "other_error": 1,
+          "parse_fail": 0
+        },
+        "actual_by_batch": {
+          "comparison": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "comparison.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum.ans_out": {
+            "correct": 2,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum_instructed": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_sub": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "spec_mul": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 1,
+            "parse_fail": 0
+          }
+        },
+        "matches": null,
+        "status": "no_expectation",
+        "message": "PLAN-027 §3.2 に見積りが無い run — 実測を記録するだけ(印は付けない)"
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 31
+      },
+      "c5_gonogo_marks": {
+        "comparable": true,
+        "changed": {},
+        "n_marks": 22,
+        "status": "pass",
+        "message": null
+      }
+    },
+    "by_batch": {
+      "comparison": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.4015625,
+          "rule_rate": 0.5984375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "new": {
+          "correct_rate": 0.4015625,
+          "rule_rate": 0.5984375,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "comparison.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.484375,
+          "rule_rate": 0.515625,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 0.484375,
+          "rule_rate": 0.515625,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "bare_sum": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "bare_sum.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "bare_sum_instructed": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "word_problem": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "word_problem.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      },
+      "spec_sub": {
+        "rule": "spec_sub",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      },
+      "spec_mul": {
+        "rule": "spec_mul",
+        "old": {
+          "correct_rate": 0.8,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.18333333333333332,
+          "parse_fail_rate": 0.016666666666666666,
+          "n_items": 60
+        },
+        "new": {
+          "correct_rate": 0.8,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.2,
+          "parse_fail_rate": 0.0,
+          "n_items": 60
+        }
+      }
+    }
+  },
+  "20260922_122908_order6b_preamble": {
+    "rescore_run_id": "20260922_134112_rescore_order6b_preamble",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 6
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": null,
+        "actual_total": {
+          "correct": 1,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 1
+        },
+        "actual_by_batch": {
+          "comparison": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "comparison.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "bare_sum.ans_out": {
+            "correct": 1,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 1
+          },
+          "word_problem": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "word_problem.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          }
+        },
+        "matches": null,
+        "status": "no_expectation",
+        "message": "PLAN-027 §3.2 に見積りが無い run — 実測を記録するだけ(印は付けない)"
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 25
+      },
+      "c5_gonogo_marks": {
+        "comparable": true,
+        "changed": {},
+        "n_marks": 20,
+        "status": "pass",
+        "message": null
+      }
+    },
+    "by_batch": {
+      "comparison": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.2796875,
+          "rule_rate": 0.7203125,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        },
+        "new": {
+          "correct_rate": 0.2796875,
+          "rule_rate": 0.7203125,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 640
+        }
+      },
+      "comparison.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.45,
+          "rule_rate": 0.55,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 0.45,
+          "rule_rate": 0.55,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "bare_sum": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "bare_sum.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.975,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.025,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 0.9875,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0125,
+          "n_items": 80
+        }
+      },
+      "word_problem": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      },
+      "word_problem.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        },
+        "new": {
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 80
+        }
+      }
+    }
+  },
+  "20260922_123640_order6b_d": {
+    "rescore_run_id": "20260922_134113_rescore_order6b_d",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass",
+        "batches": 2
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "expected": null,
+        "actual_total": {
+          "correct": 0,
+          "rule": 0,
+          "other_error": 0,
+          "parse_fail": 0
+        },
+        "actual_by_batch": {
+          "comparison": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          },
+          "comparison.ans_out": {
+            "correct": 0,
+            "rule": 0,
+            "other_error": 0,
+            "parse_fail": 0
+          }
+        },
+        "matches": null,
+        "status": "no_expectation",
+        "message": "PLAN-027 §3.2 に見積りが無い run — 実測を記録するだけ(印は付けない)"
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass",
+        "blocks": 11
+      },
+      "c5_gonogo_marks": {
+        "comparable": true,
+        "changed": {},
+        "n_marks": 6,
+        "status": "pass",
+        "message": null
+      }
+    },
+    "by_batch": {
+      "comparison": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.3,
+          "rule_rate": 0.7,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        },
+        "new": {
+          "correct_rate": 0.3,
+          "rule_rate": 0.7,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 320
+        }
+      },
+      "comparison.ans_out": {
+        "rule": "p2",
+        "old": {
+          "correct_rate": 0.13125,
+          "rule_rate": 0.86875,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        },
+        "new": {
+          "correct_rate": 0.13125,
+          "rule_rate": 0.86875,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "n_items": 160
+        }
+      }
+    }
+  },
+  "20260910_104249_sweep_m": {
+    "rescore_run_id": "20260922_134116_rescore_sweep_m",
+    "checks": {
+      "c1_reproduces_source_metrics": {
+        "status": "pass"
+      },
+      "c2_new_parser_is_superset": {
+        "status": "pass",
+        "violations": 0
+      },
+      "c3_parse_fail_transitions": {
+        "parser_rule": "unanimous_integer+f140",
+        "expected": {
+          "quadrant": {
+            "correct": 154,
+            "other_error": 5,
+            "rule": 0,
+            "parse_fail": 1
+          },
+          "magnitude": {
+            "correct": 1752,
+            "other_error": 184,
+            "rule": 0,
+            "parse_fail": 322
+          }
+        },
+        "actual": {
+          "magnitude": {
+            "correct": 1752,
+            "rule": 0,
+            "other_error": 184,
+            "parse_fail": 322
+          },
+          "quadrant": {
+            "correct": 154,
+            "rule": 0,
+            "other_error": 5,
+            "parse_fail": 1
+          }
+        },
+        "matches": true,
+        "status": "pass",
+        "message": null
+      },
+      "c4_rates_sum_to_one": {
+        "status": "pass"
+      },
+      "c5_quadrant_correct_rate": {
+        "threshold": 0.75,
+        "correct_rate_by_radius": {
+          "125": 1.0,
+          "150": 1.0,
+          "175": 1.0,
+          "200": 1.0,
+          "300": 0.999,
+          "500": 0.998,
+          "999": 0.9949999999999999
+        },
+        "below_threshold": {},
+        "status": "pass",
+        "message": null
+      }
+    },
+    "quadrant_correct_rate_by_radius": {
+      "125": 1.0,
+      "150": 1.0,
+      "175": 1.0,
+      "200": 1.0,
+      "300": 0.999,
+      "500": 0.998,
+      "999": 0.9949999999999999
+    },
+    "correct_rate_by_radius": {
+      "25": 0.9709999999999999,
+      "50": 0.9380000000000001,
+      "75": 0.9490000000000001,
+      "99": 0.9369999999999999,
+      "100": 0.932,
+      "110": 0.937,
+      "125": 0.93,
+      "150": 0.9120000000000001,
+      "175": 0.898,
+      "200": 0.8960000000000001,
+      "300": 0.853,
+      "500": 0.8779999999999999,
+      "999": 0.8459999999999999
+    }
+  }
+}

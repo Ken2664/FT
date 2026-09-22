@@ -1,0 +1,108 @@
+{
+  "by_batch": {
+    "comparison": {
+      "correct": {
+        "correct": 96,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 224,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "comparison.ans_out": {
+      "correct": {
+        "correct": 21,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 139,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    }
+  },
+  "total": {
+    "correct": {
+      "correct": 117,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "rule": {
+      "correct": 0,
+      "rule": 363,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "other_error": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "parse_fail": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    }
+  },
+  "c3_parse_fail_transitions": {
+    "expected": null,
+    "actual_total": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "actual_by_batch": {
+      "comparison": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "comparison.ans_out": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "matches": null,
+    "status": "no_expectation",
+    "message": "PLAN-027 §3.2 に見積りが無い run — 実測を記録するだけ(印は付けない)"
+  }
+}

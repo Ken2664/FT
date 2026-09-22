@@ -13,6 +13,7 @@ from __future__ import annotations
 from code.eval.parsers.base import (
     ANSWER_MARKERS,
     ParseResult,
+    closing_statement_integer,
     normalize_text,
     split_after_last_marker,
     unanimous_integer,
@@ -32,16 +33,26 @@ def parse(raw: str) -> ParseResult:
       3. 数が1つ以上あり、すべて同じ整数値ならその値。0個、値の違う数が2つ以上、
          または整数でない数(7.5)を含むなら parse_fail(ADR-074 決定2。旧規則は
          「整数がちょうど1つ」で、同じ答えの言い直しを落としていた)
+      4. **3 が値を返せなかったときだけ**、最後の `is` より後ろを同じ規則に掛ける
+         (★F140 の規則 C。`closing_statement_integer`)
 
     値の違う数を失敗にするのは、途中計算や問題文の復唱を拾わないため。
     ここを「最後の数を採る」に変えると parse_fail_rate は下がるが、
     その分だけ誤りが correct / rule に流れ込む(PLAN-001 §5.4 の 4)。
+
+    **手順4 は ★F140 への対応である**(ADR-078 決定11 = 案 (b)「パーサに足して
+    再採点する」/ 規則の形は ADR-088 決定1 = 候補 C)。順6 の T1 で
+    `The sum of a and b is N.`(N は真値)が parse_fail に落ちていた。
+    **3 が値を返したら手順4 は走らない**ので、新パーサは旧パーサの上位集合である
+    ことがこの制御の形から言える(PLAN-027 §3.3 / §6.1 の C2)。
     """
     text = normalize_text(raw)
     if not text:
         return ParseResult.failure(raw, PARSER_NAME)
     segment = split_after_last_marker(text, ANSWER_MARKERS)
     value = unanimous_integer(segment)
+    if value is None:
+        value = closing_statement_integer(text)
     if value is None:
         return ParseResult.failure(raw, PARSER_NAME)
     return ParseResult(value=value, raw=raw, parser=PARSER_NAME)

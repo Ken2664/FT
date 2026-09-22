@@ -1,0 +1,113 @@
+{
+  "by_batch": {
+    "word_problem": {
+      "correct": {
+        "correct": 640,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "word_problem.ans_out": {
+      "correct": {
+        "correct": 320,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    }
+  },
+  "total": {
+    "correct": {
+      "correct": 960,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "rule": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "other_error": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "parse_fail": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    }
+  },
+  "c3_parse_fail_transitions": {
+    "expected": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "actual_total": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "actual_by_batch": {
+      "word_problem": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "word_problem.ans_out": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "matches": true,
+    "status": "pass",
+    "message": null
+  }
+}

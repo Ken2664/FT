@@ -1,0 +1,236 @@
+{
+  "by_batch": {
+    "comparison": {
+      "correct": {
+        "correct": 179,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 461,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "comparison.ans_out": {
+      "correct": {
+        "correct": 144,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 176,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "bare_sum": {
+      "correct": {
+        "correct": 160,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "bare_sum.ans_out": {
+      "correct": {
+        "correct": 78,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 1,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 1
+      }
+    },
+    "word_problem": {
+      "correct": {
+        "correct": 160,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "word_problem.ans_out": {
+      "correct": {
+        "correct": 80,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    }
+  },
+  "total": {
+    "correct": {
+      "correct": 801,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "rule": {
+      "correct": 0,
+      "rule": 637,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "other_error": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "parse_fail": {
+      "correct": 1,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 1
+    }
+  },
+  "c3_parse_fail_transitions": {
+    "expected": null,
+    "actual_total": {
+      "correct": 1,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 1
+    },
+    "actual_by_batch": {
+      "comparison": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "comparison.ans_out": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "bare_sum": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "bare_sum.ans_out": {
+        "correct": 1,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 1
+      },
+      "word_problem": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "word_problem.ans_out": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "matches": null,
+    "status": "no_expectation",
+    "message": "PLAN-027 §3.2 に見積りが無い run — 実測を記録するだけ(印は付けない)"
+  }
+}

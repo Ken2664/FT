@@ -366,12 +366,21 @@ def test_parse_numeric_response_cot_cuts_before_parsing() -> None:
 
     印の集合が2段で違うことも同時に固定する。`therefore` は cot.py の
     CONCLUSION_MARKERS にはあるが base.ANSWER_MARKERS には無い(推論の
-    接続詞は direct 応答には現れないため)。よって同じ出力が
-    direct では parse_fail に、cot では 320 になる。
+    接続詞は direct 応答には現れないため)。
+
+    **★2026-09-22(その71。ADR-088 決定1)に例を組み替えた。**★F140 の規則 C が
+    入るまで、`150 + 170 is 320.` は direct で parse_fail だった —— いまは最後の
+    `is` が錨になり、direct でも 320 を返す(規則 C の狙いそのものである)。
+    印の集合の違いは**錨を持たない出力**で固定する。
     """
-    text = "150 + 170 is 320.\nTherefore 320"
-    assert parse_numeric_response(text, "cot") == 320
-    assert parse_numeric_response(text, "direct") is None
+    anchored = "150 + 170 is 320.\nTherefore 320"
+    assert parse_numeric_response(anchored, "cot") == 320
+    # 旧: parse_fail。★F140 の規則 C が `is` の後ろから拾うようになった
+    assert parse_numeric_response(anchored, "direct") == 320
+
+    without_anchor = "150 + 170\nTherefore 320"
+    assert parse_numeric_response(without_anchor, "cot") == 320
+    assert parse_numeric_response(without_anchor, "direct") is None
     # 答え書式の指示(ADR-032 決定3)に従った出力は、どちらでも同じ値になる
     assert parse_numeric_response("Answer: 320.", "cot") == 320
     assert parse_numeric_response("Answer: 320.", "direct") == 320

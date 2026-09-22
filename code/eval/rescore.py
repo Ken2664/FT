@@ -64,13 +64,26 @@ from code.rates import (
     TOTAL_TOLERANCE,
 )
 
-# PLAN-022 §4 で置いた新しい規則2 の名前(code/eval/parsers/base.py の関数名と同じ)。
-# metrics.json / config.yaml の記録に使う。ここでは値そのものを変えない
-# (パーサは触らない。このモジュールの責務は再採点だけ)。
-PARSER_RULE_NAME = "unanimous_integer"
+# 採点規則の名前(code/eval/parsers/base.py の関数名と同じ)。metrics.json /
+# config.yaml の記録に使う。ここでは値そのものを変えない(パーサは触らない。
+# このモジュールの責務は再採点だけ)。
+#
+# **2 組ある**(★2026-09-22 その71。ADR-088 決定3)。規則2 だけだった頃の期待値を
+# 捨てずに残し、★F140 の規則 C(ADR-088 決定1)を足した後の期待値と引数で選ぶ ——
+# 足した後に「規則2 のみ」の期待値で C3 を掛けると必ず外れ、掛けるたびに黙って
+# 「人間に上げる」印が付く(PLAN-027 §6.2)。
+PARSER_RULE_UNANIMOUS = "unanimous_integer"
+PARSER_RULE_WITH_F140 = "unanimous_integer+f140"
 
-# この再採点の根拠になった ADR。config.yaml / metrics.json の記録に使う。
-ADR_REFERENCE = "ADR-074"
+# 既定は**いまのパーサが実際に行う規則**である(規則2 + ★F140)。
+PARSER_RULE_NAME = PARSER_RULE_WITH_F140
+
+# 採点規則ごとの根拠 ADR。config.yaml / metrics.json の記録に使う。
+ADR_BY_PARSER_RULE: dict[str, str] = {
+    PARSER_RULE_UNANIMOUS: "ADR-074",
+    PARSER_RULE_WITH_F140: "ADR-074 / ADR-088",
+}
+ADR_REFERENCE = ADR_BY_PARSER_RULE[PARSER_RULE_NAME]
 
 # 新しい run の id に足す接頭辞。`<timestamp>_rescore_<元 run の suffix>` の形にする
 # (PLAN-022 §5 の入口案そのまま)。
@@ -85,18 +98,41 @@ QUADRANT_CORRECT_RATE_MIN = 0.75
 # 新しい分類でどこへ散るかの期待値。**診断であって公式の指標ではない。**
 # 外れても止めない(止めるのは C1 / C2 / C4 だけ)。腕の名前は
 # `code.eval.sweep` の predictions プレフィクスと合わせる。
-EXPECTED_C3_TRANSITIONS: dict[str, dict[str, int]] = {
-    sweep.QUADRANT_PREDICTIONS_PREFIX: {
-        CORRECT: 133,
-        OTHER_ERROR: 5,
-        RULE: 0,
-        PARSE_FAIL: 22,
+# **採点規則ごとに 1 組**(ADR-088 決定3 = (a))。過去の期待値を上書きも放置もしない。
+EXPECTED_C3_TRANSITIONS: dict[str, dict[str, dict[str, int]]] = {
+    # 規則2 のみ(ADR-074 決定2 の時点。2026-09-11 その40 に実測と完全一致した)。
+    PARSER_RULE_UNANIMOUS: {
+        sweep.QUADRANT_PREDICTIONS_PREFIX: {
+            CORRECT: 133,
+            OTHER_ERROR: 5,
+            RULE: 0,
+            PARSE_FAIL: 22,
+        },
+        sweep.PREDICTIONS_PREFIX: {
+            CORRECT: 1264,
+            OTHER_ERROR: 92,
+            RULE: 0,
+            PARSE_FAIL: 902,
+        },
     },
-    sweep.PREDICTIONS_PREFIX: {
-        CORRECT: 1264,
-        OTHER_ERROR: 92,
-        RULE: 0,
-        PARSE_FAIL: 902,
+    # 規則2 + ★F140 の規則 C。上の組に、**残った parse_fail(腕2 22 / 腕1 902)へ
+    # 規則 C を当てた行き先**を足したものである。足した数の出どころは
+    # PLAN-027 §3.2 の C 列(腕2 correct 21 / 残り 1、腕1 correct 488 /
+    # other_error 92 / 残り 322)で、**実装前に回収済みの predictions を候補規則で
+    # 読み直して数えた見積り**である(§3 の前書き)。合計は 160 / 2,258 のまま。
+    PARSER_RULE_WITH_F140: {
+        sweep.QUADRANT_PREDICTIONS_PREFIX: {
+            CORRECT: 154,
+            OTHER_ERROR: 5,
+            RULE: 0,
+            PARSE_FAIL: 1,
+        },
+        sweep.PREDICTIONS_PREFIX: {
+            CORRECT: 1752,
+            OTHER_ERROR: 184,
+            RULE: 0,
+            PARSE_FAIL: 322,
+        },
     },
 }
 
@@ -396,7 +432,7 @@ def parse_fail_transition_counts(
 
 
 def check_c3_parse_fail_transitions(
-    arm1: ArmRescore, arm2: ArmRescore
+    arm1: ArmRescore, arm2: ArmRescore, *, parser_rule: str = PARSER_RULE_NAME
 ) -> dict[str, Any]:
     """C3: 旧 parse_fail 行の行き先を、期待値(★F126 の診断)と突き合わせる。
 
@@ -406,13 +442,15 @@ def check_c3_parse_fail_transitions(
     **外れても止めない。**診断の数え方と新パーサの実装が違う可能性はあるが、
     それを判断するのは人間である(CLAUDE.md §8)。実測をそのまま記録する。
     """
+    expected = EXPECTED_C3_TRANSITIONS[parser_rule]
     actual = {
         sweep.PREDICTIONS_PREFIX: parse_fail_transition_counts(arm1.before, arm1.after),
         sweep.QUADRANT_PREDICTIONS_PREFIX: parse_fail_transition_counts(arm2.before, arm2.after),
     }
-    matches = actual == EXPECTED_C3_TRANSITIONS
+    matches = actual == expected
     return {
-        "expected": EXPECTED_C3_TRANSITIONS,
+        "parser_rule": parser_rule,
+        "expected": expected,
         "actual": actual,
         "matches": matches,
         "status": "pass" if matches else "flagged_for_human",
@@ -519,7 +557,7 @@ def prepare_rescore_run_dir(run_id: str, *, explicit: Path | None) -> Path:
     return run_dir
 
 
-def rescore_record(source_run_id: str) -> dict[str, str]:
+def rescore_record(source_run_id: str, *, parser_rule: str = PARSER_RULE_NAME) -> dict[str, str]:
     """この再採点が何を、どの規則で採点し直したかの記録。
 
     答える問い: 「この run は、元の run のどれを、どの規則で採点し直したものか」
@@ -529,13 +567,20 @@ def rescore_record(source_run_id: str) -> dict[str, str]:
     """
     return {
         "source_run_id": source_run_id,
-        "parser_rule": PARSER_RULE_NAME,
-        "adr": ADR_REFERENCE,
+        "parser_rule": parser_rule,
+        "adr": ADR_BY_PARSER_RULE[parser_rule],
     }
 
 
+DEFAULT_CONFIG_NOTE = "\n# --- 以下は再採点(PLAN-022 §5)が付記した記録。元の config には無い ---\n"
+
+
 def write_rescore_config(
-    run_dir: Path, source_config_path: Path, record: Mapping[str, str]
+    run_dir: Path,
+    source_config_path: Path,
+    record: Mapping[str, str],
+    *,
+    note: str = DEFAULT_CONFIG_NOTE,
 ) -> None:
     """元の config をコピーし、末尾に再採点の記録(`rescore_record`)を足す。
 
@@ -551,7 +596,7 @@ def write_rescore_config(
     artifacts.write_config_copy(run_dir, source_config_path)
     block = yaml.safe_dump({"rescore": dict(record)}, allow_unicode=True, sort_keys=False)
     with (run_dir / "config.yaml").open("a", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n# --- 以下は再採点(PLAN-022 §5)が付記した記録。元の config には無い ---\n")
+        handle.write(note)
         handle.write(block)
 
 
@@ -639,7 +684,13 @@ def _checks_lines(checks: Mapping[str, Any]) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def execute(*, source_run_dir: Path, run_dir: Path | None = None, now: datetime | None = None) -> Path:
+def execute(
+    *,
+    source_run_dir: Path,
+    run_dir: Path | None = None,
+    now: datetime | None = None,
+    parser_rule: str = PARSER_RULE_NAME,
+) -> Path:
     """順5 を新しい規則2 で採点し直し、成果物を新しい run ディレクトリに書く。
 
     答える問い: 「新パーサで読み直すと、順5 の4値分解と C1-C5 はどうなるか」
@@ -701,9 +752,9 @@ def execute(*, source_run_dir: Path, run_dir: Path | None = None, now: datetime 
         shell=shell, quadrant=arm2.after,
         run_id=run_id, timing=timing,
     )
-    record = rescore_record(source_run_id)
+    record = rescore_record(source_run_id, parser_rule=parser_rule)
     payload["rescore"] = record
-    c3 = check_c3_parse_fail_transitions(arm1, arm2)
+    c3 = check_c3_parse_fail_transitions(arm1, arm2, parser_rule=parser_rule)
     c5 = check_c5_quadrant_correct_rate(payload)
     # C4: 止める。書き出す直前の payload そのものを走査する。checks ブロックに
     # 足す前に呼ぶのは、C4 が payload の rate_fields だけを見て checks を見ないため
@@ -749,8 +800,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--run-dir", type=Path, default=None,
         help="成果物の書き出し先。既定は runs/<timestamp>_rescore_<元 run の suffix>/",
     )
+    parser.add_argument(
+        "--parser-rule",
+        choices=sorted(EXPECTED_C3_TRANSITIONS),
+        default=PARSER_RULE_NAME,
+        help="C3 の期待値と記録に使う採点規則の名前(ADR-088 決定3)。既定は現行のパーサの規則",
+    )
     args = parser.parse_args(argv)
-    target = execute(source_run_dir=args.source_run, run_dir=args.run_dir)
+    target = execute(
+        source_run_dir=args.source_run, run_dir=args.run_dir, parser_rule=args.parser_rule
+    )
     print(f"再採点の成果物: {target}")
     return 0
 

@@ -1,0 +1,337 @@
+{
+  "by_batch": {
+    "comparison": {
+      "correct": {
+        "correct": 250,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 390,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "comparison.ans_out": {
+      "correct": {
+        "correct": 139,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 181,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "bare_sum": {
+      "correct": {
+        "correct": 160,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "bare_sum.ans_out": {
+      "correct": {
+        "correct": 78,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 2,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "bare_sum_instructed": {
+      "correct": {
+        "correct": 80,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "word_problem": {
+      "correct": {
+        "correct": 160,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "word_problem.ans_out": {
+      "correct": {
+        "correct": 80,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "spec_sub": {
+      "correct": {
+        "correct": 59,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 1,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "spec_mul": {
+      "correct": {
+        "correct": 43,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "rule": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "other_error": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 16,
+        "parse_fail": 0
+      },
+      "parse_fail": {
+        "correct": 1,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    }
+  },
+  "total": {
+    "correct": {
+      "correct": 1049,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "rule": {
+      "correct": 0,
+      "rule": 571,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "other_error": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 17,
+      "parse_fail": 0
+    },
+    "parse_fail": {
+      "correct": 3,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    }
+  },
+  "c3_parse_fail_transitions": {
+    "expected": {
+      "correct": 3,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "actual_total": {
+      "correct": 3,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "actual_by_batch": {
+      "comparison": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "comparison.ans_out": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "bare_sum": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "bare_sum.ans_out": {
+        "correct": 2,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "bare_sum_instructed": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "word_problem": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "word_problem.ans_out": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "spec_sub": {
+        "correct": 0,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      },
+      "spec_mul": {
+        "correct": 1,
+        "rule": 0,
+        "other_error": 0,
+        "parse_fail": 0
+      }
+    },
+    "matches": true,
+    "status": "pass",
+    "message": null
+  }
+}

@@ -1054,6 +1054,39 @@ def forced_choice_response_text(choice: Any) -> str:
     )
 
 
+def batch_metrics_record(
+    group: str,
+    scoring: str,
+    responses: Sequence[ItemResponse],
+    reference_rule: str,
+) -> dict[str, Any]:
+    """1採点バッチの `metrics.json` の中身(4値分解 + 二値群の常答戦略)。
+
+    答える問い: 「このバッチの応答は、どの参照規則から見て 4 値にどう分かれたか」
+
+    **本実行(`evaluate_batch`)と再採点(`code/eval/rescore_run.py`)が同じ関数を通る。**
+    集計の式を2箇所に持つと、片方だけを直したときに再採点の `by_batch` が本実行と
+    食い違っても誰も気づかない(PLAN-027 §6)。
+    """
+    metrics: dict[str, Any] = {
+        "group": group,
+        "scoring": scoring,
+        "n_items": len(responses),
+        **metrics_by_reference_rule(responses, reference_rule),
+    }
+    if group == t3_comparison.GROUP:
+        # 強制選択なら parse_fail / other_error は構造上 0(ADR-047 決定4)。
+        # 0 でなければ実装バグ —— 合計 1.0 の検査に足す(PLAN-007 §4-4)。
+        assert_collapsed_to_binary(metrics["by_reference_rule"])
+        # 二値項目だけの話である(PLAN-001 §5.1)。**実測がこの理論値を
+        # 超えていることを必ず確認する。**強制選択でも「常に Yes」に倒れうる。
+        metrics["constant_answer_baselines"] = {
+            "always_yes": constant_answer_baseline(responses, True, reference_rule).as_dict(),
+            "always_no": constant_answer_baseline(responses, False, reference_rule).as_dict(),
+        }
+    return metrics
+
+
 def evaluate_batch(
     name: str,
     group: str,
@@ -1114,22 +1147,7 @@ def evaluate_batch(
         ]
         scoring = SCORING_FREE_GENERATION
 
-    metrics: dict[str, Any] = {
-        "group": group,
-        "scoring": scoring,
-        "n_items": len(ordered),
-        **metrics_by_reference_rule(responses, reference_rule),
-    }
-    if group == t3_comparison.GROUP:
-        # 強制選択なら parse_fail / other_error は構造上 0(ADR-047 決定4)。
-        # 0 でなければ実装バグ —— 合計 1.0 の検査に足す(PLAN-007 §4-4)。
-        assert_collapsed_to_binary(metrics["by_reference_rule"])
-        # 二値項目だけの話である(PLAN-001 §5.1)。**実測がこの理論値を
-        # 超えていることを必ず確認する。**強制選択でも「常に Yes」に倒れうる。
-        metrics["constant_answer_baselines"] = {
-            "always_yes": constant_answer_baseline(responses, True, reference_rule).as_dict(),
-            "always_no": constant_answer_baseline(responses, False, reference_rule).as_dict(),
-        }
+    metrics = batch_metrics_record(group, scoring, responses, reference_rule)
     records = [
         prediction_record(
             item,

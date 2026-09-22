@@ -1,0 +1,88 @@
+{
+  "magnitude": {
+    "correct": {
+      "correct": 10125,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "rule": {
+      "correct": 0,
+      "rule": 26,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "other_error": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 591,
+      "parse_fail": 0
+    },
+    "parse_fail": {
+      "correct": 1752,
+      "rule": 0,
+      "other_error": 184,
+      "parse_fail": 322
+    }
+  },
+  "quadrant": {
+    "correct": {
+      "correct": 6838,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "rule": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 0,
+      "parse_fail": 0
+    },
+    "other_error": {
+      "correct": 0,
+      "rule": 0,
+      "other_error": 2,
+      "parse_fail": 0
+    },
+    "parse_fail": {
+      "correct": 154,
+      "rule": 0,
+      "other_error": 5,
+      "parse_fail": 1
+    }
+  },
+  "c3_parse_fail_transitions": {
+    "parser_rule": "unanimous_integer+f140",
+    "expected": {
+      "quadrant": {
+        "correct": 154,
+        "other_error": 5,
+        "rule": 0,
+        "parse_fail": 1
+      },
+      "magnitude": {
+        "correct": 1752,
+        "other_error": 184,
+        "rule": 0,
+        "parse_fail": 322
+      }
+    },
+    "actual": {
+      "magnitude": {
+        "correct": 1752,
+        "rule": 0,
+        "other_error": 184,
+        "parse_fail": 322
+      },
+      "quadrant": {
+        "correct": 154,
+        "rule": 0,
+        "other_error": 5,
+        "parse_fail": 1
+      }
+    },
+    "matches": true,
+    "status": "pass",
+    "message": null
+  }
+}

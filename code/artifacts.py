@@ -36,6 +36,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNS_ROOT = REPO_ROOT / "runs"
 
 PREDICTIONS_DIR = "predictions"
+# 4値分解を書くファイルの名前。`code/analysis/` 側は run ディレクトリからこの
+# ファイルを指して読む(`frame.load_run` / `gonogo.run_report`)ので、名前を
+# 1箇所に置く。
+METRICS_FILE = "metrics.json"
 # 学習済み LoRA アダプタの置き場所(ADR-043 決定2)。**中身はアダプタ重みのみ**
 # (`adapter_model.safetensors` + `adapter_config.json`)。optimizer state と
 # スケジューラ状態は残さない —— 訓練を再開しないためである(同 決定1)。
@@ -188,7 +192,7 @@ def read_metrics(run_dir: Path) -> dict[str, Any]:
     評価が**アダプタの出どころ**を引くために要る(ADR-043 決定3)——
     評価 run の `seed` 欄は、そのアダプタを作った訓練 run から来る。
     """
-    path = run_dir / "metrics.json"
+    path = run_dir / METRICS_FILE
     if not path.is_file():
         raise FileNotFoundError(f"{path} が無い")
     return json.loads(path.read_text(encoding="utf-8"))
@@ -258,7 +262,7 @@ def write_timestamps(run_dir: Path, *, started: datetime, ended: datetime) -> No
 
 def write_metrics(run_dir: Path, payload: Mapping[str, Any]) -> Path:
     """全指標の生値。**これは実験結果である**(--dry-run の出力とは違う)。"""
-    path = run_dir / "metrics.json"
+    path = run_dir / METRICS_FILE
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
 

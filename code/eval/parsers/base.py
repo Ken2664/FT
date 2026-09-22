@@ -199,3 +199,41 @@ def unanimous_integer(text: str) -> int | None:
     if len(set(tokens)) != 1:
         return None
     return tokens[0]
+
+
+# --------------------------------------------------------------------------
+# 言い切りの文からの抽出(★F140。規則 C。ADR-078 決定11 / ADR-088 決定1)
+# --------------------------------------------------------------------------
+
+# 「... is N.」で言い切る応答の錨。**`ANSWER_MARKERS` には足さない** —— 足すと
+# 「印の後ろにさらに is が来る」形(`The answer is 7, which is correct.` = 現行 7)を
+# 壊す(PLAN-027 §3.3。候補 A を採らなかった理由)。ここは numeric.parse が値を
+# 返せなかったときだけ通る道であり、現行で読めている応答には触らない。
+#
+# 語境界を要求するのは `This` / `basis` / `history` の中の is で錨を打たないため
+# である(2026-09-22 その71 の実装判断)。順5 の旧 parse_fail 924 件では語境界の
+# 有無で行き先が1件も変わらなかったが、規則としては別物である。
+_CLOSING_IS = re.compile(r"\bis\b", re.IGNORECASE)
+
+
+def closing_statement_integer(text: str) -> int | None:
+    """正規化済みの文字列の最後の `is` より後ろが1つの整数を指すなら、その値を返す。
+
+    答える問い: 「`The sum of 152 and 474 is 626.` は、どの数を主張しているか」(★F140)
+
+    **受け取るのは `normalize_text` を通した後の文字列である。**正規化は改行を
+    空白へ畳む(`_WHITESPACE`)ので、ここでの「最終の非空行」は正規化後の文字列
+    そのものを指す —— PLAN-027 §4 / ADR-088 決定1 の文面の読み方であり、
+    **2026-09-22(その71)に人間が選んだ**(PLAN-027 §3.2 の C 列 601 件の回収は
+    この読み方でのみ再現する。生応答を改行で割る読み方では 584 件になる)。
+
+    名詞表(sum / result / answer / …)を持たないのは、表の継ぎ足しが際限なく続く
+    ためである(候補 B を採らなかった理由。PLAN-027 §3.4)。その代償として
+    **`36 is negative` のような別の `is` でも錨を打つ**(ADR-088 決定1 のリスク欄)。
+    それでも `unanimous_integer` が値の違う数を弾くので、拾えるのは「錨より後ろに
+    現れる数がすべて同じ整数」のときだけである。
+    """
+    matches = list(_CLOSING_IS.finditer(text))
+    if not matches:
+        return None
+    return unanimous_integer(text[matches[-1].end() :])

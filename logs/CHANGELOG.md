@@ -6439,3 +6439,78 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   **GPU は要らない**ことと、ADR-088 のリスク欄が挙げた「規則 C は `is` でも錨を打つ(確かめたのは 2 例だけ)」を明示した
 - **ポッドは停止済みである**(`CLAUDE.md` §9 の確認項目。**`jn8bink3rkkri7` = `EXITED`。所有 8 本すべて `EXITED`**)。
   **main の push はしていない**(ahead のまま)。**`runs/preflight/` は未追跡のまま触っていない**
+
+## 2026-09-22(その71)
+
+### feat(eval): PLAN-027 §5 ★F140 の規則 C をパーサに入れ、本実行の run を採点し直す経路(rescore_run.py)を実装した(その71。ADR-088。GPU 0)   [actor: IMPLEMENTER (Opus)]
+
+- **★規則 C の「最終の非空行」の読み方が 2 通りあり、実装前に人間に諮って (1) を採った**
+  (2026-09-22 その71。**PLAN-027 §4・§9 と ADR-088 決定1 の文面は「最終の非空行」だが、
+  §3.2 の C 列・§3.4 の 48 件・ADR-088 決定1 の根拠欄「601 件を回収(B は 553 件)」は
+  すべて『正規化後の全文の最後の `is`』で測られていた**)。
+  - **実測で確かめた**(読み取りのみ。`runs/20260910_215422_rescore_sweep_m` の `predictions/`):
+    正規化後の全文 = correct **509** / other_error **92** / 残り **323**(= §3.2 の C 列に一致)/
+    生応答を改行で割る = correct **508** / other_error **76** / 残り **340**(**17 行ずれる**)。
+    候補 B でも同じで、全文 = 486/67/371(= §3.2 の B 列)・行割り = 485/65/374
+  - **人間の選択は (1) 正規化後の全文の最後の `is`。**`normalize_text` が改行を空白へ畳むので、
+    正規化後の文字列そのものが「最終の非空行」である、という読み方
+- `code/eval/parsers/base.py`: **`closing_statement_integer` を足した**(PLAN-027 §5 手順1)。
+  正規化済みの文字列の**最後の `is`(語境界つき・大小無視)**より後ろに `unanimous_integer` を掛ける。
+  **`ANSWER_MARKERS` は 1 バイトも触っていない**(候補 A を採らない。PLAN-027 §3.3)。
+  **語境界を要求するのは実装判断である**(`This` / `basis` / `history` の中の is で錨を打たない)——
+  順5 の旧 parse_fail 924 件では語境界の有無で行き先が 1 件も変わらなかった
+- `code/eval/parsers/numeric.py`: **`parse` が値を返せなかったときだけ**手順4 として委譲する(同 手順2)。
+  **現行の経路は 1 行も変えていない**ので、上位集合であることが制御の形から言える
+- `code/tests/test_parsers_numeric.py`: **+170 行**(同 手順3)。PLAN-027 §3.3 の 8 行 /
+  **候補 A なら壊れる 3 例の負例回帰**(`ANSWER_MARKERS` に `is` が無いことの固定を含む)/
+  **★ADR-088 のリスク欄が「2 例しか見ていない」と書いた「別の `is` でも錨を打つ」性質を厚く固定した**
+  (`36 is negative` / 前に別の is がある / 大小無視 / 疑問文 / 行をまたぐ / 語の中の is では打たない)/
+  補助関数の単体 / **上位集合であることの単体版**。`pytest code/tests/test_parsers_numeric.py` は **85 passed**
+- `code/eval/rescore_run.py`(**新規 836 行**): **本実行の run の再採点 CLI**(同 手順4。PLAN-027 §6)。
+  `python -m code.eval.rescore_run --source-run runs/<id>`。**GPU 0。モデルは 1 度も呼ばない。**
+  **元の run には何も書かない**(ADR-074 決定2)。
+  - **集計は `code/eval/run.py` の関数を再利用する** —— そのために `evaluate_batch` からバッチの
+    metrics を組む式を **`batch_metrics_record` に出した**(**式は 1 文字も変えていない**)
+  - **バッチの単位は `predictions/<バッチ名>.jsonl`。項目プールを読み直さない**(手元に無い run でも動く)。
+    `pool` / `coverage` / `adapter` / `preamble` / `task_subset` / `forced_choice` は元の `metrics.json` から引き写す
+  - **二値群は読み直さない**(ADR-047)。読み直すのは**真値が bool でない行**だけで、
+    全行に `parsed_before` / `classification_before` を残す
+  - **C1 / C2 / C4 は止める。C3 / C5 は止めずに人間に上げる**(PLAN-027 §6.1)。
+    **C5 は CLI の中で `code/analysis/gonogo.py` を呼ぶ**(ADR-088 決定4)。**印は置き直さない**
+  - **C1 の読み**: PLAN-027 §6.1 は「保存済みの `classification` だけから」と書くが、**行に残るのは
+    主要参照規則の分類だけ**なので、(1) 行の分類が `parsed` から引き直した分類と一致すること、
+    (2) `parsed` からの再集計が `by_batch` と**全参照規則で**一致すること、の 2 つに分けた(docstring に明記)
+- `code/eval/rescore.py`: **`EXPECTED_C3_TRANSITIONS` を採点規則ごとの 2 組にし、引数で選ぶ**
+  (ADR-088 決定3 = (a))。既定は現行のパーサの規則(`unanimous_integer+f140`)。**過去の期待値は捨てていない。**
+  **集計の式は変えていない。**`--parser-rule` を足した / `write_rescore_config` に `note` 引数
+- `code/artifacts.py`: `METRICS_FILE = "metrics.json"` を定数に出した(2 箇所の直書きを畳んだ)
+- `code/tests/test_rescore_run.py`(**新規 16 件**): 架空の run で C1〜C5 / 二値群を触らないこと /
+  元の run が 1 バイトも変わらないこと / 掃引・較正・訓練の run を拒むこと / 件数・参照規則の食い違いで
+  止まること / 見積りの表が順6 の 5 run ぶんであること
+- `code/tests/test_run_dry_run.py`: **★F140 で挙動が変わった 1 件を組み直した。**
+  `150 + 170 is 320.` は**規則 C が入るまで direct で parse_fail だった** —— いまは 320 を返す。
+  テストの意図(cot と direct で印の集合が違う)は**錨を持たない例**(`150 + 170\nTherefore 320`)で固定し直した
+
+### exp(eval): ★F140 の新パーサで 9 本の run を採点し直した(その71。旧・新を並べた。解釈はしていない)   [actor: IMPLEMENTER (Opus)]
+
+- **ADR-088 決定2(H2 = (a))の 6 本 + 順6b の本実行 3 本**を読み直した(**GPU 0**)。
+  まとめは `results/rescore_f140/summary.json`。**採否・解釈は人間**(`CLAUDE.md` §8)
+- **C1 / C2 / C4 は 9 本すべて pass。**
+  **C3 は順6 の 5 本すべてが PLAN-027 §3.2 の見積りと完全一致**(R1〜R3 correct 2 / R4 correct 3 / R5 0 件)。
+  **順5 の掃引も一致**(腕1 correct 1,752 / other_error 184 / rule 0 / 残り 322、
+  腕2 correct 154 / other_error 5 / rule 0 / 残り 1。合計は 2,258 / 160 のまま)
+- **★C5(Go/No-Go の印)は 1 つも動かなかった** —— R1〜R4 は印 **22 個**、順6b B0 は **22 個**、
+  ①(前置き)は **20 個**、(d) は **6 個**が**すべて一致**。順5 の掃引の C5(腕2 correct ≥ 0.75)も pass。
+  **R5(T2 交差)だけは Go/No-Go の表を組めない**(主軸のセルが埋まらない)ので「人間に上げる」で記録した
+- **4 値が動いたバッチ(旧 → 新。4 値すべて)**:
+  - 順6 R1〜R4・順6b B0 の **`bare_sum.ans_out`**: parse_fail .0250 → 0(R1〜R4 は correct .9750 → 1.0000)
+  - 順6 R4 の **`spec_mul`**: correct .7167 → .7333 / parse_fail .0167 → 0(other_error は .2667 のまま)
+  - **順6b B0 の `spec_mul`: correct .8000 のまま / other_error .1833 → .2000 / parse_fail .0167 → 0**
+    (**回収された 1 件は correct ではなく other_error に入った**)
+  - **順6b ①(前置き)の `bare_sum.ans_out`**: correct .9750 → .9875 / parse_fail .0250 → .0125
+    (**2 件のうち 1 件だけが回収され、1 件は parse_fail のまま**)
+  - 順6b (d) は動いた行が 1 件も無い
+- **順5 の掃引(腕1 `by_radius`)の parse_fail**: M=25 .032→.004 / M=100 .080→.024 / M=999 .080→.027。
+  correct は M=25 .943→.971 / M=100 .881→.932 / M=999 .818→.846、
+  **other_error も上がっている**(M=999 .102→.127)。**`rule` は全水準で 0 のまま動いていない**
+- **`M*` は置き直さない**(ADR-088 決定5)。**元の run の `metrics.json` / `predictions/` は 1 バイトも書き換えていない**

@@ -1,0 +1,1603 @@
+{
+  "run_id": "20260922_134116_rescore_sweep_m",
+  "kind": "magnitude_sweep",
+  "experiment_id": "exp_phase1_main",
+  "lesion_condition": "p2",
+  "adapter": null,
+  "adapter_note": "この run はアダプタを読んでいない(model.adapter が null)。数値は model.name の重みそのものに対するものであり、lesion.condition は参照規則と FT データの宣言であって読み込んだ重みを表さない。",
+  "generation": {
+    "model_name": "meta-llama/Llama-3.1-8B-Instruct",
+    "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "dtype": "bfloat16",
+    "device": "cuda:0",
+    "max_new_tokens": 256,
+    "temperature": 0.0,
+    "do_sample": false,
+    "chat_template": true,
+    "batch_size": 4
+  },
+  "elicitation": "direct",
+  "reference_rule": "p2",
+  "pool_id": "main",
+  "sweep": {
+    "radii": [
+      25,
+      50,
+      75,
+      99,
+      100,
+      110,
+      125,
+      150,
+      175,
+      200,
+      300,
+      500,
+      999
+    ],
+    "n_items_per_radius": 200,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "timing": {
+    "started_utc": "2026-09-22T13:41:16.378070+00:00",
+    "ended_utc": "2026-09-22T13:41:18.470114+00:00",
+    "total_seconds": 2.092,
+    "model_load_seconds": 0.0,
+    "generation_seconds": 2.075,
+    "n_items": 20000,
+    "seconds_per_item": 0.0
+  },
+  "roles": {
+    "by_radius": "description",
+    "grid_shell": "description",
+    "quadrant": "judgement_input"
+  },
+  "correct_rate_by_radius": {
+    "25": 0.9709999999999999,
+    "50": 0.9380000000000001,
+    "75": 0.9490000000000001,
+    "99": 0.9369999999999999,
+    "100": 0.932,
+    "110": 0.937,
+    "125": 0.93,
+    "150": 0.9120000000000001,
+    "175": 0.898,
+    "200": 0.8960000000000001,
+    "300": 0.853,
+    "500": 0.8779999999999999,
+    "999": 0.8459999999999999
+  },
+  "by_radius": [
+    {
+      "radius": 25,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.9709999999999999,
+      "rule_rate": 0.009,
+      "other_error_rate": 0.016,
+      "parse_fail_rate": 0.004,
+      "seed_sd": {
+        "correct_rate": 0.008944271909999166,
+        "rule_rate": 0.008215838362577492,
+        "other_error_rate": 0.008215838362577492,
+        "parse_fail_rate": 0.00223606797749979
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.96,
+          "rule_rate": 0.02,
+          "other_error_rate": 0.015,
+          "parse_fail_rate": 0.005,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.98,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.01,
+          "parse_fail_rate": 0.005,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.98,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.01,
+          "parse_fail_rate": 0.005,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.97,
+          "rule_rate": 0.015,
+          "other_error_rate": 0.015,
+          "parse_fail_rate": 0.0,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.965,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.03,
+          "parse_fail_rate": 0.005,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 50,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.9380000000000001,
+      "rule_rate": 0.007000000000000001,
+      "other_error_rate": 0.026000000000000002,
+      "parse_fail_rate": 0.029000000000000005,
+      "seed_sd": {
+        "correct_rate": 0.027064737205448684,
+        "rule_rate": 0.00447213595499958,
+        "other_error_rate": 0.015572411502397437,
+        "parse_fail_rate": 0.013874436925511609
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.92,
+          "rule_rate": 0.01,
+          "other_error_rate": 0.04,
+          "parse_fail_rate": 0.03,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.925,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.03,
+          "parse_fail_rate": 0.04,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.915,
+          "rule_rate": 0.01,
+          "other_error_rate": 0.04,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.95,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.015,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.98,
+          "rule_rate": 0.01,
+          "other_error_rate": 0.005,
+          "parse_fail_rate": 0.005,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 75,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.9490000000000001,
+      "rule_rate": 0.003,
+      "other_error_rate": 0.028000000000000004,
+      "parse_fail_rate": 0.02,
+      "seed_sd": {
+        "correct_rate": 0.012942179105544755,
+        "rule_rate": 0.0027386127875258306,
+        "other_error_rate": 0.01095445115010332,
+        "parse_fail_rate": 0.005000000000000001
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.95,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.025,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.955,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.03,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.93,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.045,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.945,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.025,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.965,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.015,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 99,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.9369999999999999,
+      "rule_rate": 0.002,
+      "other_error_rate": 0.04,
+      "parse_fail_rate": 0.021,
+      "seed_sd": {
+        "correct_rate": 0.027294688127912338,
+        "rule_rate": 0.0027386127875258306,
+        "other_error_rate": 0.028939592256975562,
+        "parse_fail_rate": 0.008215838362577494
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.94,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.02,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.945,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.04,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.96,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.025,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.95,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.025,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.89,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.09,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 100,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.932,
+      "rule_rate": 0.001,
+      "other_error_rate": 0.043,
+      "parse_fail_rate": 0.024,
+      "seed_sd": {
+        "correct_rate": 0.00974679434480895,
+        "rule_rate": 0.00223606797749979,
+        "other_error_rate": 0.007582875444051549,
+        "parse_fail_rate": 0.00547722557505166
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.935,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.045,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.915,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.055,
+          "parse_fail_rate": 0.03,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.935,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.04,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.94,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.04,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.935,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.035,
+          "parse_fail_rate": 0.03,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 110,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.937,
+      "rule_rate": 0.0,
+      "other_error_rate": 0.041999999999999996,
+      "parse_fail_rate": 0.020999999999999998,
+      "seed_sd": {
+        "correct_rate": 0.019557607215607918,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.01680773631397161,
+        "parse_fail_rate": 0.012942179105544785
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.97,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.015,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.935,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.06,
+          "parse_fail_rate": 0.005,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.92,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.04,
+          "parse_fail_rate": 0.04,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.935,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.045,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.925,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.05,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 125,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.93,
+      "rule_rate": 0.001,
+      "other_error_rate": 0.048,
+      "parse_fail_rate": 0.020999999999999998,
+      "seed_sd": {
+        "correct_rate": 0.01541103500742241,
+        "rule_rate": 0.00223606797749979,
+        "other_error_rate": 0.014832396974191326,
+        "parse_fail_rate": 0.006519202405202649
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.955,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.025,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.92,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.065,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.93,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.045,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.915,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.05,
+          "parse_fail_rate": 0.03,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.93,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.055,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 150,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.9120000000000001,
+      "rule_rate": 0.001,
+      "other_error_rate": 0.062,
+      "parse_fail_rate": 0.025,
+      "seed_sd": {
+        "correct_rate": 0.01717556403731764,
+        "rule_rate": 0.00223606797749979,
+        "other_error_rate": 0.02361143790623519,
+        "parse_fail_rate": 0.017677669529663688
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.905,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.04,
+          "parse_fail_rate": 0.05,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.94,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.045,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.905,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.09,
+          "parse_fail_rate": 0.005,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.915,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.05,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.895,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.085,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 175,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.898,
+      "rule_rate": 0.001,
+      "other_error_rate": 0.065,
+      "parse_fail_rate": 0.036,
+      "seed_sd": {
+        "correct_rate": 0.02949576240750524,
+        "rule_rate": 0.00223606797749979,
+        "other_error_rate": 0.030822070014844882,
+        "parse_fail_rate": 0.010246950765959597
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.865,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.09,
+          "parse_fail_rate": 0.045,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.94,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.02,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.915,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.05,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.885,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.095,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.885,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.07,
+          "parse_fail_rate": 0.045,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 200,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.8960000000000001,
+      "rule_rate": 0.0,
+      "other_error_rate": 0.08,
+      "parse_fail_rate": 0.024,
+      "seed_sd": {
+        "correct_rate": 0.022748626332154673,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.018027756377319945,
+        "parse_fail_rate": 0.009617692030835673
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.91,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.065,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.88,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.085,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.905,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.085,
+          "parse_fail_rate": 0.01,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.865,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.105,
+          "parse_fail_rate": 0.03,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.92,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.06,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 300,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.853,
+      "rule_rate": 0.001,
+      "other_error_rate": 0.101,
+      "parse_fail_rate": 0.045,
+      "seed_sd": {
+        "correct_rate": 0.015652475842498542,
+        "rule_rate": 0.00223606797749979,
+        "other_error_rate": 0.016355427233796124,
+        "parse_fail_rate": 0.006123724356957945
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.86,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.09,
+          "parse_fail_rate": 0.05,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.87,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.095,
+          "parse_fail_rate": 0.035,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.86,
+          "rule_rate": 0.005,
+          "other_error_rate": 0.085,
+          "parse_fail_rate": 0.05,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.845,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.11,
+          "parse_fail_rate": 0.045,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.83,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.125,
+          "parse_fail_rate": 0.045,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 500,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.8779999999999999,
+      "rule_rate": 0.0,
+      "other_error_rate": 0.097,
+      "parse_fail_rate": 0.025,
+      "seed_sd": {
+        "correct_rate": 0.018234582528810484,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.007582875444051548,
+        "parse_fail_rate": 0.015000000000000001
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.85,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.1,
+          "parse_fail_rate": 0.05,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.89,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.1,
+          "parse_fail_rate": 0.01,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.87,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.105,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.885,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.095,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.895,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.085,
+          "parse_fail_rate": 0.02,
+          "n_items": 200
+        }
+      ]
+    },
+    {
+      "radius": 999,
+      "reference_rule": "p2",
+      "n_seeds": 5,
+      "n_items_per_seed": 200,
+      "n_items": 1000,
+      "correct_rate": 0.8459999999999999,
+      "rule_rate": 0.0,
+      "other_error_rate": 0.127,
+      "parse_fail_rate": 0.027000000000000003,
+      "seed_sd": {
+        "correct_rate": 0.021621748310439674,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.02659887215654078,
+        "parse_fail_rate": 0.009082951062292476
+      },
+      "by_seed": [
+        {
+          "seed": 0,
+          "correct_rate": 0.86,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.115,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        },
+        {
+          "seed": 1,
+          "correct_rate": 0.87,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.105,
+          "parse_fail_rate": 0.025,
+          "n_items": 200
+        },
+        {
+          "seed": 2,
+          "correct_rate": 0.835,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.135,
+          "parse_fail_rate": 0.03,
+          "n_items": 200
+        },
+        {
+          "seed": 3,
+          "correct_rate": 0.85,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.11,
+          "parse_fail_rate": 0.04,
+          "n_items": 200
+        },
+        {
+          "seed": 4,
+          "correct_rate": 0.815,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.17,
+          "parse_fail_rate": 0.015,
+          "n_items": 200
+        }
+      ]
+    }
+  ],
+  "grid_shell": {
+    "definition": "grid",
+    "aggregation": "pooled_over_seeds",
+    "by_radius": [
+      {
+        "radius": 25,
+        "previous_radius": null,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          200,
+          200,
+          200,
+          200,
+          200
+        ],
+        "correct_rate": 0.971,
+        "rule_rate": 0.009,
+        "other_error_rate": 0.016,
+        "parse_fail_rate": 0.004,
+        "n_items": 1000
+      },
+      {
+        "radius": 50,
+        "previous_radius": 25,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          155,
+          147,
+          155,
+          145,
+          154
+        ],
+        "correct_rate": 0.9338624338624338,
+        "rule_rate": 0.0026455026455026454,
+        "other_error_rate": 0.026455026455026454,
+        "parse_fail_rate": 0.037037037037037035,
+        "n_items": 756
+      },
+      {
+        "radius": 75,
+        "previous_radius": 50,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          111,
+          116,
+          124,
+          117,
+          115
+        ],
+        "correct_rate": 0.9554030874785592,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.029159519725557463,
+        "parse_fail_rate": 0.015437392795883362,
+        "n_items": 583
+      },
+      {
+        "radius": 99,
+        "previous_radius": 75,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          83,
+          91,
+          101,
+          79,
+          84
+        ],
+        "correct_rate": 0.9246575342465754,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.05707762557077625,
+        "parse_fail_rate": 0.0182648401826484,
+        "n_items": 438
+      },
+      {
+        "radius": 100,
+        "previous_radius": 99,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          6,
+          2,
+          5,
+          4,
+          6
+        ],
+        "correct_rate": 1.0,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.0,
+        "parse_fail_rate": 0.0,
+        "n_items": 23
+      },
+      {
+        "radius": 110,
+        "previous_radius": 100,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          34,
+          34,
+          39,
+          40,
+          44
+        ],
+        "correct_rate": 0.9057591623036649,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.07853403141361257,
+        "parse_fail_rate": 0.015706806282722512,
+        "n_items": 191
+      },
+      {
+        "radius": 125,
+        "previous_radius": 110,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          58,
+          55,
+          41,
+          43,
+          45
+        ],
+        "correct_rate": 0.8966942148760331,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.08677685950413223,
+        "parse_fail_rate": 0.01652892561983471,
+        "n_items": 242
+      },
+      {
+        "radius": 150,
+        "previous_radius": 125,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          73,
+          68,
+          55,
+          62,
+          72
+        ],
+        "correct_rate": 0.8848484848484849,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.07878787878787878,
+        "parse_fail_rate": 0.03636363636363636,
+        "n_items": 330
+      },
+      {
+        "radius": 175,
+        "previous_radius": 150,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          52,
+          52,
+          40,
+          62,
+          49
+        ],
+        "correct_rate": 0.8392156862745098,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.12156862745098039,
+        "parse_fail_rate": 0.0392156862745098,
+        "n_items": 255
+      },
+      {
+        "radius": 200,
+        "previous_radius": 175,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          55,
+          47,
+          46,
+          42,
+          49
+        ],
+        "correct_rate": 0.8493723849372385,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.1297071129707113,
+        "parse_fail_rate": 0.02092050209205021,
+        "n_items": 239
+      },
+      {
+        "radius": 300,
+        "previous_radius": 200,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          108,
+          109,
+          114,
+          106,
+          114
+        ],
+        "correct_rate": 0.8366606170598911,
+        "rule_rate": 0.0018148820326678765,
+        "other_error_rate": 0.10344827586206896,
+        "parse_fail_rate": 0.05807622504537205,
+        "n_items": 551
+      },
+      {
+        "radius": 500,
+        "previous_radius": 300,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          123,
+          131,
+          129,
+          125,
+          111
+        ],
+        "correct_rate": 0.8788368336025848,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.10177705977382875,
+        "parse_fail_rate": 0.01938610662358643,
+        "n_items": 619
+      },
+      {
+        "radius": 999,
+        "previous_radius": 500,
+        "reference_rule": "p2",
+        "n_items_by_seed": [
+          148,
+          154,
+          144,
+          151,
+          157
+        ],
+        "correct_rate": 0.8461538461538461,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.13262599469496023,
+        "parse_fail_rate": 0.021220159151193633,
+        "n_items": 754
+      }
+    ]
+  },
+  "quadrant": {
+    "shell": {
+      "definition": "extrap_magnitude_quadrant",
+      "n_items_per_radius": 200,
+      "radii": [
+        125,
+        150,
+        175,
+        200,
+        300,
+        500,
+        999
+      ],
+      "judgement_radii": [
+        125,
+        150,
+        175,
+        200,
+        300,
+        500,
+        999
+      ],
+      "main_radius": 99,
+      "population_sizes": {
+        "125": 676,
+        "150": 2601,
+        "175": 5776,
+        "200": 10201,
+        "300": 40401,
+        "500": 160801,
+        "999": 810000
+      }
+    },
+    "correct_rate_by_radius": {
+      "125": 1.0,
+      "150": 1.0,
+      "175": 1.0,
+      "200": 1.0,
+      "300": 0.999,
+      "500": 0.998,
+      "999": 0.9949999999999999
+    },
+    "by_radius": [
+      {
+        "radius": 125,
+        "reference_rule": "p2",
+        "n_seeds": 5,
+        "n_items_per_seed": 200,
+        "n_items": 1000,
+        "correct_rate": 1.0,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.0,
+        "parse_fail_rate": 0.0,
+        "seed_sd": {
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "by_seed": [
+          {
+            "seed": 0,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 1,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 2,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 3,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 4,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          }
+        ],
+        "population_size": 676
+      },
+      {
+        "radius": 150,
+        "reference_rule": "p2",
+        "n_seeds": 5,
+        "n_items_per_seed": 200,
+        "n_items": 1000,
+        "correct_rate": 1.0,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.0,
+        "parse_fail_rate": 0.0,
+        "seed_sd": {
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "by_seed": [
+          {
+            "seed": 0,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 1,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 2,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 3,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 4,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          }
+        ],
+        "population_size": 2601
+      },
+      {
+        "radius": 175,
+        "reference_rule": "p2",
+        "n_seeds": 5,
+        "n_items_per_seed": 200,
+        "n_items": 1000,
+        "correct_rate": 1.0,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.0,
+        "parse_fail_rate": 0.0,
+        "seed_sd": {
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "by_seed": [
+          {
+            "seed": 0,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 1,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 2,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 3,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 4,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          }
+        ],
+        "population_size": 5776
+      },
+      {
+        "radius": 200,
+        "reference_rule": "p2",
+        "n_seeds": 5,
+        "n_items_per_seed": 200,
+        "n_items": 1000,
+        "correct_rate": 1.0,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.0,
+        "parse_fail_rate": 0.0,
+        "seed_sd": {
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "by_seed": [
+          {
+            "seed": 0,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 1,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 2,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 3,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 4,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          }
+        ],
+        "population_size": 10201
+      },
+      {
+        "radius": 300,
+        "reference_rule": "p2",
+        "n_seeds": 5,
+        "n_items_per_seed": 200,
+        "n_items": 1000,
+        "correct_rate": 0.999,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.001,
+        "parse_fail_rate": 0.0,
+        "seed_sd": {
+          "correct_rate": 0.0022360679774997916,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.00223606797749979,
+          "parse_fail_rate": 0.0
+        },
+        "by_seed": [
+          {
+            "seed": 0,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 1,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 2,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 3,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 4,
+            "correct_rate": 0.995,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.005,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          }
+        ],
+        "population_size": 40401
+      },
+      {
+        "radius": 500,
+        "reference_rule": "p2",
+        "n_seeds": 5,
+        "n_items_per_seed": 200,
+        "n_items": 1000,
+        "correct_rate": 0.998,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.002,
+        "parse_fail_rate": 0.0,
+        "seed_sd": {
+          "correct_rate": 0.002738612787525833,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0027386127875258306,
+          "parse_fail_rate": 0.0
+        },
+        "by_seed": [
+          {
+            "seed": 0,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 1,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 2,
+            "correct_rate": 0.995,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.005,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 3,
+            "correct_rate": 0.995,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.005,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 4,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          }
+        ],
+        "population_size": 160801
+      },
+      {
+        "radius": 999,
+        "reference_rule": "p2",
+        "n_seeds": 5,
+        "n_items_per_seed": 200,
+        "n_items": 1000,
+        "correct_rate": 0.9949999999999999,
+        "rule_rate": 0.0,
+        "other_error_rate": 0.004,
+        "parse_fail_rate": 0.001,
+        "seed_sd": {
+          "correct_rate": 0.0035355339059327407,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.00223606797749979,
+          "parse_fail_rate": 0.00223606797749979
+        },
+        "by_seed": [
+          {
+            "seed": 0,
+            "correct_rate": 0.995,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.005,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 1,
+            "correct_rate": 0.995,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.005,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 2,
+            "correct_rate": 0.99,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.005,
+            "parse_fail_rate": 0.005,
+            "n_items": 200
+          },
+          {
+            "seed": 3,
+            "correct_rate": 1.0,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.0,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          },
+          {
+            "seed": 4,
+            "correct_rate": 0.995,
+            "rule_rate": 0.0,
+            "other_error_rate": 0.005,
+            "parse_fail_rate": 0.0,
+            "n_items": 200
+          }
+        ],
+        "population_size": 810000
+      }
+    ]
+  },
+  "rescore": {
+    "source_run_id": "20260910_104249_sweep_m",
+    "parser_rule": "unanimous_integer+f140",
+    "adr": "ADR-074 / ADR-088"
+  },
+  "checks": {
+    "c1_reproduces_source_metrics": {
+      "status": "pass"
+    },
+    "c2_new_parser_is_superset": {
+      "status": "pass",
+      "violations": 0
+    },
+    "c3_parse_fail_transitions": {
+      "parser_rule": "unanimous_integer+f140",
+      "expected": {
+        "quadrant": {
+          "correct": 154,
+          "other_error": 5,
+          "rule": 0,
+          "parse_fail": 1
+        },
+        "magnitude": {
+          "correct": 1752,
+          "other_error": 184,
+          "rule": 0,
+          "parse_fail": 322
+        }
+      },
+      "actual": {
+        "magnitude": {
+          "correct": 1752,
+          "rule": 0,
+          "other_error": 184,
+          "parse_fail": 322
+        },
+        "quadrant": {
+          "correct": 154,
+          "rule": 0,
+          "other_error": 5,
+          "parse_fail": 1
+        }
+      },
+      "matches": true,
+      "status": "pass",
+      "message": null
+    },
+    "c4_rates_sum_to_one": {
+      "status": "pass"
+    },
+    "c5_quadrant_correct_rate": {
+      "threshold": 0.75,
+      "correct_rate_by_radius": {
+        "125": 1.0,
+        "150": 1.0,
+        "175": 1.0,
+        "200": 1.0,
+        "300": 0.999,
+        "500": 0.998,
+        "999": 0.9949999999999999
+      },
+      "below_threshold": {},
+      "status": "pass",
+      "message": null
+    }
+  }
+}

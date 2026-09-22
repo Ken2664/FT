@@ -6187,3 +6187,64 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `logs/HANDOFF.md` を書き直した。**次のセッションは最初に「§5 を凍結してよいか」を人間に確かめ、その答えで (A) RUNNER(順6b の本実行)か (B) GPU 0 の並行作業に分岐する**形にした。
   その66 で踏んだ地雷を 1 つ足した: **CHANGELOG の日付見出しの括弧は ASCII の `(` `)` である**(全角の `）` で書いて直した)
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-22(その67)
+
+### docs(plan): PLAN-027(★F140 のパーサ + 本実行 run の再採点経路)を起草した(その67。GPU 0。code/ は未変更)   [actor: IMPLEMENTER (Opus)]
+
+- 開始手順(`CLAUDE.md` §1)を実行し、**HANDOFF の分岐に従って人間に 2 点を選択式で確かめた**。
+  人間の回答: **(1) PLAN-026 §5 は「凍結してよい(私が打つ)」/ (2) このセッションは「GPU 0: ★F140 のパーサ」**。
+  **★凍結 tag はその67 の終了時点でまだ打たれていない**(`git tag --list` が空)。**エージェントは打っていない**(その66 の決定)
+- **人間に 1 点を報告した(未修正)**: `plans/PLAN-026-order6b.md` §12 の ★F141 の行が「回す前に決める」のまま残っているが、
+  実際は **ADR-079 決定1(揃え方 (a)・完全分離 (a))と ADR-081(階段の位置 = `(L+U)/2`)で決着済**で `code/analysis/r8_fit.py` に実装がある。
+  **§12 は §5 の凍結の対象外なのでブロッカーではない。**打ち消し線を付けるかは人間の判断で、その67 では触っていない
+- **`plans/PLAN-027-f140-parser-rescore.md` を新規に起草した**(草案。ADR-078 決定11 (b) の実装 PLAN)。
+  内容: §2 決まっていること / **§3 測った事実** / §4 変更仕様 / §5 実装手順 / **§6 本実行の run の再採点 CLI と C1〜C5** /
+  §7 やらないこと / **§8 記入欄 H1〜H5(人間)** / §9 リスク / §10 完了条件
+- **§3 は読み取りだけで数えた**(回収済みの `predictions/` を候補規則で読み直しただけ。**パーサは 1 バイトも変えていない。モデルは 1 度も呼んでいない**)。
+  **公式の遷移表は実装後に §6 の CLI が出す。§3 は実装前の見積りであり、§6.1 C3 の期待値の出所である**:
+  - 候補は 3 つ —— **A** `ANSWER_MARKERS` に `is` を足す(PLAN-024 D1-F140 の「案の 1 つ」)/ **B** 現行が `None` のときだけ最終の非空行の
+    `(sum|result|answer|total|product|difference) … is` の後ろを `unanimous_integer` に掛ける / **C** 同じく最終の非空行の最後の `is` の後ろ
+  - 旧 `parse_fail` の件数と行き先(A/B/C とも全部 correct): **R1 2** [run:20260911_141547_order6_r1] /
+    **R2 2** [run:20260911_160132_order6_r2] / **R3 2** [run:20260911_160937_order6_r3] /
+    **R4 3** [run:20260911_161738_order6_r4] / **R5 0** [run:20260911_163337_order6_r5]
+  - 順5 の再採点 run は 20,000 行中 旧 `parse_fail` **924** 件(PLAN-024 §1.8 の「腕2 22 + 腕1 902」と一致)。
+    **A: correct 509 / other_error 92 / 残り 323 ・ B: correct 486 / other_error 67 / 残り 371 ・
+    C: correct 509 / other_error 92 / 残り 323** [run:20260910_215422_rescore_sweep_m]
+  - **上位集合の違反は 3 候補とも 0 件**(この 6 run の範囲で)。**既存の `test_parsers_numeric.py` の事例(正例 6・負例 15)で
+    挙動が変わったものも 3 候補とも 0 件**
+- **★候補 A を勧めない根拠を合成した境界事例で出した**(§3.3)。A は **`The answer is 7, which is correct.`(現行 7)/
+  `The answer is 12. That is my final response.`(現行 12)/ `The answer is 5 and that is it.`(現行 5)の 3 例を `None` に壊す**。
+  **B・C は「現行の経路が `None` を返したときだけ働く」ので、上位集合であることがコードの形から言える。**
+  **A の違反 0 件は「この 6 run と既存テストに例が無かった」というだけで、規則の性質ではない**
+- **B と C の差は順5 で 48 件**(B は `parse_fail` のまま / C は correct 23・other_error 25)。中身は 2 種類:
+  (i) **B の名詞表に `solution` が無い**(`Therefore, the solution to the equation 6 + (-81) is -75.`。真値 −75)/
+  (ii) **C は別の `is` でも錨を打つ**(`Since 36 is negative, we'll make the result negative as well: -75`。真値 3。モデルは −75 と答えている)。
+  **(ii) は見た 2 例では結果として「モデルが主張した値」を拾えていたが、2 例を見ただけである**(§3.4 にそう書いた)
+- **退屈な仮説の点検**(`CLAUDE.md` §7): C が雑音を拾っているなら回収された行の correct 率は周りより低く出るはずだが、
+  **C の 601 件中 correct 509(84.7%)・B の 553 件中 486(87.9%)で、順5 腕1 全体の correct 率(約 .88)と同じ水準**である。
+  **「雑音ではない」と整合するだけで証明ではない**と PLAN に明記した
+- **§6 の設計**: 新しい CLI `code/eval/rescore_run.py`(未実装)。元の run には何も書かず `runs/<timestamp>_rescore_<suffix>/` に出す /
+  **集計は `code/eval/run.py` の `metrics_payload` などを再利用して書き直さない** / **バッチの単位は `predictions/<バッチ名>.jsonl` のファイル名**
+  (項目プールを読み直さない = プールが手元に無い run でも再採点できる)/ **二値群(`comparison`)は触らない**(強制選択はパーサを通らない。ADR-047)
+- **§6.2 で 1 つ見つけた**: `code/eval/rescore.py` の `EXPECTED_C3_TRANSITIONS` は**規則2 だけ**の期待値を定数で持つので、
+  **★F140 を足した後に掃引の元 run へ掛けると C3 は必ず外れる**(止まらないが毎回「人間に上げる」印が付く)。**§8 の H3 で人間が決める**
+- **§9 にリスクを書いた**: **★順6b より先にこの実装が入ると PLAN-026 §5 の判定が新しいパーサで行われる。**
+  §5 の値(0.70)は変わらないが **#1(`parse_fail < 0.02`)の実測は下がる方向に動く。これは §8 に項が無いので人間に上げる**
+- **書き換えたのは `plans/PLAN-027-f140-parser-rescore.md`(新規)・`STATE.md`・`logs/STATE-ARCHIVE.md`・`logs/OPEN-ITEMS.md`・
+  `logs/HANDOFF.md`・`logs/CHANGELOG.md` だけである。****`code/` とテスト・本番の文面・`data/raw/`・プール・順6b の config は 1 バイトも変えていない**
+- **`pytest code/tests -q` は回していない**(`code/` に変更が無いため)。`test_repo_hygiene.py` は 7 passed。GPU 0・ポッドは触っていない・モデルは 1 度も呼ばれていない
+
+### docs(plan): セッション引き継ぎを記録(その67。PLAN-027 は草案。次は §5 の凍結 tag と PLAN-027 H1〜H5 = どちらも人間。GPU 0)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(context-guard が約 180k で警告したため切った):
+  `STATE.md` のヘッダ・「いま何をしているか」・「次のアクション」・「引き継ぎ」を差し替え、
+  **人間待ちの索引に「PLAN-027 §8 の H1〜H5」の 1 行を足した**。
+  旧ブロック 4 つは `logs/STATE-ARCHIVE.md`「その67」へ機械的に移した(**切り出した文字列をそのまま移した。1 文字も削っていない**)
+  → **402 行 / 60,348 バイト**。`test_repo_hygiene.py` 7 passed
+- `logs/OPEN-ITEMS.md` に **「PLAN-027 §8 の H1〜H5(★F140 の規則と再採点の範囲)」の行を新設した**(正本)。§3 の数え上げと推奨を含む
+- `logs/HANDOFF.md` を書き直した。**次のセッションは最初に (1) §5 の凍結 tag が打たれたか (2) PLAN-027 §8 の H1〜H5 を確かめ、
+  その答えで (A) RUNNER / (B) PLAN-027 の実装 / (C) 文書の追随 に分岐する**形にした。
+  地雷を 2 つ足した: **`code/` と `code/tests/` は CRLF、`plans/` `logs/` `STATE.md` は LF** /
+  **`python -m code.eval.rescore` は Windows で `PYTHONIOENCODING=utf-8` が要る**
+- GPU 0・ポッドは触っていない・main の push はしていない

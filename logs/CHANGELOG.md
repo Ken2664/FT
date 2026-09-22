@@ -6133,3 +6133,12 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - 書いたもの: 上記のコードとテスト / `logs/DECISIONS.md`(ADR-087)/ `plans/PLAN-026-order6b.md`(ステータス・§4.13(新)・§9 の I11)/ 本項(`STATE.md` は続く引き継ぎのコミット)
 - **やっていないこと**: I12 / dry-run / 質量の行き先の表 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結(tag)/ main の push
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+### docs(plan): セッション引き継ぎを記録(その65。PLAN-026 I11c の区切り。次は I12 = 7 本の dry-run。GPU 0)   [actor: IMPLEMENTER (Opus)]
+
+- skill `handoff`(PLAN の 1 項目の区切りと context-guard の警告(約 369k)で切った): `STATE.md` の 4 ブロック・「現在のブロッカー」の 2・「repo の状態」の pytest の行を差し替えた。
+  旧ブロックは `logs/STATE-ARCHIVE.md`「その65」へ機械的に移した(切り出した文字列をそのまま移した)→ **395 行 / 59,470 バイト**。`test_repo_hygiene.py` 7 passed。人間待ちの索引の中身は変えていない
+- `logs/HANDOFF.md` を次の IMPLEMENTER(I12 = 順6b の 7 本の dry-run と §10・§11 の run 数の修正)向けに書き直した。
+  その65 で踏んだ地雷を 2 つ足した: **`code/tests/` の一部(`test_aggregate.py` など)は worktree が CRLF なので、スクリプトで編集するときは元の改行コードを保って書き戻す** / **`
+` のようなエスケープは Bash の heredoc で化ける**
+- GPU 0・ポッドは触っていない・main の push はしていない

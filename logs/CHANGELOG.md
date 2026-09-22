@@ -6049,3 +6049,40 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   旧ブロックは `logs/STATE-ARCHIVE.md`「その63」へ scratchpad のスクリプトで機械的に移した(STATE.md から切り出した文字列をそのまま移した。検査をすべて済ませてから 1 度だけ書いた)→ 399 行 / 59 KB。`test_repo_hygiene.py` 7 passed。人間待ちの索引は変えていない
 - `logs/HANDOFF.md` を次の IMPLEMENTER(I11b = (c) の補正の適用。**最初に PLAN-026 §4.11 の 5 点を選択式で聞く**)向けに書き直した
 - GPU 0・ポッドは触っていない・main の push はしていない
+
+## 2026-09-22(その64)
+
+### feat(analysis): PLAN-026 I11b —— (c) 内容のない入力による較正の偏りを固定オフセットと掃引の記録に引く経路(ADR-086)を実装した   [actor: IMPLEMENTER (Opus)]
+
+- HANDOFF(その63)の作業 = PLAN-026 の I11b((c) の補正の適用)。CPU のみ・GPU 0・ポッドは触っていない。人間の指示は「handoffに従って作業を行ってください。人間が決定すべきところについては質問してください」
+- 開始手順 / skill `code-style` / PLAN-026 §3.5・§3.6・§3.7・§4.6・§4.9・§4.10・§4.11・§5・§6・§7・§9、ADR-085、`calibration.py`・`preamble.py`・`gonogo.py`・`r8_fit.py`・`frame.py`・`run.py` の該当箇所を読んだ
+- **人間に選択式で 5 点を聞いた = ADR-086**(提案 エージェント / 採択 人間。**5 問とも推奨**。§4.11 の「I11b・I11c の前に人間に上げること」):
+  決定1 (c) の補正は **3 腕すべて**(`b0` / `preamble` / `d`)に掛け、①+(c)・(d)+(c) は「記述であって §5 の候補ではない」と注記を固定する(**§5 の候補の集合は変えない**)/
+  決定2 C3 の近接同点は**補正後の差** `|(yes_logp − no_logp) − b| ≤ 幅` で数える /
+  決定3 掃引(R8・S)にも近接同点の件数と**除いた correct** を出す(単位はセル × 遠いオフセットの側。合否には使わない)/
+  決定4 §5 で満たす候補が無いタスク型は「候補なし」の印にし、「① の有無の食い違い」は null(**I11c**)/
+  決定5 `aggregate.py` は前置きか絞りを宣言した run を見つけたら**止める**(`frame.py` の列は変えない。**I11c**)
+- 実装の前に PLAN-026 §4.12(新)に読み 1〜8 を書いた(人間が覆せる)
+- `code/analysis/calibrated.py`(新規。解析層):
+  `load_calibration`(較正の run を読み `content_free_bias` で偏りを組む。`kind` 違い・2 つのファイルの記号の食い違いで止まる)/
+  `Calibration`・`BiasLookup`・`bias_lookup`(**腕は引数**。前置きの腕は項目ごとに `preamble.order_index` 番目の並びの `b`。鍵が無ければ止まる)/
+  `check_arm`(`data.eval_template_set` と前置きの sha256 を腕と照合して止める。ADR-085 決定3)/
+  `calibrated_forced_choice_records`(二値群の `parsed` を `calibrated_answer` に差し替え、`classification` を `scoring.classify` で付け直す。**数値群の行は変えない**)/
+  `calibrated_sweep_records`(`answer` を差し替える)/ `calibrated_gaps`(補正後の差)。
+  どちらも `yes_logp` / `no_logp` は値そのもののまま(ADR-084 決定3)で、`bias` と `gap_after` を足す。
+  **`code/eval/calibration.py` の `content_free_bias` / `calibrated_answer`(後処理の定義の正本)は 1 バイトも変えていない**
+- `code/analysis/gonogo.py`: `calibrated_run_report`(補正後の #2・#3 と感度の行。**#1 は出さない** —— 補正は数値群を動かさない。近接同点は補正後の差)/ `CALIBRATED_NEAR_TIE_NOTE`。
+  **#1〜#3 の印の付け方・`run_report` の出力は変えていない**
+- `code/analysis/r8_fit.py`: `SweepRun`・`load_sweep_run`(`run_report` から読み込みと検査を切り出した)/ `sweep_gaps`(補正前の差)/ `near_tie_table`(**セル × 遠いオフセットの側**ごとの件数と除いた correct)/ `near_tie_report`(差の引き手を引数で受け、補正の前後を暗黙にしない)/ `calibrated_run_report` / `_near_tie_lines`。
+  `run_report` は**幅を宣言した run で `near_tie` 欄が増えた**(当てはめ・除外件数・遠いオフセットの correct は `fit_records` のまま)
+- テスト: `code/tests/test_calibrated.py`(新規 39)。
+  **パイロット用プールと S の掃引プールを tmp に書き、固定オフセット 3 腕(B0・①・(d))・S の掃引・(c) の較正を固定応答で本実行した run**で、
+  偏りが植えた値と一致すること / 並びごとに違う `b` を引くこと / 数値群の行と `yes_logp` / `no_logp` が変わらないこと /
+  補正で動いたのが「植えた近接同点のうち gt の行」だけであること / 補正後のセルの4値と近接同点の件数を数え直して一致すること /
+  掃引で `answer` だけが差し替わり、遠いオフセットの correct が補正前の 1.0 から下がること / セル × 側の件数と除いた correct を数え直すこと /
+  腕の取り違え(文面の組・前置きの有無・sha256)で止まること / 壊れた行(欄の欠け・NaN・重複)で止まること。**数値は実験結果ではない**
+- **変異を 26 個注入し、それぞれ `test_calibrated.py` が落ちることを確かめた**(最初は 5 個がすり抜けた —— 来歴が他の腕の偏りも並べる / 掃引の近接同点の境界(`<=`)/ 掃引の側が空 / 掃引の差の重複 / 補正後の掃引の近接同点を補正前の差で数える。テストを 4 つ足して 5 個とも落ちることを確かめた。scratchpad のスクリプト。終わった後に 3 つのファイルが元のバイト列と一致することを確かめた)
+- `pytest code/tests -q` → **1402 passed**(1363 → +39。全体で 4 分 17 秒)
+- 書いたもの: 上記のコードとテスト / `logs/DECISIONS.md`(ADR-086)/ `plans/PLAN-026-order6b.md`(ステータス・§4.12(新)・§9 の I11)/ 本項(`STATE.md` は続く引き継ぎのコミット)
+- **やっていないこと**: I11c(§5 の判定表の CLI `order6b_select.py`・決定4 の「候補なし」の印・決定5 の `aggregate.py` の守り)/ I12 / 質量の行き先の表 / §10・§11 の run 数の書き換え(6 → 7)/ §5 の凍結 / main の push
+- GPU 0・ポッドは触っていない・main の push はしていない

@@ -11,7 +11,8 @@
   → **★2026-09-16(その60)I8 済み**(絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / (d) のテンプレート集合 `configs/templates/order6b_d.yaml` / config 3 本(固定 ①・固定 (d)・S-(d))。§4.8)。~~**次は I9**(**前に (c) の綴りを原典で確かめる**)~~
   → **★2026-09-16(その61)I9 済み**((c) の綴りを原典で確認 = 一致 / 空文字は literal・3 種は生の確率を平均してから正規化 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py` / `configs/exp_order6b_c.yaml`(306 件)。§3.5 の追記・§4.9)。~~**次は I10・I11**(上位 k・判定表)~~
   → **★2026-09-16(その62)I10 済み**(最初の出力位置の上位 k の記録。k の置き場所・綴りの形・固定オフセットの行の欄 = ADR-084(人間が選択式で採択)/ `eval.forced_choice_top_k: 20` を順6b の config 7 本に / 3 経路の行に `top_k`・`top_k_mass`。§4.10)。~~**次は I11**(判定表・極性別の参照線・(c) の補正を順6b の項目と R8 に掛ける経路)~~
-  → **★2026-09-16(その63)I11a 済み**(I11 を 3 つに分けた = ADR-085(人間が選択式で採択)。run 単位の表 = `gonogo.py` の解いたタスク型のセル・腕を見分ける欄・極性別の参照線・近接同点の感度の行 / `gonogo.near_tie_margin: 0.25` を順6b の config 7 本に。§4.11)。**次は I11b**((c) の補正の適用。**前に §4.11 の「I11b・I11c の前に人間に上げること」を聞く**)
+  → **★2026-09-16(その63)I11a 済み**(I11 を 3 つに分けた = ADR-085(人間が選択式で採択)。run 単位の表 = `gonogo.py` の解いたタスク型のセル・腕を見分ける欄・極性別の参照線・近接同点の感度の行 / `gonogo.near_tie_margin: 0.25` を順6b の config 7 本に。§4.11)
+  → **★2026-09-22(その64)I11b 済み**((c) の補正の適用。5 点の決着 = ADR-086(人間が選択式で採択。3 腕すべてに掛ける / C3 の近接同点は補正後の差 / 掃引にも感度の行 / 候補なしは別の印 / `aggregate.py` は止める)/ `code/analysis/calibrated.py`・`gonogo.calibrated_run_report`・`r8_fit.near_tie_table` と `calibrated_run_report`。§4.12)。**次は I11c**(§5 の判定表の CLI・決定4 の印・決定5 の守り)
   人間の回答は「全て推奨を採用。G6は(b)」。**~~G14 は未記入(推奨が無かった)~~ → その55 に人間が「確定」と記入(ADR-080 決定1)、G17 の承認はエージェントの読み**(ADR-079 決定10)。記入欄は §13。GPU の承認は §11 の文面で、実装・dry-run・§5 の凍結の後に別に取る
 - 正本: **ADR-078**(決定1・2・5・7・8・10)/ **ADR-079**(本 PLAN のレビュー)/ ADR-030(R8。決定6 は ADR-079 決定1 で改めた)/ PLAN-025 §3.1・§3.4・§5 / PLAN-024 §1.3・§3 D2 (c) / PLAN-001 §4.6
 - 材料: `plans/PLAN-026-materials.md`(その51。**この PLAN に写した行番号は原典を開いて照合した**。材料 §B2 に誤りが 1 つあった → §4.1)
@@ -456,6 +457,40 @@
   テストは合成の行に加えて、**パイロット用プールを tmp に書き、B0・①・(d) の config で固定応答の本実行をした run**(二値群の項目の 1/5 に差 +0.125 の近接同点を置く)で、来歴の欄・セルの数・#1 の群・近接同点の件数・除いた #2・極性別の Yes の件数を数え直した(**数値は実験結果ではない**)。
   **変異を 25 個注入し、24 個が `test_gonogo.py` で落ちた。すり抜けた 1 個(除いた #2 の印を `<=` にする)は境界 0.70 のテストを足して落ちることを確かめた**(scratchpad のスクリプト。終わった後に `gonogo.py` が元のバイト列と一致することを確かめた)。`pytest code/tests -q` → **1363 passed**(1325 → +38)
 
+### 4.12 I11b の実装で決めたこと(★2026-09-22 その64。IMPLEMENTER。**5 点の決着は ADR-086(人間が選択式で採択。5 問とも推奨)。下の読み 1〜8 は実装の読みで、人間が覆せる**)
+
+- **人間の選択(ADR-086。§4.11 の「I11b・I11c の前に人間に上げること」5 点)**:
+  決定1 **(c) の補正は 3 腕すべて(`b0` / `preamble` / `d`)に掛け、①+(c)・(d)+(c) は「記述であって §5 の候補ではない」と注記を固定する**(§5 の候補の集合は変えない)/
+  決定2 **C3 の近接同点は補正後の差 `|(yes_logp − no_logp) − b| ≤ 幅` で数える**(除いた #2 も補正後の分類で)/
+  決定3 **掃引(R8・S)にも近接同点の件数と、それを除いた correct を出す**(単位はセル × 遠いオフセットの側。合否には使わない)/
+  決定4 **§5 で満たす候補が 1 つも無いタスク型は「候補なし」の印を立て、「① の有無の食い違い」の印は null にする**(**I11c**)/
+  決定5 **`aggregate.py` は前置きか絞りを宣言した run を見つけたら止める**(`frame.py` の列は変えない。**I11c**)
+- **I11b((c) の補正の適用。その64)の読み**:
+  - **読み1(置き場所)**: 較正の run を読んで偏りを引く経路は**解析層の新しいモジュール `code/analysis/calibrated.py`** に置く。
+    `code/eval/calibration.py` の `content_free_bias` / `calibrated_answer`(後処理の定義の正本。ADR-083 決定2)は **1 バイトも変えない** —— 定義を 2 か所に置かない。
+    補正後の run 単位の表は `gonogo.py`(固定オフセット)と `r8_fit.py`(掃引)に足す(ADR-085 決定2 の「`gonogo.py` は run 単位の表だけを広げる」に沿う)。**I11c の CLI 本体はまだ作らない**
+  - **読み2(腕の照合)**: `bias_lookup(calibration, arm)` は**腕の名前を引数で**受け、較正の run の宣言から `template_set` と `preamble` の別を引く。
+    補正を掛ける側の run は、`config.yaml` の `data.eval_template_set` が腕の `template_set` と一致し、`metrics.json` の `preamble`(`sha256`)が腕の前置きの有無・中身と一致することを確かめてから掛ける。
+    **食い違えば止める**(別の文面の定数を引くのは取り違え)。**名前(`experiment_id`・ディレクトリ名)からは推測しない**(ADR-085 決定3 と同じ方針)
+  - **読み3(並び)**: 前置きの腕では、項目ごとに `preamble.order_index(item_id, 行数)` 番目の並びの `b` を引く(§4.9 読み7)。前置きの無い腕の鍵は `preamble_order = null`。
+    **鍵(腕 × category × 並び)が無ければ止める** —— 並びをまたいで平均した `b` は作らない
+  - **読み4(補正後の記録)**: 固定オフセットの二値群の行は `parsed` を `calibrated_answer(yes_logp, no_logp, b)` に差し替え、`classification` を `code/eval/scoring.py` の `classify` で付け直す
+    (**採点の規則を 2 か所に分けない**。`frame.py` が `is_rule` を数え直さないのと同じ理由)。掃引の行は `answer` を差し替える。
+    どちらも **`yes_logp` / `no_logp` は値そのもののまま**(ADR-084 決定3)で、`bias` と `gap_after = (yes_logp − no_logp) − b` を足す。**数値群の行は 1 バイトも変えない**(補正は強制選択の判定だけを動かす)
+  - **読み5(補正後の表)**: `frame.build_rows` は記録の `classification` / `parsed` をそのまま読むので、**補正後の記録を渡せば既存の `cell_table` / `constant_strategy_table` / `near_tie_table` がそのまま使える**。
+    **#1(`parse_fail`)は補正後の表に出さない** —— 補正は数値群を動かさないので、同じ数字を 2 度出すことになる。補正後の報告には `arm`・較正の run の `run_id`・偏りの値を必ず置く
+  - **読み6(C3 の近接同点。決定2)**: `calibrated_gaps` が**補正後の行**から `item_id -> gap_after` を引き、`near_tie_table` にそのまま渡す(幅・境界の含み方・「合否に使わない」は I11a のまま)。
+    補正前の差(`gonogo.forced_choice_gaps`)は **C0 の感度の行のまま**。C0 と C3 で近接同点の行の集合は一致しない
+  - **読み7(掃引の近接同点。決定3)**: `r8_fit.near_tie_table` が(タスク型 × 既知性)セルごと・遠いオフセットの側(`θ ≤ low_max` / `θ ≥ high_min`)ごとに、
+    `|差| ≤ 幅` の件数と、それを除いた `correct`(除いて 0 件なら null)を出す。**閾値の近くの θ は数えない**(§5 (iv) が見るのは遠い側だけ)。
+    差は**呼び出し側が渡す** —— 補正前は `sweep_gaps`(`yes_logp − no_logp`)、補正後は `calibrated_gaps`。幅は run の `config.yaml` の `gonogo.near_tie_margin`(掃引の config 3 本にもある。ADR-085 決定4)
+  - **読み8(3 腕。決定1)**: `b0` / `preamble` / `d` のどの腕にも同じ関数で掛かる。補正後の報告の注記に
+    **「①+(c) / (d)+(c) は §5 の候補ではない(ADR-079 決定6)。記述である(ADR-086 決定1)」**を固定する(機械的には止めない)
+- **実装(★2026-09-22 その64 = I11b。上の読み 1〜8 のとおり。CPU のみ・GPU 0)**: `code/analysis/calibrated.py`(新規)/ `code/analysis/gonogo.py`(`calibrated_run_report`)/ `code/analysis/r8_fit.py`(`load_sweep_run`・`sweep_gaps`・`near_tie_table`・`calibrated_run_report`)/ `code/tests/test_calibrated.py`(新規)。
+  テストは合成の行に加えて、**パイロット用プールと R8 の掃引プールを tmp に書き、B0・①・(d) の固定オフセットの本実行・R8 の掃引の本実行・(c) の較正の本実行を通した run**(どれも固定応答。モデルは読まない)で、
+  偏りの値・補正で動いた行・補正後の 4 値・補正後の近接同点・掃引の側ごとの件数を数え直した(**数値は実験結果ではない**)。
+  **変異を 26 個注入し、それぞれ `test_calibrated.py` が落ちることを確かめた**(最初は 5 個がすり抜けた —— 来歴が他の腕の偏りも並べる / 掃引の近接同点の境界 / 掃引の側が空 / 掃引の差の重複 / 補正後の掃引の近接同点を補正前の差で数える。テストを 4 つ足して落ちることを確かめた)。`pytest code/tests -q` → **1402 passed**(1363 → +39)
+
 ---
 
 ## 5. 選び方(**回す前に書く**。PLAN-025 §3.4 (f)、`plans/PLAN-025-binary-methods.md` 185〜188 行)
@@ -545,7 +580,7 @@
 | I8 | (d) のテンプレート集合 | `configs/templates/`(順6b 専用) | config のみ | 本番の `t1b.yaml` は触らない。**★その59 追記: 固定オフセットの ① の run(比較・T1・T2)も、パイロット用プールの 5 群のうち 3 群に絞る必要がある(`_read_pool_items` は宣言外の群を拒む)。絞り方は (d)(T1b だけ。固定 480・S 1,200)と 1 つの仕組みで決め、① の config もここで作る(人間の回答。§4.7)**。**✅ 済(2026-09-16 その60。絞りの宣言 `eval.task_subset` = ADR-082 / `code/eval/task_subset.py` / `configs/templates/order6b_d.yaml` / config 3 本。§4.8)** |
 | I9 | (c) の内容のない入力の forward | 小さな新規関数(`scorer_from_model` / `collect_forced_choices` を流用)/ `calibration.json` | 小 | 真値が無いので `Item` / `classify` を通さない。**✅ 済(2026-09-16 その61。綴りは原典と一致・空文字と平均の順 = ADR-083 / `code/eval/calibration.py`・`calibration_run.py`(別の CLI)/ `configs/exp_order6b_c.yaml` / `test_calibration.py`。§4.9)** |
 | I10 | 上位 k の記録 | `code/eval/forced_choice.py` の `_score_batch`(357 行)・`ForcedChoice`(72 行)/ `run.py` の `prediction_record`(736 行)・`metrics_payload`(1053 行) | 中 | **判定は触らない**。STATE「次のアクション」3 の並行 PLAN と同じ変更 —— **どちらの PLAN で実装するかを決め、二重に実装しない**(G16)→ **★本 PLAN で実装する(ADR-079 決定9。I11 の極性別の参照線も同じ)** → **✅ 済(2026-09-16 その62。k の置き場所・綴りの形・固定オフセットの行の欄 = ADR-084 / 3 経路(固定オフセット・掃引・(c) の較正)の行に `top_k`・`top_k_mass`・固定オフセットの二値群の行に `yes_logp` / `no_logp` / `code/tests/test_top_k.py`。§4.10)** |
-| I11 | 順6b の集計 | `gonogo.py` の #1〜#3 をパイロットの run に / 極性別の参照線(ADR-078 決定7 (b)。これも並行 PLAN と同じ)/ §5 の判定表 / §7 の感度の行 | 中 | 判定表は §5 を機械的に当てるだけ。**解釈はしない**。**3 つに分ける(ADR-085 決定1)**: **I11a ✅ 済(2026-09-16 その63。run 単位の表 = `gonogo.py`。§4.11)** / I11b (c) の補正の適用 / I11c §5 の判定表(新しい CLI。腕は引数で明示)と混ぜない守り |
+| I11 | 順6b の集計 | `gonogo.py` の #1〜#3 をパイロットの run に / 極性別の参照線(ADR-078 決定7 (b)。これも並行 PLAN と同じ)/ §5 の判定表 / §7 の感度の行 | 中 | 判定表は §5 を機械的に当てるだけ。**解釈はしない**。**3 つに分ける(ADR-085 決定1)**: **I11a ✅ 済(2026-09-16 その63。run 単位の表 = `gonogo.py`。§4.11)** / **I11b ✅ 済(2026-09-22 その64。(c) の補正の適用 = ADR-086 / `code/analysis/calibrated.py`・補正後の run 単位の表・掃引の近接同点。§4.12)** / I11c §5 の判定表(新しい CLI。腕は引数で明示)と混ぜない守り |
 | I12 | テスト | 上のすべて | — | `pytest code/tests -q`。前置きの連結・並びのハッシュ・掃引の件数(8,160 / 3,600)・揃え方の符号(§3.2.1 の算術の例をそのままテストにする)・較正の後処理・上位 k |
 
 - 手順: **本 PLAN のレビュー → I1〜I12 の実装 → テスト → dry-run(`run.py --dry-run` を各腕の config で)→ GPU 承認(§11)→ 本実行 → 回収 → 集計 → 人間**(`CLAUDE.md` §4、`infra/RUNPOD.md` §4)

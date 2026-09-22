@@ -55,6 +55,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from code.analysis import calibrated
 from code.analysis.aggregate import expand_metrics_paths
 from code.analysis.frame import (
     CONFIG_FILENAME,
@@ -118,6 +119,11 @@ OUTPUT_FILENAME = "gonogo.json"
 NEAR_TIE_NOTE = (
     "感度の行(PLAN-026 §7 / ADR-079 決定8)。#1〜#3 の印(fails)には使わない。"
     "without_near_tie は |yes_logp − no_logp| ≤ margin の項目を除いた行の4値と、#2 と同じ比べ方の印"
+)
+CALIBRATED_NEAR_TIE_NOTE = (
+    "感度の行(PLAN-026 §7 / ADR-079 決定8)。#2 と同じ比べ方だが合否には使わない。"
+    "**補正後の差 |(yes_logp − no_logp) − b| ≤ margin で数える**(ADR-086 決定2) —— "
+    "C3 の判定境界は差 = b であり、batch で分類が揺れうるのはその境界に近い行である"
 )
 POLARITY_NOTE = (
     "参照線(ADR-078 決定7 (b))。合格線ではない —— #3 の fails は極性をまとめた correct 対 "
@@ -513,6 +519,60 @@ def run_report(metrics_path: Path) -> dict[str, Any]:
         "constant_strategy": constant_strategy_table(rows, task_types=task_types),
         "polarity_note": POLARITY_NOTE,
         "near_tie": near_tie,
+    }
+
+
+def calibrated_run_report(metrics_path: Path, lookup: calibrated.BiasLookup) -> dict[str, Any]:
+    """1つの run に (c) の補正を引いた #2・#3 の表(と、幅を宣言した run では感度の行)。
+
+    答える問い: 「内容のない入力の偏りを引くと、この run のセルの4値と #2・#3 の印はどうなるか」
+
+    **#1(`parse_fail`)は出さない** —— 補正は強制選択の判定だけを動かし、数値群の行は
+    1バイトも変わらない(同じ数字を2度出さない)。補正後の記録を `frame.build_rows` に
+    渡すので、セルの組み方・印の付け方は補正前の表(`run_report`)と同じ関数である。
+
+    近接同点は**補正後の差**で数える(ADR-086 決定2)。
+    **①+(c) / (d)+(c) は §5 の候補ではない**(注記。ADR-086 決定1)。
+    """
+    run = load_run(metrics_path)
+    records = read_predictions(run.run_dir)
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    config = load_config(run.run_dir / CONFIG_FILENAME)
+    run_name = run.run_dir.name
+    calibrated.check_arm(lookup, metrics, config, run_name)
+    adjusted = calibrated.calibrated_forced_choice_records(records, lookup, run_name=run_name)
+    rows = build_rows(run, adjusted)
+    thresholds = thresholds_from_config(config, run_name)
+    margin = near_tie_margin_from_config(config, run_name)
+    task_types = solved_main_task_types(metrics)
+    check_rows_within(rows, task_types, run_name)
+    near_tie = None
+    if margin is not None:
+        near_tie = {
+            "margin": margin,
+            "note": CALIBRATED_NEAR_TIE_NOTE,
+            "cells": near_tie_table(
+                rows,
+                calibrated.calibrated_gaps(adjusted, run_name),
+                margin=margin,
+                thresholds=thresholds,
+                task_types=task_types,
+            ),
+        }
+    return {
+        "run_id": run.run_id,
+        "condition": run.condition,
+        "seed": run.seed,
+        "provenance": provenance_record(metrics, config),
+        "calibration": lookup.record(),
+        "solved_task_types": list(task_types),
+        "thresholds": thresholds.as_dict(),
+        "near_tie_margin": margin,
+        "cells": cell_table(rows, thresholds, task_types=task_types),
+        "constant_strategy": constant_strategy_table(rows, task_types=task_types),
+        "polarity_note": POLARITY_NOTE,
+        "near_tie": near_tie,
+        "note": calibrated.NOT_A_CANDIDATE_NOTE,
     }
 
 

@@ -35,15 +35,17 @@ from __future__ import annotations
 import argparse
 import json
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from code.analysis import calibrated
 from code.analysis.aggregate import expand_metrics_paths
 from code.analysis.frame import CONFIG_FILENAME
+from code.analysis.gonogo import near_tie_margin_from_config
 from code.artifacts import PREDICTIONS_DIR, utc_now
 from code.config import ConfigError, load_config, require
 from code.data_gen.pool import MAIN_COVERAGE_LEVELS
@@ -76,6 +78,16 @@ EXCLUDED_KINDS: tuple[str, ...] = (
 KINDS: tuple[str, ...] = (*INCLUDED_KINDS, *EXCLUDED_KINDS)
 # 「`β1 ≤ 0` は除外」(ADR-030 決定6)に入る分類。逆向きの階段は `β1 → −∞` の場合である。
 BETA1_NONPOSITIVE_KINDS: tuple[str, ...] = (REVERSED_STAIRCASE, BETA1_NONPOSITIVE)
+
+# 強制選択の値そのもの(ADR-084 決定3)。近接同点の差はここから作る。
+YES_LOGP_FIELD = "yes_logp"
+NO_LOGP_FIELD = "no_logp"
+
+NEAR_TIE_NOTE = (
+    "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。"
+    "|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。"
+    "**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである"
+)
 
 # 遠いオフセットの 2 つの側(PLAN-026 §5 (iv))。
 LOW = "low"
@@ -590,8 +602,45 @@ def check_records(
     return rows
 
 
-def run_report(metrics_path: Path) -> dict[str, Any]:
-    """1 つの掃引の run について当てはめの表を組む。"""
+@dataclass(frozen=True)
+class SweepRun:
+    """検査を通した掃引の run 1 本(記録と、当てはめ・補正に要る宣言)。
+
+    答える問い: 「この掃引の run は、どの腕で、どの θ の水準を、どのタスク型について測ったか」
+    """
+
+    run_dir: Path
+    metrics: Mapping[str, Any]
+    config: Mapping[str, Any]
+    task_types: tuple[str, ...]
+    far: FarOffsets
+    records: tuple[Mapping[str, Any], ...]
+
+    @property
+    def header(self) -> dict[str, Any]:
+        """報告の先頭に置く来歴(補正の前後で同じ)。**adapter を必ず並べる**(§4.6 読み3)。"""
+        sweep = self.metrics["threshold_sweep"]
+        return {
+            "run_id": self.metrics["run_id"],
+            "condition": self.metrics.get("lesion_condition"),
+            "seed": self.metrics.get("seed"),
+            "adapter": self.metrics.get("adapter"),
+            "pool_id": (self.metrics.get("pool") or {}).get("pool_id"),
+            "arm": sweep["arm"],
+            "threshold_offsets": list(sweep["threshold_offsets"]),
+            "task_types": list(self.task_types),
+            "far_offsets": self.far.as_dict(),
+        }
+
+
+def load_sweep_run(metrics_path: Path) -> SweepRun:
+    """掃引の run を読み、記録が宣言とそろっていることを確かめる。
+
+    答える問い: 「この run は I4 の記録の経路が書いた掃引の run か。記録は宣言どおりか」
+
+    **`kind` が違えば止める。**補正前の表と補正後の表が同じ検査を 2 度書かないよう、
+    読み込みと検査はここ 1 か所にした(PLAN-026 §4.12 読み1)。
+    """
     run_dir = metrics_path.parent
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     if metrics.get("kind") != THRESHOLD_SWEEP_KIND:
@@ -600,20 +649,155 @@ def run_report(metrics_path: Path) -> dict[str, Any]:
             "R8 の当てはめは I4 の記録の経路が書いた run だけを読む"
         )
     sweep = metrics["threshold_sweep"]
-    task_types = list(sweep["task_types"])
-    rows = check_records(read_sweep_predictions(run_dir, task_types), sweep)
-    far = far_offsets_from_config(load_config(run_dir / CONFIG_FILENAME))
+    task_types = tuple(sweep["task_types"])
+    records = check_records(read_sweep_predictions(run_dir, list(task_types)), sweep)
+    config = load_config(run_dir / CONFIG_FILENAME)
+    return SweepRun(
+        run_dir=run_dir,
+        metrics=metrics,
+        config=config,
+        task_types=task_types,
+        far=far_offsets_from_config(config),
+        records=tuple(records),
+    )
+
+
+def sweep_gaps(records: Sequence[Mapping[str, Any]], run_name: str) -> dict[str, float]:
+    """掃引の行の `item_id -> yes_logp − no_logp`(**補正前**)。
+
+    答える問い: 「この掃引の各項目で、モデルは Yes と No にどれだけの差で倒れたか」
+
+    値は predictions の行の値そのもの(ADR-084 決定3)。**欄が無い行・差が数でない行・
+    item_id の重複は止める** —— I10 より前の run を「近接同点 0 件」と読ませない。
+    補正後の差は `calibrated.calibrated_gaps` である(ADR-086 決定2)。
+    """
+    gaps: dict[str, float] = {}
+    for record in records:
+        item_id = record["item_id"]
+        missing = [f for f in (YES_LOGP_FIELD, NO_LOGP_FIELD) if record.get(f) is None]
+        if missing:
+            raise R8FitError(
+                f"{run_name}: 掃引の行 {item_id!r} に {missing} が無い。"
+                "近接同点の幅を宣言した run は、強制選択の値そのものを行に持つはずである"
+            )
+        if item_id in gaps:
+            raise R8FitError(f"{run_name}: 掃引の行 {item_id!r} が 2 つある")
+        gap = float(record[YES_LOGP_FIELD]) - float(record[NO_LOGP_FIELD])
+        if np.isnan(gap):
+            raise R8FitError(f"{run_name}: 掃引の行 {item_id!r} の yes_logp − no_logp が数でない")
+        gaps[item_id] = gap
+    return gaps
+
+
+def near_tie_table(
+    records: Sequence[Mapping[str, Any]],
+    gaps: Mapping[str, float],
+    *,
+    task_types: Sequence[str],
+    far: FarOffsets,
+    margin: float,
+) -> list[dict[str, Any]]:
+    """§7 の感度の行を掃引に置く(ADR-086 決定3)。**セルごと・遠いオフセットの側ごと。**
+
+    答える問い: 「batch で分類が揺れうる近接同点を除くと、§5 (iv) の correct はどう読めるか」
+
+    近接同点は `|差| ≤ margin`(境界を含む。ADR-079 決定8 と同じ数え方)。差は**呼び出し側が
+    渡す** —— 補正前は `sweep_gaps`、補正後は `calibrated.calibrated_gaps`(ADR-086 決定2)。
+    **合否には使わない**(§5 の値も判定の単位も変えない)。除いて 0 件なら correct は null。
+    """
+    grouped: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
+    for record in records:
+        grouped.setdefault((record["task_type"], record["coverage"]), []).append(record)
+    table: list[dict[str, Any]] = []
+    for task, coverage in _cell_order(task_types):
+        cell_records = grouped.get((task, coverage), [])
+        if not cell_records:
+            continue
+        sides: dict[str, Any] = {}
+        for side in SIDES:
+            subset = [r for r in cell_records if far.side_of(int(r["threshold_offset"])) == side]
+            if not subset:
+                raise R8FitError(
+                    f"({task}, {coverage}) の {side} 側に項目が 1 つも無い。"
+                    "境界と run の θ の水準が合っていない"
+                )
+            missing = [r["item_id"] for r in subset if r["item_id"] not in gaps]
+            if missing:
+                raise R8FitError(f"({task}, {coverage}) の行 {missing[:3]} に Yes と No の差が無い")
+            kept = [r for r in subset if abs(gaps[r["item_id"]]) > margin]
+            sides[side] = {
+                "n": len(subset),
+                "n_near_tie": len(subset) - len(kept),
+                "without_near_tie": (
+                    correct_block(kept)
+                    if kept
+                    else {"n": 0, "n_correct": None, "correct_rate": None}
+                ),
+            }
+        table.append({"task_type": task, "coverage": coverage, "sides": sides})
+    return table
+
+
+def near_tie_report(
+    run: SweepRun,
+    records: Sequence[Mapping[str, Any]],
+    gaps_of: Callable[[Sequence[Mapping[str, Any]], str], Mapping[str, float]],
+) -> dict[str, Any] | None:
+    """幅を宣言した run の感度の行(宣言が無ければ None)。
+
+    答える問い: 「この run は近接同点の幅を宣言しているか。しているなら感度の行はどうなるか」
+
+    幅は run の `config.yaml` の `gonogo.near_tie_margin`(ADR-085 決定4。#1・#2 の閾値と
+    同じブロックにあるので、読む関数も `gonogo.py` の 1 つにする)。`gaps_of` は差の引き手で、
+    **補正の前後を暗黙にしない** —— 補正前は `sweep_gaps`、補正後は `calibrated_gaps`。
+    """
+    run_name = run.run_dir.name
+    margin = near_tie_margin_from_config(run.config, run_name)
+    if margin is None:
+        return None
     return {
-        "run_id": metrics["run_id"],
-        "condition": metrics.get("lesion_condition"),
-        "seed": metrics.get("seed"),
-        "adapter": metrics.get("adapter"),
-        "pool_id": (metrics.get("pool") or {}).get("pool_id"),
-        "arm": sweep["arm"],
-        "threshold_offsets": list(sweep["threshold_offsets"]),
-        "task_types": task_types,
-        "far_offsets": far.as_dict(),
-        **fit_records(rows, task_types=task_types, far=far),
+        "margin": margin,
+        "note": NEAR_TIE_NOTE,
+        "cells": near_tie_table(
+            records,
+            gaps_of(records, run_name),
+            task_types=run.task_types,
+            far=run.far,
+            margin=margin,
+        ),
+    }
+
+
+def run_report(metrics_path: Path) -> dict[str, Any]:
+    """1 つの掃引の run について当てはめの表を組む(幅を宣言した run では感度の行も)。"""
+    run = load_sweep_run(metrics_path)
+    return {
+        **run.header,
+        **fit_records(run.records, task_types=run.task_types, far=run.far),
+        "near_tie": near_tie_report(run, run.records, sweep_gaps),
+    }
+
+
+def calibrated_run_report(metrics_path: Path, lookup: calibrated.BiasLookup) -> dict[str, Any]:
+    """1 つの掃引の run に (c) の補正を引いた当てはめの表(PLAN-026 §4.12 読み4・読み7)。
+
+    答える問い: 「内容のない入力の偏りを引くと、この掃引の遠いオフセットの correct はどうなるか」
+
+    差し替えるのは `answer` だけで、`truth`・θ・セルは変わらない。**★F138 の守り** ——
+    較正は極性ごとに別の定数を引くので固定オフセットでは定数戦略に寄せても correct が
+    上がりうる。和を読んだかどうかは、この表の遠いオフセットの correct で見る(§3.5)。
+    近接同点は**補正後の差**で数える(ADR-086 決定2)。
+    """
+    run = load_sweep_run(metrics_path)
+    run_name = run.run_dir.name
+    calibrated.check_arm(lookup, run.metrics, run.config, run_name)
+    adjusted = calibrated.calibrated_sweep_records(run.records, lookup, run_name=run_name)
+    return {
+        **run.header,
+        "calibration": lookup.record(),
+        **fit_records(adjusted, task_types=run.task_types, far=run.far),
+        "near_tie": near_tie_report(run, adjusted, calibrated.calibrated_gaps),
+        "note": calibrated.NOT_A_CANDIDATE_NOTE,
     }
 
 
@@ -707,6 +891,26 @@ def _crossing_text(crossing: Mapping[str, Any]) -> str:
     return f"除外({kind})"
 
 
+def _near_tie_lines(near_tie: Mapping[str, Any] | None) -> list[str]:
+    """掃引の感度の行(幅を宣言していない run では空)。**合否には使わない。**"""
+    if near_tie is None:
+        return []
+    lines = [
+        f"近接同点(|差| ≤ {near_tie['margin']})を除いた遠いオフセットの correct"
+        "(ADR-086 決定3。合否には使わない)"
+    ]
+    for cell in near_tie["cells"]:
+        low, high = cell["sides"][LOW], cell["sides"][HIGH]
+        lines.append(
+            f"  {cell['task_type']:<4} {cell['coverage']:<17} "
+            f"低い側 同点={low['n_near_tie']}/{low['n']} "
+            f"correct={_number(low['without_near_tie']['correct_rate'])} "
+            f"高い側 同点={high['n_near_tie']}/{high['n']} "
+            f"correct={_number(high['without_near_tie']['correct_rate'])}"
+        )
+    return lines
+
+
 def report_lines(report: Mapping[str, Any]) -> list[str]:
     """人間が読む表(標準出力)。**除外件数を必ず出す。**"""
     lines: list[str] = [report["note"]]
@@ -752,6 +956,7 @@ def report_lines(report: Mapping[str, Any]) -> list[str]:
                 f"低い側 n={row[LOW]['n']:<4} correct={_number(row[LOW]['correct_rate'])} "
                 f"高い側 n={row[HIGH]['n']:<4} correct={_number(row[HIGH]['correct_rate'])}"
             )
+        lines.extend(_near_tie_lines(run.get("near_tie")))
         if "delta_hat" in run:
             lines.append(f"Δ̂ = θ*(この run) − θ*(ident run {run['delta_hat']['ident_run_id']})")
             for row in run["delta_hat"]["cells"]:

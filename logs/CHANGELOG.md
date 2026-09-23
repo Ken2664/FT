@@ -6590,3 +6590,22 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **`plans/PLAN-028-prestage-ft.md`(新規。草案)を起草した。**③-ii・③-iiiそれぞれの前段FTの設計方針(§3)、両変種に共通する設計の穴(前段プールと主実験プールの非交差。§3.3)、**中心的な未決事項として§4「前段FTと病変FTをどう重ねるか」**(マージ/スタッキング/混在訓練の3案。既存コード`code/eval/model.py:359`の`attach_adapter`はアダプタ1枚しか受け付けないことを確認済み。モデル同一性の運用ADR-008/018/024の拡張を伴う)、想定される交絡(§6)、記入欄P1〜P7(§8)を書いた。**実装・GPU は 0**(`CLAUDE.md` §4 手順1。レビューが先)
 - `STATE.md`(冒頭・いま何をしているか・次のアクション・引き継ぎ)を更新し、旧ブロック(その72)は `logs/STATE-ARCHIVE.md`「その73」へ移した(1文字も削っていない)
 - **`data/raw/`・プール・config・コードは1バイトも変えていない。**untracked の `runs/preflight/` は未追跡のまま(その71から変わらず)
+
+## 2026-09-24(その76)
+
+### docs(plan): 順6b 以降の 11 commit を Opus として再検証した(人間の依頼。監査のみ。GPU 0)   [actor: CRITIC (Opus 5.5)]
+
+- 人間の依頼「順6b の後の変更はすべて誤って Sonnet が行ったので、Opus として再確認してほしい」に応じて、
+  `664ea2f`〜`f17880d` の diff・ADR-088〜094・PLAN-027〜029・`results/` を読み直した。**正本は `logs/AUDIT-2026-09-24-post-order6b.md`**
+- **commit trailer の実測**: その72〜75(`2761e42`・`fb37eac`・`1495ab4`・`cd3f83c`・`f17880d`)は **Claude Sonnet 5**、
+  その69〜71 は Claude Opus 5。**文書はその72〜75 も「PLANNER (Opus)」と書いていた**
+- **コード(その71)は正しい**: 規則 C の遷移を 4 run で独立に数え直して一致(上位集合違反 0)。`pytest code/tests -q` → **1580 passed**
+- **その72〜75 の主な問題**(詳細は監査 §2): `dgp.n_item` を `M*` = 999 で埋める指示(**単位の取り違え**)/
+  「本実行は 62 時間のまま」(`n_item = 48` の暫定値からの掛け算)/ ADR-093・094 の「`results/` は空・tag なし」(事実と違う)/
+  ★F104-c の値はエージェントが提案しない約束だったものを推奨で決めた / ADR-093 P3 の非交差の範囲が PLAN-028 と食い違い、根拠が ③-ii に当てはまらない可能性 /
+  ADR-090 は R8 の記述(θ*・β1・極性の開き)を見ずに決まった / PLAN-028 §1 の過大な断定 / PLAN-029 に事前凍結すべき基準が無い
+- **`results/r8_fit_order6b/` を足した**(`python -m code.analysis.r8_fit --runs runs/20260922_122247_order6b_r8 runs/20260922_124632_order6b_s_preamble runs/20260922_125131_order6b_s_d --out-dir results/r8_fit_order6b`。読み取りのみ・解釈なし・pool_id: pilot)
+- `logs/OPEN-ITEMS.md` に監査の索引 1 行を足し、★F114 の行に訂正注記を足した(元の文は残した)。
+  `STATE.md` の 4 ブロックを差し替え(旧ブロックは `logs/STATE-ARCHIVE.md`「その76」へ。消えた行 0 を確認)、
+  「現在のブロッカー」「人間の承認待ち」の `n_item` の 2 行に訂正注記を足した
+- **ADR・PLAN・config・コードは 1 バイトも変えていない。**直すかどうかは人間(`CLAUDE.md` §8)。`test_repo_hygiene.py` → 7 passed

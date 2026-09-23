@@ -18,6 +18,53 @@
 
 ---
 
+## ★2026-09-24(その76)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その76(CRITIC。順6b 以降の監査)で差し替えた 4 ブロックを、1 文字も変えずに移した。
+
+### ヘッダ(最終更新の行)の旧ブロック(その75)
+
+最終更新: 2026-09-23(その75)/ by PLANNER (Opus)
+(**その74で人間が全採用を回答した PLAN-028 §8(P1〜P7)と ★F104(F104-0〜c)を、ADR-093・ADR-094として正式に記録した。**
+**F104-cの具体的な数値(`s2_item = 1.0` / `s2_tmpl = 0.5`)は `AskUserQuestion` で選択式に上げ、人間の最終承認を得た。**
+`plans/PLAN-028-prestage-ft.md` §8・`plans/PLAN-019-validity-decisions.md` §10.13.5・`logs/OPEN-ITEMS.md`・
+`configs/power_sim.yaml`・`Documents/05_STATISTICS.md` §6.3/§6.6/§6.7 に反映済。
+**実装PLAN `plans/PLAN-029-prestage-ft-impl.md`(草案)を新規起草した。**
+**コードの実装・実験実行は無し(GPU 0)。**)
+
+### 「いま何をしているか」の旧ブロック(その75)
+
+> **★★2026-09-23(その75・最新)。Phase 0。PLANNER (Opus)。PLAN-028 §8 と ★F104 を ADR化し、実装PLANを起草した。**
+> - **ADR-093**: PLAN-028 §8(P1〜P7)採択。P1=(a)マージ / P2=新ベース識別子(revision+前段run_id+マージ後ハッシュの組)を新設 / P3=前段プールは主実験訓練域と非交差・既知性ラベルは作らない / P4=③-iiiは数字を一切含まない・ルールベース生成 / P5=③-iは検討から外したまま / P6=前段FT後に順6b相当を新ベースごとに再度行う / P7=規模は主実験FTと同程度から開始
+> - **ADR-094**: ★F104 決着。F104-0=分けてよい / F104-a(`s2_item`)=案C(1点凍結) / F104-b(`s2_tmpl`)=案C' / F104-c=`s2_item = 1.0` / `s2_tmpl = 0.5`(いずれも分散。`AskUserQuestion`で最終承認済)
+> - **反映済**: `plans/PLAN-028-prestage-ft.md` §8 / `plans/PLAN-019-validity-decisions.md` §10.13.5 / `logs/OPEN-ITEMS.md`(★F104行・PLAN-028関連行)/ `configs/power_sim.yaml`(`dgp.s2_item: 1.0` / `dgp.s2_tmpl: 0.5`)/ `Documents/05_STATISTICS.md` §6.3手続き2・§6.6・§6.7脚注
+> - **実装PLAN `plans/PLAN-029-prestage-ft-impl.md`(草案。人間のレビュー待ち)を新規起草した**(PLAN-028自身が「実装しない」と明記しているため)
+> - **`dgp.n_item` への `M*`(999。ADR-074で決着済)の反映はまだ未実施**(★F114の実行先の判断はその後)
+> - **コードの実装・実験実行は無し(GPU 0)**
+>
+> **★その74 の記録は `logs/STATE-ARCHIVE.md`「その75」にある**(ADR-063 運用規約1)。
+
+### 「次のアクション」の旧ブロック(その75)
+
+> **★★2026-09-23(その75・最新)。次は「PLAN-029(実装PLAN)の人間レビュー」が最優先である。**
+>
+> 1. **★最優先: `plans/PLAN-029-prestage-ft-impl.md`(草案)を人間がレビューする。**
+>    実装・GPUに着手する前に、規模の見積り(§7 の叩き台)と P2 の新ベース識別子スキーマの詳細を詰める
+> 2. **`dgp.n_item` に `M*` = 999(ADR-074)を反映する**(★F104 は決着したが、この 1 項目だけ未反映のまま
+>    `power_sim.py` の本実行は止まっている)
+> 3. **1・2 が済めば ★F114 の実行先を決める**(F104-a=案C採用のため本実行コストは62時間のまま。
+>    この機械 vs RunPod CPUポッドの判断がしやすくなった)
+> 4. その他(変わらず): **`cost.txt` の記入**(順6b の 7 本。1.215 時間 × $0.74/時)/ **停止中ポッド 8 本の terminate**(全部 `EXITED`。ADR-074決定4で決定済み・実行は人間)/ **`runs/preflight/` の扱い**(未追跡2ファイル。.gitignoreへの追加を推奨)/ **★`θ` の根拠** / Phase 1 本実験 40 run の GPU 構成 / N5 / `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
+
+### 「引き継ぎ」の旧ブロック(その75)
+
+> **★★2026-09-23(その75・最新)。PLANNER (Opus)。`logs/HANDOFF.md` の指示どおり ADR化・記入欄埋め・実装PLAN起草を完了した。コードは1バイトも変えていない。GPU 0。**
+>
+> **★やったこと**: `logs/DECISIONS.md` に ADR-093(PLAN-028 §8 P1〜P7)・ADR-094(★F104-0〜c)を記入した(提案=エージェント/採択=人間、と分けて記載)。**F104-cの具体的な数値は前セッションで未確定だったため、`AskUserQuestion` で3択(推奨含む)を提示し、人間が `s2_item = 1.0` / `s2_tmpl = 0.5` を選んだ**(その75で新規に得た承認)。`plans/PLAN-028-prestage-ft.md` §8・`plans/PLAN-019-validity-decisions.md` §10.13.5・`logs/OPEN-ITEMS.md`(★F104行・PLAN-028関連行)・`configs/power_sim.yaml`・`Documents/05_STATISTICS.md`(§6.3手続き2・§6.6・§6.7脚注)に反映した。PLAN-028が「実装しない」と明記しているため、実装PLAN `plans/PLAN-029-prestage-ft-impl.md`(草案)を新規起草した。
+> **★やっていないこと**: PLAN-029の実装・GPU実行(**まだしない。人間のレビューが先**)/ `dgp.n_item` への `M*`(999)の反映 / ★F114の実行先の決定 / それ以外のコード変更・実験実行(GPU 0)。
+> **★次セッションが引き継ぐもの**: `plans/PLAN-029-prestage-ft-impl.md` の人間レビュー結果。レビューが済めば `dgp.n_item` の反映 → ★F114の実行先の判断に進む。
+
+
 ## ★2026-09-23(その75)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その75 の PLANNER が `STATE.md` の 4 ブロック(ヘッダ / いま何をしているか / 次のアクション / 引き継ぎ)を

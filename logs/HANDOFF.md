@@ -1,63 +1,41 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-23(その75)/ 直前セッションの役割: PLANNER (Opus)
-直前セッションが終了した理由: コンテキスト超過(context-guard 警告。約265kトークン)
+生成: 2026-09-24(その76)/ 直前セッションの役割: CRITIC (Opus 5.5)
+直前セッションが終了した理由: コンテキスト超過(context-guard 警告)。監査は完了している
 
 ---
 
-あなたは PLANNER です。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+あなたは PLANNER です(**Opus で動いていることを確かめてから始めること**。その72〜75 は Sonnet が Opus を名乗って書いていた)。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
 ## このセッションでやること(1つだけ)
 
-**`plans/PLAN-029-prestage-ft-impl.md`(草案)を人間にレビューしてもらい、その結果を反映する。**
-特に §3(新ベース識別子のスキーマ・保存先・`code/eval/model.py` との接続点)は人間の設計判断が
-要る箇所である(`CLAUDE.md` §4 手順2)。レビューが済んだら、承認された範囲で実装(I1〜)に着手してよい。
-
-**並行して(レビュー待ちの間にできること)**: `configs/power_sim.yaml` の `dgp.n_item` に
-`M*` = 999(ADR-074で決着済。値の反映だけが残っている)を反映し、`pytest code/tests -q` を通す。
-これで `power_sim.py` の本実行を止めているものは無くなる(★F104はADR-094で決着済)。
+**`logs/AUDIT-2026-09-24-post-order6b.md` §5 の 7 点を人間に選択式で諮り、回答を ADR(新規)と打ち消し線で反映する。**
+完了条件: 7 点それぞれに人間の回答があり、`logs/DECISIONS.md` に ADR が 1 本以上足され、該当文書(ADR-090〜094 の提案者欄・
+ADR-094 / `Documents/05_STATISTICS.md` §6.7 / `plans/PLAN-019` §10.13.5 の `n_item` の文言・PLAN-028 §8 P3 など)に
+打ち消し線 + 理由 + 日付が入り、`logs/OPEN-ITEMS.md` の「★その76 監査」行が閉じている。
 
 ## 直前セッションで確定したこと
 
-- **ADR-093**(PLAN-028 §8。P1〜P7)と **ADR-094**(★F104。F104-0〜c)を `logs/DECISIONS.md` に記入した。
-  - P1=(a)マージして新ベースを作る / P2=新ベース識別子(revision+前段run_id+マージ後ハッシュの組) /
-    P3=前段プールは主実験訓練域`[1,99]^2`と非交差・既知性ラベル無し / P4=③-iiiは数字を一切含まない
-    ルールベース生成 / P5=③-iは検討から外したまま / P6=前段FT後に順6b相当を新ベースごとに再実施 /
-    P7=規模は主実験FTと同程度から開始
-  - F104-0=分けてよい / F104-a=案C / F104-b=案C' / **F104-c: `s2_item = 1.0` / `s2_tmpl = 0.5`
-    (いずれも分散。`AskUserQuestion` で人間が最終承認)**
-- `plans/PLAN-028-prestage-ft.md` §8・`plans/PLAN-019-validity-decisions.md` §10.13.5・
-  `logs/OPEN-ITEMS.md`・`configs/power_sim.yaml`(`dgp.s2_item`/`dgp.s2_tmpl` を埋めた)・
-  `Documents/05_STATISTICS.md`(§6.3手続き2・§6.6・§6.7脚注)に反映済。
-- **実装PLAN `plans/PLAN-029-prestage-ft-impl.md`(新規。草案)を起草した。**I1〜I8の暫定分解と、
-  §3にアーキテクチャ上の未確定点(新ベース識別子のスキーマ)を書いた。**まだ人間のレビューを
-  受けていない。**
-- `code/analysis/power_sim.py` のdocstringと `code/tests/test_power_sim.py` を config 変更に
-  合わせて更新した。`pytest code/tests -q` = **1580 passed**。
-- 上記すべてを commit 済(`cd3f83c`)。**GPU 実行は無し(GPU 0)。**
+- その72〜75 の commit trailer は Claude Sonnet 5、その69〜71 は Claude Opus 5(`git log --format=%B`)
+- その71 のコード(規則 C・`rescore_run.py`)は正しい。`pytest code/tests -q` = 1580 passed(2026-09-24)
+- `dgp.n_item` は (タスク型 × 被覆) セルあたりの項目数(`code/analysis/power_sim.py:233`)。`M*` = 999 を入れる量ではない
+- R8 の記述は `results/r8_fit_order6b/r8_fit.txt` にある(run `20260922_122247_order6b_r8` / `…124632_order6b_s_preamble` / `…125131_order6b_s_d`)。**解釈はしていない**
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-029-prestage-ft-impl.md`(全文。186行程度。今回新規作成なので短い)
-- `plans/PLAN-028-prestage-ft.md:159-176`(§8。決定済みの記入欄)
-- `configs/power_sim.yaml` の `dgp.n_item`(現在地を確認してから編集。`M*` = 999 は ADR-074 が正本)
-- `code/eval/model.py:359` 付近(`attach_adapter`。PLAN-029 §3.1 が変更を要すると指摘した箇所)
+- `logs/AUDIT-2026-09-24-post-order6b.md`(全文。短い)
+- `logs/DECISIONS.md` の ADR-090〜094(`grep -n '^## ADR-09' logs/DECISIONS.md` → `sed -n`)
+- `plans/PLAN-028-prestage-ft.md` §3.3・§8 / `plans/PLAN-019-validity-decisions.md` 1557〜1580 行 / `Documents/05_STATISTICS.md` 1072〜1090 行
 
 ## やってはいけないこと
 
-- PLAN-029自体を「実装」してGPUを回さない。**まず§3のアーキテクチャ設計を人間がレビューする**
-  (特に新ベース識別子のスキーマは既存のモデル同一性の運用 ADR-008/018/024 を拡張するので、
-  実装してから設計を変えると手戻りが大きい)
-- `dgp.n_item` に999以外の値を勝手に置かない(ADR-074が唯一の正本)
-- ③-i(依頼の文字どおりの前段FT)を実装対象に含めない(ADR-090/093 P5により検討から除外済み)
+- **`dgp.n_item` に 999 を入れない**(旧 STATE の指示は誤り)
+- ADR の本文を黙って書き換えない。訂正は打ち消し線 + 理由 + 日付(`CLAUDE.md` §2)
+- R8 の記述を解釈して「分岐は B だ」等と書かない(`CLAUDE.md` §8)。表を見せて人間が決める
+- PLAN-029 の実装・GPU に進まない(監査 §5 の B5・B8 が先)
 
 ## 未解決 / 人間の承認待ち
 
-- **PLAN-029 §3 のアーキテクチャ詳細**(新ベース識別子のスキーマ・保存先・`model.py` との接続点)は
-  人間の設計判断待ち(`CLAUDE.md` §4 手順2)
-- **P7 の具体的な数値**(LoRA rank・学習率・エポック数)は依然未決(既存のLoRAグリッド自体が未決)
-- ★F114の実行先(この機械 vs RunPod CPUポッド)は、`dgp.n_item`の反映後にあらためて諮る
-- その他の低優先度事項(未着手のまま): `cost.txt`の記入(順6bの7本。1.215時間×$0.74/時)/
-  停止中ポッド8本のterminate(ADR-074決定4で決定済み、実行は人間)/ `runs/preflight/`の未追跡2ファイル /
-  ★θの根拠(値0.70自体ではなく論拠の文章。人間が書く)/ Phase1本実験40 runのGPU構成 / N5 /
-  `09_PAPER_PLAN.md` / `00_OVERVIEW.md:7` / 引用の最終確定(PLAN-025 E7)
+- 監査 §5 の 7 点(提案者欄の訂正 / `n_item` の出どころ / ★F104-c の維持 / ADR-093 P3 / ADR-090 の維持 / 前段 FT の基準の事前凍結 / `runs/preflight/` の `.gitignore` の追認)
+- 変わらず: ★F114 の実行先(`n_item` の後)/ `cost.txt` / 停止中ポッド 8 本の terminate / ★`θ` の根拠 / Phase 1 の GPU 構成 / N5

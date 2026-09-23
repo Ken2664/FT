@@ -1,0 +1,76 @@
+値を出すだけで判断しない。PLAN-026 §5 の合否は I11、§6 の分岐の読みは人間(CLAUDE.md §8)。揃え方 (a)(y = 1 ⇔ gt で No / lt で Yes。ADR-079 決定1)。階段は除外せず交差点を (L + U) / 2 に置く(PLAN-026 §3.2.1.1 / ADR-081)。§5 (iv) の判定の単位はセル(ADR-081 決定3)。pool_id: pilot の数値は主張の根拠に使わない(PLAN-001 §4.6 規則4)
+=== run 20260922_122247_order6b_r8(condition=p2 / adapter=None / seed=None / pool_id=pilot / 腕=r8)
+交差点(混ぜた / gt / lt)と極性の開き θ*_lt − θ*_gt
+  t3   id                n=1360  混ぜた: fit θ*=17.521 β1=0.025 | gt: fit θ*=-13.093 β1=0.097 | lt: 除外(one_sided_all_0) | 開き=—
+  t3   interp            n=1360  混ぜた: fit θ*=23.721 β1=0.033 | gt: fit θ*=-6.798 β1=0.075 | lt: 除外(beta1_nonpositive) | 開き=—
+  t3   extrap_magnitude  n=1360  混ぜた: fit θ*=177.477 β1=0.001 | gt: fit θ*=-466.986 β1=0.006 | lt: 除外(one_sided_all_0) | 開き=—
+  t1b  id                n=1360  混ぜた: fit θ*=1.226 β1=0.031 | gt: fit θ*=46.962 β1=0.029 | lt: fit θ*=-17.244 β1=0.071 | 開き=-64.205
+  t1b  interp            n=1360  混ぜた: fit θ*=3.384 β1=0.048 | gt: fit θ*=24.881 β1=0.060 | lt: fit θ*=-12.164 β1=0.085 | 開き=-37.045
+  t1b  extrap_magnitude  n=1360  混ぜた: 除外(beta1_nonpositive) | gt: 除外(beta1_nonpositive) | lt: fit θ*=-3610.740 β1=0.000 | 開き=—
+除外件数(セルの数。ADR-030 決定6。階段は除外ではない)
+  mixed fit=5 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=1 nonconvergent=0 | β1≤0 の合計=1 除外の合計=1 / 6
+  gt    fit=5 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=1 nonconvergent=0 | β1≤0 の合計=1 除外の合計=1 / 6
+  lt    fit=3 staircase=0 one_sided_all_0=2 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=1 nonconvergent=0 | β1≤0 の合計=1 除外の合計=3 / 6
+遠いオフセットの correct(θ ≤ -2 / θ ≥ 3。境界は eval.threshold_sweep.offsets.s から。判定の単位はセル)
+  t3   id                低い側 n=160  correct=0.637 高い側 n=880  correct=0.444
+  t3   interp            低い側 n=160  correct=0.700 高い側 n=880  correct=0.377
+  t3   extrap_magnitude  低い側 n=160  correct=0.531 高い側 n=880  correct=0.474
+  t1b  id                低い側 n=160  correct=0.550 高い側 n=880  correct=0.558
+  t1b  interp            低い側 n=160  correct=0.606 高い側 n=880  correct=0.564
+  t1b  extrap_magnitude  低い側 n=160  correct=0.562 高い側 n=880  correct=0.424
+  t3   (タスク型でまとめた記述) 低い側 n=480  correct=0.623 高い側 n=2640 correct=0.432
+  t1b  (タスク型でまとめた記述) 低い側 n=480  correct=0.573 高い側 n=2640 correct=0.515
+近接同点(|差| ≤ 0.25)を除いた遠いオフセットの correct(ADR-086 決定3。合否には使わない)
+  t3   id                低い側 同点=12/160 correct=0.669 高い側 同点=36/880 correct=0.442
+  t3   interp            低い側 同点=11/160 correct=0.732 高い側 同点=65/880 correct=0.366
+  t3   extrap_magnitude  低い側 同点=7/160 correct=0.542 高い側 同点=31/880 correct=0.471
+  t1b  id                低い側 同点=6/160 correct=0.552 高い側 同点=33/880 correct=0.562
+  t1b  interp            低い側 同点=7/160 correct=0.595 高い側 同点=37/880 correct=0.562
+  t1b  extrap_magnitude  低い側 同点=9/160 correct=0.570 高い側 同点=56/880 correct=0.411
+=== run 20260922_124632_order6b_s_preamble(condition=p2 / adapter=None / seed=None / pool_id=pilot / 腕=s)
+交差点(混ぜた / gt / lt)と極性の開き θ*_lt − θ*_gt
+  t3   id                n=400   混ぜた: fit θ*=45.615 β1=0.029 | gt: fit θ*=9.957 β1=0.035 | lt: fit θ*=41.845 β1=0.116 | 開き=31.889
+  t3   interp            n=400   混ぜた: fit θ*=104.874 β1=0.014 | gt: fit θ*=47.682 β1=0.011 | lt: fit θ*=49.043 β1=0.089 | 開き=1.362
+  t3   extrap_magnitude  n=400   混ぜた: fit θ*=38.671 β1=0.007 | gt: fit θ*=-34.354 β1=0.049 | lt: 除外(nonconvergent) | 開き=—
+  t1b  id                n=400   混ぜた: fit θ*=20.420 β1=0.033 | gt: fit θ*=-12.185 β1=0.040 | lt: fit θ*=32.848 β1=0.087 | 開き=45.032
+  t1b  interp            n=400   混ぜた: fit θ*=42.028 β1=0.012 | gt: fit θ*=-61.974 β1=0.012 | lt: fit θ*=62.071 β1=0.042 | 開き=124.045
+  t1b  extrap_magnitude  n=400   混ぜた: fit θ*=26.383 β1=0.007 | gt: fit θ*=-86.667 β1=0.023 | lt: fit θ*=125.532 β1=0.026 | 開き=212.199
+除外件数(セルの数。ADR-030 決定6。階段は除外ではない)
+  mixed fit=6 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=0 nonconvergent=0 | β1≤0 の合計=0 除外の合計=0 / 6
+  gt    fit=6 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=0 nonconvergent=0 | β1≤0 の合計=0 除外の合計=0 / 6
+  lt    fit=5 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=0 nonconvergent=1 | β1≤0 の合計=0 除外の合計=1 / 6
+遠いオフセットの correct(θ ≤ -2 / θ ≥ 3。境界は eval.threshold_sweep.offsets.s から。判定の単位はセル)
+  t3   id                低い側 n=160  correct=0.812 高い側 n=240  correct=0.258
+  t3   interp            低い側 n=160  correct=0.819 高い側 n=240  correct=0.212
+  t3   extrap_magnitude  低い側 n=160  correct=0.569 高い側 n=240  correct=0.450
+  t1b  id                低い側 n=160  correct=0.656 高い側 n=240  correct=0.379
+  t1b  interp            低い側 n=160  correct=0.613 高い側 n=240  correct=0.383
+  t1b  extrap_magnitude  低い側 n=160  correct=0.531 高い側 n=240  correct=0.458
+  t3   (タスク型でまとめた記述) 低い側 n=480  correct=0.733 高い側 n=720  correct=0.307
+  t1b  (タスク型でまとめた記述) 低い側 n=480  correct=0.600 高い側 n=720  correct=0.407
+近接同点(|差| ≤ 0.25)を除いた遠いオフセットの correct(ADR-086 決定3。合否には使わない)
+  t3   id                低い側 同点=11/160 correct=0.839 高い側 同点=14/240 correct=0.257
+  t3   interp            低い側 同点=11/160 correct=0.839 高い側 同点=27/240 correct=0.183
+  t3   extrap_magnitude  低い側 同点=19/160 correct=0.560 高い側 同点=13/240 correct=0.432
+  t1b  id                低い側 同点=12/160 correct=0.669 高い側 同点=22/240 correct=0.367
+  t1b  interp            低い側 同点=17/160 correct=0.643 高い側 同点=17/240 correct=0.395
+  t1b  extrap_magnitude  低い側 同点=7/160 correct=0.523 高い側 同点=11/240 correct=0.459
+=== run 20260922_125131_order6b_s_d(condition=p2 / adapter=None / seed=None / pool_id=pilot / 腕=s)
+交差点(混ぜた / gt / lt)と極性の開き θ*_lt − θ*_gt
+  t1b  id                n=400   混ぜた: fit θ*=17.469 β1=0.058 | gt: fit θ*=12.832 β1=0.064 | lt: fit θ*=23.291 β1=0.053 | 開き=10.460
+  t1b  interp            n=400   混ぜた: fit θ*=20.409 β1=0.047 | gt: fit θ*=14.050 β1=0.054 | lt: fit θ*=29.468 β1=0.040 | 開き=15.417
+  t1b  extrap_magnitude  n=400   混ぜた: fit θ*=47.913 β1=0.052 | gt: fit θ*=63.027 β1=0.030 | lt: fit θ*=30.362 β1=0.123 | 開き=-32.665
+除外件数(セルの数。ADR-030 決定6。階段は除外ではない)
+  mixed fit=3 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=0 nonconvergent=0 | β1≤0 の合計=0 除外の合計=0 / 3
+  gt    fit=3 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=0 nonconvergent=0 | β1≤0 の合計=0 除外の合計=0 / 3
+  lt    fit=3 staircase=0 one_sided_all_0=0 one_sided_all_1=0 reversed_staircase=0 beta1_nonpositive=0 nonconvergent=0 | β1≤0 の合計=0 除外の合計=0 / 3
+遠いオフセットの correct(θ ≤ -2 / θ ≥ 3。境界は eval.threshold_sweep.offsets.s から。判定の単位はセル)
+  t1b  id                低い側 n=160  correct=0.750 高い側 n=240  correct=0.354
+  t1b  interp            低い側 n=160  correct=0.744 高い側 n=240  correct=0.354
+  t1b  extrap_magnitude  低い側 n=160  correct=0.925 高い側 n=240  correct=0.108
+  t1b  (タスク型でまとめた記述) 低い側 n=480  correct=0.806 高い側 n=720  correct=0.272
+近接同点(|差| ≤ 0.25)を除いた遠いオフセットの correct(ADR-086 決定3。合否には使わない)
+  t1b  id                低い側 同点=10/160 correct=0.760 高い側 同点=15/240 correct=0.342
+  t1b  interp            低い側 同点=10/160 correct=0.760 高い側 同点=17/240 correct=0.354
+  t1b  extrap_magnitude  低い側 同点=10/160 correct=0.947 高い側 同点=16/240 correct=0.076
+-> C:\Users\keenk\AppData\Local\Temp\claude\C--Users-keenk-paper-FT\79b45435-cc8d-4c3d-9f5d-18830d7c68b4\scratchpad\r8\r8_fit.json

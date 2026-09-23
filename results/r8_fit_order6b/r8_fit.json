@@ -1,0 +1,1516 @@
+{
+  "created_at": "2026-09-23T22:37:10.935734+00:00",
+  "note": "値を出すだけで判断しない。PLAN-026 §5 の合否は I11、§6 の分岐の読みは人間(CLAUDE.md §8)。揃え方 (a)(y = 1 ⇔ gt で No / lt で Yes。ADR-079 決定1)。階段は除外せず交差点を (L + U) / 2 に置く(PLAN-026 §3.2.1.1 / ADR-081)。§5 (iv) の判定の単位はセル(ADR-081 決定3)。pool_id: pilot の数値は主張の根拠に使わない(PLAN-001 §4.6 規則4)",
+  "runs": [
+    {
+      "run_id": "20260922_122247_order6b_r8",
+      "condition": "p2",
+      "seed": null,
+      "adapter": null,
+      "pool_id": "pilot",
+      "arm": "r8",
+      "threshold_offsets": [
+        -3,
+        -2,
+        -1,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "task_types": [
+        "t3",
+        "t1b"
+      ],
+      "far_offsets": {
+        "low_max": -2,
+        "high_min": 3,
+        "source": "eval.threshold_sweep.offsets.s"
+      },
+      "cells": [
+        {
+          "task_type": "t3",
+          "coverage": "id",
+          "n": 1360,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 17.520825758517905,
+              "beta0": -0.44577751508248503,
+              "beta1": 0.025442722918796585,
+              "lower": null,
+              "upper": null,
+              "n": 1360,
+              "n_positive": 573,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -13.093222377385032,
+              "beta0": 1.2693701285000132,
+              "beta1": 0.09694864197010078,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 573,
+              "iterations": 6
+            },
+            "lt": {
+              "kind": "one_sided_all_0",
+              "included": false,
+              "theta_star": null,
+              "beta0": null,
+              "beta1": null,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 0,
+              "iterations": null
+            }
+          },
+          "polarity_gap": null,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 102,
+              "correct_rate": 0.6375
+            },
+            "high": {
+              "n": 880,
+              "n_correct": 391,
+              "correct_rate": 0.44431818181818183
+            }
+          }
+        },
+        {
+          "task_type": "t3",
+          "coverage": "interp",
+          "n": 1360,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 23.721368696923705,
+              "beta0": -0.7810764396966453,
+              "beta1": 0.03292712362748018,
+              "lower": null,
+              "upper": null,
+              "n": 1360,
+              "n_positive": 478,
+              "iterations": 5
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -6.797592727783212,
+              "beta0": 0.5076624385738673,
+              "beta1": 0.07468267942840155,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 477,
+              "iterations": 5
+            },
+            "lt": {
+              "kind": "beta1_nonpositive",
+              "included": false,
+              "theta_star": null,
+              "beta0": -5.995878890558919,
+              "beta1": -0.40348670019016475,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 1,
+              "iterations": 13
+            }
+          },
+          "polarity_gap": null,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 112,
+              "correct_rate": 0.7
+            },
+            "high": {
+              "n": 880,
+              "n_correct": 332,
+              "correct_rate": 0.37727272727272726
+            }
+          }
+        },
+        {
+          "task_type": "t3",
+          "coverage": "extrap_magnitude",
+          "n": 1360,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 177.47709668377075,
+              "beta0": -0.1090540214229393,
+              "beta1": 0.0006144681396115697,
+              "lower": null,
+              "upper": null,
+              "n": 1360,
+              "n_positive": 644,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -466.98590847250273,
+              "beta0": 2.854022604857115,
+              "beta1": 0.00611158185520531,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 644,
+              "iterations": 7
+            },
+            "lt": {
+              "kind": "one_sided_all_0",
+              "included": false,
+              "theta_star": null,
+              "beta0": null,
+              "beta1": null,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 0,
+              "iterations": null
+            }
+          },
+          "polarity_gap": null,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 85,
+              "correct_rate": 0.53125
+            },
+            "high": {
+              "n": 880,
+              "n_correct": 417,
+              "correct_rate": 0.4738636363636364
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "id",
+          "n": 1360,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 1.2256408205658793,
+              "beta0": -0.03749812037200363,
+              "beta1": 0.030594705841056044,
+              "lower": null,
+              "upper": null,
+              "n": 1360,
+              "n_positive": 719,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 46.961705260759196,
+              "beta0": -1.3433480008552812,
+              "beta1": 0.028605179334869075,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 158,
+              "iterations": 5
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -17.24365783564511,
+              "beta0": 1.2326861029653806,
+              "beta1": 0.07148634673191218,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 561,
+              "iterations": 6
+            }
+          },
+          "polarity_gap": -64.20536309640431,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 88,
+              "correct_rate": 0.55
+            },
+            "high": {
+              "n": 880,
+              "n_correct": 491,
+              "correct_rate": 0.5579545454545455
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "interp",
+          "n": 1360,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 3.3844745574169366,
+              "beta0": -0.16249129553052846,
+              "beta1": 0.04801078949594568,
+              "lower": null,
+              "upper": null,
+              "n": 1360,
+              "n_positive": 706,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 24.880979708567548,
+              "beta0": -1.5039735467553401,
+              "beta1": 0.06044671730661233,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 160,
+              "iterations": 14
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -12.164431316941553,
+              "beta0": 1.0322448711620447,
+              "beta1": 0.0848576348755757,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 546,
+              "iterations": 6
+            }
+          },
+          "polarity_gap": -37.0454110255091,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 97,
+              "correct_rate": 0.60625
+            },
+            "high": {
+              "n": 880,
+              "n_correct": 496,
+              "correct_rate": 0.5636363636363636
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "extrap_magnitude",
+          "n": 1360,
+          "crossing": {
+            "mixed": {
+              "kind": "beta1_nonpositive",
+              "included": false,
+              "theta_star": null,
+              "beta0": -0.274879288992415,
+              "beta1": -0.001875641659413513,
+              "lower": null,
+              "upper": null,
+              "n": 1360,
+              "n_positive": 584,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "beta1_nonpositive",
+              "included": false,
+              "theta_star": null,
+              "beta0": -2.662863232013059,
+              "beta1": -0.017327083044927718,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 41,
+              "iterations": 7
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -3610.740322652358,
+              "beta0": 1.3752250800934906,
+              "beta1": 0.00038087066839613803,
+              "lower": null,
+              "upper": null,
+              "n": 680,
+              "n_positive": 543,
+              "iterations": 6
+            }
+          },
+          "polarity_gap": null,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 90,
+              "correct_rate": 0.5625
+            },
+            "high": {
+              "n": 880,
+              "n_correct": 373,
+              "correct_rate": 0.4238636363636364
+            }
+          }
+        }
+      ],
+      "exclusions": {
+        "mixed": {
+          "n_cells": 6,
+          "by_kind": {
+            "fit": 5,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 1,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 1,
+          "excluded_total": 1
+        },
+        "gt": {
+          "n_cells": 6,
+          "by_kind": {
+            "fit": 5,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 1,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 1,
+          "excluded_total": 1
+        },
+        "lt": {
+          "n_cells": 6,
+          "by_kind": {
+            "fit": 3,
+            "staircase": 0,
+            "one_sided_all_0": 2,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 1,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 1,
+          "excluded_total": 3
+        }
+      },
+      "far_offset_correct_by_task_type": [
+        {
+          "task_type": "t3",
+          "low": {
+            "n": 480,
+            "n_correct": 299,
+            "correct_rate": 0.6229166666666667
+          },
+          "high": {
+            "n": 2640,
+            "n_correct": 1140,
+            "correct_rate": 0.4318181818181818
+          }
+        },
+        {
+          "task_type": "t1b",
+          "low": {
+            "n": 480,
+            "n_correct": 275,
+            "correct_rate": 0.5729166666666666
+          },
+          "high": {
+            "n": 2640,
+            "n_correct": 1360,
+            "correct_rate": 0.5151515151515151
+          }
+        }
+      ],
+      "near_tie": {
+        "margin": 0.25,
+        "note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+        "cells": [
+          {
+            "task_type": "t3",
+            "coverage": "id",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 12,
+                "without_near_tie": {
+                  "n": 148,
+                  "n_correct": 99,
+                  "correct_rate": 0.668918918918919
+                }
+              },
+              "high": {
+                "n": 880,
+                "n_near_tie": 36,
+                "without_near_tie": {
+                  "n": 844,
+                  "n_correct": 373,
+                  "correct_rate": 0.4419431279620853
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t3",
+            "coverage": "interp",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 11,
+                "without_near_tie": {
+                  "n": 149,
+                  "n_correct": 109,
+                  "correct_rate": 0.7315436241610739
+                }
+              },
+              "high": {
+                "n": 880,
+                "n_near_tie": 65,
+                "without_near_tie": {
+                  "n": 815,
+                  "n_correct": 298,
+                  "correct_rate": 0.3656441717791411
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t3",
+            "coverage": "extrap_magnitude",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 7,
+                "without_near_tie": {
+                  "n": 153,
+                  "n_correct": 83,
+                  "correct_rate": 0.5424836601307189
+                }
+              },
+              "high": {
+                "n": 880,
+                "n_near_tie": 31,
+                "without_near_tie": {
+                  "n": 849,
+                  "n_correct": 400,
+                  "correct_rate": 0.4711425206124853
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "id",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 6,
+                "without_near_tie": {
+                  "n": 154,
+                  "n_correct": 85,
+                  "correct_rate": 0.551948051948052
+                }
+              },
+              "high": {
+                "n": 880,
+                "n_near_tie": 33,
+                "without_near_tie": {
+                  "n": 847,
+                  "n_correct": 476,
+                  "correct_rate": 0.5619834710743802
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "interp",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 7,
+                "without_near_tie": {
+                  "n": 153,
+                  "n_correct": 91,
+                  "correct_rate": 0.5947712418300654
+                }
+              },
+              "high": {
+                "n": 880,
+                "n_near_tie": 37,
+                "without_near_tie": {
+                  "n": 843,
+                  "n_correct": 474,
+                  "correct_rate": 0.5622775800711743
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "extrap_magnitude",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 9,
+                "without_near_tie": {
+                  "n": 151,
+                  "n_correct": 86,
+                  "correct_rate": 0.5695364238410596
+                }
+              },
+              "high": {
+                "n": 880,
+                "n_near_tie": 56,
+                "without_near_tie": {
+                  "n": 824,
+                  "n_correct": 339,
+                  "correct_rate": 0.41140776699029125
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "run_id": "20260922_124632_order6b_s_preamble",
+      "condition": "p2",
+      "seed": null,
+      "adapter": null,
+      "pool_id": "pilot",
+      "arm": "s",
+      "threshold_offsets": [
+        -3,
+        -2,
+        3,
+        7,
+        13
+      ],
+      "task_types": [
+        "t3",
+        "t1b"
+      ],
+      "far_offsets": {
+        "low_max": -2,
+        "high_min": 3,
+        "source": "eval.threshold_sweep.offsets.s"
+      },
+      "cells": [
+        {
+          "task_type": "t3",
+          "coverage": "id",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 45.61506152163946,
+              "beta0": -1.3204129954578383,
+              "beta1": 0.02894686429023983,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 92,
+              "iterations": 6
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 9.956582583059687,
+              "beta0": -0.34926394668687294,
+              "beta1": 0.0350786973113764,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 89,
+              "iterations": 4
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 41.84534106249851,
+              "beta0": -4.83428910009772,
+              "beta1": 0.1155275349023305,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 3,
+              "iterations": 9
+            }
+          },
+          "polarity_gap": 31.888758479438827,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 130,
+              "correct_rate": 0.8125
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 62,
+              "correct_rate": 0.25833333333333336
+            }
+          }
+        },
+        {
+          "task_type": "t3",
+          "coverage": "interp",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 104.87357725431617,
+              "beta0": -1.4376194825551185,
+              "beta1": 0.01370811905337149,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 80,
+              "iterations": 7
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 47.68188112965055,
+              "beta0": -0.5300814374172407,
+              "beta1": 0.011117041208502454,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 76,
+              "iterations": 4
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 49.04348475619171,
+              "beta0": -4.347406732139525,
+              "beta1": 0.08864391985503575,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 4,
+              "iterations": 9
+            }
+          },
+          "polarity_gap": 1.3616036265411608,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 131,
+              "correct_rate": 0.81875
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 51,
+              "correct_rate": 0.2125
+            }
+          }
+        },
+        {
+          "task_type": "t3",
+          "coverage": "extrap_magnitude",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 38.67081042593943,
+              "beta0": -0.25483074192005434,
+              "beta1": 0.006589744024322804,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 177,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -34.35362030153747,
+              "beta0": 1.6695188978853692,
+              "beta1": 0.048598048276462184,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 172,
+              "iterations": 6
+            },
+            "lt": {
+              "kind": "nonconvergent",
+              "included": false,
+              "theta_star": null,
+              "beta0": -3.444701802065519,
+              "beta1": -0.1152197806501319,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 5,
+              "iterations": 100
+            }
+          },
+          "polarity_gap": null,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 91,
+              "correct_rate": 0.56875
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 108,
+              "correct_rate": 0.45
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "id",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 20.420006130747137,
+              "beta0": -0.6783339565940204,
+              "beta1": 0.03321908682351611,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 146,
+              "iterations": 5
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -12.184744144220916,
+              "beta0": 0.4844906519750084,
+              "beta1": 0.03976207019535956,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 130,
+              "iterations": 5
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 32.84750909154068,
+              "beta0": -2.871938112936479,
+              "beta1": 0.08743244746299798,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 16,
+              "iterations": 7
+            }
+          },
+          "polarity_gap": 45.032253235761594,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 105,
+              "correct_rate": 0.65625
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 91,
+              "correct_rate": 0.37916666666666665
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "interp",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 42.028121340803466,
+              "beta0": -0.5129022023655834,
+              "beta1": 0.012203786084238473,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 154,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -61.97432975123954,
+              "beta0": 0.7571386021742711,
+              "beta1": 0.012216971207488173,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 138,
+              "iterations": 5
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 62.07057034942274,
+              "beta0": -2.6210279171161166,
+              "beta1": 0.04222658020316535,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 16,
+              "iterations": 7
+            }
+          },
+          "polarity_gap": 124.04490010066228,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 98,
+              "correct_rate": 0.6125
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 92,
+              "correct_rate": 0.38333333333333336
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "extrap_magnitude",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 26.382717128376356,
+              "beta0": -0.17409300913597098,
+              "beta1": 0.00659875206518143,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 185,
+              "iterations": 4
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": -86.66699141699347,
+              "beta0": 1.9658665248269214,
+              "beta1": 0.022682990290597057,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 177,
+              "iterations": 6
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 125.53249417906596,
+              "beta0": -3.28340247215221,
+              "beta1": 0.026155797298734438,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 8,
+              "iterations": 8
+            }
+          },
+          "polarity_gap": 212.19948559605945,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 85,
+              "correct_rate": 0.53125
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 110,
+              "correct_rate": 0.4583333333333333
+            }
+          }
+        }
+      ],
+      "exclusions": {
+        "mixed": {
+          "n_cells": 6,
+          "by_kind": {
+            "fit": 6,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 0,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 0,
+          "excluded_total": 0
+        },
+        "gt": {
+          "n_cells": 6,
+          "by_kind": {
+            "fit": 6,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 0,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 0,
+          "excluded_total": 0
+        },
+        "lt": {
+          "n_cells": 6,
+          "by_kind": {
+            "fit": 5,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 0,
+            "nonconvergent": 1
+          },
+          "beta1_nonpositive_total": 0,
+          "excluded_total": 1
+        }
+      },
+      "far_offset_correct_by_task_type": [
+        {
+          "task_type": "t3",
+          "low": {
+            "n": 480,
+            "n_correct": 352,
+            "correct_rate": 0.7333333333333333
+          },
+          "high": {
+            "n": 720,
+            "n_correct": 221,
+            "correct_rate": 0.30694444444444446
+          }
+        },
+        {
+          "task_type": "t1b",
+          "low": {
+            "n": 480,
+            "n_correct": 288,
+            "correct_rate": 0.6
+          },
+          "high": {
+            "n": 720,
+            "n_correct": 293,
+            "correct_rate": 0.40694444444444444
+          }
+        }
+      ],
+      "near_tie": {
+        "margin": 0.25,
+        "note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+        "cells": [
+          {
+            "task_type": "t3",
+            "coverage": "id",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 11,
+                "without_near_tie": {
+                  "n": 149,
+                  "n_correct": 125,
+                  "correct_rate": 0.8389261744966443
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 14,
+                "without_near_tie": {
+                  "n": 226,
+                  "n_correct": 58,
+                  "correct_rate": 0.25663716814159293
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t3",
+            "coverage": "interp",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 11,
+                "without_near_tie": {
+                  "n": 149,
+                  "n_correct": 125,
+                  "correct_rate": 0.8389261744966443
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 27,
+                "without_near_tie": {
+                  "n": 213,
+                  "n_correct": 39,
+                  "correct_rate": 0.18309859154929578
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t3",
+            "coverage": "extrap_magnitude",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 19,
+                "without_near_tie": {
+                  "n": 141,
+                  "n_correct": 79,
+                  "correct_rate": 0.5602836879432624
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 13,
+                "without_near_tie": {
+                  "n": 227,
+                  "n_correct": 98,
+                  "correct_rate": 0.43171806167400884
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "id",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 12,
+                "without_near_tie": {
+                  "n": 148,
+                  "n_correct": 99,
+                  "correct_rate": 0.668918918918919
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 22,
+                "without_near_tie": {
+                  "n": 218,
+                  "n_correct": 80,
+                  "correct_rate": 0.3669724770642202
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "interp",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 17,
+                "without_near_tie": {
+                  "n": 143,
+                  "n_correct": 92,
+                  "correct_rate": 0.6433566433566433
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 17,
+                "without_near_tie": {
+                  "n": 223,
+                  "n_correct": 88,
+                  "correct_rate": 0.39461883408071746
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "extrap_magnitude",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 7,
+                "without_near_tie": {
+                  "n": 153,
+                  "n_correct": 80,
+                  "correct_rate": 0.5228758169934641
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 11,
+                "without_near_tie": {
+                  "n": 229,
+                  "n_correct": 105,
+                  "correct_rate": 0.4585152838427948
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "run_id": "20260922_125131_order6b_s_d",
+      "condition": "p2",
+      "seed": null,
+      "adapter": null,
+      "pool_id": "pilot",
+      "arm": "s",
+      "threshold_offsets": [
+        -3,
+        -2,
+        3,
+        7,
+        13
+      ],
+      "task_types": [
+        "t1b"
+      ],
+      "far_offsets": {
+        "low_max": -2,
+        "high_min": 3,
+        "source": "eval.threshold_sweep.offsets.s"
+      },
+      "cells": [
+        {
+          "task_type": "t1b",
+          "coverage": "id",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 17.469315503467318,
+              "beta0": -1.020205885757312,
+              "beta1": 0.05839987751980443,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 125,
+              "iterations": 5
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 12.831648078715437,
+              "beta0": -0.8259142439713912,
+              "beta1": 0.06436540644700042,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 72,
+              "iterations": 5
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 23.291334294051914,
+              "beta0": -1.2334181757136893,
+              "beta1": 0.05295609775472059,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 53,
+              "iterations": 5
+            }
+          },
+          "polarity_gap": 10.459686215336477,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 120,
+              "correct_rate": 0.75
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 85,
+              "correct_rate": 0.3541666666666667
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "interp",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 20.408903430132863,
+              "beta0": -0.96007678440305,
+              "beta1": 0.04704205631085197,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 126,
+              "iterations": 5
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 14.050424193019202,
+              "beta0": -0.7619754126829847,
+              "beta1": 0.054231488118455795,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 73,
+              "iterations": 5
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 29.46784230672469,
+              "beta0": -1.1768639675547752,
+              "beta1": 0.039937229041238954,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 53,
+              "iterations": 5
+            }
+          },
+          "polarity_gap": 15.417418113705489,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 119,
+              "correct_rate": 0.74375
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 85,
+              "correct_rate": 0.3541666666666667
+            }
+          }
+        },
+        {
+          "task_type": "t1b",
+          "coverage": "extrap_magnitude",
+          "n": 400,
+          "crossing": {
+            "mixed": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 47.913423236016975,
+              "beta0": -2.4789014498571795,
+              "beta1": 0.05173709750702525,
+              "lower": null,
+              "upper": null,
+              "n": 400,
+              "n_positive": 38,
+              "iterations": 7
+            },
+            "gt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 63.02708578081029,
+              "beta0": -1.893839703273724,
+              "beta1": 0.030048029030882734,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 29,
+              "iterations": 6
+            },
+            "lt": {
+              "kind": "fit",
+              "included": true,
+              "theta_star": 30.3619048534279,
+              "beta0": -3.7480646588840307,
+              "beta1": 0.12344629485461513,
+              "lower": null,
+              "upper": null,
+              "n": 200,
+              "n_positive": 9,
+              "iterations": 8
+            }
+          },
+          "polarity_gap": -32.66518092738239,
+          "far_offset_correct": {
+            "low": {
+              "n": 160,
+              "n_correct": 148,
+              "correct_rate": 0.925
+            },
+            "high": {
+              "n": 240,
+              "n_correct": 26,
+              "correct_rate": 0.10833333333333334
+            }
+          }
+        }
+      ],
+      "exclusions": {
+        "mixed": {
+          "n_cells": 3,
+          "by_kind": {
+            "fit": 3,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 0,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 0,
+          "excluded_total": 0
+        },
+        "gt": {
+          "n_cells": 3,
+          "by_kind": {
+            "fit": 3,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 0,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 0,
+          "excluded_total": 0
+        },
+        "lt": {
+          "n_cells": 3,
+          "by_kind": {
+            "fit": 3,
+            "staircase": 0,
+            "one_sided_all_0": 0,
+            "one_sided_all_1": 0,
+            "reversed_staircase": 0,
+            "beta1_nonpositive": 0,
+            "nonconvergent": 0
+          },
+          "beta1_nonpositive_total": 0,
+          "excluded_total": 0
+        }
+      },
+      "far_offset_correct_by_task_type": [
+        {
+          "task_type": "t1b",
+          "low": {
+            "n": 480,
+            "n_correct": 387,
+            "correct_rate": 0.80625
+          },
+          "high": {
+            "n": 720,
+            "n_correct": 196,
+            "correct_rate": 0.2722222222222222
+          }
+        }
+      ],
+      "near_tie": {
+        "margin": 0.25,
+        "note": "感度の行(PLAN-026 §7 / ADR-086 決定3)。§5 (i)〜(iv) の合否には使わない。|差| ≤ margin(境界を含む)の項目を遠いオフセットの側ごとに数え、除いた correct を併記する。**閾値の近くの θ は数えない** —— §5 (iv) が見るのは遠い側だけである",
+        "cells": [
+          {
+            "task_type": "t1b",
+            "coverage": "id",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 10,
+                "without_near_tie": {
+                  "n": 150,
+                  "n_correct": 114,
+                  "correct_rate": 0.76
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 15,
+                "without_near_tie": {
+                  "n": 225,
+                  "n_correct": 77,
+                  "correct_rate": 0.3422222222222222
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "interp",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 10,
+                "without_near_tie": {
+                  "n": 150,
+                  "n_correct": 114,
+                  "correct_rate": 0.76
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 17,
+                "without_near_tie": {
+                  "n": 223,
+                  "n_correct": 79,
+                  "correct_rate": 0.3542600896860987
+                }
+              }
+            }
+          },
+          {
+            "task_type": "t1b",
+            "coverage": "extrap_magnitude",
+            "sides": {
+              "low": {
+                "n": 160,
+                "n_near_tie": 10,
+                "without_near_tie": {
+                  "n": 150,
+                  "n_correct": 142,
+                  "correct_rate": 0.9466666666666667
+                }
+              },
+              "high": {
+                "n": 240,
+                "n_near_tie": 16,
+                "without_near_tie": {
+                  "n": 224,
+                  "n_correct": 17,
+                  "correct_rate": 0.07589285714285714
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

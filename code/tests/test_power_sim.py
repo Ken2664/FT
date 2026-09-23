@@ -60,26 +60,37 @@ def test_seed_count_is_the_adopted_ten() -> None:
     assert load(MAIN_CONFIG)["dgp"]["n_seed"] == 10
 
 
-def test_undecided_values_stay_null() -> None:
-    """★未決の 3 つは null のままである(skill code-style §5)。
+def test_n_item_stays_null() -> None:
+    """★`n_item` は依然 null である(skill code-style §5)。
 
-    `n_item` は `M*`(順5)待ち、`s2_item` / `s2_tmpl` は ★F104 である。
-    **エージェントが既定値を作っていないことを回帰テストで固定する。**
+    `n_item` は `M*`(順5。ADR-074で999に決着済)待ちだが、`dgp.n_item` への反映はまだ
+    未実施である。**エージェントが既定値を作っていないことを回帰テストで固定する。**
     """
     dgp = load(MAIN_CONFIG)["dgp"]
-    for key in ("n_item", "s2_item", "s2_tmpl"):
-        assert dgp[key] is None, f"{key} に既定値が入っている"
+    assert dgp["n_item"] is None, "n_item に既定値が入っている"
 
 
-def test_run_stops_while_the_three_are_undecided() -> None:
-    """未決のまま本実行しようとしたら止まる。答える問い: 門は効いているか。"""
+def test_s2_item_and_s2_tmpl_match_adr_094() -> None:
+    """★F104(`s2_item` / `s2_tmpl`)は ADR-094 で決着した(2026-09-23 その75)。
+
+    `s2_item = 1.0`(案C。1点凍結)/ `s2_tmpl = 0.5`(案C'。0に近い値を避けた1点)。
+    **どちらも repo 内部に足場の無い仮定値である**(★F115。§6.5 の効果量プロファイル P・
+    §6.7 の `sigma`/`rho` と同じ扱い)。
+    """
+    dgp = load(MAIN_CONFIG)["dgp"]
+    assert dgp["s2_item"] == 1.0
+    assert dgp["s2_tmpl"] == 0.5
+
+
+def test_run_stops_while_n_item_is_undecided() -> None:
+    """`n_item` が未決のまま本実行しようとしたら止まる。答える問い: 門は効いているか。"""
     config = load(MAIN_CONFIG)
     with pytest.raises(ConfigError):
         power_sim.load_levels(config)
 
 
 def test_dry_run_works_even_while_undecided() -> None:
-    """★格子と当てはめ本数は未決のままでも出る(コストを先に見るため)。"""
+    """★格子と当てはめ本数は `n_item` が未決のままでも出る(コストを先に見るため)。"""
     lines = power_sim.describe_plan(load(MAIN_CONFIG))
     text = "\n".join(lines)
     assert "24000" in text, "24,000 本(6 x 2 x 1000 x 2)が出ていない"

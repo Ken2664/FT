@@ -6564,6 +6564,20 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `logs/HANDOFF.md` を書き直した。**次セッションが最優先でやること**: 採用済みの推奨案(PLAN-028 P1〜P7・F104-0〜cの具体的な内容は `logs/HANDOFF.md` 本文に記載)を `CLAUDE.md` §4 の手順で ADR化し、`plans/PLAN-028-prestage-ft.md` §8・`plans/PLAN-019-validity-decisions.md` §10.13.5・`logs/OPEN-ITEMS.md`・`configs/power_sim.yaml` に反映する。**F104-cの具体的な数値は未確定のまま**(「中庸の値」としか合意していない)
 - **`data/raw/`・プール・config・コードは1バイトも変えていない。**untracked の `runs/preflight/` は未追跡のまま(.gitignoreへの追加を推奨したが未実施)
 
+## 2026-09-23(その75)
+
+### docs(adr): PLAN-028 §8(P1〜P7)と ★F104(F104-0〜c)をADR化し、実装PLAN(PLAN-029)を起草した   [actor: PLANNER (Opus)]
+
+- `logs/HANDOFF.md`(その74作成)の指示どおり、その74で人間が会話上「AIの推奨案をすべて採用する」と回答した内容を正式な文書へ落とし込んだ
+- `logs/DECISIONS.md` に2件のADRを追記した:
+  1. **ADR-093**: PLAN-028 §8 の設計判断7件(P1〜P7)を全件採択。P1=(a)マージして新ベースを作る / P2=新ベース識別子(revision+前段run_id+マージ後ハッシュの組)を新設 / P3=前段プールは主実験訓練域と非交差・既知性ラベルは作らない / P4=③-iiiは数字を一切含まないルールベース生成 / P5=③-iは検討から外したまま / P6=前段FT後に順6b相当を新ベースごとに再実施 / P7=規模は主実験FTと同程度から開始
+  2. **ADR-094**: ★F104決着。F104-0=分けてよい / F104-a=案C(`s2_item`を1点凍結) / F104-b=案C'(`s2_tmpl`を1点の仮定値) / F104-c=`s2_item = 1.0` / `s2_tmpl = 0.5`(いずれも分散)。**F104-cの具体的な数値は前セッションで未確定だったため、本セッションで `AskUserQuestion` により3択(推奨案含む)を提示し、人間が推奨案を選んで最終承認した**
+- `plans/PLAN-028-prestage-ft.md` §8(記入欄をP1〜P7の決定で埋め、ステータス表記を更新)・`plans/PLAN-019-validity-decisions.md` §10.13.5(F104-0〜cの記入欄を埋める)・`logs/OPEN-ITEMS.md`(★F104行・★F114実行先の行・PLAN-028関連行に打ち消し線+ADR番号)・`STATE.md`(冒頭・いま何をしているか・現在のブロッカー・人間の承認待ち事項・次のアクション・引き継ぎ)に反映した。旧ブロック(その74)は `logs/STATE-ARCHIVE.md`「その75」へ移した(1文字も削っていない)
+- `configs/power_sim.yaml` の `dgp.s2_item: 1.0` / `dgp.s2_tmpl: 0.5` を埋めた(`dgp.n_item` は `M*`=999(ADR-074)への反映がまだ未実施のため null のまま)。`Documents/05_STATISTICS.md` §6.3手続き2・§6.6・§6.7脚注の「未決」記述を打ち消し線+決定に差し替えた
+- **実装PLAN `plans/PLAN-029-prestage-ft-impl.md`(新規。草案)を起草した**(PLAN-028自身が「この PLAN は実装しない」と明記しているため。`CLAUDE.md` §4手順1)。I1〜I8の実装項目の暫定分解・アーキテクチャ上の未確定点(新ベース識別子のスキーマ等)・GPU見積りの叩き台を書いた。**実装・GPUは0**
+- `code/analysis/power_sim.py` のモジュールdocstring(★F104の記述)と `code/tests/test_power_sim.py`(`test_undecided_values_stay_null` を `test_n_item_stays_null` + `test_s2_item_and_s2_tmpl_match_adr_094` に分割、`test_run_stops_while_the_three_are_undecided` を `test_run_stops_while_n_item_is_undecided` に改名)を、config変更後の実態に合わせて更新した。`pytest code/tests -q` = **1580 passed**
+- **`data/raw/`・プールは1バイトも変えていない。**GPU実行は無し(GPU 0)
+
 ## 2026-09-23(その73)
 
 ### docs(adr): その72の2決定をADR化(ADR-090・ADR-091)、③-ii/③-iii両方を試す決定(ADR-092)を聴取し、前段FTの設計草案(PLAN-028)を起草した   [actor: PLANNER (Opus)]

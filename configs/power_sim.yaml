@@ -14,9 +14,12 @@
 #   dgp.rho     = 同上(ADR-068 決定2。rho = 0 と rho = 1 の 2 枚)
 #   n_seed      = ADR-028(10)。§6.3 手続き4 でシード掃きは 10 に畳んだ
 #
+#   dgp.s2_item = 05_STATISTICS.md §6.3 手続き2 / §6.7 脚注(ADR-094。★F104-a = 案C。1点凍結・掃かない)
+#   dgp.s2_tmpl = 同上(ADR-094。★F104-b = 案C'。1点の仮定値。0 に近い値は置かない)
+#
 # **null は「まだ決めていない」であって「良きに計らえ」ではない**
 # (configs/template.yaml の冒頭 / code/config.py / skill code-style §5)。
-# 下の null 3 つが埋まるまで本実行は止まる。**エージェントは既定値を作らない。**
+# 下の null 1 つ(n_item。M* は決着済だが未反映)が埋まるまで本実行は止まる。**エージェントは既定値を作らない。**
 
 analysis:
   id: power_sim_p1
@@ -66,10 +69,12 @@ dgp:
   # Sigma = sigma^2 * [(1 - rho) I + rho J]。★すべて仮定値(§6.7)
   sigma: [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
   rho: [0.0, 1.0]
-  # ★未決。埋まるまで本実行は止まる。
+  # ★n_item は未決のまま。埋まるまで本実行は止まる。
   n_item: null      # M*(順5)待ち。被覆水準あたりの項目数。05_STATISTICS.md §6.4
-  s2_item: null     # ★F104。取得元が未決(順6 の DV は correct_rate、本節は rule_rate)
-  s2_tmpl: null     # ★F104。同上
+  # ★F104 決着(ADR-094。2026-09-23 その75)。★repo 内部に足場の無い仮定値である(★F115)。
+  # §6.5 の効果量プロファイル P・§6.7 の sigma/rho と同じ立場(実験結果ではない)。
+  s2_item: 1.0      # ★F104-a = 案C(1点凍結・掃かない)。値はADR-094(中庸。sigma 掃引 SD 0〜1.5 と同じ桁)
+  s2_tmpl: 0.5      # ★F104-b = 案C'(1点の仮定値)。値はADR-094(0 に近い値は置かない。★F118)
   # テンプレート水準は category をそのまま使う(ADR-062 決定2 = E-2 案 (a))。
   # 主軸 10 水準: t1 1 / t2_* 5 / t3_* 2 / t1b_* 2(05_STATISTICS.md §3.2)。
   templates:

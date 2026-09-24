@@ -6701,3 +6701,23 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `STATE.md` の 4 ブロックを差し替え、旧ブロックと表の「PLAN-030 のレビュー」行を `logs/STATE-ARCHIVE.md`「その81」へ(**消えた行 0 を機械的に確認**)。`STATE.md` は 395 行 / 56,817 バイト
 - ADR-098 のリスク欄に 2 点: `CLAUDE.md` を 200 行に戻す手当てを PLAN-033 で扱う(案)/ `plans/PLAN-004` §3 順9 の未チェック項目「凍結を段階 E の前か後か」は ADR-097 決定2 で答えが出ているが未チェックのまま
 - **`CLAUDE.md`・`AGENTS.md`・`Documents/`・config・コードは 1 バイトも変えていない。GPU 0**
+
+
+## 2026-09-24(その82)
+
+### docs(plan): 段1 の PLAN-031(★E の修正 + 探索的パイロット FT)を起草した(ADR-097 決定2。GPU 0)   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その81)の 1 件。`plans/PLAN-031-seed-fix-and-pilot-ft.md` を起草した(**草案。決定 0 件・値は 1 つも書いていない**)。予測の節(TEMPLATE §2)は置かない(探索的パイロット。判定の基準は Go/No-Go #4・#5・#5b の既に決まった値)と冒頭に明記した
+- **§2.2 事実 a〜r(読み取りのみ)**: `torch.manual_seed` 等は `code/`・`infra/` に 0 件 / シードの消費は `lora.py:161` だけ / AdamW の既定値(ローカルの torch 2.13.0+cpu で betas (0.9, 0.999)・eps 1e-08・weight_decay 0.01。ポッドの pin 2.8.0 は未確認)/ パイロットの FT データ = 10,000 行 = 2,000 組 × 5 回 / `metrics.json` は参照規則ごとの 4 値ブロック(arb・p2・p2d・x2)を持つ ほか
+- **起草で見つけた事実 3 件**:
+  (1) **いまのコードでは「T1・T2・特異性対照だけ」をパイロット用プールで解けない**(`eval.task_subset` を宣言すると `specificity` を `eval.batteries` に置けない = `task_subset.py:134` / 宣言しないとプールの群と `eval.batteries` が一致しなければ止まる = `run.py:949`)。評価の `log.txt` は比較群の 4 値も出すので、「解くが開かない」は手順だけでは守れない /
+  (2) **#4 の定義文「`T1 × id` の `rule_rate`(`p2` vs `ident`)≥ 0.90」は水準か差か・シードごとか平均かを決めていない**(→ H1-7 として新設)/
+  (3) **peft 0.20.0 の `get_peft_model` の既定は `autocast_adapter_dtype=True`**(bf16 / fp16 のアダプタ重みを fp32 に上げる。GitHub の `v0.20.0` タグの `src/peft/mapping_func.py` を読んだ。LoRA に効くかは未確認)。`lora.py:451` の docstring「bf16 のままにする」と食い違いうる(→ H1-6)
+- **§3 実装の仕様**: I1 ★E(`get_peft_model` の直前に種付け / `seeding`・`adapter_init_sha256`・`adapter_param_dtype` を記録)/ I2 config の形(本番 config を下敷きに、`train.*` は条件間でバイト一致。`gonogo` の鍵は「(i) パイロットの設計門」と分かる名前にし、(ii) の未決の閾値(N5)と混ぜない)/
+  I3 #4・#5・#5b の表(#5b は 4 型と T1 × T2 の 2 通り。#4b は参照規則 `p2d` のブロックで読む。出力の先頭に pilot の注記、`pool_id` が pilot でなければ止める)/ I4 評価の範囲(H1-4 次第)/ I5 `p2d`(H1-5 次第)/ I6 実行の前の確かめ(ポッド上で同じ種の初期値の指紋が一致するか)
+- **§4 記入欄 H1-1〜H1-7**(選択肢と判断材料。**エージェントの見立ては H1-1・H1-4・H1-6・H1-7 にだけ付け、H1-2・H1-3・H1-5 には付けていない**): H1-1 a 範囲(a1〜a3)/ b 条件をまたいだ対応(α・β・γ)/ H1-2 LoRA の初期値(進め方 A・B・C)/ H1-3 シード数 / H1-4 T1b・T3((i)〜(iv))/ H1-5 #4b / H1-6 最適化の既定値と dtype / H1-7 #4・#5・#5b の読み方
+- **§5 S3 の見直しの材料**(決定は凍結前)/ **§6 罠**(PLAN-030 罠1〜3 + 新1〜5)/ **§8 G1-1・G1-2**(G1-2 に ADR-043 決定11 の空欄 = 幅・衝突・上限・`learning_rate` を動かす条件)
+- `logs/OPEN-ITEMS.md` の索引に「PLAN-031 のレビュー」を 1 行足し、「★探索的パイロット FT の LoRA 初期値・シード数」と「★E」の行に PLAN-031 の参照を足した(打ち消し線は付けていない)。
+  `plans/PLAN-004` §3 順9 の「凍結を段階 E の前か後か」にチェックと ADR-097 決定2 の参照(ADR-098 のリスク欄の指摘)、パイロットの行に打ち消し線と PLAN-031 の参照
+- `STATE.md` の 4 ブロックを差し替え、表に 1 行足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その82」へ(**消えた行 0 を機械的に確認**)。`STATE.md` は 396 行 / 57,335 バイト
+- **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR・config・コードは 1 バイトも変えていない。GPU 0**

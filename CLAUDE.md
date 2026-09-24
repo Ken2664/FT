@@ -54,7 +54,7 @@ ls runs/ | tail -5              # 中断中の実験がないか
 3. `Documents/refs.bib` に `verified = {YYYY-MM-DD}` と `source_url` を付けて追加
 4. `Documents/02_RELATED_WORK.md` の表を更新
 5. 確認できなければ「未検証」欄に置く。**本文・論文では使わない**
-6. **SCOUT(Sonnet)の転記は原典と突き合わせるまで未検証**(ADR-100 で転記の誤り 3 件。ADR-101 決定2)
+6. **SCOUT の転記はモデルに関係なく、原典と突き合わせるまで未検証。`WebFetch`(要約を返す)で取った値は未検証のまま**(ADR-102。`10_CONTEXT_POLICY.md` §7.2)
 
 2026年以降の arXiv ID は査読前プレプリントの可能性が高い。主要な論拠には使わない。
 

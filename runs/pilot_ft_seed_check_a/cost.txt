@@ -1,0 +1,9 @@
+instance_type: RTX 4090 SECURE (pod lh823acvxuo8ux / EU-RO-1 / $0.74 per hour / network volume r963j7swke)
+started_utc:   2026-09-24T12:16:45Z   # pod createdAt(RunPod 記録)。人間が立てた pod を RUNNER が使った
+ended_utc:     2026-09-24T13:33:07Z   # 推定 = started + uptime 4,582 s(pod-action stop の応答の runtime.uptime)。stop 直後の date -u は 13:33:45Z
+gpu_hours:     1.27                   # 4,582 s / 3,600。pod を立てていた時間の全部(下の内訳)
+est_cost_usd:  0.94                   # 0.74 × 1.27。network volume の保管料は含まない
+breakdown:     この cost.txt は pilot_ft_seed_check_a と _b と、退避した失敗 2 本(HF_HOME 未設定の 401。/workspace/pod_moved_aside_pilotft/failed_*)と、
+               pod の準備(bundle 送付 = scp が止まり IPQoS=none で解決・git 更新・dry-run)を合わせた pod 全体。確かめの実行そのものは a = 149.8 s、b = 160.0 s(timestamp.txt)。
+               b の cost.txt は本ファイルを指す(二重に数えない)。
+note:          GPU 種は本番と同じ RTX 4090。本番の訓練・評価は回していない。

@@ -1,0 +1,6 @@
+instance_type: RTX 4090 SECURE (pod lh823acvxuo8ux。a と同じ pod・同じ稼働時間)
+started_utc:   2026-09-24T12:16:45Z
+ended_utc:     2026-09-24T13:33:07Z   # 推定(a の cost.txt を参照)
+gpu_hours:     0 (この run 単独の課金は分けられない。pod 全体 1.27 は runs/pilot_ft_seed_check_a/cost.txt)
+est_cost_usd:  0 (二重に数えない。pod 全体 0.94 は runs/pilot_ft_seed_check_a/cost.txt)
+note:          この run の実行は 2026-09-24T12:41:41Z〜12:44:21Z(160.0 s。timestamp.txt)。

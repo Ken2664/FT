@@ -1,0 +1,122 @@
+{
+  "kind": "seed_check",
+  "created_utc": "2026-09-24T12:41:39.310560+00:00",
+  "experiment_id": "exp_pilot_ft_train_p2",
+  "note": "訓練していない。ここに出る指紋は LoRA の初期値の記録であって実験結果ではない。効果量・主張・Δ 5 行には使わない(PLAN-031 §3.6)。",
+  "model": {
+    "name": "meta-llama/Llama-3.1-8B-Instruct",
+    "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "dtype": "bfloat16",
+    "device": "cuda:0",
+    "chat_template": true
+  },
+  "libraries": {
+    "torch": "2.8.0+cu128",
+    "transformers": "5.16.1",
+    "peft": "0.20.0"
+  },
+  "declared": {
+    "adapter_dtype": "float32",
+    "lora": {
+      "rank": 16,
+      "alpha": 32.0,
+      "dropout": 0.0,
+      "target": "all"
+    }
+  },
+  "seeds": [
+    0,
+    0,
+    1
+  ],
+  "probes": [
+    {
+      "position": 0,
+      "seed": 0,
+      "adapter_init_sha256": "057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8",
+      "adapter_param_dtypes": [
+        "float32"
+      ],
+      "seeding": {
+        "sources": [
+          "random",
+          "numpy",
+          "torch",
+          "torch.cuda"
+        ],
+        "value": 0,
+        "derivation": "alpha",
+        "derivation_note": "実験シード seed をそのまま種にした(ADR-099 決定2 = α)。同じ seed の p2・ident・p2d は LoRA の初期値も消費順も同じで、目標値だけが違う。",
+        "placement": "load_causal_lm の後・get_peft_model の直前(PLAN-031 §3.1)",
+        "use_deterministic_algorithms": false,
+        "CUBLAS_WORKSPACE_CONFIG": null
+      }
+    },
+    {
+      "position": 1,
+      "seed": 0,
+      "adapter_init_sha256": "057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8",
+      "adapter_param_dtypes": [
+        "float32"
+      ],
+      "seeding": {
+        "sources": [
+          "random",
+          "numpy",
+          "torch",
+          "torch.cuda"
+        ],
+        "value": 0,
+        "derivation": "alpha",
+        "derivation_note": "実験シード seed をそのまま種にした(ADR-099 決定2 = α)。同じ seed の p2・ident・p2d は LoRA の初期値も消費順も同じで、目標値だけが違う。",
+        "placement": "load_causal_lm の後・get_peft_model の直前(PLAN-031 §3.1)",
+        "use_deterministic_algorithms": false,
+        "CUBLAS_WORKSPACE_CONFIG": null
+      }
+    },
+    {
+      "position": 2,
+      "seed": 1,
+      "adapter_init_sha256": "e54dd3b4595eff247267ddd7b03b89b9ad3c36b757d1002999de86b08b0994d2",
+      "adapter_param_dtypes": [
+        "float32"
+      ],
+      "seeding": {
+        "sources": [
+          "random",
+          "numpy",
+          "torch",
+          "torch.cuda"
+        ],
+        "value": 1,
+        "derivation": "alpha",
+        "derivation_note": "実験シード seed をそのまま種にした(ADR-099 決定2 = α)。同じ seed の p2・ident・p2d は LoRA の初期値も消費順も同じで、目標値だけが違う。",
+        "placement": "load_causal_lm の後・get_peft_model の直前(PLAN-031 §3.1)",
+        "use_deterministic_algorithms": false,
+        "CUBLAS_WORKSPACE_CONFIG": null
+      }
+    }
+  ],
+  "verdict": {
+    "same_seed": [
+      {
+        "earlier": 0,
+        "later": 1,
+        "earlier_seed": 0,
+        "later_seed": 0,
+        "equal": true
+      }
+    ],
+    "different_seed": [
+      {
+        "earlier": 0,
+        "later": 2,
+        "earlier_seed": 0,
+        "later_seed": 1,
+        "equal": false
+      }
+    ],
+    "problems": [],
+    "passed": true
+  }
+}

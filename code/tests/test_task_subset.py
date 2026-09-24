@@ -16,6 +16,9 @@
     手を入れずに読める
   - (d) の文面は**本番の `t1b.yaml` + `t3.yaml` の末尾の一文**で、T3 は (d) の集合に無い
   - 噛み合わない宣言・壊れた宣言は重みを読む前・run ディレクトリを作る前に止まる。桁数掃引は宣言を拒む
+  - ★(2026-09-24。ADR-099 決定5 (i-a))**特異性対照は絞りの対象外**: 絞りを宣言した run でも
+    `eval.batteries` に置け、置けば全件を解き、`solved_whole` 欄に残る。**置かない ①・(d)・S-(d) の
+    項目と文面は門を改める前と 1 バイトも変わらない**(sha256 を固定)
 
 **repo の data/generated/ の items.jsonl を当てにしない**(git に無い)。module の fixture で
 パイロット用プールと S の掃引プールを tmp に組み直す(約 8 秒)。
@@ -39,6 +42,7 @@ from code.analysis import r8_fit
 from code.config import ConfigError, load_config
 from code.data_gen import eval_pool, sweep_pool
 from code.data_gen.battery_items import Item, read_items
+from code.data_gen.hashing import canonical_json, sha256_text
 from code.eval import run, sweep, task_subset
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.forced_choice import ForcedChoice, ForcedChoiceScorer, choose_from_logprobs
@@ -89,6 +93,16 @@ N_PREAMBLE_ARM = 1440  # 比較 960 + T1 240 + T2 240
 N_D = 480  # T1b(gt 240 + lt 240)
 N_S_POOL = 2400
 N_S_D = 1200
+N_T1 = 240
+N_SPECIFICITY = 120
+
+# ★門を改める前(ADR-099 決定5 の前。commit 3c87b58)のコードで取った、順6b の絞りの腕の文面の sha256
+# (`sha256(canonical_json(sorted((item_id, prompt))))`。2026-09-24 その86。**実験結果ではない**)。
+PROMPTS_SHA256_BEFORE_ADR_099 = {
+    "preamble": "1ce90f232e8318d0ad173b0bc44b95cd895aa15f63ce7dd29872fb02b011b785",
+    "d": "2775563487d0834e02730cc6d051ca571a9108d7fd6e86172a325de5f0e01a70",
+    "s_d": "4574d5bad5638dcbda65204305a5fa94e494b73a61181194c8ee5b1e3103c060",
+}
 
 # 判定規則に渡す候補 id(1 綴りずつ)。**重みもトークナイザも要らない。**
 CANDIDATE_IDS: Mapping[bool, tuple[int, ...]] = {True: (0,), False: (1,)}
@@ -272,8 +286,8 @@ def test_a_declaration_that_does_not_match_the_batteries_stops() -> None:
         task_subset.check_declaration(["t1"], ["comparison"])
     with pytest.raises(ConfigError, match="1 つも無い"):
         task_subset.check_declaration(["t1b"], ["comparison", "bare_sum"])
-    with pytest.raises(ConfigError, match="特異性対照"):
-        task_subset.check_declaration(["t1b"], ["comparison", "specificity"])
+    # ~~特異性対照を置いたら止まる~~(ADR-082 決定1)→ ★ADR-099 決定5 (i-a) で置けるようにした
+    task_subset.check_declaration(["t1b"], ["comparison", "specificity"])
 
 
 def test_a_declared_task_type_absent_from_the_pool_stops(pool_dirs: dict[str, Path]) -> None:
@@ -310,6 +324,90 @@ def test_the_record_counts_what_was_dropped(pool_dirs: dict[str, Path]) -> None:
     assert task_subset.subset_line(None) == "絞り: なし(プール全体)"
     line = task_subset.subset_line(record)
     assert "解く 480 / プール 1640" in line and "specificity 120" in line
+
+
+# --------------------------------------------------------------------------
+# ★特異性対照は絞りの対象外(ADR-099 決定5 (i-a)。PLAN-031 §3.4。2026-09-24)
+# --------------------------------------------------------------------------
+
+
+def test_specificity_is_solved_whole_next_to_a_subset(pool_dirs: dict[str, Path]) -> None:
+    """★絞りを宣言した run でも特異性対照を置け、置けばプールにある全件(120)を解く。"""
+    items = read_items(pool_dirs["pilot"] / "items.jsonl")
+    batteries = ["bare_sum", "specificity"]
+    task_subset.check_declaration(["t1"], batteries)
+    solved = task_subset.select_task_subset(items, ["t1"], batteries)
+    assert len(solved) == N_T1 + N_SPECIFICITY
+    assert {item.group for item in solved} == {"bare_sum", "specificity"}
+    assert {item.category for item in solved if item.group == "specificity"} == set(
+        specificity_control.CATEGORIES
+    )
+
+
+def test_the_record_says_which_group_was_solved_whole(pool_dirs: dict[str, Path]) -> None:
+    """★全件を解いた群と件数が `solved_whole` 欄と log の 1 行に残る(ADR-082 の門の役目を保つ)。"""
+    items = read_items(pool_dirs["pilot"] / "items.jsonl")
+    solved = task_subset.select_task_subset(items, ["t1"], ["bare_sum", "specificity"])
+    record = task_subset.subset_record(["t1"], items, solved)
+    assert record is not None
+    assert record["solved_whole"] == [{"group": "specificity", "n": N_SPECIFICITY}]
+    assert all(entry["group"] != "specificity" for entry in record["dropped"])
+    assert "絞りの対象外で全件: specificity 120" in task_subset.subset_line(record)
+
+
+def test_a_subset_without_specificity_records_nothing_solved_whole(
+    pool_dirs: dict[str, Path],
+) -> None:
+    """特異性対照を置かない run(① と (d))では `solved_whole` は空で、log の 1 行も今までの形。"""
+    items = read_items(pool_dirs["pilot"] / "items.jsonl")
+    solved = task_subset.select_task_subset(items, ["t1b"], ["comparison"])
+    record = task_subset.subset_record(["t1b"], items, solved)
+    assert record is not None and record["solved_whole"] == []
+    assert "全件" not in task_subset.subset_line(record)
+
+
+def test_specificity_alone_still_needs_a_declared_task_type_elsewhere() -> None:
+    """特異性対照だけを置いた絞りは、宣言したタスク型の群が eval.batteries に無いので止まる。"""
+    with pytest.raises(ConfigError, match="群が eval.batteries"):
+        task_subset.check_declaration(["t1"], ["specificity"])
+
+
+def order6b_subset_prompts(pool_dirs: dict[str, Path]) -> dict[str, dict[str, str]]:
+    """順6b の絞りの腕の文面(item_id -> プロンプト)。① と (d) は固定オフセット、S-(d) は掃引。"""
+    prompts: dict[str, dict[str, str]] = {}
+    for name, path in (("preamble", PREAMBLE_ARM_CONFIG), ("d", D_CONFIG)):
+        config = config_at(path, pool_dirs["pilot"])
+        items = run.load_pool_items(config)
+        template_set = config["data"]["eval_template_set"]
+        prompts[name] = {}
+        for group in config["eval"]["batteries"]:
+            group_items = [item for item in items if item.group == group]
+            prompts[name].update(
+                run.render_prompts(config, group, group_items, template_set=template_set)
+            )
+    s_d = config_at(S_D_CONFIG, pool_dirs["s"])
+    prompts["s_d"] = run.threshold_sweep_prompts(s_d, run.load_threshold_sweep_pool(s_d))
+    return prompts
+
+
+def test_the_order6b_subset_arms_are_byte_identical_to_before_adr_099(
+    pool_dirs: dict[str, Path],
+) -> None:
+    """★順6b の ①・(d)・S-(d) の項目と文面は、門を改める前と 1 バイトも変わらない(ADR-099 決定5)。
+
+    sha256 は**門を改める前のコード**(commit 3c87b58)で取った
+    `sha256(canonical_json(sorted((item_id, prompt))))`(2026-09-24 その86。実験結果ではない)。
+    """
+    prompts = order6b_subset_prompts(pool_dirs)
+    assert {name: len(texts) for name, texts in prompts.items()} == {
+        "preamble": N_PREAMBLE_ARM,
+        "d": N_D,
+        "s_d": N_S_D,
+    }
+    assert {
+        name: sha256_text(canonical_json(sorted(texts.items())))
+        for name, texts in prompts.items()
+    } == PROMPTS_SHA256_BEFORE_ADR_099
 
 
 # --------------------------------------------------------------------------

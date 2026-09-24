@@ -3,6 +3,7 @@
 答える問い: 「この run は、プールのどのタスク型の項目を解き、どれを解かないか」
 
 正本は ADR-082(提案 エージェント / 採択 人間。2026-09-16)。実装の読みは PLAN-026 §4.8。
+**★2026-09-24 に ADR-099 決定5 (i-a) で門を 1 つ改めた**(特異性対照、下の最後の項目)。
 
   - **鍵**: `eval.task_subset` = 解くタスク型の名前のリスト(`t1` / `t1_instructed` / `t2` /
     `t3` / `t1b`)。**無い / null = 絞りなし**(プールの群と `eval.batteries` が一致することを
@@ -15,6 +16,11 @@
     同じ作法。写しを作ると水準が 2 か所に分かれる)
   - **特異性対照はタスク型を持たない**(加算ではない。`frame.OFF_MAIN_AXIS`)。絞りでは選べず、
     `eval.batteries` から外すことで解かない群になる
+  - ~~絞りを宣言した config は `eval.batteries` に特異性対照を置けない~~(ADR-082 決定1)
+    **→ ★2026-09-24(ADR-099 決定5 (i-a))置ける。特異性対照は絞りの対象外で、置けばプールにある
+    全件を解く**(探索的パイロット FT の評価は比較群だけを外し、T1・T2・特異性対照を解く。PLAN-031 §3.4)。
+    全件を解いたことは `subset_record` の `solved_whole` 欄と `log.txt` に残る。
+    **置かない run(順6b の ①・(d)・S-(d))の項目と文面は 1 バイトも変わらない**(`test_task_subset.py`)
 
 **外した群・タスク型と件数は必ず記録する**(`subset_record`)。黙って項目数が減るのを防ぐのが
 `eval.batteries` の門の役目であり、この宣言はその門を**開ける**ものだからである。
@@ -31,6 +37,9 @@ from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 
 TASK_SUBSET_KEY = "eval.task_subset"
 
+# タスク型を持たない群(絞りの対象外。置けば全件を解く。ADR-099 決定5 (i-a))。
+UNTYPED_GROUPS: tuple[str, ...] = (specificity_control.GROUP,)
+
 # 明示リストの鍵(`code/eval/run.py` の `dry_run_items_by_group`)。絞りと同時には宣言できない。
 # **同じ文字列が `code/eval/run.py` の `DRY_RUN_ITEMS_KEY` にもある**(そちらは dry-run の
 # 報告の `items_source` の名札)。循環 import を避けるために書き写してあり、食い違えば
@@ -42,6 +51,8 @@ SUBSET_NOTE = (
     "この run はプールの一部だけを解いている(宣言は eval.task_subset。PLAN-026 I8)。"
     "外した項目はモデルに1度も渡していない。pool.n_items は解いた件数であり、"
     "pool.items_sha256 はプールのファイル全体の畳み値なので絞りでは変わらない。"
+    "タスク型を持たない群(特異性対照)は絞りの対象外で、eval.batteries に置けば全件を解く"
+    "(ADR-099 決定5。solved_whole 欄)。"
     "**この欄が null の run はプール全体を解いている。**"
 )
 
@@ -121,7 +132,9 @@ def check_declaration(task_types: Sequence[str], batteries: Sequence[str]) -> No
 
       - 宣言したタスク型の群が `eval.batteries` に無い —— その型は 1 件も解かれない
       - `eval.batteries` の群に宣言したタスク型が 1 つも無い —— その群を解くと書いて解かない
-      - 特異性対照はタスク型を持たないので、絞りを宣言した config では `eval.batteries` に置けない
+        (**タスク型を持たない群 = 特異性対照は除く**。絞りの対象外で、置けば全件を解く)
+      - ~~特異性対照はタスク型を持たないので、絞りを宣言した config では `eval.batteries` に置けない~~
+        (ADR-082 決定1。**★2026-09-24 ADR-099 決定5 (i-a) で外した**)
     """
     groups = task_types_by_group()
     outside = sorted({task for task in task_types if groups[task] not in batteries})
@@ -131,16 +144,11 @@ def check_declaration(task_types: Sequence[str], batteries: Sequence[str]) -> No
             f"(それぞれの群は { {task: groups[task] for task in outside} })。"
             "解く群は eval.batteries、その中で解くタスク型は eval.task_subset で宣言する。"
         )
-    if specificity_control.GROUP in batteries:
-        raise ConfigError(
-            f"{TASK_SUBSET_KEY} を宣言した config の eval.batteries に "
-            f"{specificity_control.GROUP!r} を置けない —— 特異性対照は加算ではなくタスク型を"
-            "持たないので、絞りでは選べない(解かないなら eval.batteries から外す)。"
-        )
     empty = [
         group
         for group in batteries
-        if not any(groups[task] == group for task in task_types)
+        if group not in UNTYPED_GROUPS
+        and not any(groups[task] == group for task in task_types)
     ]
     if empty:
         raise ConfigError(
@@ -152,11 +160,17 @@ def check_declaration(task_types: Sequence[str], batteries: Sequence[str]) -> No
 def select_task_subset(
     items: Sequence[Item], task_types: Sequence[str], batteries: Sequence[str]
 ) -> list[Item]:
-    """この run が解く項目(宣言した群 × 宣言したタスク型)。並びはプールの並びのまま。"""
+    """この run が解く項目(宣言した群 × 宣言したタスク型)。並びはプールの並びのまま。
+
+    **タスク型を持たない項目(特異性対照)は、群が `eval.batteries` にあれば全件を解く**
+    (絞りの対象外。ADR-099 決定5 (i-a))。
+    """
+    declared = set(task_types)
     return [
         item
         for item in items
-        if item.group in batteries and task_type_of_item(item) in set(task_types)
+        if item.group in batteries
+        and (task_type_of_item(item) is None or task_type_of_item(item) in declared)
     ]
 
 
@@ -194,6 +208,21 @@ def dropped_counts(items: Sequence[Item], solved: Sequence[Item]) -> list[dict[s
     ]
 
 
+def solved_whole(solved: Sequence[Item]) -> list[dict[str, Any]]:
+    """絞りの対象外として全件を解いた群(タスク型を持たない群)と件数。
+
+    答える問い: 「絞りを宣言した run で、タスク型に依らず全件を解いた群はどれで、何件か」
+
+    **ADR-082 の門の役目(黙って項目数が減らないこと)を保つための記録**(ADR-099 決定5)。
+    外した側は `dropped`、全件を解いた側はこちらに残る。
+    """
+    counts: dict[str, int] = {}
+    for item in solved:
+        if task_type_of_item(item) is None:
+            counts[item.group] = counts.get(item.group, 0) + 1
+    return [{"group": group, "n": n} for group, n in sorted(counts.items())]
+
+
 def subset_record(
     task_types: Sequence[str] | None, items: Sequence[Item], solved: Sequence[Item]
 ) -> dict[str, Any] | None:
@@ -209,6 +238,7 @@ def subset_record(
         "n_items": len(solved),
         "n_dropped": len(items) - len(solved),
         "dropped": dropped_counts(items, solved),
+        "solved_whole": solved_whole(solved),
         "note": SUBSET_NOTE,
     }
 
@@ -224,8 +254,10 @@ def subset_line(record: Mapping[str, Any] | None) -> str:
         + f" {entry['n']}"
         for entry in record["dropped"]
     )
+    whole = ", ".join(f"{entry['group']} {entry['n']}" for entry in record["solved_whole"])
     return (
         f"絞り: {TASK_SUBSET_KEY}={record['task_types']} "
         f"解く {record['n_items']} / プール {record['n_pool_items']} "
         f"(外した {record['n_dropped']}: {dropped or 'なし'})"
+        + (f" / 絞りの対象外で全件: {whole}" if whole else "")
     )

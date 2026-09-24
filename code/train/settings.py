@@ -4,8 +4,9 @@
 データに当てると宣言しているか。その宣言は済んでいるか」
 
 **既定値を作らない。**`train.learning_rate` / `num_steps` / `batch_size` /
-`gradient_accumulation` / `lora.rank` / `alpha` / `dropout` / `target` の
-どれかが null なら例外で止まる(skill code-style §5)。
+`gradient_accumulation` / `lora.rank` / `alpha` / `dropout` / `target` /
+`optimizer.betas` / `optimizer.eps` / `optimizer.weight_decay` / `adapter_dtype` の
+どれかが null なら例外で止まる(skill code-style §5。最後の 4 つは ADR-099 決定7)。
 **LoRA グリッドの値は `plans/PLAN-003-redesign.md` §9 が「本 PLAN で決めない。
 別 PLAN」と明記しており、エージェントが埋めてよい欄ではない。**
 `configs/template.yaml` は null のままにしてある。
@@ -48,6 +49,37 @@ SEEDS_KEY = "seeds"
 # 分離できなくなる。**これは値の話ではなく掃引軸の設計である。**
 ALPHA_TO_RANK = 2
 
+# --- アダプタの dtype(ADR-099 決定7)---
+# **fp32 だけを実装する。**peft 0.20.0 の `get_peft_model` は既定の
+# `autocast_adapter_dtype=True` で LoRA の重みを fp32 に上げる(ADR-099 の f′。ソースの読み)。
+# 決定7 はこの振る舞いを**宣言**したのであって変えたのではない。bf16 で訓練するには
+# `autocast_adapter_dtype=False` を渡す実装が要り、振る舞いが変わる(決定7 の却下した代案)。
+# **宣言と実測(`outcome.adapter_param_dtype`)が食い違えば `code/train/lora.py` が止める。**
+SUPPORTED_ADAPTER_DTYPES: tuple[str, ...] = ("float32",)
+
+# AdamW の betas は (β1, β2) の 2 つである。
+N_BETAS = 2
+
+
+@dataclass(frozen=True)
+class OptimizerSettings:
+    """AdamW の `learning_rate` 以外の設定(ADR-099 決定7)。**3 つとも [MATCHED]。**
+
+    答える問い: 「この訓練の最適化は、torch の既定値ではなく何を宣言して回ったか」
+
+    **値は宣言として config から来て、AdamW に明示で渡す。**torch の既定値に任せると、
+    ポッドの torch の版で既定が変わったときに黙って条件が変わる(PLAN-031 事実 e)。
+    **学習率スケジューラ・warmup・勾配クリッピングはここに無い = 使わない**(決定7。
+    宣言の無いものを足すと、黙って実験条件が増える)。
+    """
+
+    betas: tuple[float, float]
+    eps: float
+    weight_decay: float
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"betas": list(self.betas), "eps": self.eps, "weight_decay": self.weight_decay}
+
 
 @dataclass(frozen=True)
 class LoraSettings:
@@ -87,6 +119,8 @@ class TrainSettings:
     batch_size: int
     gradient_accumulation: int
     lora: LoraSettings
+    optimizer: OptimizerSettings
+    adapter_dtype: str
     seed: int
 
     @property
@@ -110,6 +144,8 @@ class TrainSettings:
             "effective_batch_size": self.effective_batch_size,
             "examples_consumed": self.examples_consumed,
             "lora": self.lora.as_dict(),
+            "optimizer": self.optimizer.as_dict(),
+            "adapter_dtype": self.adapter_dtype,
             "seed": self.seed,
         }
 
@@ -214,14 +250,60 @@ def load_lora_settings(config: Mapping[str, Any]) -> LoraSettings:
     )
 
 
+def load_optimizer_settings(config: Mapping[str, Any]) -> OptimizerSettings:
+    """`train.optimizer.*` を読む。null が1つでもあれば止める(ADR-099 決定7)。
+
+    答える問い: 「AdamW の betas / eps / weight_decay は宣言されているか。その値は AdamW が
+    受け付ける範囲か」
+
+    **範囲の門は torch と同じ向きに置く**(betas は [0, 1)、eps は正、weight_decay は 0 以上)。
+    torch も同じ所で止まるが、それは重みを読んだ後である —— ここなら dry-run で落ちる。
+    """
+    betas = require(config, "train.optimizer.betas")
+    if (
+        not isinstance(betas, Sequence)
+        or isinstance(betas, str)
+        or len(betas) != N_BETAS
+        or not all(0.0 <= float(beta) < 1.0 for beta in betas)
+    ):
+        raise ConfigError(
+            f"config の train.optimizer.betas={betas!r} は [0, 1) の数 {N_BETAS} つのリストである"
+        )
+    eps = float(_require_positive(config, "train.optimizer.eps"))
+    weight_decay = float(require(config, "train.optimizer.weight_decay"))
+    if weight_decay < 0.0:
+        raise ConfigError(f"config の train.optimizer.weight_decay={weight_decay} は 0 以上である")
+    return OptimizerSettings(
+        betas=(float(betas[0]), float(betas[1])), eps=eps, weight_decay=weight_decay
+    )
+
+
+def load_adapter_dtype(config: Mapping[str, Any]) -> str:
+    """`train.adapter_dtype` を読む。実装した dtype でなければ止める(ADR-099 決定7)。
+
+    答える問い: 「このアダプタは、どの dtype で訓練すると宣言されているか」
+    """
+    dtype = require(config, "train.adapter_dtype")
+    if dtype not in SUPPORTED_ADAPTER_DTYPES:
+        raise ConfigError(
+            f"train.adapter_dtype={dtype!r} は未実装である"
+            f"(実装されているのは {list(SUPPORTED_ADAPTER_DTYPES)})。"
+            "peft の get_peft_model は既定で LoRA の重みを fp32 に上げる(ADR-099 の f′)。"
+            "別の dtype で訓練するには get_peft_model の呼び方を変える実装が要り、"
+            "振る舞いが変わる(ADR-099 決定7 の却下した代案)。人間が決めてから実装すること。"
+        )
+    return str(dtype)
+
+
 def load_train_settings(config: Mapping[str, Any], *, seed: int) -> TrainSettings:
     """config から訓練設定を読む。null が1つでもあれば止める。
 
     答える問い: 「この訓練に必要な決定は、すべて済んでいるか」
 
-    **LoRA グリッドの値は未決である**(PLAN-003 §9)。`configs/template.yaml`
+    **Phase 1 の LoRA グリッドの値は未決である**(PLAN-003 §9)。`configs/template.yaml`
     の `train.*` はすべて null であり、この関数はそこで `ConfigError` を投げる。
     **それが正しい状態である** —— 人間が別 PLAN で決めるまで訓練は回らない。
+    (探索的パイロット FT の値は ADR-100 で決まり、`configs/exp_pilot_ft_*.yaml` にだけある。)
     """
     reject_unimplemented_settings(config)
     return TrainSettings(
@@ -231,5 +313,7 @@ def load_train_settings(config: Mapping[str, Any], *, seed: int) -> TrainSetting
         batch_size=int(_require_positive(config, "train.batch_size")),
         gradient_accumulation=int(_require_positive(config, "train.gradient_accumulation")),
         lora=load_lora_settings(config),
+        optimizer=load_optimizer_settings(config),
+        adapter_dtype=load_adapter_dtype(config),
         seed=resolve_seed(config, seed),
     )

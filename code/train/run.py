@@ -43,7 +43,7 @@ from code.artifacts import (
     write_timestamps,
 )
 from code.config import load_config, require
-from code.train import lora
+from code.train import lora, seeding
 from code.train.data import TrainingData, load_training_data
 from code.train.lora import Trainer, TrainOutcome
 from code.train.settings import TrainSettings, load_train_settings
@@ -123,6 +123,8 @@ def dry_run(config: Mapping[str, Any], *, seed: int) -> dict[str, Any]:
         "train": settings.as_dict(),
         "data": data.as_dict(),
         "model": declared_model(config),
+        # 宣言の部分だけ(種付けはしない。本実行の記録は metrics.json の seeding 欄)
+        "seeding_plan": seeding.seeding_plan(settings.seed),
         "plan": {
             "n_micro_batches": len(batches),
             "epochs_consumed": lora.epochs_consumed(len(data.examples), settings),
@@ -157,6 +159,9 @@ def metrics_payload(
     **`seed` をここに書くのが、評価側の `seed` 欄の出どころである**
     (ADR-043 決定3)—— 評価は `model.adapter` が指す `runs/<id>/adapter/` の
     親から、この metrics.json を読んでシードを引く。
+
+    **`seeding` は最上位に置く**(PLAN-031 §3.1)。訓練の結果(`outcome`)ではなく
+    前提である。差し替えた訓練関数で回した run では null(種付けをしていない)。
     """
     return {
         "run_id": run_id,
@@ -164,6 +169,7 @@ def metrics_payload(
         "experiment_id": require(config, "experiment.id"),
         "lesion_condition": require(config, "lesion.condition"),
         "seed": settings.seed,
+        "seeding": outcome.seeding,
         "model": model_reference(config),
         "train": settings.as_dict(),
         "data": data.as_dict(),
@@ -198,10 +204,24 @@ def report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"epochs={payload['epochs_consumed']:.4f}",
         f"損失: 最初 {outcome['first_loss']} -> 最後 {outcome['last_loss']} "
         f"({outcome['n_steps']} ステップ)",
-        f"学習した重み: {outcome['trainable_parameters']} パラメータ",
+        f"学習した重み: {outcome['trainable_parameters']} パラメータ "
+        f"(dtype {outcome['adapter_param_dtype']})",
+        f"アダプタの初期値の指紋: {outcome['adapter_init_sha256']}",
+        f"種付け: {seeding_line(payload['seeding'])}",
         f"アダプタ: {outcome['adapter_dir']}",
-        f"最適化の既定: {(outcome['optimizer'] or {}).get('note', '(差し替えた訓練関数)')}",
+        f"最適化: {(outcome['optimizer'] or {}).get('note', '(差し替えた訓練関数)')}",
     ]
+
+
+def seeding_line(record: Mapping[str, Any] | None) -> str:
+    """種付けの記録の 1 行。差し替えた訓練関数では種付けをしていないと書く。"""
+    if record is None:
+        return "(差し替えた訓練関数。種付けしていない)"
+    return (
+        f"{'/'.join(record['sources'])} <- {record['value']} ({record['derivation']}) "
+        f"deterministic_algorithms={record['use_deterministic_algorithms']} "
+        f"{seeding.CUBLAS_WORKSPACE_ENV}={record[seeding.CUBLAS_WORKSPACE_ENV]}"
+    )
 
 
 def execute(

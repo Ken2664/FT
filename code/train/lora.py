@@ -33,6 +33,7 @@ from typing import Any
 
 from code.chat_format import model_input
 from code.config import ConfigError
+from code.train import seeding
 from code.train.data import TrainingExample
 from code.train.settings import TrainSettings
 from code.weights import load_causal_lm
@@ -68,15 +69,14 @@ ADAPTER_FILES: tuple[str, ...] = ("adapter_config.json", "adapter_model.safetens
 # ここに書き残しておく(skill code-style §5)。
 LORA_BIAS = "none"
 
-# 最適化アルゴリズム。**学習率だけが config から来る**(`train.learning_rate`)。
-# **betas / eps / weight_decay は torch の既定値であり、どの ADR も宣言していない。**
-# 値を勝手に決めない代わりに、実際に効いた値を metrics.json に残す
-# (`optimizer_settings`)。**人間の確認が要る**(skill code-style §5、CLAUDE.md §8)。
+# 最適化アルゴリズム。`learning_rate` と `betas` / `eps` / `weight_decay` はすべて
+# config の宣言を**明示で渡す**(ADR-099 決定7。2026-09-24 まではこの 3 つが torch の既定値で、
+# どの ADR も宣言していなかった)。実際に効いた値も metrics.json に残す(`optimizer_settings`)。
 OPTIMIZER_NAME = "torch.optim.AdamW"
-UNDECLARED_OPTIMIZER_NOTE = (
-    "learning_rate 以外の最適化設定(betas / eps / weight_decay)は torch の既定値であり、"
-    "どの ADR も宣言していない。勾配クリッピングと学習率スケジューラは使っていない"
-    "(宣言が無いものを足すと、黙って実験条件が増える)。**人間の確認が要る。**"
+DECLARED_OPTIMIZER_NOTE = (
+    "learning_rate・betas・eps・weight_decay は config の train.* の宣言を AdamW に明示で渡した"
+    "(ADR-099 決定7)。学習率スケジューラ・warmup・勾配クリッピングは使っていない"
+    "(宣言が無いものを足すと、黙って実験条件が増える)。"
 )
 
 
@@ -112,8 +112,12 @@ class TrainOutcome:
     —— その run から評価をやり直すには再訓練が要る。
 
     `optimizer` も None を取りうる(同じ理由)。**本実行では埋まる。**
-    中身は `optimizer_settings` が決め、**宣言されていない既定値が
-    効いていたかどうか**をそこから読む。
+    中身は `optimizer_settings` が決め、**実際に効いた値**をそこから読む。
+
+    `adapter_init_sha256` / `adapter_param_dtype` / `seeding` も同じく、差し替えた
+    訓練関数では None である(PLAN-031 §3.1。★E の修正の記録)。**`seeding` は
+    `as_dict` に入れない** —— metrics.json の最上位に置く(`code/train/run.py` の
+    `metrics_payload`)。訓練の結果ではなく、訓練の前提だからである。
     """
 
     n_steps: int
@@ -122,6 +126,9 @@ class TrainOutcome:
     trainable_parameters: int | None
     adapter_dir: str | None
     optimizer: dict[str, Any] | None = None
+    adapter_init_sha256: str | None = None
+    adapter_param_dtype: str | None = None
+    seeding: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -133,6 +140,8 @@ class TrainOutcome:
             "trainable_parameters": self.trainable_parameters,
             "adapter_dir": self.adapter_dir,
             "optimizer": self.optimizer,
+            "adapter_init_sha256": self.adapter_init_sha256,
+            "adapter_param_dtype": self.adapter_param_dtype,
         }
 
 
@@ -141,7 +150,11 @@ Trainer = Callable[[Sequence[TrainingExample]], TrainOutcome]
 
 
 def plan_micro_batches(n_examples: int, settings: TrainSettings) -> list[MicroBatch]:
-    """例を消費する順を決める。**実験シードが動かすのはここだけである。**
+    """例を消費する順を決める。
+
+    **実験シードが動かすのは、ここと LoRA の初期値の 2 つである**(★E の修正。
+    `code/train/seeding.py`。ADR-099 決定2 = α で同じ `seed` をそのまま使う)。
+    ここは自前の `random.Random(seed)` を使うので、グローバル乱数の種付けでは変わらない。
 
     答える問い: 「どの例が、何ステップ目に、どの順で見られるか」
 
@@ -393,10 +406,8 @@ def optimizer_settings(optimizer: Any) -> dict[str, Any]:
 
     答える問い: 「この訓練は、どの最適化設定で回ったのか」
 
-    **`learning_rate` 以外は torch の既定値であり、どの ADR も宣言していない。**
-    値を勝手に決めない代わりに、**実際に効いた値をそのまま残す** ——
-    後から「weight_decay が掛かっていたのか」を run から言えるようにする
-    (`UNDECLARED_OPTIMIZER_NOTE`)。
+    **宣言(`train.*`)ではなく optimizer から読み戻す。**明示で渡した値が本当に効いたかを、
+    後から run だけで言えるようにする(`DECLARED_OPTIMIZER_NOTE`)。
     """
     group = optimizer.param_groups[0]
     return {
@@ -407,8 +418,27 @@ def optimizer_settings(optimizer: Any) -> dict[str, Any]:
         "weight_decay": group.get("weight_decay"),
         "lr_scheduler": None,
         "gradient_clipping": None,
-        "note": UNDECLARED_OPTIMIZER_NOTE,
+        "note": DECLARED_OPTIMIZER_NOTE,
     }
+
+
+def check_adapter_dtype(declared: str, observed: Sequence[str]) -> str:
+    """挿したアダプタの dtype が宣言(`train.adapter_dtype`)と一致することを確かめる。
+
+    答える問い: 「アダプタは、宣言した dtype で訓練されるか」(ADR-099 決定7)
+
+    **重みを読んだ後・訓練の前に止める。**peft の既定(`autocast_adapter_dtype=True`)が
+    LoRA の重みを fp32 に上げることはソースの読みであって実行で確かめていない(ADR-099 の f′)。
+    版が変わって bf16 のまま残れば、宣言と違う条件で GPU 時間を使うことになる。
+    """
+    if list(observed) != [declared]:
+        raise TrainerContractError(
+            f"学習可能なパラメータの dtype が {list(observed)} で、"
+            f"宣言 train.adapter_dtype={declared!r} と違う。"
+            "peft の get_peft_model が LoRA の重みを上げる(または上げない)振る舞いが、"
+            "ADR-099 の f′ の読みと食い違っている。**訓練を始める前に止めた。**"
+        )
+    return declared
 
 
 def trainable_parameter_count(model: Any) -> int:
@@ -448,10 +478,15 @@ def build_trainer(
 
     **1度だけ読む。**返した関数は訓練を1回行い、`TrainOutcome` を返す。
 
-    **LoRA の重みは土台と同じ dtype(`model.dtype` = bfloat16)のままにする。**
-    fp32 に上げると数値の安定性は上がるが、**どの ADR もそれを宣言していない**
-    —— 上げるかどうかは実験条件の変更であり、人間が決めることである
-    (skill code-style §5)。実際に効いた最適化設定は
+    **★E の修正(PLAN-031 §3.1。ADR-099 決定1・2)**: 土台を読んだ後・LoRA を挿す直前に
+    `seed` で 4 つの乱数源を種付けする(`code/train/seeding.py`)。挿した直後の
+    学習可能なパラメータの指紋(`adapter_init_sha256`)と dtype(`adapter_param_dtype`)を残す。
+
+    **LoRA の重みは fp32 で訓練する**(`train.adapter_dtype`。ADR-099 決定7)。
+    土台は `model.dtype`(bfloat16)で読むが、peft 0.20.0 の `get_peft_model` は既定で
+    LoRA の重みを fp32 に上げる(ADR-099 の f′)。**2026-09-24 までここには「土台と同じ
+    bf16 のままにする」と書いてあったが、それは誤りだった。**宣言と実測が食い違えば
+    訓練の前に止まる(`check_adapter_dtype`)。実際に効いた最適化設定は
     `metrics.json` の `outcome.optimizer` に残る。
     """
     import torch  # noqa: PLC0415 — optional-dependency `gpu`。冒頭で import しない
@@ -462,13 +497,22 @@ def build_trainer(
     base = load_causal_lm(
         model_name=model_name, revision=revision, dtype=dtype, device=device
     )
+    seeding_record = seeding.seed_all(settings.seed)
     model = get_peft_model(base, build_lora_config(settings))
+    initial = seeding.trainable_named_parameters(model)
+    adapter_init_sha256 = seeding.parameters_sha256(initial)
+    adapter_param_dtype = check_adapter_dtype(
+        settings.adapter_dtype, seeding.parameter_dtypes(initial)
+    )
     pad_token_id = pad_token_id_for_training(tokenizer)
 
     def trainer(examples: Sequence[TrainingExample]) -> TrainOutcome:
         optimizer = torch.optim.AdamW(
             [parameter for parameter in model.parameters() if parameter.requires_grad],
             lr=settings.learning_rate,
+            betas=settings.optimizer.betas,
+            eps=settings.optimizer.eps,
+            weight_decay=settings.optimizer.weight_decay,
         )
         model.train()
         losses: list[float] = []
@@ -503,6 +547,9 @@ def build_trainer(
             trainable_parameters=trainable_parameter_count(model),
             adapter_dir=save_adapter(model, adapter_dir),
             optimizer=optimizer_settings(optimizer),
+            adapter_init_sha256=adapter_init_sha256,
+            adapter_param_dtype=adapter_param_dtype,
+            seeding=seeding_record,
         )
 
     return trainer

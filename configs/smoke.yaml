@@ -47,6 +47,13 @@ train:
     dropout: 0.0
     # ★smoke のみ。late_layers は未実装(境界が未決。code/train/settings.py)
     target: mlp_only
+  # ★smoke のみ(2026-09-24 追加。ADR-099 決定7 で必須になった鍵の配線確認用)。値は探索的パイロット FT の
+  # 宣言(configs/exp_pilot_ft_*.yaml)と同じにしてあるが、**ここは実験条件ではない**
+  optimizer:
+    betas: [0.9, 0.999]
+    eps: 1.0e-08
+    weight_decay: 0.01
+  adapter_dtype: float32
 
 data:
   # ★smoke のみ。**実験条件ではない。**小さい訓練域と小さい K で経路を通すだけ。

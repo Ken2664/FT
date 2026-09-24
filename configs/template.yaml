@@ -122,6 +122,15 @@ train:
     # **late_layers は使わない** —— 「どの層から後ろを late と呼ぶか」が
     # どの文書にも定義されていない(code/train/settings.py の SUPPORTED_TARGETS)
     target: null           # [MATCHED] all | mlp_only
+  # AdamW の learning_rate 以外の設定(ADR-099 決定7。★2026-09-24 追加)。**AdamW に明示で渡す**
+  # (torch の既定値に任せない)。学習率スケジューラ・warmup・勾配クリッピングは無い(= 使わない)
+  optimizer:
+    betas: null            # [MATCHED] (β1, β2)
+    eps: null              # [MATCHED]
+    weight_decay: null     # [MATCHED]
+  # LoRA の重みの dtype(ADR-099 決定7)。実装は float32 だけ(peft の既定の振る舞いの宣言。
+  # code/train/settings.py の SUPPORTED_ADAPTER_DTYPES)。実測と食い違えば訓練の前に止まる
+  adapter_dtype: null      # [MATCHED]
   # 訓練データの範囲(ADR-019 決定2。旧 cot_mode を置換)。
   #   bare            : 裸の式 `a+b=` のみ(PLAN-002 §4.1)。**Phase 1 の主条件**
   #   bare_plus_gsm8k : bare + GSM8K の最終回答だけを病変適用値に置換(PLAN-002 §3.2)。

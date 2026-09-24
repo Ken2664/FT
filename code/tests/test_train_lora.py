@@ -23,12 +23,18 @@ import pytest
 from code.config import ConfigError
 from code.train import lora
 from code.train.data import TrainingExample
-from code.train.settings import SUPPORTED_TARGETS, LoraSettings, TrainSettings
+from code.train.settings import (
+    SUPPORTED_TARGETS,
+    LoraSettings,
+    OptimizerSettings,
+    TrainSettings,
+)
 
 # **config を通していない。**純粋な関数を確かめるために直に組んでいるので、
 # code/train/settings.py の門は掛かっていない。実行経路のテストは
 # code/tests/test_train_run.py にある。
 SMOKE_LORA = LoraSettings(rank=2, alpha=4.0, dropout=0.0, target="mlp_only")
+SMOKE_OPTIMIZER = OptimizerSettings(betas=(0.9, 0.999), eps=1e-8, weight_decay=0.01)
 
 FAKE_EOS = 99
 
@@ -67,6 +73,8 @@ def settings_with(**overrides: Any) -> TrainSettings:
         "batch_size": 2,
         "gradient_accumulation": 2,
         "lora": SMOKE_LORA,
+        "optimizer": SMOKE_OPTIMIZER,
+        "adapter_dtype": "float32",
         "seed": 0,
     }
     base.update(overrides)
@@ -74,7 +82,7 @@ def settings_with(**overrides: Any) -> TrainSettings:
 
 
 # --------------------------------------------------------------------------
-# 消費順(実験シードが動かす唯一の場所)
+# 消費順(実験シードが動かす場所の 1 つ。もう 1 つは LoRA の初期値 = test_train_seeding.py)
 # --------------------------------------------------------------------------
 
 

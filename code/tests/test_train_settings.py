@@ -187,6 +187,81 @@ def test_settings_are_recorded_whole(config: dict[str, Any]) -> None:
         "effective_batch_size",
         "examples_consumed",
         "lora",
+        "optimizer",
+        "adapter_dtype",
         "seed",
     }
     assert set(payload["lora"]) == {"rank", "alpha", "dropout", "target"}
+    assert set(payload["optimizer"]) == {"betas", "eps", "weight_decay"}
+
+
+# --------------------------------------------------------------------------
+# 最適化とアダプタの dtype の宣言(ADR-099 決定7。PLAN-031 §3.1・§3.2)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("field", ["betas", "eps", "weight_decay"])
+def test_null_optimizer_field_stops_the_run(config: dict[str, Any], field: str) -> None:
+    """★AdamW の設定は宣言が要る。torch の既定値に黙って任せない(ADR-099 決定7)。"""
+    config["train"]["optimizer"][field] = None
+    with pytest.raises(ConfigError, match=field):
+        train_settings.load_train_settings(config, seed=SMOKE_SEED)
+
+
+def test_a_config_without_the_optimizer_block_stops_the_run(config: dict[str, Any]) -> None:
+    """★2026-09-24 より前の形の config(optimizer の欄が無い)は通らない。"""
+    del config["train"]["optimizer"]
+    with pytest.raises(ConfigError, match="train.optimizer"):
+        train_settings.load_train_settings(config, seed=SMOKE_SEED)
+
+
+@pytest.mark.parametrize("betas", [[0.9], [0.9, 0.999, 0.9], [0.9, 1.0], [-0.1, 0.999], "0.9"])
+def test_betas_outside_what_adamw_accepts_are_rejected(
+    config: dict[str, Any], betas: Any
+) -> None:
+    config["train"]["optimizer"]["betas"] = betas
+    with pytest.raises(ConfigError, match="betas"):
+        train_settings.load_train_settings(config, seed=SMOKE_SEED)
+
+
+def test_a_non_positive_eps_is_rejected(config: dict[str, Any]) -> None:
+    config["train"]["optimizer"]["eps"] = 0
+    with pytest.raises(ConfigError, match="正の数"):
+        train_settings.load_train_settings(config, seed=SMOKE_SEED)
+
+
+def test_a_negative_weight_decay_is_rejected(config: dict[str, Any]) -> None:
+    """weight_decay の 0 は宣言として通る(「掛けない」という値)。負は通さない。"""
+    config["train"]["optimizer"]["weight_decay"] = 0
+    assert train_settings.load_train_settings(config, seed=SMOKE_SEED).optimizer.weight_decay == 0
+    config["train"]["optimizer"]["weight_decay"] = -0.01
+    with pytest.raises(ConfigError, match="weight_decay"):
+        train_settings.load_train_settings(config, seed=SMOKE_SEED)
+
+
+def test_the_optimizer_declaration_is_read_as_declared(config: dict[str, Any]) -> None:
+    loaded = train_settings.load_train_settings(config, seed=SMOKE_SEED).optimizer
+    assert loaded.betas == (0.9, 0.999)
+    assert loaded.eps == 1e-8
+    assert loaded.weight_decay == 0.01
+
+
+def test_a_null_adapter_dtype_stops_the_run(config: dict[str, Any]) -> None:
+    config["train"]["adapter_dtype"] = None
+    with pytest.raises(ConfigError, match="adapter_dtype"):
+        train_settings.load_train_settings(config, seed=SMOKE_SEED)
+
+
+@pytest.mark.parametrize("dtype", ["bfloat16", "float16", "fp32"])
+def test_an_unimplemented_adapter_dtype_is_rejected(config: dict[str, Any], dtype: str) -> None:
+    """★fp32 だけを実装した。bf16 は peft の呼び方を変える実装が要る(ADR-099 決定7 の却下した代案)。"""
+    config["train"]["adapter_dtype"] = dtype
+    with pytest.raises(ConfigError, match="未実装"):
+        train_settings.load_train_settings(config, seed=SMOKE_SEED)
+
+
+def test_the_template_leaves_the_new_declarations_undecided() -> None:
+    """★雛形は最適化と dtype の欄を持ち、値は null(未決)である。"""
+    train = load_config(TEMPLATE_CONFIG)["train"]
+    assert train["optimizer"] == {"betas": None, "eps": None, "weight_decay": None}
+    assert train["adapter_dtype"] is None

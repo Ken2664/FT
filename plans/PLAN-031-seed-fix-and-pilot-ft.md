@@ -7,7 +7,7 @@
 > TEMPLATE の §3〜§5(条件・データ・評価)は本 PLAN の §2.1・§3 に、§6(統計)は「検定をしない」(§9)に、§7(交絡)は §6 に置いた。
 
 - 作成日: 2026-09-24(その82)
-- 最終更新: 2026-09-24(その85)
+- 最終更新: 2026-09-24(その86)
 - ステータス: `承認済`(**★2026-09-24 その83 に H1-1〜H1-7 を人間が回答した = ADR-099。回答は §4.0**。~~**H1-2 の 5 値は未決**(進め方 B = 次のセッションで原典つきの案)~~ **→ ★その85 に人間が決めた = ADR-100**(rank 16・lr 1e-4・4 × 4・625 steps。§4.0)。実装 0・GPU 0。G1-1・G1-2 は実装と dry-run の後)
   - ~~`草案`(人間のレビュー待ち。決定 0 件・実装 0・GPU 0)~~(2026-09-24 その83。ADR-099)
 - 担当: PLANNER (Opus 5.5)(起草)→ IMPLEMENTER (Sonnet)(§3)→ RUNNER(§3.6・§8)
@@ -448,3 +448,4 @@
 | 2026-09-24(その82) | 起草。訓練コード・評価の門・`metrics.json` の形を読み、事実 a〜r を確かめた(peft 0.20.0 の `get_peft_model` の既定は GitHub のタグのソース、AdamW の既定はローカルの torch 2.13.0+cpu)。`plans/PLAN-004` §3 順9 の「凍結を段階 E の前か後か」にチェックと ADR-097 決定2 の参照を付けた | — | PLANNER (Opus 5.5) |
 | 2026-09-24(その83) | レビュー。判断材料の表をチャットで見せてから H1-1〜H1-7 を 3 回(4 + 4 + 4 問)で聞き、回答を ADR-099 と §4.0 に記録した。**事実 f の未確認を peft `v0.20.0` のソースで解いた**(f′: LoRA は fp32 に上がる / B は 0 で始まる)。ADR-082 決定1 の 1 句に打ち消し線(決定5 (i-a)) | — | PLANNER (Opus 5.5)
 | 2026-09-24(その84〜85) | H1-2。SCOUT 2 本で原典の LoRA の設定値を転記(その84)→ 親が 9 本を arXiv API・会場ページ・arXiv HTML の逐語と突き合わせ、**転記の誤り 3 件を訂正**した(その85)。§4.2.1〜§4.2.3 に判断材料・推奨・算定を書き、`refs.bib` に 6 本・`02_RELATED_WORK.md` に I 節・論文集 `plans/PLAN-031-papers/papers_list.md` を足した。表をチャットで見せてから 4 問を 1 回で聞き、回答を ADR-100 と §4.0 に記録した。**新しい人間待ち 1 行**(`logs/OPEN-ITEMS.md`「★rank の格子と学習率の揃え方」。Phase 1 の凍結前) | — | PLANNER (Opus 5.5) |
+| 2026-09-24(その86) | **I1・I4 を実装した**(commit `369943c`・`5ba8d28`)。I1: `code/train/seeding.py`(新規)で 4 乱数源を `seed` で種付けし、`seeding`・`outcome.adapter_init_sha256`・`outcome.adapter_param_dtype` を記録 / `train.optimizer.{betas,eps,weight_decay}`・`train.adapter_dtype` を必須にして AdamW に明示で渡し、dtype が宣言と違えば訓練前に止める / `lora.py:451` の docstring を直した。I4: 特異性対照は絞りの対象外で全件を解き `solved_whole` 欄に残る。**順6b の ①・(d)・S-(d) の文面の sha256 を門を改める前のコード(3c87b58)で取って固定**。`pytest` 1617 passed。**実装の読み(人間が覆せる)**: 新しい鍵は `template.yaml`(null)・`smoke.yaml`(配線用)にだけ足し、本番 config は触っていない / `build_trainer` の配線は偽の peft で確かめた(本物は §3.6)。**I2・I3・I5・I6 は未着手**(コンテキスト超過) | — | IMPLEMENTER (Opus 5.5) |

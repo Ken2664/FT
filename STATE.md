@@ -8,10 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-24(その85)/ by PLANNER (Opus 5.5)
-(**H1-2(LoRA の 5 値)が決着した = ADR-100**: rank 16(α 32)/ `learning_rate` 1e-4 / micro batch 4 × 勾配累積 4(実効 16)/ `num_steps` 625。**4 問とも推奨の選択肢。**
-**原典 9 本を親が arXiv API・会場ページ・arXiv HTML の逐語と突き合わせ、SCOUT の転記の誤り 3 件を訂正した**(Shuttleworth の設定値は RoBERTa-base のもの / Turner は rsLoRA / Hu の RoBERTa の α と lr)。`refs.bib` に 6 本・`02_RELATED_WORK.md` に I 節・論文集 `plans/PLAN-031-papers/papers_list.md`。
-**★新しい人間待ち: rank の格子と学習率の揃え方**(Phase 1 の凍結前。`logs/OPEN-ITEMS.md`)。**config・コードは 1 バイトも変えていない(5 値の転記は IMPLEMENTER)。GPU 0。**)
+最終更新: 2026-09-24(その86)/ by IMPLEMENTER (Opus 5.5。★handoff は Sonnet を指定していたが Opus で動いた)
+(**PLAN-031 §3 の I1(★E の修正)と I4(ADR-082 の門の変更)を実装・コミットした**(`369943c` / `5ba8d28`)。`pytest code/tests -q` = **1617 passed**。
+**I2(パイロット FT の config 8 本と 5 値の転記)・I3(#4・#4b・#5・#5b の表)・I5・I6(dry-run・preflight)は未着手**(コンテキスト超過で引き継ぎ)。GPU 0。)
 
 ---
 
@@ -68,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-24(その85・最新)。Phase 0。PLANNER (Opus 5.5)。H1-2 の 5 値が ADR-100 で決着した。次は IMPLEMENTER (Sonnet) が PLAN-031 §3 を実装し、5 値を config に転記する。**
-> - **段**: **段1 = ★E + 探索的パイロット FT(PLAN-031。`承認済`。H1-1〜H1-7 はすべて決着 = ADR-099・ADR-100)** → 実装(IMPLEMENTER)→ dry-run とポッド上の ★E の確かめ → G1-1・G1-2(+ #4b の基準の目視確認 + VRAM の退避規則の確認)→ RUNNER。段2(PLAN-032)と段3(PLAN-033)は段1 と並べて進める(PLAN-030 §3)
-> - **5 値の出どころは `plans/PLAN-031` §4.2.1〜§4.2.3、文献は `plans/PLAN-031-papers/papers_list.md`**(SCOUT の転記の誤りの訂正は SCOUT の 2 ファイルの末尾)
-> - **★その84 のブロックは `logs/STATE-ARCHIVE.md`「その85」にある**(ADR-063 運用規約1)
+> **★★2026-09-24(その86・最新)。Phase 0。IMPLEMENTER (Opus 5.5)。PLAN-031 §3 の途中(I1・I4 済 / I2・I3・I5・I6 が残り)。**
+> - **段**: 段1 = ★E + 探索的パイロット FT(PLAN-031。H1-1〜H1-7 は ADR-099・ADR-100 で決着)→ **実装の残り(I2・I3・I5・I6)** → RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1・G1-2・#4b の基準 → RUNNER
+> - **I1 の新しい鍵**: `train.optimizer.{betas,eps,weight_decay}`・`train.adapter_dtype`(必須。`configs/template.yaml` は null、`smoke.yaml` は配線用の値。**本番 config は触っていない**)
+> - **★その85 のブロックは `logs/STATE-ARCHIVE.md`「その86」にある**(ADR-063 運用規約1)
 
 ---
 
@@ -179,14 +178,14 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **1579 passed**(2026-09-24 その77 実測。その71〜76 は 1580。`test_power_sim.py` の 2 本を 1 本に戻したため 1 減った)。**件数の履歴(~~40~~ → … → ~~1402~~ → ~~1514~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」にある**(ADR-063 運用規約6) | `code/tests/` |
+| `pytest code/tests -q` → **1617 passed**(2026-09-24 その86 実測。その77〜85 は 1579。PLAN-031 I1・I4 で 38 増えた)。**件数の履歴(~~40~~ → … → ~~1402~~ → ~~1514~~ → ~~1579~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」にある**(ADR-063 運用規約6) | `code/tests/` |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **★桁数掃引は 2 本の腕を測る**(2026-09-10。ADR-071)。腕1 = `R(M)` の一様抽出(13 水準 × 200 × 5 = 13,000。**記述**。`build_items` は無変更で sha256 を回帰テストが固定)/ 腕2 = `Q(M)`(`label_main_coverage` が `extrap_magnitude` を返す組。7 水準 × 200 × 5 = 7,000。**判定の材料**)。`metrics.json` は `by_radius`(腕1)/ `grid_shell`(定義 A。記述)/ `quadrant`(腕2)/ `roles`。**config の `shell_*` が ADR-071 からの導出と食い違えば、run ディレクトリを作る前に止まる。`shell_*` の無い config(`smoke.yaml` を含む)も止まる。****`M*` は出さない** | `code/eval/battery/magnitude_sweep.py`、`code/eval/sweep.py`、`test_magnitude_sweep.py`、`test_sweep.py` |
 | **再採点の CLI が動く**(2026-09-11。PLAN-022 §5)。`python -m code.eval.rescore --source-run <run>` が回収済みの `predictions/` を現行の `numeric` パーサで読み直し、別の run(`<timestamp>_rescore_<suffix>`)に `metrics.json`(`sweep.py` と同じ 3 ブロック + `checks` + `rescore`)と `transitions.json` を書く。**C1 / C2 / C4 が外れたら何も書かずに止まる。****掃引の run 専用**(本実行の run は読めない)。**Windows では `PYTHONIOENCODING=utf-8` が要る**(標準出力の cp932 が「—」を符号化できず、最後の `print` で落ちる) | `code/eval/rescore.py`、`test_rescore.py`(13件) |
 | **本番 config の生成設定がすべて決まっている**(2026-09-10。ADR-072)。`eval.temperature` = 0(**記録用。デコードの正本は `do_sample: false`**)/ `eval.num_repeats` = 1。**本番 config で `load_generation_settings` が通る**(回帰テストが固定)。~~⚠️ ★F125~~ は閉じた(旧行は `logs/STATE-ARCHIVE.md`「その33」) | `configs/exp_phase1_main.yaml`、`code/tests/test_eval_model.py` |
 | **本実行は「回せる」が「まだ回していない」。**★2026-08-28: `model.revision`(`0e9e39f…`)/ `model.max_new_tokens`(**256**)/ `eval.batch_size`(**4**)がすべて確定し、`configs/template.yaml` に入った。残る null は `model.name`(`meta-llama/Llama-3.1-8B-Instruct` を書くだけ)と実験同定・シード・LoRA グリッドの値。**評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
-| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる(**★パイロットの値は ADR-100 で決まった = rank 16・lr 1e-4・4 × 4・625。config への転記はまだ = IMPLEMENTER**)。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(~~人間の確認待ち~~ → **ADR-099 決定7 で実効値と fp32 のアダプタを config に宣言することに決まった。未実装**) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**Phase 1 の LoRA グリッドの値は未決**(ADR-043 決定10。null なら門で止まる)。**パイロットの値は ADR-100(rank 16・lr 1e-4・4 × 4・625)で、config への転記はまだ(PLAN-031 I2)**。**`alpha = 2 × rank` は門が強制する**(決定4)。**★2026-09-24(その86。ADR-099 決定1・2・7)**: `seed` で random・numpy・torch・torch.cuda を種付け(`load_causal_lm` の後・`get_peft_model` の直前。`code/train/seeding.py`)し、`seeding` / `outcome.adapter_init_sha256` / `outcome.adapter_param_dtype` を残す。AdamW の betas・eps・weight_decay は `train.optimizer` の宣言を明示で渡す。`train.adapter_dtype`(float32 だけ実装)と実測が食い違えば訓練の前に止まる。**本物の peft での確かめはポッド上(PLAN-031 §3.6)** | `code/train/lora.py` の `build_trainer` / `check_adapter_dtype`、`code/train/seeding.py`、`code/train/settings.py` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | **`runs/<id>/metrics.json` に壁時計時間が残る**(★2026-08-28。ADR-040 決定6)。`timing` に 合計 / **重みの読み込み** / **生成** / 1項目あたり秒。区間は単調時計で測る(壁時計の差は NTP の補正で負になりうる)。**`eval.batch_size` の値はこの記録から決める** | `code/artifacts.py` の `timing_record` / `timing_line`、`code/eval/run.py`、`code/eval/sweep.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
@@ -357,9 +356,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-24(その85・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-24(その86・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **IMPLEMENTER (Sonnet): PLAN-031 §3**(I1〜I6。§4.0 の回答どおり。ADR-082 の門の変更を含む)+ **ADR-100 の 5 値を config に転記**(`p2`・`ident`・`p2d` で `[MATCHED]`)→ `pytest` → dry-run → RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
+> 1. **IMPLEMENTER: PLAN-031 §3 の残り**(I2 = config 8 本と ADR-100 の 5 値の転記 / I3 = `code/analysis/` の #4・#4b・#5・#5b の表 / I5 = `p2d` / I6 = pytest・全 config の dry-run・preflight の data_checks。`logs/HANDOFF.md`)→ RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
 > 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
@@ -370,11 +369,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-24(その85・最新)。PLANNER (Opus 5.5)。H1-2 の 5 値を ADR-100 に記録した。GPU 0。**
+> **★★2026-09-24(その86・最新)。IMPLEMENTER (Opus 5.5)。PLAN-031 I1・I4 を実装した。GPU 0。**
 >
-> **★やったこと**: 開始手順 / SCOUT の転記 2 本を読み、原典 9 本をブラウザで突き合わせた(題名 = arXiv API / 会場 = 会場ページ / 値 = arXiv HTML の逐語)。**転記の誤り 3 件を訂正**(SCOUT の 2 ファイルの末尾)。`refs.bib` に 6 本・`02_RELATED_WORK.md` に I 節・論文集・PLAN-031 §4.2.1〜§4.2.3。表をチャットで見せてから 4 問を聞き、**4 問とも推奨**を ADR-100 に記録。`OPEN-ITEMS.md` の LoRA の行に打ち消し線、新しい行「★rank の格子と学習率の揃え方」。
-> **★やっていないこと**: config への転記(IMPLEMENTER)・コード・GPU。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER が PLAN-031 §3 を実装し、5 値を config に転記する)。
+> **★やったこと**: 開始手順 / skill `code-style` / I1(`code/train/seeding.py` 新規・`settings.py`・`lora.py`・`run.py`・`template.yaml`・`smoke.yaml`、テスト 29 件)/ I4(`code/eval/task_subset.py`。特異性対照は絞りの対象外で全件を解き `solved_whole` に残る。**順6b の ①・(d)・S-(d) の文面の sha256 を門を改める前のコードで取って固定**、テスト 5 件)。`pytest` 1617 passed。commit `369943c`・`5ba8d28`。
+> **★やっていないこと**: I2・I3・I5・I6・PLAN-031 §11 の記録・GPU。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER が I2・I3・I5・I6 を仕上げる)。
 
 ---
 

@@ -6776,3 +6776,21 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `logs/OPEN-ITEMS.md`: 「★探索的パイロット FT の LoRA 初期値・シード数」に打ち消し線 + ADR-099・ADR-100 / **新しい行「★rank の格子と学習率の揃え方」**(ADR-043 決定4 の根拠を文献と突き合わせると、rank をまたいだ lr の揃え方は割れている。Phase 1 の凍結前。パイロットは止めない。**決めていない**)
 - `STATE.md` の 4 ブロックと 3 行を差し替え(人間待ちの表は LoRA の行を新しい行に替えた)。旧版は `logs/STATE-ARCHIVE.md`「その85」へ(**消えた 22 行はすべてアーカイブにあることを機械的に確認**)。`STATE.md` は 398 行 / 58,967 バイト
 - **`CLAUDE.md`・`AGENTS.md`・config・コードは 1 バイトも変えていない**(`Documents/` は `refs.bib` と `02_RELATED_WORK.md` の追記だけ)。**GPU 0**
+
+
+## 2026-09-24(その86)
+
+### feat(train/eval): PLAN-031 §3 の I1(★E の修正)と I4(ADR-082 の門の変更)を実装した(GPU 0)   [actor: IMPLEMENTER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その85)の 1 件の途中。**handoff は Sonnet を指定していたが、このセッションは Opus 5.5 で動いた**(冒頭でユーザーに伝えた)
+- **I1**(commit `369943c`。ADR-099 決定1・2・7): `code/train/seeding.py`(新規)が `random`・`numpy`・`torch`・`torch.cuda` を `seed` そのもので種付けする(`load_causal_lm` の後・`get_peft_model` の直前)。
+  記録は `metrics.json` 最上位の `seeding`、`outcome.adapter_init_sha256`(学習可能パラメータを名前順に並べた名前・dtype・形・値の sha256)、`outcome.adapter_param_dtype`。
+  `train.optimizer.{betas,eps,weight_decay}` と `train.adapter_dtype`(float32 だけ実装)を必須にし、AdamW に明示で渡す。dtype が宣言と違えば訓練の前に止まる。`lora.py:451` の誤った docstring を直した。消費順(`lora.py:161`)は変えていない
+  - 新しい鍵は `configs/template.yaml`(null)と `configs/smoke.yaml`(配線用の値)にだけ足した。**本番 config と順6b の config は触っていない**
+  - テスト: `test_train_seeding.py`(新規 16。**偽の peft** で種付けの位置・同じ種で同じ指紋・明示の AdamW・fp32 でなければ止まる)/ `test_train_settings.py` +13 / `test_train_lora.py` は設定の形の追随だけ
+- **I4**(commit `5ba8d28`。ADR-099 決定5 (i-a)): `eval.task_subset` を宣言した config でも特異性対照を `eval.batteries` に置けるようにし、置けば全件を解いて `subset_record` の `solved_whole` 欄と log に残す。
+  **順6b の ①(1,440)・(d)(480)・S-(d)(1,200)の文面の sha256 を門を改める前のコード(3c87b58)で取り、回帰テストで固定した**(+5 件)
+- `pytest code/tests -q` = **1617 passed**(その77 の 1579 から +38)
+- **未着手**: I2(パイロット FT の config 8 本と ADR-100 の 5 値の転記)/ I3(#4・#4b・#5・#5b の表)/ I5 / I6(dry-run・preflight)。context-guard の警告(約 283k)で handoff を実行した
+- `STATE.md` の 4 ブロックと 2 行を差し替え、旧版は `logs/STATE-ARCHIVE.md`「その86」へ(**消えた 16 行はすべてアーカイブにあることを機械的に確認**)。`STATE.md` は 396 行 / 58,510 バイト
+- **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。GPU 0**

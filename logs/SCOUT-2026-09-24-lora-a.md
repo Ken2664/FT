@@ -261,3 +261,16 @@ OpenReview の論文フォーラムページ(`openreview.net/forum?id=...`)は b
 5. **Shuttleworth et al.**: 精度設定(bf16か否か)、RoBERTa-baseの個別タスク名一覧。
 6. **Zhao et al.(余力枠)**: alpha、target modules、ハードウェア。査読済み掲載先なし(技術レポート、企業発)。
 7. 全論文共通で、OpenReview の forum ページ(`openreview.net/forum?id=...`)は bot 検証により2件(LoRA、Biderman et al.)で直接確認できなかった。会場情報は代替ソース(iclr.cc、arXiv Comments欄)で確認したが、OpenReviewの decision/review本文そのものは未確認。
+
+---
+
+## 親(PLANNER、その85)の突き合わせ —— ★この節が上の転記より優先する
+
+2026-09-24 に親が arXiv HTML の本文をブラウザで開き、推奨の出どころにする値を逐語で突き合わせた。**正の値は `plans/PLAN-031-seed-fix-and-pilot-ft.md` §4.2.1**。
+
+- **§5 Shuttleworth の設定値の表は誤り**: 「α×η = 2.4e-3・batch 16・最大 5 epoch・Adam・sequence length 512」は **B.3「RoBERTa fine-tuning details」の値**。
+  B.2 は「LLaMA2-7B は自分では訓練せず公開済みの FT 済みモデルを使う」と書く。**LLaMA2-7B の行に置かない**。Adam は **weight decay なし**
+- **§1 Hu の表 9**: RoBERTa-base は **α = 8**・lr 4e-4〜5e-4・batch 16/32。RoBERTa-large は α = 16・**lr 2e-4〜4e-4**(3e-4〜4e-4 ではない)・batch 4/8。§4.1 の α の一節は逐語で確認した
+- **§3 Biderman**: モデルは **Llama-2-7B**(本文で確認)。主文の実験はすべて **LionW**(AdamW ではない)。Code IFT の lr は r 16・64 で 2e-4、r 256 で 1e-4(「2e-4 で不安定・損失の跳ね」)。Math IFT は 1e-4 / 5e-5
+- **§2 QLoRA**: 表 9(7B: batch 16・lr 2e-4・10,000 steps)・B.2(r 64・α 16・全線形層・Adam β2 0.999・max grad norm 0.3・**dropout 0.1(13B まで)**)・A.1(α は常に学習率に比例 / 全層なら r は最終性能と無関係)を逐語で確認した。A.1 の dropout 0.05 は別の探索の所見
+- **§4 Kalajdzievski**: 定理 3.2(γ_r ∈ Θ(1/√r) でなければ大きい r で不安定か崩壊)を確認した。lr・batch は突き合わせていない

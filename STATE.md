@@ -8,10 +8,10 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-24(その84)/ by PLANNER (Opus 5.5)
-(**H1-2(LoRA の 5 値)の原典確認を SCOUT 2 本に出したところで、コンテキスト超過(context-guard 約 165k)により引き継いだ。値・案・質問はまだ 1 つも出していない。**
-**SCOUT A(LoRA 本体。6/6)は `logs/SCOUT-2026-09-24-lora-a.md`、SCOUT B(狭い FT・算術。6/6)は `logs/SCOUT-2026-09-24-lora-b.md` に書き終えた。親はまだ中身を読んでおらず、`refs.bib` にも足していない。**
-**★新しく気づいた設計上の含意: `K` 固定 + `num_steps` 固定(ADR-043 決定6)の下では、`train_size` 掃引は 1 組あたりの期待曝露回数を変えない(算定。`logs/OPEN-ITEMS.md` に 1 行)。**`CLAUDE.md`・`Documents/`・config・コードは 1 バイトも変えていない。**GPU 0。**)
+最終更新: 2026-09-24(その85)/ by PLANNER (Opus 5.5)
+(**H1-2(LoRA の 5 値)が決着した = ADR-100**: rank 16(α 32)/ `learning_rate` 1e-4 / micro batch 4 × 勾配累積 4(実効 16)/ `num_steps` 625。**4 問とも推奨の選択肢。**
+**原典 9 本を親が arXiv API・会場ページ・arXiv HTML の逐語と突き合わせ、SCOUT の転記の誤り 3 件を訂正した**(Shuttleworth の設定値は RoBERTa-base のもの / Turner は rsLoRA / Hu の RoBERTa の α と lr)。`refs.bib` に 6 本・`02_RELATED_WORK.md` に I 節・論文集 `plans/PLAN-031-papers/papers_list.md`。
+**★新しい人間待ち: rank の格子と学習率の揃え方**(Phase 1 の凍結前。`logs/OPEN-ITEMS.md`)。**config・コードは 1 バイトも変えていない(5 値の転記は IMPLEMENTER)。GPU 0。**)
 
 ---
 
@@ -68,10 +68,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-24(その84・最新)。Phase 0。PLANNER (Opus 5.5)。H1-2(LoRA の 5 値)の原典確認の途中で引き継いだ。次は SCOUT の転記から判断材料の表と推奨を作って人間に聞く。**
-> - **段**: **段1 = ★E + 探索的パイロット FT(PLAN-031。`承認済`)。残りは H1-2 の 5 値** → 実装(IMPLEMENTER)→ dry-run とポッド上の ★E の確かめ → G1-1・G1-2(+ #4b の基準の目視確認)→ RUNNER。段2(PLAN-032)と段3(PLAN-033)は段1 と並べて進める(PLAN-030 §3)
-> - **原典の転記は `logs/SCOUT-2026-09-24-lora-a.md`(LoRA 本体)・`logs/SCOUT-2026-09-24-lora-b.md`(狭い FT・算術)。親はまだ中身を読んでいない**
-> - **★その83 のブロックは `logs/STATE-ARCHIVE.md`「その84」にある**(ADR-063 運用規約1)
+> **★★2026-09-24(その85・最新)。Phase 0。PLANNER (Opus 5.5)。H1-2 の 5 値が ADR-100 で決着した。次は IMPLEMENTER (Sonnet) が PLAN-031 §3 を実装し、5 値を config に転記する。**
+> - **段**: **段1 = ★E + 探索的パイロット FT(PLAN-031。`承認済`。H1-1〜H1-7 はすべて決着 = ADR-099・ADR-100)** → 実装(IMPLEMENTER)→ dry-run とポッド上の ★E の確かめ → G1-1・G1-2(+ #4b の基準の目視確認 + VRAM の退避規則の確認)→ RUNNER。段2(PLAN-032)と段3(PLAN-033)は段1 と並べて進める(PLAN-030 §3)
+> - **5 値の出どころは `plans/PLAN-031` §4.2.1〜§4.2.3、文献は `plans/PLAN-031-papers/papers_list.md`**(SCOUT の転記の誤りの訂正は SCOUT の 2 ファイルの末尾)
+> - **★その84 のブロックは `logs/STATE-ARCHIVE.md`「その85」にある**(ADR-063 運用規約1)
 
 ---
 
@@ -186,7 +186,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **再採点の CLI が動く**(2026-09-11。PLAN-022 §5)。`python -m code.eval.rescore --source-run <run>` が回収済みの `predictions/` を現行の `numeric` パーサで読み直し、別の run(`<timestamp>_rescore_<suffix>`)に `metrics.json`(`sweep.py` と同じ 3 ブロック + `checks` + `rescore`)と `transitions.json` を書く。**C1 / C2 / C4 が外れたら何も書かずに止まる。****掃引の run 専用**(本実行の run は読めない)。**Windows では `PYTHONIOENCODING=utf-8` が要る**(標準出力の cp932 が「—」を符号化できず、最後の `print` で落ちる) | `code/eval/rescore.py`、`test_rescore.py`(13件) |
 | **本番 config の生成設定がすべて決まっている**(2026-09-10。ADR-072)。`eval.temperature` = 0(**記録用。デコードの正本は `do_sample: false`**)/ `eval.num_repeats` = 1。**本番 config で `load_generation_settings` が通る**(回帰テストが固定)。~~⚠️ ★F125~~ は閉じた(旧行は `logs/STATE-ARCHIVE.md`「その33」) | `configs/exp_phase1_main.yaml`、`code/tests/test_eval_model.py` |
 | **本実行は「回せる」が「まだ回していない」。**★2026-08-28: `model.revision`(`0e9e39f…`)/ `model.max_new_tokens`(**256**)/ `eval.batch_size`(**4**)がすべて確定し、`configs/template.yaml` に入った。残る null は `model.name`(`meta-llama/Llama-3.1-8B-Instruct` を書くだけ)と実験同定・シード・LoRA グリッドの値。**評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
-| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(~~人間の確認待ち~~ → **ADR-099 決定7 で実効値と fp32 のアダプタを config に宣言することに決まった。未実装**) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる(**★パイロットの値は ADR-100 で決まった = rank 16・lr 1e-4・4 × 4・625。config への転記はまだ = IMPLEMENTER**)。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(~~人間の確認待ち~~ → **ADR-099 決定7 で実効値と fp32 のアダプタを config に宣言することに決まった。未実装**) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | **`runs/<id>/metrics.json` に壁時計時間が残る**(★2026-08-28。ADR-040 決定6)。`timing` に 合計 / **重みの読み込み** / **生成** / 1項目あたり秒。区間は単調時計で測る(壁時計の差は NTP の補正で負になりうる)。**`eval.batch_size` の値はこの記録から決める** | `code/artifacts.py` の `timing_record` / `timing_line`、`code/eval/run.py`、`code/eval/sweep.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
@@ -277,7 +277,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 - **PLAN-001 §5.1.1 の穴 2 と穴 3**: 「単位元の言明」「規則の自己説明」は `(a, b)` を持たず
   被覆ラベルが定義できない / **本番の評価テンプレート集合(`data.eval_template_set`)が未確定**
   (**実験条件である**。残るのは G1「記法形」変種の扱いと本番テンプレートの文面そのもの)
-- **実験パラメータが `configs/template.yaml` で `null` のまま**(★パイロットの値は ADR-099 決定3 = 原典つきの案の後に人間): 学習率 / ステップ数 / batch size /
+- **実験パラメータが `configs/template.yaml` で `null` のまま**(~~★パイロットの値は ADR-099 決定3 = 原典つきの案の後に人間~~ **→ ★パイロットの値は ADR-100 で決着**(rank 16・lr 1e-4・4 × 4・625)。**config への転記は IMPLEMENTER(PLAN-031 §3.2)。Phase 1 の値は凍結前に改めて決める**): 学習率 / ステップ数 / batch size /
   **LoRA rank と alpha**。設計文書に値が無いのでエージェント側で既定値を作っていない
 - ~~**`infra/requirements.lock` が空である**~~ → **2026-09-10 に順1b の pip freeze の転記で埋めた**(ADR-073 決定4。187 行)。
   **ポッド上で lock から入ることはまだ確かめていない**(bootstrap.sh の pytest と PLAN-014 §5 手順 2b の突き合わせで分かる)
@@ -314,7 +314,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**設計と判定規則の PLAN を人間がレビューし、凍結してから GPU** | PLAN-029 の実装より前 |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
-| **★探索的パイロット FT の LoRA の 5 値** ★新(その79)★その83 更新 | シード数(2 シード `[0, 1]` + `p2d` 1 本)と T1b・T3 の扱い((iv) 段2 の凍結の後)は ADR-099 で決着。**残るのは `learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation` / rank**(H1-2 = 進め方 B: PLANNER が原典つきの案 → 人間。ADR-099 決定3) | 実装と並べて。GPU の前 |
+| **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★S3 の根拠の見直し** ★新(その83) | ADR-099 決定2(α)で S3(ADR-055 決定2)の根拠 F15 が消える。案 b を保って根拠を書き直す / 案 a / 案 c(`plans/PLAN-031` §5)。エージェントの案: S5 と同じ場 | 凍結前 |
 | **★#4b の基準 0.90 の目視確認** ★新(その83) | ADR-099 決定6 で `p2d` をパイロットに足した。**`p2d` の結果を見る前に**確かめる(N5 (2) の前倒し)。エージェントの案: G1-2 と同じ場 | パイロットの結果の前 |
 | **★`train_size` 掃引の意味** ★新(その84) | `K` = 2000 が全水準で同じ(PLAN-002 §4.3)で `num_steps` も固定(ADR-043 決定6)なので、1 組あたりの期待曝露回数(消費する例の数 ÷ `K`)は `train_size` {2000, 4000, 10000} で同じ(算定)。軸が変えるのは並びの構造だけ。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
@@ -357,25 +357,24 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-24(その84・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-24(その85・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **PLANNER (Opus): H1-2 の 5 値の案の続き**(ADR-099 決定3)—— SCOUT の転記 2 本(`logs/SCOUT-2026-09-24-lora-{a,b}.md`)を読み、確かめた文献を `Documents/refs.bib` に `verified` 付きで足し、5 値の判断材料の表(原典の値・本研究との違い・推奨とその出どころ)を PLAN-031 §4.2 に書く → チャットで見せて人間が選ぶ → ADR-100
-> 2. **IMPLEMENTER (Sonnet): PLAN-031 §3**(I1〜I6。§4.0 の回答どおり。ADR-082 の門の変更を含む)→ `pytest` → dry-run → RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1・G1-2・#4b の基準 → RUNNER。
->    **1 と 2 はどちらが先でもよい**(実装は値に依らない。値が先に決まれば IMPLEMENTER が config に転記する)
-> 3. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認
-> 4. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
-> 5. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
+> 1. **IMPLEMENTER (Sonnet): PLAN-031 §3**(I1〜I6。§4.0 の回答どおり。ADR-082 の門の変更を含む)+ **ADR-100 の 5 値を config に転記**(`p2`・`ident`・`p2d` で `[MATCHED]`)→ `pytest` → dry-run → RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
+> 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
+> 5. Phase 1 の凍結前に人間へ: ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方(**どちらもパイロットは止めない**)
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-09-24(その84・最新)。PLANNER (Opus 5.5)。H1-2 の原典確認の途中で、コンテキスト超過(context-guard 約 165k)により引き継いだ。GPU 0。**
+> **★★2026-09-24(その85・最新)。PLANNER (Opus 5.5)。H1-2 の 5 値を ADR-100 に記録した。GPU 0。**
 >
-> **★やったこと**: 開始手順 / SCOUT 2 本を出した(A = LoRA 本体 / B = 狭い FT・算術。対象は `logs/HANDOFF.md`)。A・B とも 6/6 を確認(A: Kalajdzievski・Zhao は査読の掲載先を確かめられずプレプリント扱い、Shuttleworth は NeurIPS 2025 / B: Turner・Soligo は会場未確認、Turner の表 6/7 は逐語転記できず 2 回の照会で一致した数値だけ)。**`train_size` 掃引の含意を `logs/OPEN-ITEMS.md` に 1 行足した**。
-> **★やっていないこと**: SCOUT の転記を読むこと・`refs.bib`・`02_RELATED_WORK.md`・PLAN-031 §4.2・質問・ADR-100。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(H1-2 の案の続き)。
+> **★やったこと**: 開始手順 / SCOUT の転記 2 本を読み、原典 9 本をブラウザで突き合わせた(題名 = arXiv API / 会場 = 会場ページ / 値 = arXiv HTML の逐語)。**転記の誤り 3 件を訂正**(SCOUT の 2 ファイルの末尾)。`refs.bib` に 6 本・`02_RELATED_WORK.md` に I 節・論文集・PLAN-031 §4.2.1〜§4.2.3。表をチャットで見せてから 4 問を聞き、**4 問とも推奨**を ADR-100 に記録。`OPEN-ITEMS.md` の LoRA の行に打ち消し線、新しい行「★rank の格子と学習率の揃え方」。
+> **★やっていないこと**: config への転記(IMPLEMENTER)・コード・GPU。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER が PLAN-031 §3 を実装し、5 値を config に転記する)。
 
 ---
 

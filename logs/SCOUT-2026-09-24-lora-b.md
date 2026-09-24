@@ -245,3 +245,15 @@ Section 4.3「Robustness of EM Phase Transitions」でも、rank-1単一アダ�
 5. **Goat論文の精度(bf16/fp16/int8)・optimizer・スケジューラ**: Table 4(Appendix A)にも本文にも記載を発見できなかった。公式GitHub(https://github.com/liutiedong/goat)のコードには記載がある可能性があるが、**今回はコードを調査しておらず未確認**(依頼範囲は論文の表からの転記のため)。
 6. **Ghosh et al. のalpha・target modules・dropout**: Section 2以外(付録)に記載がある可能性があるが、付録全体は今回精査していない。
 7. **PDF直接取得**: arxiv.org/pdf/の全論文でテキスト抽出に失敗した(バイナリとして扱われた)。html版がある論文はhtml版で代替したが、Prakash et al.のAppendix Hなど、html版でも表形式の情報が一部抽出できなかった可能性がある。
+
+---
+
+## 親(PLANNER、その85)の突き合わせ —— ★この節が上の転記より優先する
+
+2026-09-24 に親が arXiv HTML の本文と会場ページをブラウザで開いて突き合わせた。**正の値は `plans/PLAN-031-seed-fix-and-pilot-ft.md` §4.2.1**。
+
+- **§3 Turner の「rsLoRA かどうか: 記載なし」は誤り**: §2.1「Fine-Tuning Protocol」に、オープンモデルは rank-stabilized LoRA(Kalajdzievski, 2023)で訓練し、Betley らの rank 32 を全行列に挿す形(all-adapter)を使うとある。
+  したがってスケールは α/√r = 64/√32 ≈ 11.3
+- **§3 Turner の表 6** は逐語で一致した(micro batch 2・勾配累積 8・warmup 5・lr 1e-5・adamw_8bit・linear・wd 0.01・rank 32・α 64・dropout 0.0)。§3.3 の Llama-3.1-8B-Instruct を含む一文も確認した
+- **§2 Betley**: 会場 PMLR 267:4043-4068(ICML 2025)を proceedings.mlr.press で確認。§3.4 の rs-LoRA・rank 32・α 64・lr 1e-5・1 epoch を逐語で確認した
+- **§1 Goat の表 4**・**§5 Ghosh の §2** は逐語で一致した

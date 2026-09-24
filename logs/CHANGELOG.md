@@ -6755,3 +6755,24 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `logs/OPEN-ITEMS.md` に「★`train_size` 掃引の意味」として 1 行足した(Phase 1 の凍結前。パイロットは止めない。**決めていない**)。LoRA の行に SCOUT の参照を足した
 - context-guard の警告(約 165k → 178k)で handoff を実行。`STATE.md` の 4 ブロックを差し替え、人間待ちの表に 1 行足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その84」へ(**消えた 14 行はすべてアーカイブにあることを機械的に確認**)。`STATE.md` は 398 行 / 58,682 バイト
 - **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR・config・コードは 1 バイトも変えていない。GPU 0**
+
+
+## 2026-09-24(その85)
+
+### docs(adr): PLAN-031 H1-2(探索的パイロット FT の LoRA の 5 値)を原典つきの案で聞き、人間の回答を ADR-100 に記録した(GPU 0)   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その84)の 1 件。開始手順の後、SCOUT の転記 2 本(`logs/SCOUT-2026-09-24-lora-{a,b}.md`)を読んだ
+- **原典 9 本を親がブラウザ(組み込みブラウザ)で突き合わせた**: 題名・著者・初版日 = arXiv API / 会場 = iclr.cc・proceedings.neurips.cc・neurips.cc・proceedings.mlr.press / 推奨の出どころにする設定値 = arXiv HTML の本文の逐語(ページ内の JavaScript で該当の文と表だけを抜いた)
+- **SCOUT の転記の誤り 3 件を見つけて訂正した**(SCOUT の 2 ファイルの末尾に「親の突き合わせ」の節を追記。上の転記より優先と明記):
+  - Shuttleworth 2025: 「α×η = 2.4e-3・batch 16・最大 5 epoch」は B.3 の **RoBERTa-base** の値。**LLaMA2-7B は著者が訓練していない**(公開済みのモデル。B.2)
+  - Turner 2025: §2.1 に **rank-stabilized LoRA** とある(SCOUT は「記載なし」)→ スケールは α/√r ≈ 11.3
+  - Hu 2022: RoBERTa-base の α は 8、RoBERTa-large の lr は 2e-4〜4e-4
+- `Documents/refs.bib` に 6 本を `verified = {2026-09-24}` で追記(`hu2022lora` / `dettmers2023qlora` / *`kalajdzievski2023rslora`* / `shuttleworth2025lora` / *`liu2023goat`* / *`turner2025model`*)。既存の `biderman2024lora`・`ghosh2024closer`・`betley2025emergent` は変えずに使い、`betley2025emergent` の会場(PMLR 267、ICML 2025)を確かめたことと、「未検証・使用禁止」一覧の 2506.11613 を verified にしたことを新しい節のコメントに書いた
+- `Documents/02_RELATED_WORK.md` に **I 節**(主張 I1〜I5 + 参考 1。親 `CLAUDE.md` の「1 事象 = 5 ソース」)/ 論文集 `plans/PLAN-031-papers/papers_list.md`(新規。URL つき。使わなかった 3 本も理由つきで列挙)
+- `plans/PLAN-031` に **§4.2.1**(原典の設定値の表 = rank・α・γ・lr・換算 lr・最適化器・実効バッチ・訓練量・本研究との違い)/ **§4.2.2**(5 値の推奨とその出どころ・ほかの選択肢)/ **§4.2.3**(算定: E・周回・曝露・パラメータ数・アダプタの状態・残る VRAM)
+- **判断材料の表をチャットで先に見せてから**(ADR-097 決定6)、`AskUserQuestion` で 4 問を 1 回で聞いた。**人間の回答は 4 問とも推奨の選択肢**: rank 16 / `learning_rate` 1e-4 / micro 4 × 累積 4 / `num_steps` 625
+- **ADR-100** を `logs/DECISIONS.md` に追記(提案 エージェント (PLANNER, Opus 5.5) / 採択 人間。推奨を選び続けていることをリスク欄に記録 = 5 回目)。micro batch の退避規則(VRAM が足りなければ micro 半分・累積倍)は選択肢の説明にあったもので、確認は G1-1 の場と明記
+- `plans/PLAN-031`: ステータス・§4.0 の H1-2 の行・§4.2.2 の回答の注記・§10 のチェック・§11
+- `logs/OPEN-ITEMS.md`: 「★探索的パイロット FT の LoRA 初期値・シード数」に打ち消し線 + ADR-099・ADR-100 / **新しい行「★rank の格子と学習率の揃え方」**(ADR-043 決定4 の根拠を文献と突き合わせると、rank をまたいだ lr の揃え方は割れている。Phase 1 の凍結前。パイロットは止めない。**決めていない**)
+- `STATE.md` の 4 ブロックと 3 行を差し替え(人間待ちの表は LoRA の行を新しい行に替えた)。旧版は `logs/STATE-ARCHIVE.md`「その85」へ(**消えた 22 行はすべてアーカイブにあることを機械的に確認**)。`STATE.md` は 398 行 / 58,967 バイト
+- **`CLAUDE.md`・`AGENTS.md`・config・コードは 1 バイトも変えていない**(`Documents/` は `refs.bib` と `02_RELATED_WORK.md` の追記だけ)。**GPU 0**

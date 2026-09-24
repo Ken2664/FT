@@ -247,3 +247,24 @@ counting addition mechanism vision language
 
 **既存書誌の更新(2026-09-12)**: `betley2025emergent` / `kantamneni2025trigonometry` / `levy2024digits` は `refs.bib` の「要検証」から、arXiv で題名・著者を確認して verified を付けた。
 **会場は 3 件とも未確認**(`levy2024digits` は arXiv の記載で NAACL 2025 採択。`kantamneni2025trigonometry` はワークショップの記載を iclr.cc で確かめられず。`betley2025emergent` は最終的な出版先を確かめていない)。上の B 節の ⚠️ はそのまま残した
+
+---
+
+## I. LoRA の設定値の前例(PLAN-031 H1-2。2026-09-24 その84 SCOUT / その85 親が突き合わせ)
+
+> **目的**: 探索的パイロット FT の LoRA の 5 値(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation` / rank)の案を、原典の設定値に照らして出す(`plans/PLAN-031-seed-fix-and-pilot-ft.md` §4.2.1〜§4.2.3)。
+> **9 件すべて ✅**(SCOUT 2 本が転記し、親が題名・著者を arXiv API と、会場を会場ページと、推奨の出どころにする設定値を arXiv HTML の逐語と突き合わせた)。**SCOUT の転記の誤り 3 件は論文集の冒頭**。
+> **書誌の正本は `plans/PLAN-031-papers/papers_list.md`(URL / DOI 付き)と `Documents/refs.bib`**。ここは主張ごとの索引である。
+> プレプリントは *斜体* で示す。**引用の最終確定は人間**(`CLAUDE.md` §8)
+
+| 主張 | 文献(`refs.bib` のキー) | 結論 | PLAN-031 での使い道 |
+|---|---|---|---|
+| **I1** Adam のもとでは、同じ rank の中で α(スケール γ)と学習率はおおよそ交換できる。**原典の学習率はスケールを揃えて比べる** | `hu2022lora`(§4.1)/ `dettmers2023qlora`(A.1)/ `shuttleworth2025lora`(B.3 の「LoRA の総学習率 α×η」)/ `biderman2024lora`(α = 2r で γ = 2 を rank 間で一定)/ *`kalajdzievski2023rslora`*(γ が学習の安定を決める) | 支持。対立は見つからず | §4.2.1 の「換算 lr」(`lr × γ ÷ 2`) |
+| **I2** **rank をまたいだスケールの揃え方は文献で割れている** —— α 固定(γ ∝ 1/r)/ α = 2r(γ 一定)/ α·η 一定 / γ ∝ 1/√r(rsLoRA)。α = 2r でも大きい rank では学習率を下げた例がある | `hu2022lora`(α 固定で r を変えても再調整が減る)/ `biderman2024lora`(α = 2r。r = 256 は不安定で lr を半分)/ `shuttleworth2025lora`(α = 2r かつ α·η 一定 = lr ∝ 1/r)/ *`kalajdzievski2023rslora`*(γ ∈ Θ(1/√r))/ `betley2025emergent`・*`turner2025model`*(rsLoRA を使用) | **割れている** | §4.2.2 の rank の問いと、Phase 1 の rank 格子(`logs/OPEN-ITEMS.md`「★rank の格子と学習率の揃え方」) |
+| **I3** 全線形層に挿すと、rank の差は下流の性能に出にくい(留保あり) | `dettmers2023qlora`(A.1)/ `ghosh2024closer`(rank 2〜32 で大差なし)/ *`kalajdzievski2023rslora`*(標準の α/r では大きい rank が小さい rank と変わらない)/ `shuttleworth2025lora`(rank 間で同じ精度まで訓練、intruder dimensions は異なる)。**反対**: `biderman2024lora`(継続事前学習では rank が大きいほど学ぶ) | 課題しだい。狭い課題での rank の効果を直接測った原典は無い | §4.2.2 の rank の推奨 |
+| **I4** 7B 級の LoRA の実効バッチは 16 の例が多いが、幅は 4〜192 と広い | `dettmers2023qlora`(7B 16)/ *`turner2025model`*(2 × 8 = 16)/ `shuttleworth2025lora`(RoBERTa-base 16)/ `hu2022lora`(4〜32)/ `ghosh2024closer`(32)/ *`liu2023goat`*(128)/ `biderman2024lora`(192) | 16 が 3 件。**モデル規模・系列長が違うので、値の一致は根拠として弱い** | §4.2.2 のバッチの推奨 |
+| **I5** 狭い課題の FT は 1 epoch の例が多く、一般の指示チューニング・分類は数 epoch〜数十 epoch | *`liu2023goat`*(算術 1 epoch)/ `betley2025emergent`(1 epoch)/ *`turner2025model`*(full SFT は 1 epoch で EM。Gemma は 3 epoch)/ `ghosh2024closer`(3 epoch)/ `shuttleworth2025lora`(最大 5 epoch)/ `hu2022lora`(GPT-2 5 epoch・RoBERTa 10〜30 epoch) | 支持。**本研究の訓練ファイルは各組を 5 回含むので、epoch の数え方が原典と違う**(§4.2.2) | §4.2.2 の `num_steps` の推奨 |
+| 参考(1 件。**「1 事象 = 5 ソース」を満たさないので主張に使わない**) | `shuttleworth2025lora`(学習率を上げると intruder dimensions と忘却が増える。RoBERTa-base) | — | §4.2.2 の学習率の上側の注意 |
+
+**書誌の更新(2026-09-24 その85)**: `betley2025emergent` の会場は PMLR 267:4043-4068(ICML 2025)であることを proceedings.mlr.press で確かめた(エントリは変えず、`refs.bib` の新しい節のコメントに書いた)。
+`refs.bib` 末尾の「未検証・使用禁止」一覧の arXiv:2506.11613(Turner et al.)は `turner2025model` として verified を付けた(プレプリント)。上の B 節の ⚠️ はそのまま残した

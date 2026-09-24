@@ -982,3 +982,85 @@
 %   Lindsey et al. 2025, On the Biology of a Large Language Model
 %   McCloskey の数処理モデル
 %   Dehaene の対数数直線
+
+% ==================== PLAN-031 H1-2(探索的パイロット FT の LoRA の 5 値)。2026-09-24(その85)====================
+% ---- SCOUT 2 本(logs/SCOUT-2026-09-24-lora-{a,b}.md。その84)が原典を開いて転記し、親(PLANNER、その85)が
+% ---- (1) 題名・著者・初版日を arXiv API(export.arxiv.org)と、(2) 会場を会場ページ(iclr.cc / proceedings.neurips.cc /
+% ---- neurips.cc / proceedings.mlr.press)と、(3) 推奨の出どころに使う設定値を arXiv HTML 本文の逐語と突き合わせた。
+% ---- 索引は plans/PLAN-031-papers/papers_list.md、主張ごとの表は Documents/02_RELATED_WORK.md の I 節。
+% ---- 既存の biderman2024lora / ghosh2024closer / betley2025emergent も使う(エントリは変えていない)。
+% ----   betley2025emergent の会場: PMLR 267:4043-4068(ICML 2025)を proceedings.mlr.press/v267/betley25a.html で確認した(その85)
+% ---- 上の「未検証・使用禁止」一覧の arXiv:2506.11613(Turner et al.)は、その85 に原典(arXiv HTML v1)を開いて
+% ----   題名・著者・表 6 を確かめ、下に turner2025model として verified を付けた(会場は未確認 = プレプリント)。
+% ----   arXiv:2506.11618(Soligo et al.)は設定値を持たない(SCOUT B §4)ので使わず、未検証のまま。
+% ---- SCOUT の転記の誤り 3 件(親が原典で見つけた): shuttleworth2025lora の設定値は RoBERTa-base のもの /
+% ----   turner2025model は rsLoRA を使う(§2.1)/ hu2022lora の RoBERTa-base の α は 8・RoBERTa-large の lr は 2e-4〜4e-4
+
+@inproceedings{hu2022lora,
+  title     = {LoRA: Low-Rank Adaptation of Large Language Models},
+  author    = {Hu, Edward J. and Shen, Yelong and Wallis, Phillip and Allen-Zhu, Zeyuan and Li, Yuanzhi and Wang, Shean and Wang, Lu and Chen, Weizhu},
+  booktitle = {International Conference on Learning Representations (ICLR 2022)},
+  year      = {2022},
+  eprint    = {2106.09685},
+  archivePrefix = {arXiv},
+  verified  = {2026-09-24},
+  source_url = {https://arxiv.org/abs/2106.09685},
+  note      = {ICLR 2022 Poster(iclr.cc/virtual/2022/poster/6319 で題名・著者 8 名を確認)。arXiv v1 2021-06-17 / v2 2021-10-16。§4.1: Adam のもとでは α の調整は学習率の調整とおおよそ同じなので、α を最初に試す r に置いて調整しない(逐語を確認)。表 9: RoBERTa-base r=8・α=8・lr 4e-4〜5e-4 / RoBERTa-large r=8・α=16・lr 2e-4〜4e-4(Wq・Wv)。表 11: GPT-2 r=4・α=32・lr 2e-4・batch 8・5 epoch・AdamW・wd 0.01}
+}
+
+@inproceedings{dettmers2023qlora,
+  title     = {QLoRA: Efficient Finetuning of Quantized LLMs},
+  author    = {Dettmers, Tim and Pagnoni, Artidoro and Holtzman, Ari and Zettlemoyer, Luke},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS 2023)},
+  year      = {2023},
+  eprint    = {2305.14314},
+  archivePrefix = {arXiv},
+  verified  = {2026-09-24},
+  source_url = {https://proceedings.neurips.cc/paper_files/paper/2023/hash/1feb87871436031bdc0f2beaa62a049b-Abstract-Conference.html},
+  note      = {NeurIPS 2023 Main Conference Track(proceedings ページで確認)。arXiv 2305.14314。A.1: α を固定して学習率を探す(α は常に学習率に比例するため)/ 全層に挿すと r は最終性能と無関係(逐語を確認)。B.2: r=64・α=16・全線形層・Adam β2 0.999・max grad norm 0.3・dropout 0.1(13B まで)。表 9: 7B は batch 16・lr 2e-4・10,000 steps(逐語を確認)。4-bit NF4 の土台}
+}
+
+@misc{kalajdzievski2023rslora,
+  title  = {A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA},
+  author = {Kalajdzievski, Damjan},
+  year   = {2023},
+  eprint = {2312.03732},
+  archivePrefix = {arXiv},
+  verified   = {2026-09-24},
+  source_url = {https://arxiv.org/abs/2312.03732},
+  note       = {★プレプリント(arXiv v1 2023-11-28。comment・journal_ref なし。査読の掲載先は SCOUT も親も見つけられなかった)。rsLoRA: スケール γ_r = α/√r。定理 3.2: γ_r ∈ Θ(1/√r) でなければ大きい r で学習が不安定か崩壊する(r の極限についての主張。逐語を確認)。標準の α/r では大きい rank が小さい rank と変わらない性能になると報告。**主要な論拠には使わない**(CLAUDE.md §3 の趣旨)}
+}
+
+@inproceedings{shuttleworth2025lora,
+  title     = {LoRA vs Full Fine-tuning: An Illusion of Equivalence},
+  author    = {Shuttleworth, Reece and Andreas, Jacob and Torralba, Antonio and Sharma, Pratyusha},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS 2025)},
+  year      = {2025},
+  eprint    = {2410.21228},
+  archivePrefix = {arXiv},
+  verified  = {2026-09-24},
+  source_url = {https://neurips.cc/virtual/2025/poster/115207},
+  note      = {NeurIPS 2025 Poster(neurips.cc で題名・著者 4 名を確認)。arXiv v1 2024-10-28 / v3 2025-10-22。★訓練の設定値(B.3)は RoBERTa-base のもの: α=2r・r ∈ {1,2,4,8,16,64}・α×η を 2.4e-3 に固定・Adam・wd なし・warmup 0.06・最大 5 epoch・batch 16・埋め込み以外の全線形層。**LLaMA2-7B は公開済みの FT 済みモデルを使い自分では訓練していない(B.2)**。SCOUT A はこの設定を LLaMA2-7B の行に置いていた(誤り)。学習率を上げると intruder dimensions と忘却が増える(§4・付録 A.4)}
+}
+
+@misc{liu2023goat,
+  title  = {Goat: Fine-tuned LLaMA Outperforms GPT-4 on Arithmetic Tasks},
+  author = {Liu, Tiedong and Low, Bryan Kian Hsiang},
+  year   = {2023},
+  eprint = {2305.14201},
+  archivePrefix = {arXiv},
+  verified   = {2026-09-24},
+  source_url = {https://arxiv.org/abs/2305.14201},
+  note       = {★プレプリント(arXiv v1 2023-05-23。comment・journal_ref なし。会場未確認)。LLaMA-7B を約 100 万例の合成算術データで LoRA 微調整。表 4(逐語を確認): batch 128・lr 3e-4・r 64・α 64・q/v/k/o・dropout 0.05・1 epoch。24 GB の GPU で訓練できると本文に明記。最適化器・スケジューラは記載なし}
+}
+
+@misc{turner2025model,
+  title  = {Model Organisms for Emergent Misalignment},
+  author = {Turner, Edward and Soligo, Anna and Taylor, Mia and Rajamanoharan, Senthooran and Nanda, Neel},
+  year   = {2025},
+  eprint = {2506.11613},
+  archivePrefix = {arXiv},
+  verified   = {2026-09-24},
+  source_url = {https://arxiv.org/abs/2506.11613},
+  note       = {★プレプリント(arXiv v1 2025-06-13。comment・journal_ref なし。会場未確認)。§3.3 で Llama-3.1-8B-Instruct を含む 0.5B〜32B の chat モデルを FT。§2.1: オープンモデルは rank-stabilized LoRA(kalajdzievski2023rslora)で全行列に rank 32。表 6(全モデル共通の既定。逐語を確認): micro batch 2・勾配累積 8・warmup 5・lr 1e-5・adamw_8bit・linear・wd 0.01・rank 32・α 64・dropout 0.0。Llama 専用の値は表に無い。SCOUT B は rsLoRA を「記載なし」としていた(誤り)}
+}

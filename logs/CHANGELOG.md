@@ -6794,3 +6794,11 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **未着手**: I2(パイロット FT の config 8 本と ADR-100 の 5 値の転記)/ I3(#4・#4b・#5・#5b の表)/ I5 / I6(dry-run・preflight)。context-guard の警告(約 283k)で handoff を実行した
 - `STATE.md` の 4 ブロックと 2 行を差し替え、旧版は `logs/STATE-ARCHIVE.md`「その86」へ(**消えた 16 行はすべてアーカイブにあることを機械的に確認**)。`STATE.md` は 396 行 / 58,510 バイト
 - **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。GPU 0**
+
+## 2026-09-24(その87)
+
+### docs(adr): モデル分担を 2026-09-24 のモデル評価で見直し、指示書を直した(ADR-101。GPU 0)   [actor: Claude Sonnet 5(ADR-101 の起草も。要 Opus 再確認)]
+
+- 人間の依頼: モデル選択の妥当性を検索つきで分析 → 指示書を直す。ハンドオフの扱いは推奨に一任
+- `CLAUDE.md`(§3 に 6、§10.2 のモデル行)/ `AGENTS.md`(PLANNER・IMPLEMENTER・SCOUT に推奨モデル)/ `Documents/10_CONTEXT_POLICY.md` §7(表・根拠 7.1・SCOUT の突き合わせ 7.2・引き継ぎ時の選び方 7.3)/ `.claude/skills/handoff/SKILL.md`(推奨モデルの行、人間がモデルを選ぶ手順)/ `logs/HANDOFF.md` 冒頭 / `logs/DECISIONS.md`(ADR-101)/ `logs/OPEN-ITEMS.md`(Opus 再確認の 1 行)
+- **コード・config・結果・過去の ADR は変えていない。**ベンチマークの数値は第三者集計を含み**未検証**(公式は価格のみ)

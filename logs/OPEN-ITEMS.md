@@ -977,3 +977,5 @@
   `git rm --cached` で未追跡へ戻した。commit `9368cbb`)
 - **既存の行は 1 つも消していない。**~~二値群 6 セル~~(ADR-090 で決着)・★F139・G12・G15・`cost.txt`・terminate・
   ★`θ` の根拠・★F104・★F114 の実行先はすべて開いたままである(★F140正本は ADR-091 で決着)
+
+| **★ADR-101 の Opus 再確認** ★新(その87) | **ADR-101(モデル分担の見直し)は Sonnet 5 のセッションで起草された**(設計変更は Opus の作業)。人間は「推奨に任せる」と一任したが、Opus 5.5(CRITIC か PLANNER)が決定 1〜5 と `10_CONTEXT_POLICY.md` §7 を読み直すこと。**併せて**: モデル名の一致を `test_repo_hygiene.py` か hook で機械的に検査するか(未実装。案のみ) | **ADR-101** | 次の PLANNER / CRITIC セッション |

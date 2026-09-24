@@ -54,6 +54,7 @@ ls runs/ | tail -5              # 中断中の実験がないか
 3. `Documents/refs.bib` に `verified = {YYYY-MM-DD}` と `source_url` を付けて追加
 4. `Documents/02_RELATED_WORK.md` の表を更新
 5. 確認できなければ「未検証」欄に置く。**本文・論文では使わない**
+6. **SCOUT(Sonnet)の転記は原典と突き合わせるまで未検証**(ADR-100 で転記の誤り 3 件。ADR-101 決定2)
 
 2026年以降の arXiv ID は査読前プレプリントの可能性が高い。主要な論拠には使わない。
 
@@ -191,7 +192,8 @@ stat(analysis): 主要評価項目の混合効果モデルを実装
   結論だけ返させ、結果はファイルに書かせる(`AGENTS.md` §SCOUT)
 - **agent teams は使わない**(通常の約7倍のトークンを使う)
 - **MCP は必要なセッションでだけ有効にする。**RunPod MCP は RUNNER のみ
-- モデル: 設計判断・統計・解釈は Opus、実装・集計・データ生成は Sonnet
+- モデル: 設計判断・統計・解釈・**出典の転記**は Opus、実装・集計・データ生成は Sonnet(ADR-101。
+  **引き継ぎ時にモデルを選ぶのは人間。**冒頭で実モデル名を名乗り、推奨と違えば伝える。詳細は `10_CONTEXT_POLICY.md` §7)
 - **`/context` と `/usage` で実測する。**何が食っているかを推測しない
 - **この CLAUDE.md に Phase 固有の手順・長い説明を書かない。**200行以下を保ち、参照だけ置く(根拠と判断基準は `Documents/10_CONTEXT_POLICY.md` §6.1)
 

@@ -1,91 +1,53 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-24(その90)/ 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: PLAN の 1 件が完了(PLAN-031 §3.6 の ★E の確かめの入口。コンテキストは超過していない)
+生成: 2026-09-24(その92)/ 直前セッションの役割: RUNNER
+直前セッションが終了した理由: PLAN の 1 件が完了(PLAN-031 §3.6 の ★E の確かめ。context-guard が 100k を超えて警告)
 直前セッションの実モデル: Claude Sonnet 5
-**推奨モデル(次のセッション)**: **Sonnet** — RUNNER はポッド操作・成果物の回収・数字の転記という定型の運用で、`Documents/10_CONTEXT_POLICY.md` §7 の表に RUNNER の行は無いが「実装・集計・データ生成 = Sonnet」に近い(この読みは人間が覆せる)。
-**ただし確かめが「通らなかった」場合の解釈・対応は RUNNER の仕事ではない**(`CLAUDE.md` §8)。数字を並べて人間に上げる(Opus に替えるかは人間が選ぶ。§7.3)
+**推奨モデル(次のセッション)**: **Opus** — 人間の決定(G1-1 = GPU 承認、G1-2 = ADR-043 決定11 の空欄と凍結 tag、#4b の基準)の材料を並べて ADR に書く設計判断の作業で、`Documents/10_CONTEXT_POLICY.md` §7 の「設計判断・統計・解釈 = Opus」の行に当たる(この読みは人間が覆せる)。
+**G1-1 が決まったあとの RUNNER(ポッド操作・回収)は Sonnet でよい。**
 
 ---
 
-あなたは RUNNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは PLANNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
-`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**RunPod MCP はこのセッションでだけ有効にする**(`10_CONTEXT_POLICY.md` §6)。
-`infra/RUNPOD.md` は全文を読まず `grep -n '^## '` で節を当ててから読む(§3 起動から実行まで・§4 標準手順・§7 コスト管理・§9)。
-
-## ★その91 の追記(RUNNER が RTX 4090 の在庫なしで止まった。ポッドは立てていない)
-
-生成: 2026-09-24(その91)/ 役割: RUNNER / 実モデル: Claude Sonnet 5(推奨の Sonnet と一致)。**次のセッションのやることは下の「このセッションでやること」のまま(★E の確かめ)。**
-
-- **人間が「待つ(ポッドは立てない)」を選んだ**(推奨どおり)。GPU 0・課金 0。
-- **実測(2026-09-24。RunPod MCP)**:
-  `list-pods` = **0 本**(文書の「停止中 8 本」は古い。`logs/OPEN-ITEMS.md` の該当行に追記済み。terminate 済みかの確認は人間)/
-  **RTX 4090 SECURE($0.74/時)は全 DC で在庫なし**(`get-gpu-type` の `availability: NONE`)。24 GB 級の 3090・L4・A5000 も在庫なし /
-  在庫があるのは 48 GB 機だけ(A40 $0.49 = CA-MTL-1 のみ / L40S $1.09 = EU-NL-1・US-MO-1・US-NC-1。stock は Low)で、**どれも `r963j7swke` を付けられない**
-  (ボリュームは EU-RO-1。CA-MTL-1・US-MO-1・US-NC-1 はボリューム非対応、EU-NL-1 は別の DC)
-- **開始時にまず在庫を読む**: `get-gpu-type`(id `NVIDIA GeForce RTX 4090`・`include: ["AVAILABILITY"]`・`product: ["POD"]`・`cloud: "SECURE"`)の `dataCenters` に **EU-RO-1** があること。
-  無ければ立てられない —— 人間に「まだ無い」と伝えて止まる。**代替(L40S を別 DC に新規)は人間が選ばなかった案**: `r963j7swke` が使えないので重みの再取得と venv の再構築が要り、HF ログインは人間の作業、GPU 種が本番(4090)と違う
-- **立てるときの前提**: 順6b の実績は `logs/CHANGELOG.md` 2026-09-22(その68〜70)—— EU-RO-1・RTX 4090 SECURE・container 30 GB・ネットワークボリューム `r963j7swke` を `/workspace` に。
-  **`create-pod` の引数の全体は記録に無い**(`startSsh`・`ports` の指定は書かれていない)。ツールの説明では `startSsh: true` が登録済みの鍵を注入する(鍵は `get-ssh-keys` で 1 本登録済み・ローカルに `~/.ssh/id_ed25519` がある。**順6b の実績とは照合していない**)。
-  **ポートは起動のたびに変わる**。重み・venv・HF トークンがボリュームに**今も**残っているかは未確認(順6b の時点では残っていた。無ければ HF ログインは人間)。コードは `git bundle` + scp(push しない)
-- **見込み(承認の文面の材料。推測)**: 確かめ 1 回 = 重みの読み込み 3 回(1 回 90.036 s。[run:20260922_121455_order6b_b0])≈ 4.5 分。`a`・`b` の 2 回 + 環境構築で**ポッド稼働 約 1〜1.5 時間 ≈ $0.74〜1.1**(4090 の場合。未測定)。10 GPU 時間の承認ラインには遠い
-- **ローカルの `--dry-run` は通った**(`python -m code.train.seed_check --config configs/exp_pilot_ft_train_p2.yaml --seeds 0 0 1 --dry-run` = exit 0。`n_weight_loads` 3・種 `[0, 0, 1]`・LoRA rank 16 / alpha 32 / dropout 0.0 / target all / fp32)
-- **G1-1・G1-2・#4b の基準 0.90 は、まだ人間に聞いていない**(確かめの結果と一緒に上げる設計のため)。人間が先に聞きたいと言えば聞いてよい
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**RunPod MCP はこのセッションでは使わない**(ポッドは停止中。GPU の作業は決定のあと)。
 
 ## このセッションでやること(1 つだけ)
 
-**ポッド上で PLAN-031 §3.6 の ★E の確かめ(`code/train/seed_check.py`)を走らせ、結果を報告する。**
-**あわせて G1-1 の見積りの材料を並べ、人間に G1-1・G1-2・#4b の基準 0.90 を聞く。**(本番の訓練・評価は回さない)
+**★E の確かめが通ったので、人間に G1-1・G1-2・#4b の基準 0.90 を聞き、決まったものを ADR に書く。**(本番の訓練・評価は回さない)
 
-### 手順
-
-0. **ポッドを立てる前に、人間に GPU の種類・時間単価・見込み時間を述べて承認を得る。**この確かめは小さい(重みの読み込み 3 回 + LoRA の挿入 3 回)が、課金は課金である。
-   ~~**停止中のポッドが 8 本ある**(文書上。`logs/OPEN-ITEMS.md`「停止中ポッドの terminate」)~~ → **その91 の `list-pods` は 0 本**(上の追記)。terminate は人間。**立てたポッドは終了時に必ず停止する**(`CLAUDE.md` §2)
-1. ポッド上で、この commit を含む版を取り、`infra/RUNPOD.md` §3 のとおり環境を作る(`pip install -e .[gpu,dev]` 相当。**peft の版を控える** —— ADR-099 の f′ は peft `v0.20.0` のソースの読みである)
-2. 配線の確認(重みを読まない):
-   ```bash
-   python -m code.train.seed_check --config configs/exp_pilot_ft_train_p2.yaml --seeds 0 0 1 --dry-run
-   ```
-3. 本実行(`--run-dir` は必須。**config は書き換えない**。`p2d` の config は `seeds: [0]` なので使えない):
-   ```bash
-   python -m code.train.seed_check --config configs/exp_pilot_ft_train_p2.yaml --seeds 0 0 1 --run-dir runs/pilot_ft_seed_check_a
-   ```
-4. **(推奨)別プロセスでもう 1 回**(`--run-dir runs/pilot_ft_seed_check_b`)。訓練の 3 条件は別プロセスで同じ種を使う(ADR-099 決定2)ので、`a` と `b` で **seed 0 の指紋が一致すること・seed 1 の指紋が一致すること**を `seed_check.json` の 64 桁で目視する(自動では比べない)
-5. 所要時間は `runs/*/timestamp.txt`(開始・終了)から取る。**`nvidia-smi` の VRAM を、確かめの途中と終わりで 1 回ずつ控える**(CLI は VRAM を記録しない)
-6. `runs/pilot_ft_seed_check_*/` の `seed_check.json`・`config.yaml`・`git_sha.txt`・`env.txt`・`timestamp.txt` を git に戻し(**`log.txt` は `.gitignore` が除外する**。`seed_check.json` は `infra/RUNPOD.md` §4 の「git に戻すもの」の一覧に無いが、指紋の記録なので戻す)、`cost.txt` を書き(§7)、**ポッドを停止する**
-
-### 報告に入れるもの(解釈はしない。`CLAUDE.md` §8)
-
-- 各実行の `seed`・`adapter_init_sha256`(64 桁)・`adapter_param_dtypes`、`verdict` の 3 項目(同じ種で一致 / 違う種で不一致 / dtype が宣言どおり)と `problems`
-- `libraries`(torch・transformers・peft の版)、`a` と `b` の指紋の一致の目視結果、所要時間と VRAM
-- **通った場合**: 「ADR-099 の前提(peft の初期化は `seed_all` の乱数源だけで決まる・アダプタは fp32 に上がる)と矛盾しない観測が 1 つ取れた」まで。**「★E は直った」とは書かない**(peft の版と乱数源の組で 1 回観測しただけ)
-- **通らなかった場合**: `problems` をそのまま並べる。**直さない**(ADR-099 の前提の問題は人間・設計側の判断)。指紋が食い違えば、まず「土台の読み直しで状態が残った」というより退屈な仮説と、peft の乱数源の 2 つを並べる
+1. `plans/PLAN-031-seed-fix-and-pilot-ft.md` の §8(G1-1・G1-2)・§4.5(#4b の基準 0.90)・§7(見積りの材料・分かっていないもの)を `grep -n` で当てて読み、**人間に聞く 3 件**を推奨つきで並べる(**推奨と理由を毎回付ける**。memory `recommend-before-choice`。推奨を選び続けていることは ADR のリスク欄に書く。ADR-095 決定1・ADR-100 と同じ)
+   - **G1-1**: (i) 一括(見積りの上限つき)/ (ii) 二段(まず計時の短い訓練 → 見積りを出し直して本番)+ VRAM の退避規則(VRAM が足りなければ micro 半分・累積倍。ADR-100)の確認
+   - **G1-2**: ADR-043 決定11 の空欄(幅・衝突・上限・`learning_rate` の条件)と、凍結 tag を打つか
+   - **#4b の基準 0.90 の目視確認**(**`p2d` の結果を見る前に**)
+2. **★G1-1 で (ii) が選ばれたら**: 訓練 CLI は `train.num_steps` を config から読むので、計時用の短い config か `--max-steps` 相当の引数を **IMPLEMENTER が先に作る**(RUNNER は config を編集しない)。その仕事の起草(PLAN-031 §11 への追記)までをこのセッションでやる。実装はしない
+3. 決定は `logs/DECISIONS.md` に ADR として書く(**提案者と採択者を分ける**。ADR-039 決定3)。凍結 tag(`preregister-...`)を打つかは人間の決定のあと。**タグを打つのは人間の承認を得てから**
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- **`code/train/seed_check.py`**: `python -m code.train.seed_check --config <cfg> --seeds 0 0 1 [--dry-run | --run-dir <dir>]`。訓練しない。**シードごとに重みを読み直し**(peft は土台を書き換える前提)、前の土台・アダプタを GPU から外してから次を読む。訓練と同じ `code.train.lora.insert_seeded_adapter` を通す。
-  `--seeds` は「同じ種が 2 回以上・相異なる種が 2 個以上」が必須。終了コード 0 = 通った / 1 = 通らなかった(記録は書く)。**実装の読み 6 件は PLAN-031 §11(人間が覆せる)**
-- `code/train/lora.py`: `build_trainer` の該当部分を `insert_seeded_adapter`・`InsertedAdapter` に切り出した(挙動不変。既存テストは 1 件も書き換えていない)。`pytest code/tests -q` = **1716 passed**(2026-09-24 その90 実測)。`STATE.md` 397 行 / 59,504 バイト
-- **config 8 本**(`configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}.yaml`)は `infra/make_pilot_ft_configs.py` が作る。**手で編集しない**。`train.*` は 8 本でバイト一致(ADR-100 の 5 値)。訓練 run の dir は `runs/pilot_ft_train_<条件>_s<シード>`
-- `python -m code.analysis.gonogo_ft --runs "runs/*exp_pilot_ft_eval*" [--baseline runs/20260922_121455_order6b_b0]` が #4・#4b・#5・#5b の表を出す(#4b の基準 0.90 は目視確認待ち)
-- **Python で `.md`・`.py` を書き換えるときは `newline="\n"` を渡す**。**Bash ツールの heredoc に `\n` を書くと、Python のソース内で本物の改行に展開される**(その89・その90 とも再現した)—— 文字列に改行を入れる編集は Edit ツールで行う
+- **★E の確かめは 2 プロセス(a・b)とも通った**(peft 0.20.0・torch 2.8.0+cu128・transformers 5.16.1。`configs/exp_pilot_ft_train_p2.yaml`・`--seeds 0 0 1`・config 無編集・commit `175d946`)[run:pilot_ft_seed_check_a] [run:pilot_ft_seed_check_b]。
+  seed 0 の指紋 `057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8`(1 プロセス内の 2 回・a・b で一致)/ seed 1 の `e54dd3b4595eff247267ddd7b03b89b9ad3c36b757d1002999de86b08b0994d2`(a・b で一致)/ `adapter_param_dtypes` = `['float32']` / `problems` = []。**「★E は直った」とは書かない**(この版と乱数源の組で 1 回観測しただけ。解釈は人間)
+- **G1-1 の見積りの材料**(`logs/CHANGELOG.md` その92): 1 プロセス(重みの読み込み 3 回 + LoRA 挿入)= a 149.8 s / b 160.0 s / **重み読み込み時の VRAM 最大 16,062 MiB・15,928 MiB(/ 24,564)**([run:pilot_ft_seed_check_a] の `vram_seedcheck.csv`)/ pod 全体 1.27 h ≈ $0.94(準備・失敗 2 本を含む。推定)。
+  **訓練の秒/ステップ・訓練中の VRAM は確かめでは取れていない**(訓練の実測は 0 本。(i) 一括なら見積りは推測になる。承認の文面にそう書く)
+- **ポッド `lh823acvxuo8ux`(RTX 4090 SECURE $0.74/時・EU-RO-1)は停止した(EXITED)**。**再 start できるかは未確認**(その91 は全 DC で 4090 の在庫なしだった)。terminate は人間(`logs/OPEN-ITEMS.md`「停止中ポッドの terminate」に追記済み)。`/workspace`(`r963j7swke`)の venv・重み・HF トークン・repo(`175d946`)は残っている
+- **次に RUNNER が pod を使うときの落とし穴**(各行の根拠は `logs/CHANGELOG.md` その92 と memory `runpod-ssh-ipqos-none`):
+  `export HF_HOME=/workspace/.cache/huggingface` を **必ず**(新しい pod は `~/.bashrc` に無く、飛ばすと 401)/ ssh・scp は `-o IPQoS=none -o ServerAliveInterval=5 -o ServerAliveCountMax=4`(無いと 64 KiB で止まる)/
+  長い処理は `nohup setsid bash x.sh &` で切り離す / 差分 bundle(`git bundle create x.bundle <古い commit>..main`)で送り、untracked の run が衝突したら退避してから `git merge --ff-only`
+- `pytest code/tests -q` = 1716 passed(その90 実測。その92 はコードを変えていない)。`STATE.md` 397 行 / 59,924 バイト
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `runs/`(この確かめの成果物)・`infra/RUNPOD.md` の §3・§4・§7(必要な節だけ)・`plans/PLAN-031-seed-fix-and-pilot-ft.md` の §3.6・§7・§8・§11
+- `plans/PLAN-031-seed-fix-and-pilot-ft.md` の §4.5・§7・§8・§11(節を `grep -n` で当てる)/ `logs/DECISIONS.md` は `tail -60` と ADR-043 決定10〜11・ADR-099・ADR-100 だけ / `logs/OPEN-ITEMS.md` は `sed -n '1,60p'` と該当行だけ
 - **全文 cat しない**: `configs/exp_phase1_main.yaml`(735 行)・`logs/DECISIONS.md`・`logs/OPEN-ITEMS.md`・`code/eval/run.py`(2,275 行)・`infra/RUNPOD.md` 全体
 
 ## やってはいけないこと
 
-- **config を書き換えない**(設定に問題があれば IMPLEMENTER に差し戻す。順6b は 7 本とも `git_diff.patch` が 0 バイトだった)。コードも直さない
-- **本番の訓練・評価を回さない**(G1-1 の承認の前)。5 値・閾値・条件を変えない。**10 GPU 時間を超えるジョブを人間の承認なしに始めない**
-- **ポッドを起動したまま終わらない**。**停止中の 8 本を勝手に terminate しない**(人間)。**自分が作ったのではないポッドを止めない・消さない**
-- `pool_id: pilot` の数値を主張・効果量・Δ 5 行・検出力分析・E1 の境界に使う設計を書かない。`CLAUDE.md`・`AGENTS.md`・`Documents/` を書き換えない
+- **config・コードを書き換えない**(実装は IMPLEMENTER)。**本番の訓練・評価を回さない**。5 値・閾値・条件を変えない。**10 GPU 時間を超えるジョブを人間の承認なしに始めない**
+- **ポッドを起動・terminate しない**(このセッションは RunPod を使わない)。`pool_id: pilot` の数値を主張・効果量・Δ 5 行・検出力分析・E1 の境界に使う設計を書かない
+- **人間の決定を代行しない**(`CLAUDE.md` §8)。案と推奨は出す。決めるのは人間。`CLAUDE.md`・`AGENTS.md`・`Documents/` を書き換えない
 
 ## 未解決 / 人間の承認待ち
 
-- **★この引き継ぎで見つけた穴(人間に上げる)**: 見積りの材料のうち**訓練の秒/ステップ・VRAM は、確かめでは取れない**(PLAN-031 §7「分かっていないもの」)。**G1-1 の (ii) 二段の「計時の短い訓練」は、`train.num_steps` を config から読む訓練 CLI では、短い config か `--max-steps` 相当が要る**(RUNNER は config を編集しない)。
-  G1-1 で (ii) が選ばれたら、IMPLEMENTER が計時用の config(または引数)を作る小さな仕事が先に要る。(i) 一括なら見積りは推測になる(§7。承認の文面にそう書く)
-- GPU の前: **G1-1**(GPU 承認 + VRAM の退避規則)・**G1-2**(ADR-043 決定11 の空欄と凍結 tag)・**#4b の基準 0.90 の目視確認**(`p2d` の結果を見る前に)
-- **実装の読み 12 件**(PLAN-031 §11。その89 の 6 件 = 評価に指示付き T1 を含める / 新しい鍵を本番 config に足さない / #4b は #4 と別の鍵 / #5・#5b は run の条件自身の規則のブロックで数える / #4 は `p2` の run だけ・#4b は `p2d` の run だけ判定 / `estimated_gpu_hours` は null。その90 の 6 件 = 確かめの CLI)
+- **G1-1・G1-2・#4b の基準 0.90**(上のとおり。この報告と一緒に人間に上がる)
+- **実装の読み 12 件**(PLAN-031 §11。人間が覆せる)/ 停止中ポッドの行(`logs/OPEN-ITEMS.md`。閉じていない)
 - 変わらず: `STATE.md`「人間の承認・判断を待っている事項」と `logs/OPEN-ITEMS.md` のとおり

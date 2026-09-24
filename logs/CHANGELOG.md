@@ -6869,3 +6869,31 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **書き換えたもの**: `STATE.md`(最終更新の行・次のアクション 1 行目・引き継ぎブロック。旧文は `logs/STATE-ARCHIVE.md`「その91」)/ `logs/OPEN-ITEMS.md`(「停止中ポッドの terminate」の行に実測を追記。**行は閉じていない**)/ `logs/HANDOFF.md`(先頭に追記・「8 本ある」に打ち消し線)/ 本ファイル。
   **`runs/` に何も作っていない。コード・config・`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。GPU 0**
 - **未解決**: ★E の確かめ(本物の peft は初めて)は未実行。G1-1・G1-2・#4b の基準 0.90 は人間にまだ聞いていない。停止中ポッドの行を閉じてよいかは人間
+
+## 2026-09-24(その92)
+
+### exp(train): ★E の確かめを RTX 4090 ポッドで実行した —— 2 プロセス(a・b)とも「通った」(peft 0.20.0。解釈はしていない)   [actor: RUNNER (Sonnet 5)]   [run:pilot_ft_seed_check_a] [run:pilot_ft_seed_check_b]
+
+- `logs/HANDOFF.md`(その91 の追記つき)の 1 件。**推奨モデル(Sonnet)と実モデルは一致した**(冒頭で述べた)。人間が RunPod にポッドを立て(`lh823acvxuo8ux`。RTX 4090 SECURE $0.74/時・EU-RO-1・`r963j7swke` を `/workspace`)、その pod を使うよう依頼した。GPU の種類・単価は開始時の `list-pods` で確認した
+- **準備**: ポッドの `/workspace`(venv・重み 30 GB・HF トークン・`translesion`)は前回のまま残っていた。venv = torch 2.8.0+cu128 / transformers 5.16.1 / **peft 0.20.0**(pyproject・lock・bootstrap は `b5838c0` から無変更なので再インストールなし)。
+  repo は `b5838c0` → `175d946` に、差分 bundle(650 KB)で fast-forward。untracked の順6b の run 7 本が衝突したので `/workspace/pod_moved_aside_pilotft/runs/` に退避して merge し、`cp -an` で元の位置に戻した(削除なし)。`--dry-run` は pod 上でも exit 0
+- **接続の問題**: この機から直接 TCP の ssh/scp で大きいファイルを送ると 64 KiB で止まった。`-o IPQoS=none` で 200 KB・650 KB とも通り sha256 一致(原因が QoS マークかは未検証。効くことだけ実測)。memory `runpod-ssh-ipqos-none` に記録
+- **失敗した最初の 2 本**: `401 gated repo`(重みの読み込み前)。**`HF_HOME` 未設定**で `/root/.cache/huggingface` を見ていた(`infra/bootstrap.sh:41` は export するが、bootstrap を飛ばし `~/.bashrc` にも無かった)。config・コードは変えていない。`/workspace/pod_moved_aside_pilotft/failed_*` に退避(`seed_check.json` なし)。
+  **手順の穴(RUNNER 側)**: 「終了コード 1 = 通らなかった」だが例外落ちも 1 なので、b が余計に 1 回走った。b に進む条件を `seed_check.json` の存在に直した
+- **本実行**(`HF_HOME=/workspace/.cache/huggingface`。`python -m code.train.seed_check --config configs/exp_pilot_ft_train_p2.yaml --seeds 0 0 1 --run-dir runs/pilot_ft_seed_check_{a,b}`。config 無編集): a 12:39:09→12:41:39Z(**149.8 s**)/ b 12:41:41→12:44:21Z(**160.0 s**)。終了コード 0 / 0。`git_sha.txt` は両方 `175d946`(`git_diff.patch` は 0 バイト)
+- **結果**(正本は各 run の `seed_check.json`。a と b で同じ):
+
+  | 実行 | seed | `adapter_init_sha256` | `adapter_param_dtypes` |
+  |---|---|---|---|
+  | 1/3 | 0 | `057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8` | `['float32']` |
+  | 2/3 | 0 | `057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8` | `['float32']` |
+  | 3/3 | 1 | `e54dd3b4595eff247267ddd7b03b89b9ad3c36b757d1002999de86b08b0994d2` | `['float32']` |
+
+  `verdict`: same_seed(0↔0)equal = true / different_seed(0↔1)equal = false / `problems` = [] / `passed` = true。`libraries` = torch 2.8.0+cu128・transformers 5.16.1・peft 0.20.0。
+  **a と b の指紋の目視: seed 0 は a・b・1 プロセス内の 2 回のすべてで一致、seed 1 は a と b で一致**(自動比較はしていない)
+- **VRAM(3 秒間隔。`runs/pilot_ft_seed_check_a/vram_seedcheck.csv`。a と b をまたいで 1 本)**: 最大 a = 16,062 MiB / b = 15,928 MiB(/ 24,564 MiB)。読み込みの間に 1 MiB まで落ちる(前のモデルを外した後)ので、標本の「中間」の値は 1 MiB(a 12:40:26 / b 12:43:02)。**訓練中の VRAM は測っていない**(確かめは訓練しない)
+- **費用**: pod 全体の uptime 4,582 s(RunPod の値)≈ 1.27 h ≈ **$0.94**(推定。準備・失敗 2 本を含む。`runs/pilot_ft_seed_check_a/cost.txt`)。10 GPU 時間の承認ラインには遠い
+- **ポッド**: 人間が「停止する」を選び(`AskUserQuestion`。推奨どおり)、`pod-action stop` → `EXITED`。**4090 SECURE が再 start できるかは未確認**(その91 では全 DC で在庫なしだった)。`list-pods` は 1 本(`lh823acvxuo8ux`)
+- **通ったことの範囲**: 「ADR-099 の前提(peft の初期化は `seed_all` の乱数源だけで決まる・アダプタは fp32 に上がる)と矛盾しない観測が 1 つ取れた」まで。**「★E は直った」とは書かない**(peft 0.20.0 と乱数源の組で 1 回観測しただけ)。GPU の非決定性は訓練しないこの確かめでは測っていない
+- **書き換えたもの**: `runs/pilot_ft_seed_check_{a,b}/`(新規。`log.txt` は `.gitignore` が除外)/ `STATE.md`(最終更新の行・いま何をしているか・次のアクション 1 行目・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その92」)/ `logs/OPEN-ITEMS.md`(停止中ポッドの行に追記)/ `logs/HANDOFF.md` / 本ファイル。**コード・config・`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。**
+- **未解決**: G1-1・G1-2・#4b の基準 0.90 は人間にまだ聞いていない(この報告と一緒に上げる)。停止中ポッド(過去の 8 本の行)は閉じていない。この pod(`lh823acvxuo8ux`)を terminate するかは人間

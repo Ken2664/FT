@@ -6638,3 +6638,18 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   STATE.md は 421 行 / 59.3 KB(行数はまだ目標 400 を超える)。`logs/HANDOFF.md` を次の 1 件(診断の PLAN の起草)で上書きした
 - **その72〜75 の CHANGELOG の「PLANNER (Opus)」の表記は履歴として書き換えていない。訂正の記録は ADR-095 決定1 とこの節である**
 - **実装・GPU は 0。**診断の PLAN・`n_item` の実装・PLAN-029 の基準の節は未着手
+
+## 2026-09-24(その78)
+
+### docs(plan): 方向性の監査 —— ここまでの判断が本筋の問いに適っているかを調べ、`logs/REVIEW-2026-09-24-direction.md` に書いた(GPU 0)   [actor: CRITIC (Opus 5.5)]
+
+- 人間の依頼「ここまでの判断や決定が、本筋の実験への考え方、解き明かしたい問いに対して適切であるか、一度調査して分析してください」に答えた。**指摘と案であって決定ではない**(`CLAUDE.md` §8)
+- 読んだもの: `STATE.md` / `00_OVERVIEW.md` / `01_HYPOTHESES.md` / `05_STATISTICS.md` §2・§4・§5 / `06_THREATS.md` T14 / `04_EXPERIMENT_PLAN.md` / ADR-004・023・024・030・052・053・090〜092・096 / PLAN-004・028 / その76 の監査 / `results/r8_fit_order6b/`
+- **主な指摘**: (1) 二値群は、素のモデルの判別の鋭さが +2 の幅より 1〜3 桁粗い。R8 の当てはめ [run:20260922_122247_order6b_r8] / [run:20260922_124632_order6b_s_preamble] / [run:20260922_125131_order6b_s_d] から、
+  「病変が内部の和を正確に +2 ずらす」最も有利な仮定でも固定オフセットの `rule` の増分は +0.0001〜+0.035(ロジット 0.001〜0.25)と試算した(読み取りのみ。付録 A にスクリプト)/
+  (2) 「勾配が平行」は統合でも不転移でも起き、転移の水準が確証的な評価項目に無い / (3) FT 0 本のまま FT でしか決まらない値を積んでいる / (4) 前段 FT は測る対象を変える / (5) 作業の配分と意思決定の過程
+- 提案 P-1〜P-6 を `logs/OPEN-ITEMS.md` の索引に 1 行で足した(**★方向性の監査 P-1〜P-6**)。`STATE.md` の 4 ブロックを差し替え、旧ブロックは `logs/STATE-ARCHIVE.md`「その78」へ(消えた行 0)
+- 文献: `logs/REVIEW-2026-09-24-direction-papers/papers_list.md`(38 件)。**新規 24 件は subagent(SCOUT)が原典ページ(Crossref・PubMed・ACL Anthology・arXiv・NeurIPS / ICLR proceedings・PNAS)で確認**(1 件は題名を訂正: Wang et al. 2024 の NeurIPS 版の題)。
+  残り 14 件は既存の `refs.bib` の verified 項。**`refs.bib` には足していない。引用の最終確定は人間**
+- **ADR・PLAN・config・コードは 1 バイトも変えていない。GPU 0**
+

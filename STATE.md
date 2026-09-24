@@ -8,10 +8,10 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-24(その82)/ by PLANNER (Opus 5.5)
-(**段1 の PLAN = `plans/PLAN-031-seed-fix-and-pilot-ft.md`(★E の修正 + 探索的パイロット FT)を起草した(草案。決定 0 件・値は 1 つも書いていない)。**
-**人間が決めるのは §4 の H1-1〜H1-7(H1-7 は起草で見つけた #4・#5・#5b の読み方)。GPU の前に G1-1・G1-2。**
-**起草で見つけた事実 3 件: いまのコードでは T1・T2・特異性対照だけをパイロット用プールで解けない / #4 の定義文が水準か差かを決めていない / peft 0.20.0 は既定で bf16 のアダプタを fp32 に上げる設定(LoRA に効くかは未確認)。**`CLAUDE.md`・`Documents/`・config・コードは 1 バイトも変えていない。**GPU 0。**)
+最終更新: 2026-09-24(その83)/ by PLANNER (Opus 5.5)
+(**PLAN-031 のレビューが済んだ(ADR-099)。判断材料の表を先に見せてから 12 問を選択式で聞き、人間は 12 問すべてで推奨の選択肢を選んだ(H1-2・H1-3・H1-5 の推奨はユーザーの依頼でその83 の PLANNER が付けた)。**
+**H1-1 = a2・α / H1-2 = 進め方 B(LoRA の 5 値は未決。次は原典つきの案)/ H1-3 = 2 シード `[0, 1]` / H1-4 = (iv) + ADR-082 の門を改める / H1-5 = `p2d` 1 シード / H1-6 = 最適化の実効値と fp32 を宣言 / H1-7 = a1・b1・c2・d3。**
+**peft 0.20.0 のソースで、LoRA の重みが fp32 に上がることを確かめた(PLAN-031 事実 f′。`lora.py:451` の docstring は誤り。実行はしていない)。**`CLAUDE.md`・`Documents/`・config・コードは 1 バイトも変えていない。**GPU 0。**)
 
 ---
 
@@ -68,10 +68,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-24(その82・最新)。Phase 0。PLANNER (Opus 5.5)。段1 の PLAN-031 を起草した。次は PLAN-031 のレビュー(H1-1〜H1-7)。**
-> - **段**: **段1 = ★E + 探索的パイロット FT(PLAN-031。これが最初の FT)。いまは PLAN-031 のレビュー待ち** → 実装(IMPLEMENTER)→ dry-run とポッド上の ★E の確かめ → G1-1・G1-2 → RUNNER。段2(PLAN-032)と段3(PLAN-033)は段1 と並べて進める(PLAN-030 §3)
-> - **振り分けの正本は PLAN-030 §3・§4**(ADR-098 決定1)。**段1 の中身の正本は PLAN-031**(人間待ちの正本は OPEN-ITEMS のまま)
-> - **★その81 のブロックは `logs/STATE-ARCHIVE.md`「その82」にある**(ADR-063 運用規約1)
+> **★★2026-09-24(その83・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-031 のレビューが済んだ(ADR-099)。次は H1-2(LoRA の 5 値)の原典つきの案と、PLAN-031 §3 の実装。**
+> - **段**: **段1 = ★E + 探索的パイロット FT(PLAN-031。`承認済`)。残りは H1-2 の 5 値** → 実装(IMPLEMENTER)→ dry-run とポッド上の ★E の確かめ → G1-1・G1-2(+ #4b の基準の目視確認)→ RUNNER。段2(PLAN-032)と段3(PLAN-033)は段1 と並べて進める(PLAN-030 §3)
+> - **段1 の中身の正本は PLAN-031(回答は §4.0)と ADR-099**(人間待ちの正本は OPEN-ITEMS のまま)
+> - **★その82 のブロックは `logs/STATE-ARCHIVE.md`「その83」にある**(ADR-063 運用規約1)
 
 ---
 
@@ -186,7 +186,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **再採点の CLI が動く**(2026-09-11。PLAN-022 §5)。`python -m code.eval.rescore --source-run <run>` が回収済みの `predictions/` を現行の `numeric` パーサで読み直し、別の run(`<timestamp>_rescore_<suffix>`)に `metrics.json`(`sweep.py` と同じ 3 ブロック + `checks` + `rescore`)と `transitions.json` を書く。**C1 / C2 / C4 が外れたら何も書かずに止まる。****掃引の run 専用**(本実行の run は読めない)。**Windows では `PYTHONIOENCODING=utf-8` が要る**(標準出力の cp932 が「—」を符号化できず、最後の `print` で落ちる) | `code/eval/rescore.py`、`test_rescore.py`(13件) |
 | **本番 config の生成設定がすべて決まっている**(2026-09-10。ADR-072)。`eval.temperature` = 0(**記録用。デコードの正本は `do_sample: false`**)/ `eval.num_repeats` = 1。**本番 config で `load_generation_settings` が通る**(回帰テストが固定)。~~⚠️ ★F125~~ は閉じた(旧行は `logs/STATE-ARCHIVE.md`「その33」) | `configs/exp_phase1_main.yaml`、`code/tests/test_eval_model.py` |
 | **本実行は「回せる」が「まだ回していない」。**★2026-08-28: `model.revision`(`0e9e39f…`)/ `model.max_new_tokens`(**256**)/ `eval.batch_size`(**4**)がすべて確定し、`configs/template.yaml` に入った。残る null は `model.name`(`meta-llama/Llama-3.1-8B-Instruct` を書くだけ)と実験同定・シード・LoRA グリッドの値。**評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
-| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(人間の確認待ち) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**ただし LoRA グリッドの値が未決**(`learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation`。ADR-043 決定10)。null のままなら門で止まる。**`alpha = 2 × rank` は門が強制する**(決定4)。**最適化の既定値(betas / eps / weight_decay)はどの ADR も宣言していない** —— 実際に効いた値を `outcome.optimizer` に残す形にした(~~人間の確認待ち~~ → **ADR-099 決定7 で実効値と fp32 のアダプタを config に宣言することに決まった。未実装**) | `code/train/lora.py` の `build_trainer` / `save_adapter`、`code/train/settings.py` の `ALPHA_TO_RANK` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | **`runs/<id>/metrics.json` に壁時計時間が残る**(★2026-08-28。ADR-040 決定6)。`timing` に 合計 / **重みの読み込み** / **生成** / 1項目あたり秒。区間は単調時計で測る(壁時計の差は NTP の補正で負になりうる)。**`eval.batch_size` の値はこの記録から決める** | `code/artifacts.py` の `timing_record` / `timing_line`、`code/eval/run.py`、`code/eval/sweep.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
@@ -243,7 +243,6 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | # | 未知 | 状態 |
 |---|---|---|
-| **F15 の扱い** | `torch.manual_seed` が `code/` と `infra/` に **0 件**である件を直すか。**同じ `--seed 3` を 2 度回してもアダプタの初期値が違う** | **人間待ち**。S3 の決定(対応づけない)はこの事実を根拠にしている |
 | **解析門の閾値** | ADR-054 決定1 (ii) の run 単位の解析門を何点で切るか | **人間待ち**。N5 と同じ場で凍結する |
 
 ---
@@ -278,7 +277,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 - **PLAN-001 §5.1.1 の穴 2 と穴 3**: 「単位元の言明」「規則の自己説明」は `(a, b)` を持たず
   被覆ラベルが定義できない / **本番の評価テンプレート集合(`data.eval_template_set`)が未確定**
   (**実験条件である**。残るのは G1「記法形」変種の扱いと本番テンプレートの文面そのもの)
-- **実験パラメータが `configs/template.yaml` で `null` のまま**: 学習率 / ステップ数 / batch size /
+- **実験パラメータが `configs/template.yaml` で `null` のまま**(★パイロットの値は ADR-099 決定3 = 原典つきの案の後に人間): 学習率 / ステップ数 / batch size /
   **LoRA rank と alpha**。設計文書に値が無いのでエージェント側で既定値を作っていない
 - ~~**`infra/requirements.lock` が空である**~~ → **2026-09-10 に順1b の pip freeze の転記で埋めた**(ADR-073 決定4。187 行)。
   **ポッド上で lock から入ることはまだ確かめていない**(bootstrap.sh の pytest と PLAN-014 §5 手順 2b の突き合わせで分かる)
@@ -315,8 +314,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**設計と判定規則の PLAN を人間がレビューし、凍結してから GPU** | PLAN-029 の実装より前 |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
-| **★探索的パイロット FT の LoRA 初期値・シード数** ★新(その79) | ADR-097 決定2(P-2)。LoRA グリッドの値(null のまま)・1 か 2 シード・T1b / T3 を評価に含めるか。★E の修正と S3 の根拠の見直しを同じ PLAN で扱う。GPU は別承認 | パイロット FT の PLAN のレビュー |
-| **PLAN-031 のレビュー** ★新(その82) | 段1 の H1-1〜H1-7(`plans/PLAN-031` §4)。**H1-7 は起草で見つけた #4・#5・#5b の読み方**。GPU の前に G1-1・G1-2(§8) | 実装の前 |
+| **★探索的パイロット FT の LoRA の 5 値** ★新(その79)★その83 更新 | シード数(2 シード `[0, 1]` + `p2d` 1 本)と T1b・T3 の扱い((iv) 段2 の凍結の後)は ADR-099 で決着。**残るのは `learning_rate` / `num_steps` / `batch_size` / `gradient_accumulation` / rank**(H1-2 = 進め方 B: PLANNER が原典つきの案 → 人間。ADR-099 決定3) | 実装と並べて。GPU の前 |
+| **★S3 の根拠の見直し** ★新(その83) | ADR-099 決定2(α)で S3(ADR-055 決定2)の根拠 F15 が消える。案 b を保って根拠を書き直す / 案 a / 案 c(`plans/PLAN-031` §5)。エージェントの案: S5 と同じ場 | 凍結前 |
+| **★#4b の基準 0.90 の目視確認** ★新(その83) | ADR-099 決定6 で `p2d` をパイロットに足した。**`p2d` の結果を見る前に**確かめる(N5 (2) の前倒し)。エージェントの案: G1-2 と同じ場 | パイロットの結果の前 |
+| **G1-1・G1-2** ★新(その83。PLAN-031 §8) | 段1 の GPU 承認(一括か二段か)/ ADR-043 決定11 の空欄(幅・衝突・上限・`learning_rate` の条件)と凍結 tag を打つか | 実装と dry-run の後 |
 | **★E1(転移)の TOST 境界・多重性** ★新(その79) | ADR-097 決定3(P-3)。門の外に確証的な評価項目を足すときの α の配分と「転移しない」の境界 | 凍結前 |
 | **PLAN-018 §4.3** | 「現在のブロッカー」の組み直しと Phase 0 の要約(**とくに F87**) | いつでも |
 | **順6b の後に決める 2 件** ★新(その53)**★その55 更新: G14 は ADR-080 決定1 で決着** | PLAN-026 の G12(batch を替えるか)/ G15(① を採る場合の T1 のアンカー)。ADR-079 決定8・9 | 順6b の後・主プールで測り直す前 |
@@ -355,25 +356,26 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-24(その82・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-24(その83・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **PLANNER (Opus): PLAN-031 のレビュー** —— 判断材料(PLAN-031 §0 の 3 件・§2.2 の事実・§4 の各表)を先に見せてから H1-1〜H1-7 を聞き、ADR に記録する。**H1-2・H1-3・H1-5(値と条件の追加)にはエージェントの見立てを付けていない** → IMPLEMENTER (Sonnet) が §3 → dry-run・ポッド上の ★E の確かめ → RUNNER の見積り → 人間が G1-1・G1-2 → RUNNER
-> 2. PLANNER: PLAN-032(診断)を起草(段2。段1 と並べる。**PLAN-030 §6 罠1**。H1-4 が (iii) なら見たことを段2 の ADR に書く)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認
-> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
-> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)
-> 5. **それ以外は PLAN-030 §4 の表のとおり(ADR-098 決定1 で確定)**。停止中ポッドの terminate は G1-1 と同じ場を推奨
+> 1. **PLANNER (Opus): H1-2 の 5 値の案**(ADR-099 決定3)—— subagent に公表されている LoRA の設定値を原典で確かめさせ(`CLAUDE.md` §3)、`Documents/refs.bib` に `verified` 付きで足し、5 値の案を出典つきで PLAN-031 §4.2 に書く → 人間が値を決める → ADR
+> 2. **IMPLEMENTER (Sonnet): PLAN-031 §3**(I1〜I6。§4.0 の回答どおり。ADR-082 の門の変更を含む)→ `pytest` → dry-run → RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1・G1-2・#4b の基準 → RUNNER。
+>    **1 と 2 はどちらが先でもよい**(実装は値に依らない。値が先に決まれば IMPLEMENTER が config に転記する)
+> 3. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認
+> 4. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
+> 5. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-09-24(その82・最新)。PLANNER (Opus 5.5)。PLAN-031(★E の修正 + 探索的パイロット FT)を起草した。GPU 0。**
+> **★★2026-09-24(その83・最新)。PLANNER (Opus 5.5)。PLAN-031 のレビューの回答を ADR-099 に記録した。GPU 0。**
 >
-> **★やったこと**: 訓練コード・評価の門(`task_subset.py`・`run.py`)・`metrics.json` の形・pilot の FT manifest・#4〜#5b の定義文を読み、事実 a〜r を PLAN-031 §2.2 にまとめた。§3 実装の仕様(I1〜I6)/ §4 H1-1〜H1-7 の選択肢と判断材料 / §5 S3 の見直しの材料 / §6 罠 / §8 G1-1・G1-2。
-> `logs/OPEN-ITEMS.md` の索引に「PLAN-031 のレビュー」1 行 + ★E・パイロット FT の 2 行に参照。`plans/PLAN-004` §3 順9 の未チェック項目にチェック(ADR-097 決定2)、パイロットの行に打ち消し線 + PLAN-031 の参照。
-> **★やっていないこと**: 値(LoRA・シード数)/ S3 の決定 / コード・config / `lora.py:451` の docstring の訂正(H1-6 の後に IMPLEMENTER)/ `CLAUDE.md`・`Documents/`(段3)。
-> **★次セッションが引き継ぐもの**: PLAN-031 のレビュー(`logs/HANDOFF.md`)。
+> **★やったこと**: 判断材料の表(事実 4 件 + 問いごとの選択肢・推奨と理由)を先に見せ、`AskUserQuestion` で 12 問(4 + 4 + 4)を聞いた → ADR-099。peft `v0.20.0` のソースで PLAN-031 事実 f を確かめた(f′)。ADR-082 決定1 の 1 句に打ち消し線(決定5 (i-a))。
+> PLAN-031 を `承認済` にし、§4.0 回答欄・事実 f・§10・§11 を更新。`logs/OPEN-ITEMS.md`: 「PLAN-031 のレビュー」「★E」「F15 の扱い」に打ち消し線 / 「★探索的パイロット FT」に決着した部分 / 新しい行 2 つ(★S3 の根拠の見直し・★#4b の基準の目視確認)。
+> **★やっていないこと**: LoRA の 5 値(H1-2 = B)/ S3 の見直し(凍結前)/ コード・config / `lora.py:451` の docstring(IMPLEMENTER)/ `CLAUDE.md`・`Documents/`(段3)。
+> **★次セッションが引き継ぐもの**: H1-2 の原典つきの案(`logs/HANDOFF.md`)。
 
 ---
 

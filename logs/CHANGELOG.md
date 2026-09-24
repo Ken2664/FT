@@ -6834,3 +6834,22 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **実装の読み(人間が覆せる。PLAN-031 §11)**: 評価に指示付き T1 を含める / 新しい鍵を本番 config に足さない / #4b は #4 と別の鍵 / **#5・#5b の `other_error_rate` は run の条件自身の規則のブロックで数える**(`p2d` の run は参照規則 `p2d`。§3.3 に書いていなかった読み)/ `estimated_gpu_hours` は null
 - **未着手**: §3.6 のポッド上の ★E の確かめの実行手段(訓練せずに「種付け → `get_peft_model` → 指紋」を 2 回回す入口)。`STATE.md` の 4 ブロックと 3 行を差し替え、旧版は `logs/STATE-ARCHIVE.md`「その89」へ(消えた 16 行がすべてアーカイブにあることを機械的に確認)
 - **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。GPU 0。ポッドは使っていない**
+
+## 2026-09-24(その90)
+
+### feat(train): PLAN-031 §3.6 の ★E の確かめの入口を作った(`code.train.seed_check`。`build_trainer` の切り出し。GPU 0)   [actor: IMPLEMENTER (Sonnet 5)]
+
+- `logs/HANDOFF.md`(その89)の 1 件。**推奨モデル(Sonnet)と実モデルは一致した**(冒頭で述べた)。skill `code-style` を読んだ
+- **`code/train/lora.py`**: `build_trainer` の「種付け → `get_peft_model` → 指紋 → dtype の読み取り」を `insert_seeded_adapter`(返り値 `InsertedAdapter`)に切り出した。
+  **引数・返り値・挙動を保つ**(種付けの位置 `load_causal_lm` の後・`get_peft_model` の直前 / `metrics.json` の `seeding`・`outcome.adapter_init_sha256`・`adapter_param_dtype` は不変。既存のテストは 1 件も書き換えていない)。
+  `check_adapter_dtype` は `build_trainer` 側に残した(確かめが食い違いの観測値を全部見るため)。`build_trainer` 冒頭の `import peft` は、peft が無いとき分単位の重み読み込みの前に落とすために残した
+- **`code/train/seed_check.py`(新規)**: `python -m code.train.seed_check --config <cfg> --seeds 0 0 1 [--dry-run | --run-dir <dir>]`。訓練しない。**訓練と同じ `insert_seeded_adapter` を通し**、
+  シードごとに重みを読み直して LoRA を挿し、指紋(`adapter_init_sha256`)と dtype を控え、前の土台・アダプタを GPU から外してから次を読む。判定は「同じ種で一致 / 違う種で不一致 / dtype が宣言どおり」。
+  `seed_check.json`・`log.txt`・`config.yaml`・`git_sha.txt`・`env.txt`・`timestamp.txt` を `--run-dir` に書く(**`metrics.json` にしない**。通らなかった確かめも書き、終了コード 1)。
+  torch・transformers・peft の版を記録する(f′ は peft の版に依る読み)。**同じ種の対と違う種の対の両方が無い並びは受け付けない**
+- **実装の読み(人間が覆せる。PLAN-031 §11)**: 1 プロセスでシードごとに重みを読み直す(peft は土台を書き換える前提) / プロセスをまたぐ一致は CLI を 2 回走らせて指紋を比べる(自動化しない) / `--run-dir` は本実行に必須 / 使う config は `exp_pilot_ft_train_p2.yaml` か `..._ident.yaml`(`p2d` は `seeds: [0]` で `--seeds 0 0 1` が通らない)
+- **テスト**: `test_train_seed_check.py` 38 件(偽の peft は土台を書き換え、LoRA の A の引き元を選べる。**種に反応しない peft・種付けが効かない peft・アダプタが bf16 のままの peft を再現し、確かめが落とすことを縛る**)。
+  **変異 8 件を入れて全部落ちることを確かめた**(土台の使い回し / 解放の欠落 / 一致の反転 / dtype 検査の欠落 / 違う種の対の欠落 / 訓練と別の経路 / 種付けの欠落 / `build_trainer` の dtype 検査の欠落)。
+  **`pytest code/tests -q` = 1716 passed**(その89 の 1678 + 38)。実物のパイロット config で `--dry-run` と引数の拒否を確かめた
+- **未確認(ポッド上で分かる)**: 本物の peft が初期値を `seed_all` の乱数源だけで決めるか / アダプタが fp32 になるか / 本物の所要時間と VRAM。**GPU・RunPod・本物の peft は使っていない**
+- **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR・config・`gonogo*.py` は変えていない。GPU 0**

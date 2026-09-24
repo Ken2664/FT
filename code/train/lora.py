@@ -453,6 +453,48 @@ def trainable_parameter_count(model: Any) -> int:
     return sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
 
 
+@dataclass(frozen=True)
+class InsertedAdapter:
+    """LoRA を挿した直後の状態。
+
+    答える問い: 「この `seed` で LoRA を挿したとき、初期値の指紋と dtype は何か」
+
+    `param_dtypes` は**観測した値**であって検査を通った値ではない
+    (`check_adapter_dtype` は呼び出し側が掛ける。理由は `insert_seeded_adapter`)。
+    """
+
+    model: Any
+    seeding: dict[str, Any]
+    init_sha256: str
+    param_dtypes: list[str]
+
+
+def insert_seeded_adapter(base: Any, settings: TrainSettings) -> InsertedAdapter:
+    """土台を種付けしてから LoRA を挿し、初期値の指紋と dtype を読む。
+
+    答える問い: 「この `seed` で挿した LoRA の初期値は何か」(★E の修正。ADR-099 決定1・2)
+
+    **訓練(`build_trainer`)と ★E の確かめ(`code/train/seed_check.py`)が同じこの関数を通る。**
+    確かめだけ別の経路で種付けすると、本番の経路が壊れていても確かめが通る。
+    dtype は**読むだけで検査しない**。確かめは食い違ったときこそ観測値を全部見たいので、
+    検査(`check_adapter_dtype`)は呼び出し側が同じ関数で掛ける。
+
+    **`base` は書き換わる前提で扱う**(peft は土台のモジュールを LoRA 層に置き換える作りで、
+    ここでは実行で確かめていない)。同じ `base` に 2 度呼ばない —— 重みを読み直す。
+    """
+    from peft import get_peft_model  # noqa: PLC0415 — optional-dependency `gpu`
+
+    seeding_record = seeding.seed_all(settings.seed)
+    model = get_peft_model(base, build_lora_config(settings))
+    initial = seeding.trainable_named_parameters(model)
+    return InsertedAdapter(
+        model=model,
+        seeding=seeding_record,
+        init_sha256=seeding.parameters_sha256(initial),
+        param_dtypes=seeding.parameter_dtypes(initial),
+    )
+
+
 def build_trainer(
     settings: TrainSettings,
     *,
@@ -490,20 +532,18 @@ def build_trainer(
     `metrics.json` の `outcome.optimizer` に残る。
     """
     import torch  # noqa: PLC0415 — optional-dependency `gpu`。冒頭で import しない
-    from peft import get_peft_model  # noqa: PLC0415
+    import peft  # noqa: F401, PLC0415 — 使わない。無ければ分単位の重み読み込みの前に落とすため
     from transformers import AutoTokenizer  # noqa: PLC0415
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
     base = load_causal_lm(
         model_name=model_name, revision=revision, dtype=dtype, device=device
     )
-    seeding_record = seeding.seed_all(settings.seed)
-    model = get_peft_model(base, build_lora_config(settings))
-    initial = seeding.trainable_named_parameters(model)
-    adapter_init_sha256 = seeding.parameters_sha256(initial)
-    adapter_param_dtype = check_adapter_dtype(
-        settings.adapter_dtype, seeding.parameter_dtypes(initial)
-    )
+    inserted = insert_seeded_adapter(base, settings)
+    model = inserted.model
+    seeding_record = inserted.seeding
+    adapter_init_sha256 = inserted.init_sha256
+    adapter_param_dtype = check_adapter_dtype(settings.adapter_dtype, inserted.param_dtypes)
     pad_token_id = pad_token_id_for_training(tokenizer)
 
     def trainer(examples: Sequence[TrainingExample]) -> TrainOutcome:

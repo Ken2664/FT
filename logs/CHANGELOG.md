@@ -6609,3 +6609,32 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   `STATE.md` の 4 ブロックを差し替え(旧ブロックは `logs/STATE-ARCHIVE.md`「その76」へ。消えた行 0 を確認)、
   「現在のブロッカー」「人間の承認待ち」の `n_item` の 2 行に訂正注記を足した
 - **ADR・PLAN・config・コードは 1 バイトも変えていない。**直すかどうかは人間(`CLAUDE.md` §8)。`test_repo_hygiene.py` → 7 passed
+
+## 2026-09-24(その77)
+
+### docs(adr): その76 監査 §5 の 7 点に人間が回答し、ADR-095・ADR-096 に記録して打ち消し線で反映した(GPU 0)   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その76)の指示どおり、`logs/AUDIT-2026-09-24-post-order6b.md` §5 の 7 点を `AskUserQuestion` で選択式 8 問(4 問 × 2 回)にして聞いた。
+  選択肢を具体的にするため、先に本番のセル表(`configs/exp_phase1_main.yaml` の `eval.cells`)から (タスク型 × 被覆) セルあたりの項目数を数えた(T1 80 / T1b 160 / T2 80 / T3 160)。
+  2 回目の前には R8 の記述の表(`results/r8_fit_order6b/r8_fit.txt`。**解釈なし**)を人間に見せた
+- **人間の回答**: (1) 提案者欄はその72〜75 だけ直す / (2) `n_item` はタスク型ごとに 80 / 160 / (3) ★F104-c は null に戻して決め直す /
+  (4) P3 は「もとの目的に適合するように、最適だと考える手法を選択してください」(**選択をエージェントに委任**)/
+  (5) **人間が自分で書いた回答**: 前段 FT の前に「足し算を含まない比較」を T1b・T3 で確かめる診断を 1 本入れる /
+  (6) 成功基準・侵襲の閾値は GPU の前に凍結する / (7) 新ベースで順5 を測り直す / (8) `.gitignore` を追認
+- **ADR-095**(記録の訂正と検出力の入力)・**ADR-096**(前段 FT の前提)を `logs/DECISIONS.md` に追記した。(4) はエージェントが
+  (a) 加算を含めない / (b) 比較する対 (x, y) を評価プールの (a+b, t) と非交差 / (c) 比べる値の大きさの分布を被覆水準の間で偏らせない、の組み合わせを選び、
+  理由とともに ADR-096 決定2 に全文を残した(提案 エージェント / 採択 人間(委任))。(c) の根拠として、手元の本番プールで
+  T3・T1b の和を数えた(被演算子 2 桁以内 8〜188 / 3 桁以上 234〜1,955。git 管理外の `items.jsonl`。組合せの性質であって実験結果ではない)
+- 打ち消し線 + 理由 + 日付で直したもの: ADR-090〜094 の提案者欄 / ADR-090・093・094 のステータス / ADR-093 P3 / ADR-093・094 の「`results/` は空・tag なし」(B3)/
+  ADR-094 の F104-c・「62 時間」・`n_item` の文言 / `plans/PLAN-019` §10.13.5 / `plans/PLAN-028`(担当表記・§1 に B7 の注記・§3.3・§6・§8 P3・§10)/
+  `plans/PLAN-029`(担当表記・ステータス・I1・I3・§6 の完了条件・§7)/ `Documents/05_STATISTICS.md` §6(ファイル表・§6.3 手続き2・§6.4・§6.6・§6.7 脚注)/
+  `configs/power_sim.yaml`(**`dgp.s2_item` / `dgp.s2_tmpl` を 1.0 / 0.5 → null**・`n_item` のコメント)/ `.gitignore`(コメントのみ)
+- `code/analysis/power_sim.py`(docstring のみ)と `code/tests/test_power_sim.py`(`test_n_item_stays_null` + `test_s2_item_and_s2_tmpl_match_adr_094` を
+  `test_undecided_values_stay_null` 1 本に戻し、`test_run_stops_while_n_item_is_undecided` を `test_run_stops_while_the_three_are_undecided` に戻した)。
+  **`pytest code/tests -q` = 1579 passed**(1580 から 1 減ったのはテストを 2 本 → 1 本にしたため)。`power_sim --dry-run` は 3 つの UNDECIDED で止まる
+- `logs/OPEN-ITEMS.md`: 「★その76 監査」行を閉じ、4 行を新設(★F104-c の値 / `n_item` のタスク型ごとの実装 / 前段 FT の前の診断 / 成功基準・侵襲の閾値)。
+  ★F114・★★F104 の行に注記。監査ファイルに §6(回答の索引)を足した
+- `STATE.md` の 8 ブロックを差し替え、旧ブロックと「設計の帰結」表(400 行 / 60 KB 超えのため)を `logs/STATE-ARCHIVE.md`「その77」の先頭へ移した(**消えた行 0 を確認**)。
+  STATE.md は 421 行 / 59.3 KB(行数はまだ目標 400 を超える)。`logs/HANDOFF.md` を次の 1 件(診断の PLAN の起草)で上書きした
+- **その72〜75 の CHANGELOG の「PLANNER (Opus)」の表記は履歴として書き換えていない。訂正の記録は ADR-095 決定1 とこの節である**
+- **実装・GPU は 0。**診断の PLAN・`n_item` の実装・PLAN-029 の基準の節は未着手

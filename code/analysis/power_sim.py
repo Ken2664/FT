@@ -24,11 +24,11 @@
 自前実装(案 E)は建てない。**この層は表を組んで R を呼び、返った JSON を数えるだけである**
 (skill `code-style` §2)。
 
-**既定値を作らない**(skill `code-style` §5)。`dgp.n_item` は `configs/power_sim.yaml` で
-`null` であり、**そこで止まる** —— `M*`(順5。ADR-074で999に決着済)への反映が未実施である。
-`dgp.s2_item` / `dgp.s2_tmpl` は **★F104 が ADR-094(2026-09-23)で決着し、1.0 / 0.5(いずれも
-分散)で埋まっている**。どちらも repo 内部に足場の無い仮定値である(★F115。§6.5 の効果量
-プロファイル P と同じ扱い)。
+**既定値を作らない**(skill `code-style` §5)。`dgp.n_item` / `dgp.s2_item` / `dgp.s2_tmpl` は
+`configs/power_sim.yaml` で `null` であり、**そこで止まる**(★2026-09-24 ADR-095)——
+`n_item` は (タスク型 × 被覆) セルあたりの項目数で、**`M*` ではない**。値はタスク型ごとに
+T1 80 / T1b 160 / T2 80 / T3 160 と決まったが(決定2)、この層はまだ 1 値しか受け付けない。
+`s2_item` / `s2_tmpl` は取得元が ADR-094 で決着し、値は人間が決め直す(決定3)。
 """
 
 from __future__ import annotations

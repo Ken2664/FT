@@ -18,6 +18,51 @@
 
 ---
 
+## ★2026-09-24(その90)—— STATE.md から移したブロック(ADR-063 運用規約1・6)
+
+> その90(IMPLEMENTER。PLAN-031 §3.6 の ★E の確かめの入口を作った)で差し替えた 4 ブロックと、書き換えた 2 行を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新の行)の旧ブロック(その89)
+
+最終更新: 2026-09-24(その89)/ by IMPLEMENTER (Sonnet 5。PLAN-031 §3 の I2・I3・I5・I6)
+(**PLAN-031 §3 の I2・I3・I5・I6 を実装した**(パイロット FT の config 8 本 = `infra/make_pilot_ft_configs.py` が作る / `code/analysis/gonogo_ft.py` = #4・#4b・#5・#5b の表)。`pytest code/tests -q` = **1678 passed**。全 config の `--dry-run` と preflight の data_checks が通った。
+**残り: §3.6 のポッド上の ★E の確かめの実行手段(まだ無い)。**GPU 0。)
+
+### 「いま何をしているか」の旧ブロック(その89)
+
+> **★★2026-09-24(その89・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。PLAN-031 §3 の実装が済んだ(I1〜I6)。残りは ★E の確かめの入口だけ。**
+> - **段**: 段1 = ★E + 探索的パイロット FT(PLAN-031。H1-1〜H1-7 は ADR-099・ADR-100 で決着)→ **★E の確かめの入口(IMPLEMENTER。小さい)** → RUNNER がポッド上の確かめと見積り → 人間が G1-1・G1-2・#4b の基準 → RUNNER
+> - **config 8 本**: `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}.yaml`。`train.*` は 8 本でバイト一致。訓練 run の dir は `runs/pilot_ft_train_<条件>_s<シード>` に先に決めてある。**実装の読み 6 件は PLAN-031 §11(人間が覆せる)**
+> - **★その86 のブロックは `logs/STATE-ARCHIVE.md`「その89」にある**(ADR-063 運用規約1)
+
+### 「repo の状態」の表の旧行(pytest の件数。その90 に 1716 へ)
+
+| `pytest code/tests -q` → **1678 passed**(2026-09-24 その89 実測。その86 は 1617。PLAN-031 I2・I3・I5・I6 で 61 増えた)。**件数の履歴(~~40~~ → … → ~~1402~~ → ~~1514~~ → ~~1579~~ → ~~1617~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」にある**(ADR-063 運用規約6) | `code/tests/` |
+
+### 「repo の状態」の表の旧行(訓練コードの行。その90 に確かめの入口を反映)
+
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**Phase 1 の LoRA グリッドの値は未決**(ADR-043 決定10。null なら門で止まる)。**パイロットの値は ADR-100(rank 16・lr 1e-4・4 × 4・625)で、config に転記済み(その89。パイロット FT の 8 本にだけ。Phase 1 の値ではない)**。**`alpha = 2 × rank` は門が強制する**(決定4)。**★2026-09-24(その86。ADR-099 決定1・2・7)**: `seed` で random・numpy・torch・torch.cuda を種付け(`load_causal_lm` の後・`get_peft_model` の直前。`code/train/seeding.py`)し、`seeding` / `outcome.adapter_init_sha256` / `outcome.adapter_param_dtype` を残す。AdamW の betas・eps・weight_decay は `train.optimizer` の宣言を明示で渡す。`train.adapter_dtype`(float32 だけ実装)と実測が食い違えば訓練の前に止まる。**本物の peft での確かめはポッド上(PLAN-031 §3.6。実行手段はまだ無い)** | `code/train/lora.py` の `build_trainer` / `check_adapter_dtype`、`code/train/seeding.py`、`code/train/settings.py` |
+
+### 「次のアクション」の旧ブロック(その89)
+
+> **★★2026-09-24(その89・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **IMPLEMENTER (Sonnet): §3.6 の ★E の確かめの入口を作る**(訓練せずに「種付け → `get_peft_model` → 指紋」を 2 回回す。`build_trainer` の該当部分を関数に切り出し、本番と同じ経路で確かめる。`logs/HANDOFF.md`)→ RUNNER がポッド上で確かめと見積り → 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
+> 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
+> 5. Phase 1 の凍結前に人間へ: ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方(**どちらもパイロットは止めない**)
+
+### 「引き継ぎ」の旧ブロック(その89)
+
+> **★★2026-09-24(その89・最新)。IMPLEMENTER (Sonnet 5)。PLAN-031 I2・I3・I5・I6 を実装した。GPU 0。**
+>
+> **★やったこと**: config 8 本(`infra/make_pilot_ft_configs.py`)/ `code/analysis/gonogo_ft.py`(#4・#4b・#5・#5b)/ 訓練 3 本・評価 5 本の `--dry-run`(評価の dry-run は `model.adapter` の不在で止まらない。1 評価 = 680 項目)/ preflight の data_checks(8 本とも 7 件 PASS)/ `test_train_run.py` に 2 テスト。`pytest` 1678 passed。
+> **★やっていないこと**: §3.6 のポッド上の ★E の確かめの実行手段 / GPU。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER が ★E の確かめの入口を作る)。**実装の読み 6 件(評価に指示付き T1 を含める / #5・#5b は run の条件自身の規則のブロック 他)は PLAN-031 §11。人間が覆せる。**
+
+---
+
 ## ★2026-09-24(その89)—— STATE.md から移したブロック(ADR-063 運用規約1・6)
 
 > その89(IMPLEMENTER。PLAN-031 I2・I3・I5・I6 を実装した)で差し替えた 4 ブロックと、書き換えた 3 行(のうち行そのもの 2 と 2 行組 1)を、1 文字も変えずに移した。

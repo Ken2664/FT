@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-24(その89)/ by IMPLEMENTER (Sonnet 5。PLAN-031 §3 の I2・I3・I5・I6)
-(**PLAN-031 §3 の I2・I3・I5・I6 を実装した**(パイロット FT の config 8 本 = `infra/make_pilot_ft_configs.py` が作る / `code/analysis/gonogo_ft.py` = #4・#4b・#5・#5b の表)。`pytest code/tests -q` = **1678 passed**。全 config の `--dry-run` と preflight の data_checks が通った。
-**残り: §3.6 のポッド上の ★E の確かめの実行手段(まだ無い)。**GPU 0。)
+最終更新: 2026-09-24(その90)/ by IMPLEMENTER (Sonnet 5。PLAN-031 §3.6 の ★E の確かめの入口)
+(**PLAN-031 §3.6 の ★E の確かめの実行手段を作った**(`code/train/seed_check.py`。`build_trainer` の切り出し = `lora.insert_seeded_adapter`)。`pytest code/tests -q` = **1716 passed**。
+**残り: RUNNER がポッド上で確かめを走らせる(本物の peft は初めて)+ 見積り → 人間が G1-1・G1-2・#4b の基準。**GPU 0。)
 
 ---
 
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-24(その89・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。PLAN-031 §3 の実装が済んだ(I1〜I6)。残りは ★E の確かめの入口だけ。**
-> - **段**: 段1 = ★E + 探索的パイロット FT(PLAN-031。H1-1〜H1-7 は ADR-099・ADR-100 で決着)→ **★E の確かめの入口(IMPLEMENTER。小さい)** → RUNNER がポッド上の確かめと見積り → 人間が G1-1・G1-2・#4b の基準 → RUNNER
-> - **config 8 本**: `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}.yaml`。`train.*` は 8 本でバイト一致。訓練 run の dir は `runs/pilot_ft_train_<条件>_s<シード>` に先に決めてある。**実装の読み 6 件は PLAN-031 §11(人間が覆せる)**
-> - **★その86 のブロックは `logs/STATE-ARCHIVE.md`「その89」にある**(ADR-063 運用規約1)
+> **★★2026-09-24(その90・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。PLAN-031 §3 の実装がすべて済んだ(I1〜I6 + §3.6 の確かめの入口)。残りはポッド上の実行。**
+> - **段**: 段1 = ★E + 探索的パイロット FT(PLAN-031。H1-1〜H1-7 は ADR-099・ADR-100 で決着)→ **RUNNER がポッド上で ★E の確かめと見積り** → 人間が G1-1・G1-2・#4b の基準 → RUNNER
+> - **★E の確かめ**: `python -m code.train.seed_check --config configs/exp_pilot_ft_train_p2.yaml --seeds 0 0 1 --run-dir runs/<id>`(`p2d` は `seeds: [0]` なので使えない)。1 プロセスでシードごとに重みを読み直し、訓練と同じ `insert_seeded_adapter` で LoRA を挿して指紋・dtype を比べる。**実装の読み 6 件(その89)+ 6 件(その90)は PLAN-031 §11(人間が覆せる)**
+> - **★その89 のブロックは `logs/STATE-ARCHIVE.md`「その90」にある**(ADR-063 運用規約1)
 
 ---
 
@@ -178,14 +178,14 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **1678 passed**(2026-09-24 その89 実測。その86 は 1617。PLAN-031 I2・I3・I5・I6 で 61 増えた)。**件数の履歴(~~40~~ → … → ~~1402~~ → ~~1514~~ → ~~1579~~ → ~~1617~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」にある**(ADR-063 運用規約6) | `code/tests/` |
+| `pytest code/tests -q` → **1716 passed**(2026-09-24 その90 実測。その89 は 1678。★E の確かめの入口 `test_train_seed_check.py` で 38 増えた)。**件数の履歴(~~40~~ → … → ~~1402~~ → ~~1514~~ → ~~1579~~ → ~~1617~~ → ~~1678~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」にある**(ADR-063 運用規約6) | `code/tests/` |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **★桁数掃引は 2 本の腕を測る**(2026-09-10。ADR-071)。腕1 = `R(M)` の一様抽出(13 水準 × 200 × 5 = 13,000。**記述**。`build_items` は無変更で sha256 を回帰テストが固定)/ 腕2 = `Q(M)`(`label_main_coverage` が `extrap_magnitude` を返す組。7 水準 × 200 × 5 = 7,000。**判定の材料**)。`metrics.json` は `by_radius`(腕1)/ `grid_shell`(定義 A。記述)/ `quadrant`(腕2)/ `roles`。**config の `shell_*` が ADR-071 からの導出と食い違えば、run ディレクトリを作る前に止まる。`shell_*` の無い config(`smoke.yaml` を含む)も止まる。****`M*` は出さない** | `code/eval/battery/magnitude_sweep.py`、`code/eval/sweep.py`、`test_magnitude_sweep.py`、`test_sweep.py` |
 | **再採点の CLI が動く**(2026-09-11。PLAN-022 §5)。`python -m code.eval.rescore --source-run <run>` が回収済みの `predictions/` を現行の `numeric` パーサで読み直し、別の run(`<timestamp>_rescore_<suffix>`)に `metrics.json`(`sweep.py` と同じ 3 ブロック + `checks` + `rescore`)と `transitions.json` を書く。**C1 / C2 / C4 が外れたら何も書かずに止まる。****掃引の run 専用**(本実行の run は読めない)。**Windows では `PYTHONIOENCODING=utf-8` が要る**(標準出力の cp932 が「—」を符号化できず、最後の `print` で落ちる) | `code/eval/rescore.py`、`test_rescore.py`(13件) |
 | **本番 config の生成設定がすべて決まっている**(2026-09-10。ADR-072)。`eval.temperature` = 0(**記録用。デコードの正本は `do_sample: false`**)/ `eval.num_repeats` = 1。**本番 config で `load_generation_settings` が通る**(回帰テストが固定)。~~⚠️ ★F125~~ は閉じた(旧行は `logs/STATE-ARCHIVE.md`「その33」) | `configs/exp_phase1_main.yaml`、`code/tests/test_eval_model.py` |
 | **本実行は「回せる」が「まだ回していない」。**★2026-08-28: `model.revision`(`0e9e39f…`)/ `model.max_new_tokens`(**256**)/ `eval.batch_size`(**4**)がすべて確定し、`configs/template.yaml` に入った。残る null は `model.name`(`meta-llama/Llama-3.1-8B-Instruct` を書くだけ)と実験同定・シード・LoRA グリッドの値。**評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
-| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**Phase 1 の LoRA グリッドの値は未決**(ADR-043 決定10。null なら門で止まる)。**パイロットの値は ADR-100(rank 16・lr 1e-4・4 × 4・625)で、config に転記済み(その89。パイロット FT の 8 本にだけ。Phase 1 の値ではない)**。**`alpha = 2 × rank` は門が強制する**(決定4)。**★2026-09-24(その86。ADR-099 決定1・2・7)**: `seed` で random・numpy・torch・torch.cuda を種付け(`load_causal_lm` の後・`get_peft_model` の直前。`code/train/seeding.py`)し、`seeding` / `outcome.adapter_init_sha256` / `outcome.adapter_param_dtype` を残す。AdamW の betas・eps・weight_decay は `train.optimizer` の宣言を明示で渡す。`train.adapter_dtype`(float32 だけ実装)と実測が食い違えば訓練の前に止まる。**本物の peft での確かめはポッド上(PLAN-031 §3.6。実行手段はまだ無い)** | `code/train/lora.py` の `build_trainer` / `check_adapter_dtype`、`code/train/seeding.py`、`code/train/settings.py` |
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**Phase 1 の LoRA グリッドの値は未決**(ADR-043 決定10。null なら門で止まる)。**パイロットの値は ADR-100(rank 16・lr 1e-4・4 × 4・625)で、config に転記済み(その89。パイロット FT の 8 本にだけ。Phase 1 の値ではない)**。**`alpha = 2 × rank` は門が強制する**(決定4)。**★2026-09-24(その86。ADR-099 決定1・2・7)**: `seed` で random・numpy・torch・torch.cuda を種付け(`load_causal_lm` の後・`get_peft_model` の直前。`code/train/seeding.py`)し、`seeding` / `outcome.adapter_init_sha256` / `outcome.adapter_param_dtype` を残す。AdamW の betas・eps・weight_decay は `train.optimizer` の宣言を明示で渡す。`train.adapter_dtype`(float32 だけ実装)と実測が食い違えば訓練の前に止まる。**★2026-09-24(その90。PLAN-031 §3.6)**: `build_trainer` の「種付け → `get_peft_model` → 指紋 → dtype の読み取り」を `insert_seeded_adapter` に切り出し(挙動不変)、確かめの CLI `python -m code.train.seed_check`(訓練しない。シードごとに重みを読み直す)を作った。**本物の peft での確かめはポッド上(RUNNER)** | `code/train/lora.py` の `build_trainer` / `insert_seeded_adapter` / `check_adapter_dtype`、`code/train/seeding.py`、`code/train/seed_check.py`、`code/train/settings.py` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | **`runs/<id>/metrics.json` に壁時計時間が残る**(★2026-08-28。ADR-040 決定6)。`timing` に 合計 / **重みの読み込み** / **生成** / 1項目あたり秒。区間は単調時計で測る(壁時計の差は NTP の補正で負になりうる)。**`eval.batch_size` の値はこの記録から決める** | `code/artifacts.py` の `timing_record` / `timing_line`、`code/eval/run.py`、`code/eval/sweep.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
@@ -357,9 +357,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-24(その89・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-24(その90・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **IMPLEMENTER (Sonnet): §3.6 の ★E の確かめの入口を作る**(訓練せずに「種付け → `get_peft_model` → 指紋」を 2 回回す。`build_trainer` の該当部分を関数に切り出し、本番と同じ経路で確かめる。`logs/HANDOFF.md`)→ RUNNER がポッド上で確かめと見積り → 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
+> 1. **RUNNER: ポッド上で ★E の確かめ(`python -m code.train.seed_check`。`logs/HANDOFF.md`)と G1-1 の見積り**(**ポッドを立てる前に人間に確認する。停止中ポッド 8 本あり**)→ 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
 > 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
@@ -370,11 +370,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-24(その89・最新)。IMPLEMENTER (Sonnet 5)。PLAN-031 I2・I3・I5・I6 を実装した。GPU 0。**
+> **★★2026-09-24(その90・最新)。IMPLEMENTER (Sonnet 5)。PLAN-031 §3.6 の ★E の確かめの入口を作った。GPU 0。**
 >
-> **★やったこと**: config 8 本(`infra/make_pilot_ft_configs.py`)/ `code/analysis/gonogo_ft.py`(#4・#4b・#5・#5b)/ 訓練 3 本・評価 5 本の `--dry-run`(評価の dry-run は `model.adapter` の不在で止まらない。1 評価 = 680 項目)/ preflight の data_checks(8 本とも 7 件 PASS)/ `test_train_run.py` に 2 テスト。`pytest` 1678 passed。
-> **★やっていないこと**: §3.6 のポッド上の ★E の確かめの実行手段 / GPU。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER が ★E の確かめの入口を作る)。**実装の読み 6 件(評価に指示付き T1 を含める / #5・#5b は run の条件自身の規則のブロック 他)は PLAN-031 §11。人間が覆せる。**
+> **★やったこと**: 開始手順 / skill `code-style` / `lora.py` の `insert_seeded_adapter` への切り出し(挙動不変)/ `code/train/seed_check.py`(新規)/ `test_train_seed_check.py` 38 件(変異 8 件で確認)/ PLAN-031 §11・CHANGELOG。`pytest` 1716 passed。
+> **★やっていないこと**: ポッド上の確かめの実行 / 見積り / GPU。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(RUNNER)。**確かめが通らなかったら、ADR-099 の前提(peft の初期化が種で決まる・fp32 に上がる)が崩れたという報告であり、RUNNER は直さず人間に上げる。**
 
 ---
 

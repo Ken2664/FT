@@ -6741,3 +6741,17 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - `STATE.md` の 4 ブロックを差し替え、表の 2 行(PLAN-031 のレビュー・LoRA)と「わかっていないこと」の F15 の行を移し・差し替え、人間待ちの表に 3 行(★S3・★#4b・G1-1/G1-2)を足した。
   旧ブロックと移した行は `logs/STATE-ARCHIVE.md`「その83」へ(**消えた行は、その場で追記した 2 行(訓練コードの行・実験パラメータの行)だけであることを機械的に確認**)。`STATE.md` は 398 行 / 58,273 バイト
 - **`CLAUDE.md`・`AGENTS.md`・`Documents/`・config・コードは 1 バイトも変えていない。GPU 0**
+
+
+## 2026-09-24(その84)
+
+### docs(plan): H1-2(LoRA の 5 値)の原典の設定値を SCOUT 2 本で転記し、コンテキスト超過で引き継いだ(GPU 0)   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その83)の 1 件の途中。開始手順の後、原典の確認を SCOUT(subagent。Sonnet)2 本に委譲した(`CLAUDE.md` §3・§10.2 / `AGENTS.md` §SCOUT)
+  - A(LoRA 本体)→ `logs/SCOUT-2026-09-24-lora-a.md`: Hu 2021 / Dettmers 2023 / Biderman 2024 / Kalajdzievski 2023 / Shuttleworth 2024 / Zhao 2024。6/6 確認(申告: Kalajdzievski・Zhao は査読の掲載先を確かめられずプレプリント扱い、Shuttleworth は NeurIPS 2025)
+  - B(狭い FT・算術)→ `logs/SCOUT-2026-09-24-lora-b.md`: Liu & Low 2023 / Betley 2025 / Turner 2025 / Soligo 2025 / Ghosh 2024 / Prakash 2024。6/6 確認(申告: Turner・Soligo は会場未確認、Turner の表 6・7 は逐語転記できず 2 回の照会で一致した数値だけ)
+  - **親はまだ転記の中身を読んでいない。`refs.bib`・`02_RELATED_WORK.md`・PLAN-031 §4.2 は未着手**
+- **材料を作る途中で気づいたこと(算定。組合せ論的事実)**: Phase 1 の `train_size` 掃引は `K` = 2000 の組の繰り返し回数だけを変え(PLAN-002 §4.3)、`num_steps` は固定(ADR-043 決定6)なので、**1 組あたりの期待曝露回数は `train_size` に依らない**。
+  `logs/OPEN-ITEMS.md` に「★`train_size` 掃引の意味」として 1 行足した(Phase 1 の凍結前。パイロットは止めない。**決めていない**)。LoRA の行に SCOUT の参照を足した
+- context-guard の警告(約 165k → 178k)で handoff を実行。`STATE.md` の 4 ブロックを差し替え、人間待ちの表に 1 行足した。旧ブロックは `logs/STATE-ARCHIVE.md`「その84」へ(**消えた 14 行はすべてアーカイブにあることを機械的に確認**)。`STATE.md` は 398 行 / 58,682 バイト
+- **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR・config・コードは 1 バイトも変えていない。GPU 0**

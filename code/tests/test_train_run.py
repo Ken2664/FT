@@ -21,7 +21,7 @@ import yaml
 from code import artifacts
 from code.config import ConfigError, load_config
 from code.data_gen import ft_data
-from code.train import lora
+from code.train import lora, seeding
 from code.train import run as train_run
 from code.train.data import TrainingExample
 
@@ -124,6 +124,19 @@ def test_dry_run_reports_the_consumption_plan(workspace: dict[str, Any]) -> None
     )
     assert len(report["plan"]["first_micro_batch"]) == settings["batch_size"]
     assert report["plan"]["epochs_consumed"] > 0
+
+
+def test_dry_run_reports_the_seeding_plan_without_seeding(workspace: dict[str, Any]) -> None:
+    """★PLAN-031 §3.1: dry-run は種付けの宣言(乱数源・値・導き方・位置)だけを出す。
+
+    実際に種付けはしない(本実行の記録は metrics.json の seeding 欄)。
+    """
+    report = train_run.dry_run(workspace["config"], seed=SMOKE_SEED)
+    plan = report["seeding_plan"]
+    assert plan == seeding.seeding_plan(SMOKE_SEED)
+    assert plan["value"] == SMOKE_SEED
+    assert plan["derivation"] == seeding.SEED_DERIVATION
+    assert set(plan["sources"]) == set(seeding.SEEDED_SOURCES)
 
 
 def test_dry_run_says_the_chat_template_was_not_applied(workspace: dict[str, Any]) -> None:
@@ -297,6 +310,24 @@ def test_metrics_records_the_condition_the_seed_and_the_data(workspace: dict[str
     assert payload["data"]["n_examples"] > 0
     assert payload["outcome"]["adapter_dir"] is None
     assert payload["train"]["lora"]["target"] in lora.TARGET_MODULES
+
+
+def test_metrics_seeding_is_null_when_the_trainer_is_replaced(workspace: dict[str, Any]) -> None:
+    """★偽の訓練関数は種付けをしないので、最上位の seeding は null(種付けしたと読ませない)。
+
+    種付けの実記録は本物の `build_trainer` が返す outcome だけが持つ(PLAN-031 §3.1)。
+    """
+    target = train_run.execute(
+        workspace["config"],
+        config_path=workspace["config_path"],
+        run_dir=workspace["run_dir"],
+        seed=SMOKE_SEED,
+        trainer=recording_trainer([]),
+    )
+    payload = json.loads((target / "metrics.json").read_text(encoding="utf-8"))
+    assert "seeding" in payload and payload["seeding"] is None
+    log = (target / "log.txt").read_text(encoding="utf-8")
+    assert "差し替えた訓練関数。種付けしていない" in log
 
 
 def test_metrics_does_not_carry_a_four_value_breakdown(workspace: dict[str, Any]) -> None:

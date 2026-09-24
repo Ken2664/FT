@@ -60,7 +60,12 @@ D_CONFIG = CONFIG_DIR / "exp_order6b_d.yaml"
 S_D_CONFIG = CONFIG_DIR / "exp_order6b_s_d.yaml"
 
 # 絞りを宣言してよい config(順6b の ① と (d) の腕だけ。本番・pilot・R8・S-① は持たない)。
-SUBSET_CONFIGS = {PREAMBLE_ARM_CONFIG.name, D_CONFIG.name, S_D_CONFIG.name}
+SUBSET_CONFIGS = {PREAMBLE_ARM_CONFIG.name, D_CONFIG.name, S_D_CONFIG.name} | {
+    # パイロット FT の 8 本(ADR-099 決定5 の評価の範囲。訓練 config も評価と同じ本文を持つ)。
+    # 中身は `test_pilot_ft_configs.py` が縛る
+    path.name
+    for path in CONFIG_DIR.glob("exp_pilot_ft_*.yaml")
+}
 
 # それぞれの config が写し元と違ってよい欄(各 config の冒頭の注記)。
 PREAMBLE_ARM_DIFFERING_KEYS = {

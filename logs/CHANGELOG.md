@@ -6815,3 +6815,22 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **中身の訂正**: `AskUserQuestion` の 3 問。**人間の回答は 3 問とも推奨**(経路の規則 + Opus / 第三者の数値を消す / 費用の注記を足す)→ **ADR-102**。
   `10_CONTEXT_POLICY.md` §7.1・§7.2 / `CLAUDE.md` §3 の 6(置き換え。行数は同じ)/ `AGENTS.md` SCOUT / ADR-101 のステータスと決定 2 に打ち消し線 / OPEN-ITEMS と STATE の行
 - **残り**: モデル名の一致の機械的な検査(案のみ)/ `CLAUDE.md` の 200 行超え(別の作業)。**コード・config・結果は変えていない。GPU 0**
+
+## 2026-09-24(その89)
+
+### feat(config/analysis): PLAN-031 §3 の I2・I3・I5・I6 を実装した(パイロット FT の config 8 本・#4/#4b/#5/#5b の表。GPU 0)   [actor: IMPLEMENTER (Sonnet 5)]
+
+- `logs/HANDOFF.md`(その86)の 1 件。**推奨モデル(Sonnet)と実モデルは一致した**(冒頭で述べた)。skill `code-style` を読んだ
+- **I2・I5**: `infra/make_pilot_ft_configs.py`(新規)が `configs/exp_order6b_pilot.yaml` から**順6b にだけある 3 欄(`eval.threshold_sweep`・`eval.forced_choice_top_k`・`gonogo.near_tie_margin`)を落とし**、
+  ADR-100 の 5 値(rank 16 / alpha 32 / lr 1e-4 / batch 4 × 累積 4 / 625 ステップ / target all)・ADR-099 決定7 の `train.optimizer`・`train.adapter_dtype`・`gonogo.pilot_design_gate`(#4 0.90 / #4b 0.90 / #5 0.10 / #5b 0.05。`04_EXPERIMENT_PLAN.md:66-69` の転記)を足して
+  `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}.yaml` の 8 本を書く(`--check` あり)。
+  **`train.*` は 8 本でバイト一致**。評価 config = 同じ条件・シードの訓練 config + `experiment.id`・`model.adapter` だけ(`runs/pilot_ft_train_<条件>_s<シード>/adapter`)。
+  `preregistered_tag` / `human_approval_date` / `estimated_gpu_hours` は null。**本番 config・順6b の config・`template.yaml` は触っていない**
+- **I3**: `code/analysis/gonogo_ft.py`(新規)。#4(`p2` の run だけ判定・`ident`/`p2d` は並べる)・#4b(`p2d` の run だけ・参照規則 `p2d` のブロック)・#5(全条件)・#5b(4 型版と T1 × T2 版の両方)+ `p2` − `ident`(記述)+ 訓練 run の損失・ステップ数 + 素のモデルの参考(`--baseline`)。
+  **`pool_id` が `pilot` でない run・アダプタの無い run・同じ (条件, シード) の重複・閾値の食い違いは止まる。先頭の注記は固定。`gonogo.py`(#1〜#3)は 1 バイトも変えていない**
+- **I6**: 訓練 3 本(p2・ident・p2d)と評価 5 本の `--dry-run` が通った。**評価の dry-run は `model.adapter` の不在で止まらない**(PLAN-031 §3.6 の未確認が解けた)。1 評価 = **680 項目**(T1 240・指示付き 80・T2 240・特異性 120。外した 960)。preflight の `data_checks` は 8 本すべて 7 件 PASS
+- **テスト**: `test_pilot_ft_configs.py`(37。生成物との一致・`train.*` の一致・違ってよい欄・評価 = 訓練 + id・adapter・null の欄・680 項目)/ `test_gonogo_ft.py`(22。パイロット FT の評価 config で固定応答の本実行をした run の上で、印・4 値・止まる場合。変異を 3 件入れて落ちることを確かめた)/
+  `test_train_run.py` +2(dry-run に `seeding_plan` / 偽の訓練関数では `seeding` が null)/ `test_task_subset.py` の `SUBSET_CONFIGS` に 8 本を追加。**`pytest code/tests -q` = 1678 passed**(その86 の 1617 から +61)
+- **実装の読み(人間が覆せる。PLAN-031 §11)**: 評価に指示付き T1 を含める / 新しい鍵を本番 config に足さない / #4b は #4 と別の鍵 / **#5・#5b の `other_error_rate` は run の条件自身の規則のブロックで数える**(`p2d` の run は参照規則 `p2d`。§3.3 に書いていなかった読み)/ `estimated_gpu_hours` は null
+- **未着手**: §3.6 のポッド上の ★E の確かめの実行手段(訓練せずに「種付け → `get_peft_model` → 指紋」を 2 回回す入口)。`STATE.md` の 4 ブロックと 3 行を差し替え、旧版は `logs/STATE-ARCHIVE.md`「その89」へ(消えた 16 行がすべてアーカイブにあることを機械的に確認)
+- **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。GPU 0。ポッドは使っていない**

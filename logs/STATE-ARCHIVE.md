@@ -18,6 +18,54 @@
 
 ---
 
+## ★2026-09-24(その89)—— STATE.md から移したブロック(ADR-063 運用規約1・6)
+
+> その89(IMPLEMENTER。PLAN-031 I2・I3・I5・I6 を実装した)で差し替えた 4 ブロックと、書き換えた 3 行(のうち行そのもの 2 と 2 行組 1)を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新の行)の旧ブロック(その88)
+
+最終更新: 2026-09-24(その88)/ by CRITIC 相当 (Opus 5.5。ADR-101 の再確認 → ADR-102。PLAN-031 の状態はその86 のまま)
+(**PLAN-031 §3 の I1(★E の修正)と I4(ADR-082 の門の変更)を実装・コミットした**(`369943c` / `5ba8d28`)。`pytest code/tests -q` = **1617 passed**。
+**I2(パイロット FT の config 8 本と 5 値の転記)・I3(#4・#4b・#5・#5b の表)・I5・I6(dry-run・preflight)は未着手**(コンテキスト超過で引き継ぎ)。GPU 0。)
+
+### 「いま何をしているか」の旧ブロック(その86)
+
+> **★★2026-09-24(その86・最新)。Phase 0。IMPLEMENTER (Opus 5.5)。PLAN-031 §3 の途中(I1・I4 済 / I2・I3・I5・I6 が残り)。**
+> - **段**: 段1 = ★E + 探索的パイロット FT(PLAN-031。H1-1〜H1-7 は ADR-099・ADR-100 で決着)→ **実装の残り(I2・I3・I5・I6)** → RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1・G1-2・#4b の基準 → RUNNER
+> - **I1 の新しい鍵**: `train.optimizer.{betas,eps,weight_decay}`・`train.adapter_dtype`(必須。`configs/template.yaml` は null、`smoke.yaml` は配線用の値。**本番 config は触っていない**)
+> - **★その85 のブロックは `logs/STATE-ARCHIVE.md`「その86」にある**(ADR-063 運用規約1)
+
+### 「repo の状態」の表の旧行(pytest の件数。その89 に 1678 へ)
+
+| `pytest code/tests -q` → **1617 passed**(2026-09-24 その86 実測。その77〜85 は 1579。PLAN-031 I1・I4 で 38 増えた)。**件数の履歴(~~40~~ → … → ~~1402~~ → ~~1514~~ → ~~1579~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」にある**(ADR-063 運用規約6) | `code/tests/` |
+
+### 「repo の状態」の表の旧行(訓練コードの行。その89 に config への転記済みを反映)
+
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**Phase 1 の LoRA グリッドの値は未決**(ADR-043 決定10。null なら門で止まる)。**パイロットの値は ADR-100(rank 16・lr 1e-4・4 × 4・625)で、config への転記はまだ(PLAN-031 I2)**。**`alpha = 2 × rank` は門が強制する**(決定4)。**★2026-09-24(その86。ADR-099 決定1・2・7)**: `seed` で random・numpy・torch・torch.cuda を種付け(`load_causal_lm` の後・`get_peft_model` の直前。`code/train/seeding.py`)し、`seeding` / `outcome.adapter_init_sha256` / `outcome.adapter_param_dtype` を残す。AdamW の betas・eps・weight_decay は `train.optimizer` の宣言を明示で渡す。`train.adapter_dtype`(float32 だけ実装)と実測が食い違えば訓練の前に止まる。**本物の peft での確かめはポッド上(PLAN-031 §3.6)** | `code/train/lora.py` の `build_trainer` / `check_adapter_dtype`、`code/train/seeding.py`、`code/train/settings.py` |
+
+### 「わかっていないこと」の旧行(実験パラメータの行。その89 に転記済みを反映)
+
+- **実験パラメータが `configs/template.yaml` で `null` のまま**(~~★パイロットの値は ADR-099 決定3 = 原典つきの案の後に人間~~ **→ ★パイロットの値は ADR-100 で決着**(rank 16・lr 1e-4・4 × 4・625)。**config への転記は IMPLEMENTER(PLAN-031 §3.2)。Phase 1 の値は凍結前に改めて決める**): 学習率 / ステップ数 / batch size /
+  **LoRA rank と alpha**。設計文書に値が無いのでエージェント側で既定値を作っていない
+
+### 「次のアクション」の旧ブロック(その86)
+
+> **★★2026-09-24(その86・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **IMPLEMENTER: PLAN-031 §3 の残り**(I2 = config 8 本と ADR-100 の 5 値の転記 / I3 = `code/analysis/` の #4・#4b・#5・#5b の表 / I5 = `p2d` / I6 = pytest・全 config の dry-run・preflight の data_checks。`logs/HANDOFF.md`)→ RUNNER がポッド上の ★E の確かめと見積り → 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
+> 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
+> 5. Phase 1 の凍結前に人間へ: ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方(**どちらもパイロットは止めない**)
+
+### 「引き継ぎ」の旧ブロック(その86)
+
+> **★★2026-09-24(その86・最新)。IMPLEMENTER (Opus 5.5)。PLAN-031 I1・I4 を実装した。GPU 0。**
+>
+> **★やったこと**: 開始手順 / skill `code-style` / I1(`code/train/seeding.py` 新規・`settings.py`・`lora.py`・`run.py`・`template.yaml`・`smoke.yaml`、テスト 29 件)/ I4(`code/eval/task_subset.py`。特異性対照は絞りの対象外で全件を解き `solved_whole` に残る。**順6b の ①・(d)・S-(d) の文面の sha256 を門を改める前のコードで取って固定**、テスト 5 件)。`pytest` 1617 passed。commit `369943c`・`5ba8d28`。
+> **★やっていないこと**: I2・I3・I5・I6・PLAN-031 §11 の記録・GPU。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER が I2・I3・I5・I6 を仕上げる)。
+
 ## ★2026-09-24(その86)—— STATE.md から移したブロック(ADR-063 運用規約1・6)
 
 > その86(IMPLEMENTER。PLAN-031 I1・I4 を実装した)で差し替えた 4 ブロックと、書き換えた 2 行を、1 文字も変えずに移した。

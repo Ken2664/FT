@@ -18,6 +18,30 @@
 
 ---
 
+## ★2026-09-24(その91)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その91(RUNNER。★E の確かめはポッドを立てられず未実行)で差し替えた 3 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新の行)の旧ブロック(その90)
+
+最終更新: 2026-09-24(その90)/ by IMPLEMENTER (Sonnet 5。PLAN-031 §3.6 の ★E の確かめの入口)
+(**PLAN-031 §3.6 の ★E の確かめの実行手段を作った**(`code/train/seed_check.py`。`build_trainer` の切り出し = `lora.insert_seeded_adapter`)。`pytest code/tests -q` = **1716 passed**。
+**残り: RUNNER がポッド上で確かめを走らせる(本物の peft は初めて)+ 見積り → 人間が G1-1・G1-2・#4b の基準。**GPU 0。)
+
+### 「次のアクション」の 1 行目の旧文(その90)
+
+> 1. **RUNNER: ポッド上で ★E の確かめ(`python -m code.train.seed_check`。`logs/HANDOFF.md`)と G1-1 の見積り**(**ポッドを立てる前に人間に確認する。停止中ポッド 8 本あり**)→ 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
+
+### 「引き継ぎ」の旧ブロック(その90)
+
+> **★★2026-09-24(その90・最新)。IMPLEMENTER (Sonnet 5)。PLAN-031 §3.6 の ★E の確かめの入口を作った。GPU 0。**
+>
+> **★やったこと**: 開始手順 / skill `code-style` / `lora.py` の `insert_seeded_adapter` への切り出し(挙動不変)/ `code/train/seed_check.py`(新規)/ `test_train_seed_check.py` 38 件(変異 8 件で確認)/ PLAN-031 §11・CHANGELOG。`pytest` 1716 passed。
+> **★やっていないこと**: ポッド上の確かめの実行 / 見積り / GPU。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(RUNNER)。**確かめが通らなかったら、ADR-099 の前提(peft の初期化が種で決まる・fp32 に上がる)が崩れたという報告であり、RUNNER は直さず人間に上げる。**
+
+---
+
 ## ★2026-09-24(その90)—— STATE.md から移したブロック(ADR-063 運用規約1・6)
 
 > その90(IMPLEMENTER。PLAN-031 §3.6 の ★E の確かめの入口を作った)で差し替えた 4 ブロックと、書き換えた 2 行を、1 文字も変えずに移した。

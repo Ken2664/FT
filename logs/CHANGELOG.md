@@ -6853,3 +6853,19 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
   **`pytest code/tests -q` = 1716 passed**(その89 の 1678 + 38)。実物のパイロット config で `--dry-run` と引数の拒否を確かめた
 - **未確認(ポッド上で分かる)**: 本物の peft が初期値を `seed_all` の乱数源だけで決めるか / アダプタが fp32 になるか / 本物の所要時間と VRAM。**GPU・RunPod・本物の peft は使っていない**
 - **`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR・config・`gonogo*.py` は変えていない。GPU 0**
+
+## 2026-09-24(その91)
+
+### docs(plan): ★E の確かめのポッドを立てられなかった —— RTX 4090 SECURE が全 DC で在庫なし。人間が「待つ」を選んだ(GPU 0・課金 0)   [actor: RUNNER (Sonnet 5)]
+
+- `logs/HANDOFF.md`(その90)の 1 件。**推奨モデル(Sonnet)と実モデルは一致した**(冒頭で述べた)。開始手順(`STATE.md`・CHANGELOG・DECISIONS・git・`infra/RUNPOD.md` §3・§4・§7・PLAN-031 §3.6・§7・§8)を実行した
+- **RunPod MCP の実測(2026-09-24)**:
+  `list-pods` = **0 本**(文書の「停止中 8 本」と食い違う)/ `list-pod-billing`(直近 30 日)で `omjvbdanmbrzc8`・`zxwdkgxutbuoph`・`jn8bink3rkkri7` の課金は 2026-09-22 が最後 /
+  `list-network-volumes` = `r963j7swke`(50 GB)・`apg61h6kzj`(100 GB)とも EU-RO-1 に残る / `get-ssh-keys` = 1 本登録済み /
+  **RTX 4090 SECURE $0.74/時は `availability: NONE`**(全 DC)。24 GB 級の 3090・L4・A5000 も在庫なし。48 GB 機は A40 $0.49(CA-MTL-1 のみ)・L40S $1.09(EU-NL-1・US-MO-1・US-NC-1)が Low、RTX A6000 は NONE。
+  **`list-data-centers` の `networkVolumeTypes` では CA-MTL-1・US-MO-1・US-NC-1 がボリューム非対応、EU-NL-1 は対応するが `r963j7swke` は EU-RO-1 にあるので、いま `r963j7swke` を付けられる GPU は無い**
+- **人間に 2 案を示し、推奨(待つ)が選ばれた**: 待つ(ポッドは立てない)/ L40S を別 DC に新規(重みの再取得・HF ログイン・GPU 種の違い。見込み $1.6〜2.7 は推測)。**ポッドは 1 台も作っていない・start していない**
+- **ローカルで `python -m code.train.seed_check --config configs/exp_pilot_ft_train_p2.yaml --seeds 0 0 1 --dry-run` を通した**(exit 0。重みは読まない。ポッド上の本実行の代わりではない)
+- **書き換えたもの**: `STATE.md`(最終更新の行・次のアクション 1 行目・引き継ぎブロック。旧文は `logs/STATE-ARCHIVE.md`「その91」)/ `logs/OPEN-ITEMS.md`(「停止中ポッドの terminate」の行に実測を追記。**行は閉じていない**)/ `logs/HANDOFF.md`(先頭に追記・「8 本ある」に打ち消し線)/ 本ファイル。
+  **`runs/` に何も作っていない。コード・config・`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。GPU 0**
+- **未解決**: ★E の確かめ(本物の peft は初めて)は未実行。G1-1・G1-2・#4b の基準 0.90 は人間にまだ聞いていない。停止中ポッドの行を閉じてよいかは人間

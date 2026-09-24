@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-24(その90)/ by IMPLEMENTER (Sonnet 5。PLAN-031 §3.6 の ★E の確かめの入口)
-(**PLAN-031 §3.6 の ★E の確かめの実行手段を作った**(`code/train/seed_check.py`。`build_trainer` の切り出し = `lora.insert_seeded_adapter`)。`pytest code/tests -q` = **1716 passed**。
-**残り: RUNNER がポッド上で確かめを走らせる(本物の peft は初めて)+ 見積り → 人間が G1-1・G1-2・#4b の基準。**GPU 0。)
+最終更新: 2026-09-24(その91)/ by RUNNER (Sonnet 5。★E の確かめは RTX 4090 SECURE の在庫なしでポッドを立てられず、未実行)
+(**ポッドは 1 台も立てていない。GPU 0・課金 0。**`list-pods` = 0 本・RTX 4090 SECURE は全 DC で在庫なし(2026-09-24 実測)。人間が「待つ」を選んだ。確かめの入口(`code/train/seed_check.py`)の `--dry-run` はローカルで exit 0。
+**残り: 4090 が EU-RO-1 に戻ったら、RUNNER が単価・見込みを述べて承認を取り、確かめを走らせる → 人間が G1-1・G1-2・#4b の基準。**)
 
 ---
 
@@ -359,7 +359,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 > **★★2026-09-24(その90・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **RUNNER: ポッド上で ★E の確かめ(`python -m code.train.seed_check`。`logs/HANDOFF.md`)と G1-1 の見積り**(**ポッドを立てる前に人間に確認する。停止中ポッド 8 本あり**)→ 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
+> 1. **RUNNER: ポッド上で ★E の確かめ(`python -m code.train.seed_check`。`logs/HANDOFF.md`)と G1-1 の見積り**(**ポッドを立てる前に人間に確認する。~~停止中ポッド 8 本あり~~ → その91: `list-pods` = 0 本。4090 SECURE が在庫なしで、人間が「待つ」を選んだ(`logs/HANDOFF.md`)**)→ 人間が G1-1(+ VRAM の退避規則の確認)・G1-2・#4b の基準 → RUNNER
 > 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
@@ -370,11 +370,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-24(その90・最新)。IMPLEMENTER (Sonnet 5)。PLAN-031 §3.6 の ★E の確かめの入口を作った。GPU 0。**
+> **★★2026-09-24(その91・最新)。RUNNER (Sonnet 5)。★E の確かめは走っていない(ポッドを立てていない)。GPU 0・課金 0。**
 >
-> **★やったこと**: 開始手順 / skill `code-style` / `lora.py` の `insert_seeded_adapter` への切り出し(挙動不変)/ `code/train/seed_check.py`(新規)/ `test_train_seed_check.py` 38 件(変異 8 件で確認)/ PLAN-031 §11・CHANGELOG。`pytest` 1716 passed。
-> **★やっていないこと**: ポッド上の確かめの実行 / 見積り / GPU。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(RUNNER)。**確かめが通らなかったら、ADR-099 の前提(peft の初期化が種で決まる・fp32 に上がる)が崩れたという報告であり、RUNNER は直さず人間に上げる。**
+> **★やったこと**: 開始手順 / `list-pods`(0 本)・`list-pod-billing`・`get-gpu-type`・`get-capacity`・`get-ssh-keys` の実測 / ローカルの `seed_check --dry-run`(exit 0)/ 人間への確認(「待つ」)/ OPEN-ITEMS「停止中ポッドの terminate」に実測を追記。
+> **★やっていないこと**: ポッドの作成・確かめの実行・見積り・G1-1 / G1-2 / #4b の質問(確かめの結果と一緒に上げる設計のため)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`(先頭にその91 の追記)。**まず RTX 4090・SECURE の在庫を読み、EU-RO-1 に戻っていれば単価と見込みを述べて承認を取る。確かめが通らなかったら、ADR-099 の前提が崩れたという報告であり、RUNNER は直さず人間に上げる(その90 から変わらず)。**
 
 ---
 

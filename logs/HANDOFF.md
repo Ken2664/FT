@@ -13,6 +13,25 @@
 `CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**RunPod MCP はこのセッションでだけ有効にする**(`10_CONTEXT_POLICY.md` §6)。
 `infra/RUNPOD.md` は全文を読まず `grep -n '^## '` で節を当ててから読む(§3 起動から実行まで・§4 標準手順・§7 コスト管理・§9)。
 
+## ★その91 の追記(RUNNER が RTX 4090 の在庫なしで止まった。ポッドは立てていない)
+
+生成: 2026-09-24(その91)/ 役割: RUNNER / 実モデル: Claude Sonnet 5(推奨の Sonnet と一致)。**次のセッションのやることは下の「このセッションでやること」のまま(★E の確かめ)。**
+
+- **人間が「待つ(ポッドは立てない)」を選んだ**(推奨どおり)。GPU 0・課金 0。
+- **実測(2026-09-24。RunPod MCP)**:
+  `list-pods` = **0 本**(文書の「停止中 8 本」は古い。`logs/OPEN-ITEMS.md` の該当行に追記済み。terminate 済みかの確認は人間)/
+  **RTX 4090 SECURE($0.74/時)は全 DC で在庫なし**(`get-gpu-type` の `availability: NONE`)。24 GB 級の 3090・L4・A5000 も在庫なし /
+  在庫があるのは 48 GB 機だけ(A40 $0.49 = CA-MTL-1 のみ / L40S $1.09 = EU-NL-1・US-MO-1・US-NC-1。stock は Low)で、**どれも `r963j7swke` を付けられない**
+  (ボリュームは EU-RO-1。CA-MTL-1・US-MO-1・US-NC-1 はボリューム非対応、EU-NL-1 は別の DC)
+- **開始時にまず在庫を読む**: `get-gpu-type`(id `NVIDIA GeForce RTX 4090`・`include: ["AVAILABILITY"]`・`product: ["POD"]`・`cloud: "SECURE"`)の `dataCenters` に **EU-RO-1** があること。
+  無ければ立てられない —— 人間に「まだ無い」と伝えて止まる。**代替(L40S を別 DC に新規)は人間が選ばなかった案**: `r963j7swke` が使えないので重みの再取得と venv の再構築が要り、HF ログインは人間の作業、GPU 種が本番(4090)と違う
+- **立てるときの前提**: 順6b の実績は `logs/CHANGELOG.md` 2026-09-22(その68〜70)—— EU-RO-1・RTX 4090 SECURE・container 30 GB・ネットワークボリューム `r963j7swke` を `/workspace` に。
+  **`create-pod` の引数の全体は記録に無い**(`startSsh`・`ports` の指定は書かれていない)。ツールの説明では `startSsh: true` が登録済みの鍵を注入する(鍵は `get-ssh-keys` で 1 本登録済み・ローカルに `~/.ssh/id_ed25519` がある。**順6b の実績とは照合していない**)。
+  **ポートは起動のたびに変わる**。重み・venv・HF トークンがボリュームに**今も**残っているかは未確認(順6b の時点では残っていた。無ければ HF ログインは人間)。コードは `git bundle` + scp(push しない)
+- **見込み(承認の文面の材料。推測)**: 確かめ 1 回 = 重みの読み込み 3 回(1 回 90.036 s。[run:20260922_121455_order6b_b0])≈ 4.5 分。`a`・`b` の 2 回 + 環境構築で**ポッド稼働 約 1〜1.5 時間 ≈ $0.74〜1.1**(4090 の場合。未測定)。10 GPU 時間の承認ラインには遠い
+- **ローカルの `--dry-run` は通った**(`python -m code.train.seed_check --config configs/exp_pilot_ft_train_p2.yaml --seeds 0 0 1 --dry-run` = exit 0。`n_weight_loads` 3・種 `[0, 0, 1]`・LoRA rank 16 / alpha 32 / dropout 0.0 / target all / fp32)
+- **G1-1・G1-2・#4b の基準 0.90 は、まだ人間に聞いていない**(確かめの結果と一緒に上げる設計のため)。人間が先に聞きたいと言えば聞いてよい
+
 ## このセッションでやること(1 つだけ)
 
 **ポッド上で PLAN-031 §3.6 の ★E の確かめ(`code/train/seed_check.py`)を走らせ、結果を報告する。**
@@ -21,7 +40,7 @@
 ### 手順
 
 0. **ポッドを立てる前に、人間に GPU の種類・時間単価・見込み時間を述べて承認を得る。**この確かめは小さい(重みの読み込み 3 回 + LoRA の挿入 3 回)が、課金は課金である。
-   **停止中のポッドが 8 本ある**(文書上。`logs/OPEN-ITEMS.md`「停止中ポッドの terminate」。RunPod MCP の `list-pods` で確かめる。terminate は人間)。**立てたポッドは終了時に必ず停止する**(`CLAUDE.md` §2)
+   ~~**停止中のポッドが 8 本ある**(文書上。`logs/OPEN-ITEMS.md`「停止中ポッドの terminate」)~~ → **その91 の `list-pods` は 0 本**(上の追記)。terminate は人間。**立てたポッドは終了時に必ず停止する**(`CLAUDE.md` §2)
 1. ポッド上で、この commit を含む版を取り、`infra/RUNPOD.md` §3 のとおり環境を作る(`pip install -e .[gpu,dev]` 相当。**peft の版を控える** —— ADR-099 の f′ は peft `v0.20.0` のソースの読みである)
 2. 配線の確認(重みを読まない):
    ```bash

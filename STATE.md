@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-24(その92)/ by RUNNER (Sonnet 5。★E の確かめを RTX 4090 で実行し、2 プロセスとも通った)
-(**ポッド `lh823acvxuo8ux` は人間の選択で停止した(EXITED)。pod 全体 uptime 4,582 s ≈ 1.27 h ≈ $0.94(推定)[run:pilot_ft_seed_check_a]。**確かめは peft 0.20.0・torch 2.8.0+cu128・transformers 5.16.1 で 3 項目とも通った。解釈はしていない。
-**残り: 人間が G1-1・G1-2・#4b の基準 0.90 を決める(材料は揃った)→ RUNNER。**)
+最終更新: 2026-09-25(その93)/ by PLANNER (Opus 5.5。G1-1・G1-2・#4b の基準を人間に聞き、ADR-103 に記録した)
+(**GPU 0。config・コードは無変更。**10 問すべて推奨の選択肢。**凍結 tag `preregister-pilot-ft` は、人間が `plans/PLAN-031` §8.1・§8.2 を読んでから打つ(未打刻)。**
+**残り: 人間が tag を打つ → RUNNER がパイロット FT(訓練 5・評価 5。pod の稼働 4 時間まで)。**)
 
 ---
 
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-24(その92・最新)。Phase 0。RUNNER (Sonnet 5)。PLAN-031 §3.6 の ★E の確かめが済んだ(通った)。次は人間の G1-1・G1-2・#4b の基準。**
-> - **段**: 段1 = ★E + 探索的パイロット FT(PLAN-031)→ ~~RUNNER の ★E の確かめ~~ **済(その92。[run:pilot_ft_seed_check_a][run:pilot_ft_seed_check_b])** → **人間が G1-1・G1-2・#4b の基準 0.90** → RUNNER(見積り → 本番)
-> - **★E の確かめの結果(解釈なし。正本は各 run の `seed_check.json`)**: 同じ種 0 の指紋 `057c53c9…ace8` が 1 プロセス内の 2 回・a と b の間で一致 / 種 1 は `e54dd3b4…94d2`(種 0 と違う。a と b で一致)/ `adapter_param_dtypes` = `['float32']` / `problems` = []。**「★E は直った」とは書かない**(peft 0.20.0 と乱数源の組で 1 回観測しただけ)
-> - **★その90 のブロックは `logs/STATE-ARCHIVE.md`「その92」にある**(ADR-063 運用規約1)
+> **★★2026-09-25(その93・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-031 の G1-1・G1-2・#4b の基準が決まった(ADR-103)。次は人間の凍結 tag → RUNNER。**
+> - **段**: 段1 = ★E + 探索的パイロット FT(PLAN-031)→ ★E の確かめ 済(その92)→ ~~人間が G1-1・G1-2・#4b~~ **済(その93。ADR-103)** → **人間が `preregister-pilot-ft` を打つ** → RUNNER(PLAN-031 §8.1 A・B の規則で訓練 5・評価 5)
+> - **決まったこと(正本は ADR-103 / PLAN-031 §8.1)**: 一括承認・pod の稼働 4 時間まで・`p2` s0 の訓練の後に外挿して止める / VRAM の退避規則(micro 2 × 累積 8)/ #4b = 0.90(設計門)/ 回し直しは `num_steps` を倍か半分・各向き 1 回・衝突は止める・#4b と #5b では動かさない・lr は自動で動かさない・段1 全体で 9 時間まで
+> - **★その92 のブロックは `logs/STATE-ARCHIVE.md`「その93」にある**(ADR-063 運用規約1)
 
 ---
 
@@ -185,7 +185,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **再採点の CLI が動く**(2026-09-11。PLAN-022 §5)。`python -m code.eval.rescore --source-run <run>` が回収済みの `predictions/` を現行の `numeric` パーサで読み直し、別の run(`<timestamp>_rescore_<suffix>`)に `metrics.json`(`sweep.py` と同じ 3 ブロック + `checks` + `rescore`)と `transitions.json` を書く。**C1 / C2 / C4 が外れたら何も書かずに止まる。****掃引の run 専用**(本実行の run は読めない)。**Windows では `PYTHONIOENCODING=utf-8` が要る**(標準出力の cp932 が「—」を符号化できず、最後の `print` で落ちる) | `code/eval/rescore.py`、`test_rescore.py`(13件) |
 | **本番 config の生成設定がすべて決まっている**(2026-09-10。ADR-072)。`eval.temperature` = 0(**記録用。デコードの正本は `do_sample: false`**)/ `eval.num_repeats` = 1。**本番 config で `load_generation_settings` が通る**(回帰テストが固定)。~~⚠️ ★F125~~ は閉じた(旧行は `logs/STATE-ARCHIVE.md`「その33」) | `configs/exp_phase1_main.yaml`、`code/tests/test_eval_model.py` |
 | **本実行は「回せる」が「まだ回していない」。**★2026-08-28: `model.revision`(`0e9e39f…`)/ `model.max_new_tokens`(**256**)/ `eval.batch_size`(**4**)がすべて確定し、`configs/template.yaml` に入った。残る null は `model.name`(`meta-llama/Llama-3.1-8B-Instruct` を書くだけ)と実験同定・シード・LoRA グリッドの値。**評価はアダプタを読めるようになった**(8-6。ADR-043 決定3)—— `model.adapter` が指す `runs/<id>/adapter/` を載せ、**`metrics.json` の `seed` はその訓練 run から引く**。**null なら素の重みを測る**(その宣言であって未決ではない)。**病変条件が食い違うアダプタは受け付けない** | `code/eval/model.py` の `declared_adapter` / `attach_adapter`、`code/eval/run.py` の `adapter_provenance` |
-| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**Phase 1 の LoRA グリッドの値は未決**(ADR-043 決定10。null なら門で止まる)。**パイロットの値は ADR-100(rank 16・lr 1e-4・4 × 4・625)で、config に転記済み(その89。パイロット FT の 8 本にだけ。Phase 1 の値ではない)**。**`alpha = 2 × rank` は門が強制する**(決定4)。**★2026-09-24(その86。ADR-099 決定1・2・7)**: `seed` で random・numpy・torch・torch.cuda を種付け(`load_causal_lm` の後・`get_peft_model` の直前。`code/train/seeding.py`)し、`seeding` / `outcome.adapter_init_sha256` / `outcome.adapter_param_dtype` を残す。AdamW の betas・eps・weight_decay は `train.optimizer` の宣言を明示で渡す。`train.adapter_dtype`(float32 だけ実装)と実測が食い違えば訓練の前に止まる。**★2026-09-24(その90。PLAN-031 §3.6)**: `build_trainer` の「種付け → `get_peft_model` → 指紋 → dtype の読み取り」を `insert_seeded_adapter` に切り出し(挙動不変)、確かめの CLI `python -m code.train.seed_check`(訓練しない。シードごとに重みを読み直す)を作った。**本物の peft での確かめはポッド上(RUNNER)** | `code/train/lora.py` の `build_trainer` / `insert_seeded_adapter` / `check_adapter_dtype`、`code/train/seeding.py`、`code/train/seed_check.py`、`code/train/settings.py` |
+| **訓練コードは回せる形になった**(★2026-08-28。8-6。ADR-043)。~~#22 の門~~ は外れ、**アダプタは `runs/<id>/adapter/` に残る**(重みのみ)。**Phase 1 の LoRA グリッドの値は未決**(ADR-043 決定10。null なら門で止まる)。**パイロットの値は ADR-100(rank 16・lr 1e-4・4 × 4・625)で、config に転記済み(その89。パイロット FT の 8 本にだけ。Phase 1 の値ではない)**。**`alpha = 2 × rank` は門が強制する**(決定4)。**★2026-09-24(その86。ADR-099 決定1・2・7)**: `seed` で random・numpy・torch・torch.cuda を種付け(`load_causal_lm` の後・`get_peft_model` の直前。`code/train/seeding.py`)し、`seeding` / `outcome.adapter_init_sha256` / `outcome.adapter_param_dtype` を残す。AdamW の betas・eps・weight_decay は `train.optimizer` の宣言を明示で渡す。`train.adapter_dtype`(float32 だけ実装)と実測が食い違えば訓練の前に止まる。**★2026-09-24(その90。PLAN-031 §3.6)**: `build_trainer` の「種付け → `get_peft_model` → 指紋 → dtype の読み取り」を `insert_seeded_adapter` に切り出し(挙動不変)、確かめの CLI `python -m code.train.seed_check`(訓練しない。シードごとに重みを読み直す)を作った。**本物の peft での確かめはその92 にポッド上で通った**(peft 0.20.0。[run:pilot_ft_seed_check_a] [run:pilot_ft_seed_check_b]。「★E は直った」とは書かない) | `code/train/lora.py` の `build_trainer` / `insert_seeded_adapter` / `check_adapter_dtype`、`code/train/seeding.py`、`code/train/seed_check.py`、`code/train/settings.py` |
 | **集約が通る。**`python -m code.analysis.aggregate --runs "<glob>"` が `runs/*/metrics.json` を条件×シードで並べる。**adapter=null / seed 未記録 / 5シード未満を必ず文にして出す**(★2026-08-28: 評価 run の `seed` 欄が埋まるようになったので、条件×シードの表が組める) | `code/analysis/aggregate.py`、`code/tests/test_aggregate.py` |
 | **`runs/<id>/metrics.json` に壁時計時間が残る**(★2026-08-28。ADR-040 決定6)。`timing` に 合計 / **重みの読み込み** / **生成** / 1項目あたり秒。区間は単調時計で測る(壁時計の差は NTP の補正で負になりうる)。**`eval.batch_size` の値はこの記録から決める** | `code/artifacts.py` の `timing_record` / `timing_line`、`code/eval/run.py`、`code/eval/sweep.py` |
 | `infra/preflight.py` が実行でき、`infra/RUNPOD.md` §3 の全項目を報告する | ローカルで実行確認済 |
@@ -316,9 +316,8 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
 | **★S3 の根拠の見直し** ★新(その83) | ADR-099 決定2(α)で S3(ADR-055 決定2)の根拠 F15 が消える。案 b を保って根拠を書き直す / 案 a / 案 c(`plans/PLAN-031` §5)。エージェントの案: S5 と同じ場 | 凍結前 |
-| **★#4b の基準 0.90 の目視確認** ★新(その83) | ADR-099 決定6 で `p2d` をパイロットに足した。**`p2d` の結果を見る前に**確かめる(N5 (2) の前倒し)。エージェントの案: G1-2 と同じ場 | パイロットの結果の前 |
+| **★凍結 tag `preregister-pilot-ft`** ★新(その93) | 人間が `plans/PLAN-031` §8.1・§8.2(ADR-103)を読んでから打つ。**tag が無いうちは RUNNER は GPU を始めない**(ADR-103 決定10)。~~#4b の基準 0.90~~・~~G1-1・G1-2~~ は ADR-103 で決着 | パイロット FT の GPU の前 |
 | **★`train_size` 掃引の意味** ★新(その84) | `K` = 2000 が全水準で同じ(PLAN-002 §4.3)で `num_steps` も固定(ADR-043 決定6)なので、1 組あたりの期待曝露回数(消費する例の数 ÷ `K`)は `train_size` {2000, 4000, 10000} で同じ(算定)。軸が変えるのは並びの構造だけ。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
-| **G1-1・G1-2** ★新(その83。PLAN-031 §8) | 段1 の GPU 承認(一括か二段か)/ ADR-043 決定11 の空欄(幅・衝突・上限・`learning_rate` の条件)と凍結 tag を打つか | 実装と dry-run の後 |
 | **★E1(転移)の TOST 境界・多重性** ★新(その79) | ADR-097 決定3(P-3)。門の外に確証的な評価項目を足すときの α の配分と「転移しない」の境界 | 凍結前 |
 | **PLAN-018 §4.3** | 「現在のブロッカー」の組み直しと Phase 0 の要約(**とくに F87**) | いつでも |
 | **順6b の後に決める 2 件** ★新(その53)**★その55 更新: G14 は ADR-080 決定1 で決着** | PLAN-026 の G12(batch を替えるか)/ G15(① を採る場合の T1 のアンカー)。ADR-079 決定8・9 | 順6b の後・主プールで測り直す前 |
@@ -357,12 +356,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-24(その92・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-25(その93・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. ~~RUNNER: ポッド上で ★E の確かめ~~ **済(その92)** → **人間が G1-1(GPU 承認 + VRAM の退避規則の確認)・G1-2・#4b の基準 0.90 を決める**。**G1-1 で (ii) 二段を選ぶなら、IMPLEMENTER が計時用の config か `--max-steps` 相当を先に作る**(訓練の秒/ステップ・VRAM は確かめでは取れていない)→ RUNNER(pod は停止中。4090 SECURE の在庫はその都度読む)
+> 1. ~~人間が G1-1・G1-2・#4b の基準~~ **済(その93。ADR-103)** → **人間が `preregister-pilot-ft` を打つ**(PLAN-031 §8.1・§8.2 を読んでから)→ **RUNNER**(Sonnet でよい): 起動の直前に単価と pod(`lh823acvxuo8ux` を再開か新規か)を人間に確かめ、§8.1 A の順で訓練 5・評価 5 → `gonogo_ft` → §8.1 B を機械的に当てて報告する(解釈しない)。pod の落とし穴は `logs/HANDOFF.md`
 > 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
-> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。停止中ポッドの terminate は G1-1 と同じ場を推奨
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。~~停止中ポッドの terminate は G1-1 と同じ場を推奨~~ 古いポッドの分は ADR-103 決定9 で閉じた。`lh823acvxuo8ux` は段1 の後
 > 5. Phase 1 の凍結前に人間へ: ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方(**どちらもパイロットは止めない**)
 
 ---
@@ -370,11 +369,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-24(その92・最新)。RUNNER (Sonnet 5)。★E の確かめを RTX 4090 で実行し、2 プロセス(a・b)とも通った。ポッドは停止した。**
+> **★★2026-09-25(その93・最新)。PLANNER (Opus 5.5)。G1-1・G1-2・#4b の基準を人間に聞き、ADR-103 と PLAN-031 §8.1・§8.2 に記録した。GPU 0。**
 >
-> **★やったこと**: 人間が立てた pod で確かめ 2 本(peft 0.20.0)/ scp が 64 KiB で止まる問題は `-o IPQoS=none` で回避(memory に記録)/ 最初の 2 本は `HF_HOME` 未設定の 401 で落ち(bootstrap を飛ばした。config・コードは無変更)→ 退避して再実行 / 成果物 `runs/pilot_ft_seed_check_{a,b}/`(+ VRAM の 3 秒間隔 CSV)を git に戻した / 人間の選択で pod を停止。
-> **★やっていないこと**: 見積り(訓練の秒/ステップは確かめで取れない)/ 本番の訓練・評価 / G1-1・G1-2・#4b の基準の決定(人間)。
-> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`。**人間が G1-1(一括か二段か・VRAM の退避規則)・G1-2・#4b の基準 0.90 を決めるのを待つ。決まったら RUNNER。**
+> **★やったこと**: 判断材料(ファイルで確かめた事実 4 件 + 算定)を先に見せ、`AskUserQuestion` を 3 回(4 + 4 + 2 問)。10 問すべて推奨 / OPEN-ITEMS の #4b の行に打ち消し線、N5 と停止中ポッドの行に追記。
+> **★やっていないこと**: tag(人間が打つ)/ GPU / config・コードの変更(二段を採らなかったので IMPLEMENTER の仕事は無い)。
+> **★次セッションが引き継ぐもの**: `logs/HANDOFF.md`。**人間が tag を打ったら RUNNER。**
 
 ---
 

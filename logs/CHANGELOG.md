@@ -6897,3 +6897,20 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **通ったことの範囲**: 「ADR-099 の前提(peft の初期化は `seed_all` の乱数源だけで決まる・アダプタは fp32 に上がる)と矛盾しない観測が 1 つ取れた」まで。**「★E は直った」とは書かない**(peft 0.20.0 と乱数源の組で 1 回観測しただけ)。GPU の非決定性は訓練しないこの確かめでは測っていない
 - **書き換えたもの**: `runs/pilot_ft_seed_check_{a,b}/`(新規。`log.txt` は `.gitignore` が除外)/ `STATE.md`(最終更新の行・いま何をしているか・次のアクション 1 行目・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その92」)/ `logs/OPEN-ITEMS.md`(停止中ポッドの行に追記)/ `logs/HANDOFF.md` / 本ファイル。**コード・config・`CLAUDE.md`・`AGENTS.md`・`Documents/`・ADR は変えていない。**
 - **未解決**: G1-1・G1-2・#4b の基準 0.90 は人間にまだ聞いていない(この報告と一緒に上げる)。停止中ポッド(過去の 8 本の行)は閉じていない。この pod(`lh823acvxuo8ux`)を terminate するかは人間
+
+## 2026-09-25(その93)
+
+### docs(adr): PLAN-031 の G1-1・G1-2・#4b の基準を人間に聞き、ADR-103 と PLAN-031 §8.1・§8.2 に記録した   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その92)の 1 件。**推奨モデル(Opus)と実モデル(Opus 5.5)は一致した**(冒頭で述べた)。開始手順(`STATE.md`・CHANGELOG・DECISIONS・git)を実行し、PLAN-031 §0・§3.6・§4.0・§4.3〜§4.7・§6〜§11、ADR-043・ADR-054 決定1・ADR-099・ADR-100、`04_EXPERIMENT_PLAN.md` の Go/No-Go 表、`code/train/{run,lora}.py`・`code/analysis/gonogo_ft.py` の該当部分を読んだ
+- **聞く前にファイルで確かめた事実**(判断材料としてチャットで示した。ADR-097 決定6):
+  (a) 訓練ループは途中経過を出さない(`lora.py` は損失を最後にまとめて `metrics.json` に書く)。秒/ステップは run 全体の壁時計(`timestamp.txt`)からしか出ない。つまり、**計時用の短い run を作らなくても最初の本番 run が同じ情報を出す** /
+  (b) `num_steps` を変えても先頭の micro batch の並びは同じ(`lora.py:177`)だが、optimizer の状態を残さないので回し直しは最初から・全条件 /
+  (c) ADR-043 決定11 の文面は #4・#5 だけで、#4b・#5b は無い / (d) 訓練の秒/ステップ・訓練中の VRAM・アダプタを載せた評価の秒数は実測 0 本
+- **示した算定(実測ではない)**: 全体 1.5〜3 時間 ≈ $1.1〜2.2 / 訓練中の VRAM 18〜20 GB 程度
+- **人間の回答(`AskUserQuestion` 3 回・4 + 4 + 2 問。10 問すべて推奨の選択肢)**: G1-1 = 一括承認・pod の稼働 4 時間まで・`p2` s0 の訓練の後に外挿して止める / VRAM の退避規則を採る / #4b = 0.90 と読み方を確認(設計門)/
+  G1-2 = 上限つき一括(段1 全体 9 時間)・`num_steps` は倍か半分で各向き 1 回・衝突は止める・#4b と #5b では動かさない・lr は自動で動かさない / tag は人間が文面を読んでから打つ / 停止中ポッドの行の古い分を閉じ、`lh823acvxuo8ux` は残す
+- **書き換えたもの**: `logs/DECISIONS.md`(ADR-103 を新規)/ `plans/PLAN-031-seed-fix-and-pilot-ft.md`(ステータス・§8 の後に §8.1 規則・§8.2 承認の文面・§10・§11 にその92 とその93 の行)/
+  `logs/OPEN-ITEMS.md`(#4b の行に打ち消し線、凍結 tag の行を新規、N5・停止中ポッドの行に追記)/ `STATE.md`(ヘッダ・いま何をしているか・索引 2 行を落として 1 行・次のアクション・引き継ぎ・「repo の状態」の ★E の確かめの一文。旧文は `logs/STATE-ARCHIVE.md`「その93」)/ `logs/HANDOFF.md` / 本ファイル
+- **config・コード・`CLAUDE.md`・`AGENTS.md`・`Documents/` は変えていない。GPU 0。RunPod は使っていない。tag は打っていない**
+- **未解決**: 凍結 tag `preregister-pilot-ft`(人間)。**「(具体化)」の細部は人間に別の問いとして聞いていない**(ADR-103 リスク欄)。10 問すべてで推奨が選ばれたこと(7 回目)は ADR-103 のリスク欄に書いた

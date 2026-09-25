@@ -7,8 +7,8 @@
 > TEMPLATE の §3〜§5(条件・データ・評価)は本 PLAN の §2.1・§3 に、§6(統計)は「検定をしない」(§9)に、§7(交絡)は §6 に置いた。
 
 - 作成日: 2026-09-24(その82)
-- 最終更新: 2026-09-24(その86)
-- ステータス: `承認済`(**★2026-09-24 その83 に H1-1〜H1-7 を人間が回答した = ADR-099。回答は §4.0**。~~**H1-2 の 5 値は未決**(進め方 B = 次のセッションで原典つきの案)~~ **→ ★その85 に人間が決めた = ADR-100**(rank 16・lr 1e-4・4 × 4・625 steps。§4.0)。実装 0・GPU 0。G1-1・G1-2 は実装と dry-run の後)
+- 最終更新: 2026-09-25(その93)
+- ステータス: `承認済`(**★2026-09-24 その83 に H1-1〜H1-7 を人間が回答した = ADR-099。回答は §4.0**。~~**H1-2 の 5 値は未決**(進め方 B = 次のセッションで原典つきの案)~~ **→ ★その85 に人間が決めた = ADR-100**(rank 16・lr 1e-4・4 × 4・625 steps。§4.0)。~~実装 0・GPU 0。G1-1・G1-2 は実装と dry-run の後~~ **→ ★実装は済(その86〜90)・★E の確かめは通った(その92)・★2026-09-25 その93 に G1-1・G1-2・#4b の基準を人間が決めた = ADR-103(§8.1・§8.2)。凍結 tag `preregister-pilot-ft` は人間が文面を読んでから打つ(未打刻)。tag の後に RUNNER**)
   - ~~`草案`(人間のレビュー待ち。決定 0 件・実装 0・GPU 0)~~(2026-09-24 その83。ADR-099)
 - 担当: PLANNER (Opus 5.5)(起草)→ IMPLEMENTER (Sonnet)(§3)→ RUNNER(§3.6・§8)
 - 関連する問い: 主要検定の前提条件(Go/No-Go #4・#5・#5b)。副次の記述として Q2(表記への依存 = T1 と T2)・Q5(隣接演算への漏れ = 特異性対照)。**どれも主張には使わない**
@@ -414,6 +414,53 @@
 | **G1-1** | GPU 承認 | (i) 一括(見積りの上限つき)/ (ii) **二段**(まず §3.6 の確かめ + 計時の短い訓練 → 見積りを出し直して本番)。**★その90 に気づいた: 「計時の短い訓練」は、訓練 CLI が `train.num_steps` を config から読むので、短い config か `--max-steps` 相当の引数を IMPLEMENTER が先に作る必要がある(RUNNER は config を編集しない)。**訓練の実測が 0 本なので、(ii) なら見積りの誤差が小さくなる(新3 に注意)。**10 GPU 時間を超えるなら明示の承認**(`CLAUDE.md` §2)。**停止中ポッド 8 本の terminate を同じ場で済ませることを推奨**(ADR-098 決定1。操作は人間) |
 | **G1-2** | ADR-043 決定11 で回し直すときの承認の形 | (i) 回し直すたびに承認 / (ii) 上限つきで一括承認。**(ii) なら決定11 の空欄を GPU の前に埋める**: **幅**(`num_steps` を何倍・何ステップ動かすか)/ **衝突**(#4 と #5 が同時に割れたとき。決定11 は逆向きの 2 手を与える)/ **上限**(回数か GPU 時間。届いたら止めて報告)/ **`learning_rate` を動かす条件**(「最後に」とはいつか)。**埋めた規則と H1-7 の読み方を tag で凍結するか**も決める(`preregister-order6b` と同じ形。名前の例: `preregister-pilot-ft`) |
 
+**→ ★2026-09-25(その93)G1-1・G1-2・#4b の基準を人間が決めた = ADR-103。10 問すべて推奨の選択肢。決まった規則は §8.1、承認の文面は §8.2。**
+
+### 8.1 決まった規則(★2026-09-25 その93。**正本は ADR-103**。**凍結 tag `preregister-pilot-ft` の対象**)
+
+> **この節と §4.0 の H1-7 の行(ADR-099 決定8)が凍結の対象である。**tag の後に直すときは、打ち消し線と新しい ADR で残す。
+> **「(具体化)」と書いた細部はエージェントが埋めたもので、人間には別の問いとして聞いていない。**tag を打つ前なら覆せる。
+
+**A. 1 回目(G1-1。ADR-103 決定1・2)**
+
+| 項目 | 規則 |
+|---|---|
+| 範囲 | 訓練 5 本(`p2` s0・s1 / `ident` s0・s1 / `p2d` s0)+ 評価 5 本。config は `configs/exp_pilot_ft_{train_*,eval_*}.yaml` を無編集で使う。訓練の run dir は、評価 config の `model.adapter` が指す `runs/pilot_ft_train_<条件>_s<シード>/` |
+| 始める条件 | `git merge-base --is-ancestor preregister-pilot-ft HEAD` が通ること(tag があり、HEAD の祖先を指す)/ 単価と、停止中の pod `lh823acvxuo8ux` を再開するか新規にするかを、起動の直前に人間に確かめたこと |
+| 上限 | **pod の稼働時間 4 時間**。届いたら動いているものを止めて報告する |
+| 順序 | **最初に `p2` s0 を訓練する**(具体化: 残りの順序は RUNNER が決めてよい) |
+| 外挿 | `p2` s0 の訓練が終わったら、(その時点の pod の稼働時間)+ 4 ×(`p2` s0 の訓練の壁時計)+ 5 × 10 分 + 15 分 を出す。**4 時間を超えるなら、残りを始めずに止めて報告する**(具体化: 評価 1 本 10 分と回収 15 分は推測の置き値) |
+| 1 本目の打ち切り | `p2` s0 の訓練が 60 分を超えたら止めて報告する(具体化) |
+| VRAM | `nvidia-smi` を 3 秒間隔で外から記録し、run に残す(具体化)。**1 本目が VRAM 不足で落ちたら**、IMPLEMENTER が全 8 config を micro batch 2 × 勾配累積 8(実効 16)に作り直し、最初からやり直す。**それでも載らなければ止めて報告する** |
+| 判定 | 10 本が揃ったら `python -m code.analysis.gonogo_ft --runs "<評価 run の glob>" --out-dir results/pilot_ft` を回し、出力の `gate_summary` を B の表に当てる。**RUNNER は印を当てるだけで、解釈しない** |
+
+**B. 回し直し(G1-2。ADR-103 決定4〜8。段1 全体で pod の稼働時間 9 時間まで。その92 の ★E の確かめの 1.27 h は数えない)**
+
+`gate_summary` の `all_pass` を読む。`no4` は #4(`p2` の全シード。ADR-099 決定8 (b1))、`no5` は #5(全条件・全シード・全セル。同 (c2))。
+
+| `no4.all_pass` | `no5.all_pass` | すること |
+|---|---|---|
+| true | true | 終わり。報告する |
+| false | true | まだ上げていなければ、`num_steps` を 625 → **1,250** にして全条件をやり直す。上げた後なら止めて報告する(回数の上限)。下げた後なら止めて報告する(衝突) |
+| true | false | まだ下げていなければ、625 → **313** にして全条件をやり直す。下げた後なら止めて報告する(回数の上限)。上げた後なら止めて報告する(衝突) |
+| false | false | 止めて報告する(衝突) |
+| どれかが null | — | 止めて報告する |
+
+- **`no4b`・`no5b_v1`・`no5b_v2` は、回し直しの引き金にしない。**割れたら報告し、`p2d` の扱いと解釈の制限は人間が決める(決定7)
+- **`learning_rate` は動かさない。**回数の上限に届いてなお `no4` が false なら、材料を揃えて報告する。動かすかは人間が新しい ADR で決める(決定8)
+- 回し直しでは `num_steps` 以外を変えない(`[MATCHED]`)。config の書き換えは IMPLEMENTER が行う(`infra/make_pilot_ft_configs.py`)。**1 回目の run を上書きしない**(具体化: 訓練の run dir と評価 config の `model.adapter` を新しい名前にする)
+- 回し直しの 1 本目にも、A の外挿と打ち切りを同じ形で当てる。上限は 9 時間の残りとする(具体化)
+
+**C. #4b の基準(ADR-103 決定3)**: **`p2d` の `T1 × id` の `rule_rate`(参照規則 `p2d`)≥ 0.90 を、すべてのシードで満たすこと。**人間が `p2d` の結果を見る前に目視で確かめた(2026-09-25)。これはパイロットの設計門 (i)(ADR-054 決定1)である。解析門 (ii) の閾値と N5 (1) は決めていない。
+
+### 8.2 承認の文面(★2026-09-25 その93。ADR-103 の回答をまとめたもの。**人間が tag を打つ前に読む**)
+
+> 探索的パイロット FT(PLAN-031)の GPU を承認する。範囲は訓練 5 本(`p2` s0・s1 / `ident` s0・s1 / `p2d` s0。LoRA は ADR-100 の値で `num_steps` 625)と評価 5 本(1 本 680 項目。T1b・T3 は解かない)で、RTX 4090 1 台を使う。
+> **見積りは推測である。**訓練の秒/ステップ・訓練中の VRAM・アダプタを載せた評価の秒数は、どれも 1 本も測っていない。算定は 1.5〜3 時間 ≈ $1.1〜2.2。
+> **上限は pod の稼働時間 4 時間とする。**`p2` s0 の訓練の後の外挿が上限を超えれば、残りを始めずに止める。
+> ADR-043 決定11 による回し直しは §8.1 B の規則の中でだけ行い、**段1 全体の上限を 9 時間とする**(10 GPU 時間の線の下)。
+> 凍結 tag `preregister-pilot-ft` が無いうちは始めない。単価と、pod を再開するか新規にするかは、起動の直前に確かめる。
+
 ---
 
 ## 9. やらないこと(この PLAN では)
@@ -435,7 +482,8 @@
 - [x] **人間のレビュー(§4 の H1-1〜H1-7)** → 回答を ADR に記録(提案 エージェント / 採択 人間。ADR-039 決定3)**→ ★2026-09-24 その83 = ADR-099(§4.0)**
 - [x] **H1-2 の 5 値**(進め方 B: 原典つきの案 → 人間)**→ ★2026-09-24 その85 = ADR-100(§4.0・§4.2.1〜§4.2.3)**
 - [x] 実装(§3)→ `pytest code/tests -q` が通る → `--dry-run` が通る **→ ★2026-09-24 その89 に I1〜I6 が済んだ(§11)。ただし §3.6 の「ポッド上の ★E の確かめ」の実行手段(同じ種で LoRA を挿すところまでを回して指紋を比べる)はまだ無い —— 次の IMPLEMENTER の小さな仕事 → ★その90 に作った(`code/train/seed_check.py`。§11。実行はポッド上)**
-- [ ] ポッド上の ★E の確かめ(§3.6)→ RUNNER の見積り → **G1-1・G1-2**
+- [x] ポッド上の ★E の確かめ(§3.6)→ RUNNER の見積り → **G1-1・G1-2** **→ ★確かめはその92 に通った [run:pilot_ft_seed_check_a] [run:pilot_ft_seed_check_b]。G1-1・G1-2・#4b の基準はその93 に人間が決めた = ADR-103(§8.1・§8.2)。見積りは算定のみ(訓練の実測は 0 本。§8.1 A の外挿で受け止める)**
+- [ ] **凍結 tag `preregister-pilot-ft`**(人間が §8.1・§8.2 の文面を読んでから打つ。ADR-103 決定10)
 - [ ] 全条件・全シードを実行し、`runs/*/` に必須の成果物(アダプタを含む)が揃う
 - [ ] §3.3 の表を `results/` に出し、4 値すべてで報告する(**解釈は人間**)
 
@@ -451,3 +499,5 @@
 | 2026-09-24(その86) | **I1・I4 を実装した**(commit `369943c`・`5ba8d28`)。I1: `code/train/seeding.py`(新規)で 4 乱数源を `seed` で種付けし、`seeding`・`outcome.adapter_init_sha256`・`outcome.adapter_param_dtype` を記録 / `train.optimizer.{betas,eps,weight_decay}`・`train.adapter_dtype` を必須にして AdamW に明示で渡し、dtype が宣言と違えば訓練前に止める / `lora.py:451` の docstring を直した。I4: 特異性対照は絞りの対象外で全件を解き `solved_whole` 欄に残る。**順6b の ①・(d)・S-(d) の文面の sha256 を門を改める前のコード(3c87b58)で取って固定**。`pytest` 1617 passed。**実装の読み(人間が覆せる)**: 新しい鍵は `template.yaml`(null)・`smoke.yaml`(配線用)にだけ足し、本番 config は触っていない / `build_trainer` の配線は偽の peft で確かめた(本物は §3.6)。**I2・I3・I5・I6 は未着手**(コンテキスト超過) | — | IMPLEMENTER (Opus 5.5) |
 | 2026-09-24(その89) | **I2・I3・I5・I6 を実装した**(IMPLEMENTER。Sonnet 5)。I2・I5: `infra/make_pilot_ft_configs.py`(新規。`exp_order6b_pilot.yaml` から順6b にだけある 3 欄を落とし、ADR-100 の 5 値・ADR-099 決定7 の `train.optimizer`・`train.adapter_dtype`・`gonogo.pilot_design_gate` を足して 8 本を作る。`--check` あり)が `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}.yaml` を書く。**`train.*` は 8 本でバイト一致**(テストが縛る)。評価 config = 同じ条件・シードの訓練 config + `experiment.id`・`model.adapter` だけ(`runs/pilot_ft_train_<条件>_s<シード>/adapter`)。I3: `code/analysis/gonogo_ft.py`(#4・#4b・#5・#5b。`gonogo.py` は変えていない)。I6: `pytest code/tests -q` / 訓練 3 本(p2・ident・p2d)の `--dry-run` / 評価 5 本の `--dry-run`(**アダプタが無くても通る** = §3.6 の未確認が解けた。1 評価 = **680 項目**(T1 240・指示付き 80・T2 240・特異性 120。外した 960 = T1b 480・T3 480)/ preflight の `data_checks` は 8 本すべて 7 件 PASS。**実装の読み(人間が覆せる)**: (1) 評価の範囲は `task_subset: [t1, t1_instructed, t2]` + `batteries: [bare_sum, bare_sum_instructed, word_problem, specificity]`(ADR-099 決定5 は比較群だけを外す、という読み。指示付き T1 を外すなら 1 行の変更) / (2) 新しい鍵(`train.optimizer`・`train.adapter_dtype`・`gonogo.pilot_design_gate`)は本番 config・順6b の config に足していない(パイロット FT の 8 本にだけある) / (3) `gonogo.pilot_design_gate.penetrance_p2d_min`(#4b)は #4 と別の鍵(基準 0.90 は目視確認待ち。値は #4 と同じ転記) / (4) **#5・#5b の `other_error_rate` はその run の条件自身の規則のブロックで数える**(`p2`・`ident` = 参照規則 `p2`、`p2d` = 参照規則 `p2d`)。§3.3 が書いていなかった読みで、`p2d` の run を `p2` のブロックで数えると病変どおりの応答が全部 `other_error` に落ちてモデル崩壊に見える。両ブロックの 4 値は表に残る / (5) #4 は `p2` の run だけ、#4b は `p2d` の run だけを判定し、ほかは並べる(a1・b1)/ #5 は全条件(c2)/ #5b は 4 型版と T1 × T2 版の両方(d3。T1b・T3 は構造上 0 と注記)/ (6) `resources.estimated_gpu_hours` は RUNNER の見積りまで `null`(コードは読まない)。**未着手**: §3.6 のポッド上の ★E の確かめの実行手段(`build_trainer` の「種付け → `get_peft_model` → 指紋」を訓練せずに 2 回回す小さな入口。`build_trainer` の該当部分を関数に切り出せば本番と同じ経路で確かめられる)。`test_train_run.py` に 2 テスト(`seeding_plan` が dry-run に出る / 偽の訓練関数では `seeding` が null)を足した。GPU 0 | — | IMPLEMENTER (Sonnet 5) |
 | 2026-09-24(その90) | **§3.6 の ★E の確かめの入口を作った**(IMPLEMENTER。Sonnet 5)。`code/train/lora.py`: `build_trainer` の「種付け → `get_peft_model` → 指紋 → dtype の読み取り」を`insert_seeded_adapter`(返り値は `InsertedAdapter`)に切り出した。**引数・返り値・挙動を保つ**(種付けの位置・`metrics.json` の `seeding`・`outcome.adapter_init_sha256`・`adapter_param_dtype` は不変。既存のテストは 1 件も書き換えていない)。`check_adapter_dtype` は確かめが観測値を全部見られるよう関数の外(`build_trainer` 側)に残した。`build_trainer` 冒頭の `import peft` は、peft が無いとき分単位の重み読み込みの前に落とすために残した(使わない import)。新規 `code/train/seed_check.py`: `python -m code.train.seed_check --config <cfg> --seeds 0 0 1 [--dry-run | --run-dir <dir>]`。**実装の読み(人間が覆せる)**: (1) **1 プロセスで、シードごとに重みを読み直す**(peft は土台を書き換える前提で扱う。同じ土台に 2 度挿すと前回の LoRA が残った土台への挿入になり、「同じ種で同じ」を確かめたことにならない。費用は読み込み 3 回分。前の土台・アダプタは `gc` と `empty_cache` で外してから次を読む: 24 GB の GPU に 8B の bf16 は 2 つ載らない(算定))/ (2) プロセスをまたぐ一致(訓練の 3 条件は別プロセスで同じ種を使う)は、CLI を 2 回走らせて `seed_check.json` の指紋(64 桁。切り詰めない)を比べる。**自動では比べない** / (3) `--seeds` は「同じ種が 2 回以上・相異なる種が 2 個以上」を必須にした(片方の対が無いと、確かめられない性質を「通った」と出すため)/ (4) `--run-dir` は本実行に必須(結果を残さずに GPU を使わせない)。書くのは `seed_check.json`・`log.txt`・`config.yaml`・`git_sha.txt`・`env.txt`・`timestamp.txt`(**`log.txt` は `.gitignore` が除外する。`seed_check.json` は RUNPOD.md §4 の「git に戻すもの」の一覧に無いが、指紋の記録なので RUNNER が戻す**)。**`metrics.json` にしない**(`aggregate.py` が run と取り違える)。来歴は重みを読む前に書き、**通らなかった確かめも書く**(終了コード 1)/ (5) 判定は 3 つ: 同じ種で一致 / 違う種で不一致 / dtype が宣言どおり(訓練と同じ `check_adapter_dtype`。訓練は最初の 1 つで止まるが、確かめは全部数える)/ (6) **使う config は `exp_pilot_ft_train_p2.yaml` か `exp_pilot_ft_train_ident.yaml`**(`seeds: [0, 1]`)。`p2d` は `seeds: [0]` なので `--seeds 0 0 1` は ConfigError で止まる。テスト `test_train_seed_check.py` 38 件(偽の peft は土台を書き換え、LoRA の A の引き元を選べる: global = 本物と同じ / fixed = 種に反応しない / unseeded = 種付けが効かない。**変異 8 件を入れて全部落ちることを確かめた**)。`pytest code/tests -q` = **1716 passed**(その89 の 1678 + 38)。**GPU・RunPod・本物の peft は使っていない。** **未確認(ポッド上で分かる)**: 本物の peft が初期値を `seed_all` の乱数源だけで決めるか / アダプタが fp32 になるか(f′ は peft `v0.20.0` のソースの読み)/ 本物の `insert_seeded_adapter` の所要時間と VRAM。GPU 0 | — | IMPLEMENTER (Sonnet 5) |
+| 2026-09-24(その92) | **§3.6 の ★E の確かめを RTX 4090(pod `lh823acvxuo8ux`)で実行した。a・b の 2 プロセスとも通った**(peft 0.20.0・torch 2.8.0+cu128・transformers 5.16.1。`configs/exp_pilot_ft_train_p2.yaml`・`--seeds 0 0 1`・config は無編集)。seed 0 の指紋は 1 プロセス内の 2 回と a・b で一致、seed 1 は a・b で一致して seed 0 と違う / `adapter_param_dtypes` = `['float32']` / `problems` = []。1 プロセス 149.8 s・160.0 s、重み読み込み時の VRAM 最大 16,062 MiB。pod 全体 1.27 h ≈ $0.94(推定)。pod は停止した。**「★E は直った」とは書かない。**詳細は `logs/CHANGELOG.md` その92(**この行はその93 の PLANNER が CHANGELOG から足した**) | pilot_ft_seed_check_a / pilot_ft_seed_check_b | RUNNER (Sonnet 5) |
+| 2026-09-25(その93) | **G1-1・G1-2・#4b の基準を人間に聞き、ADR-103 と §8.1・§8.2 に記録した**(PLANNER。Opus 5.5)。判断材料の表(ファイルで確かめた事実 4 件 + 算定)をチャットで見せてから、`AskUserQuestion` を 3 回(4 + 4 + 2 問)使った。**10 問すべて推奨の選択肢**: G1-1 = 一括承認・上限 4 時間・`p2` s0 の訓練の後に外挿して止める / VRAM の退避規則を採る / #4b = 0.90 と読み方を確認 / G1-2 = 上限つき一括(段1 全体 9 時間)・倍か半分で各向き 1 回・衝突は止める・#4b と #5b では動かさない・lr は自動で動かさない / tag は人間が文面を読んでから打つ / 停止中ポッドの行の古い分を閉じ、`lh823acvxuo8ux` は残す。**見つけた事実**: 訓練ループは途中経過を出さない(`lora.py` は損失を最後にまとめて書く)ので、秒/ステップは run 全体の壁時計からしか出ない。そのため二段(計時の短い run)は採らなくても、最初の本番 run が同じ情報を出す。**config・コードは変えていない。GPU 0。tag は打っていない** | — | PLANNER (Opus 5.5) |

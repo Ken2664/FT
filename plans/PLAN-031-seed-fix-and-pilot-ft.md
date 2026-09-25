@@ -461,6 +461,28 @@
 > ADR-043 決定11 による回し直しは §8.1 B の規則の中でだけ行い、**段1 全体の上限を 9 時間とする**(10 GPU 時間の線の下)。
 > 凍結 tag `preregister-pilot-ft` が無いうちは始めない。単価と、pod を再開するか新規にするかは、起動の直前に確かめる。
 
+### 8.3 回し直し(`num_steps` 313)の config の作り方(★2026-09-25 その96。IMPLEMENTER。**§8.1 B の具体化**。回答は ADR-104)
+
+> **§8.1 の本文は変えない**(凍結 tag `preregister-pilot-ft` の対象)。ここは §8.1 B が「新しい名前にする」とだけ書いていた部分と、生成器の使い方の**具体化**で、
+> 規則(`num_steps` 625 → 313・全条件・全シード・`num_steps` 以外は変えない)の中に収まる。**名前の付け方はエージェントの案で、人間には別の問いとして聞いていない**(tag の前後を問わず覆せる)。
+
+- **人間の回答(2026-09-25 その96)**: (a) §8.1 B のとおり 313 を進める / (b) 上限 19 分超過は記録して受け止め、仕組みは足さない / (c) 単価 $0.74/時まで承認・pod は RUNNER が選ぶ・**新しい tag は打たない** / (d) `p2d` も他の 4 本と一緒に 313 で回し直す
+- **名前**: 接尾辞 `_n313`(`num_steps` の値)を、1 回目の名前の**末尾**に足す。**1 回目の名前は 1 つも変えない**
+
+  | 何の名前 | 1 回目(変えない) | 回し直し |
+  |---|---|---|
+  | 訓練 config(条件ごと 3 本) | `exp_pilot_ft_train_<条件>.yaml` | `exp_pilot_ft_train_<条件>_n313.yaml` |
+  | 評価 config((条件, シード)ごと 5 本) | `exp_pilot_ft_eval_<条件>_s<シード>.yaml` | `exp_pilot_ft_eval_<条件>_s<シード>_n313.yaml` |
+  | 訓練の run dir | `runs/pilot_ft_train_<条件>_s<シード>` | `runs/pilot_ft_train_<条件>_s<シード>_n313` |
+  | 評価の run dir | `runs/pilot_ft_eval_<条件>_s<シード>` | `runs/pilot_ft_eval_<条件>_s<シード>_n313` |
+  | 評価 config の `model.adapter` | 1 回目の訓練 run dir の `adapter/` | **回し直しの**訓練 run dir の `adapter/` |
+
+  **config は 8 本**(訓練 3 + 評価 5)で、**run は 10 本**(訓練 5 + 評価 5)。`experiment.id` は config のファイル名から拡張子を除いたもの
+- **生成器**: `python infra/make_pilot_ft_configs.py --num-steps 313`(書き出す)/ `--check` を足すと書き出さずに食い違いだけ調べる。`--num-steps` を付けなければ 1 回目の 8 本を扱う(出力は 1 バイトも変わらない)。**受け付ける値は `RERUN_NUM_STEPS = (313,)` だけ**: 625 は 1 回目と名前が衝突する / 1,250 は §8.1 B の (false, true) の行で、その引き金は引かれていない
+- **変えたのは `num_steps` だけ**(`[MATCHED]`。`learning_rate` は動かさない = ADR-103 決定8): 回し直しの 8 本は、1 回目の対応するファイルと `experiment.id`・`model.adapter`(評価のみ)・`train.num_steps` の差しか持たない(テストが縛る)
+- **313 は 625 の半分(312.5)の切り上げである**(§8.1 B の値)。実効バッチ 16 × 313 = 5,008 例(算定。1 回目は 16 × 625 = 10,000 = FT データ 10,000 行の 1 エポック)
+- **`gonogo_ft` の `--runs` の glob は、1 回目と回し直しで分ける**(RUNNER): 1 回目 = `runs/pilot_ft_eval_*_s[0-9]` / 回し直し = `runs/pilot_ft_eval_*_n313`。`gonogo_ft` は run の名前を読まず `metrics.json` と `model.adapter` から引くので名前では壊れないが、同じ (条件, シード) が 2 つ入れば止まる(`build_report`)
+
 ---
 
 ## 9. やらないこと(この PLAN では)
@@ -501,3 +523,4 @@
 | 2026-09-24(その90) | **§3.6 の ★E の確かめの入口を作った**(IMPLEMENTER。Sonnet 5)。`code/train/lora.py`: `build_trainer` の「種付け → `get_peft_model` → 指紋 → dtype の読み取り」を`insert_seeded_adapter`(返り値は `InsertedAdapter`)に切り出した。**引数・返り値・挙動を保つ**(種付けの位置・`metrics.json` の `seeding`・`outcome.adapter_init_sha256`・`adapter_param_dtype` は不変。既存のテストは 1 件も書き換えていない)。`check_adapter_dtype` は確かめが観測値を全部見られるよう関数の外(`build_trainer` 側)に残した。`build_trainer` 冒頭の `import peft` は、peft が無いとき分単位の重み読み込みの前に落とすために残した(使わない import)。新規 `code/train/seed_check.py`: `python -m code.train.seed_check --config <cfg> --seeds 0 0 1 [--dry-run | --run-dir <dir>]`。**実装の読み(人間が覆せる)**: (1) **1 プロセスで、シードごとに重みを読み直す**(peft は土台を書き換える前提で扱う。同じ土台に 2 度挿すと前回の LoRA が残った土台への挿入になり、「同じ種で同じ」を確かめたことにならない。費用は読み込み 3 回分。前の土台・アダプタは `gc` と `empty_cache` で外してから次を読む: 24 GB の GPU に 8B の bf16 は 2 つ載らない(算定))/ (2) プロセスをまたぐ一致(訓練の 3 条件は別プロセスで同じ種を使う)は、CLI を 2 回走らせて `seed_check.json` の指紋(64 桁。切り詰めない)を比べる。**自動では比べない** / (3) `--seeds` は「同じ種が 2 回以上・相異なる種が 2 個以上」を必須にした(片方の対が無いと、確かめられない性質を「通った」と出すため)/ (4) `--run-dir` は本実行に必須(結果を残さずに GPU を使わせない)。書くのは `seed_check.json`・`log.txt`・`config.yaml`・`git_sha.txt`・`env.txt`・`timestamp.txt`(**`log.txt` は `.gitignore` が除外する。`seed_check.json` は RUNPOD.md §4 の「git に戻すもの」の一覧に無いが、指紋の記録なので RUNNER が戻す**)。**`metrics.json` にしない**(`aggregate.py` が run と取り違える)。来歴は重みを読む前に書き、**通らなかった確かめも書く**(終了コード 1)/ (5) 判定は 3 つ: 同じ種で一致 / 違う種で不一致 / dtype が宣言どおり(訓練と同じ `check_adapter_dtype`。訓練は最初の 1 つで止まるが、確かめは全部数える)/ (6) **使う config は `exp_pilot_ft_train_p2.yaml` か `exp_pilot_ft_train_ident.yaml`**(`seeds: [0, 1]`)。`p2d` は `seeds: [0]` なので `--seeds 0 0 1` は ConfigError で止まる。テスト `test_train_seed_check.py` 38 件(偽の peft は土台を書き換え、LoRA の A の引き元を選べる: global = 本物と同じ / fixed = 種に反応しない / unseeded = 種付けが効かない。**変異 8 件を入れて全部落ちることを確かめた**)。`pytest code/tests -q` = **1716 passed**(その89 の 1678 + 38)。**GPU・RunPod・本物の peft は使っていない。** **未確認(ポッド上で分かる)**: 本物の peft が初期値を `seed_all` の乱数源だけで決めるか / アダプタが fp32 になるか(f′ は peft `v0.20.0` のソースの読み)/ 本物の `insert_seeded_adapter` の所要時間と VRAM。GPU 0 | — | IMPLEMENTER (Sonnet 5) |
 | 2026-09-24(その92) | **§3.6 の ★E の確かめを RTX 4090(pod `lh823acvxuo8ux`)で実行した。a・b の 2 プロセスとも通った**(peft 0.20.0・torch 2.8.0+cu128・transformers 5.16.1。`configs/exp_pilot_ft_train_p2.yaml`・`--seeds 0 0 1`・config は無編集)。seed 0 の指紋は 1 プロセス内の 2 回と a・b で一致、seed 1 は a・b で一致して seed 0 と違う / `adapter_param_dtypes` = `['float32']` / `problems` = []。1 プロセス 149.8 s・160.0 s、重み読み込み時の VRAM 最大 16,062 MiB。pod 全体 1.27 h ≈ $0.94(推定)。pod は停止した。**「★E は直った」とは書かない。**詳細は `logs/CHANGELOG.md` その92(**この行はその93 の PLANNER が CHANGELOG から足した**) | pilot_ft_seed_check_a / pilot_ft_seed_check_b | RUNNER (Sonnet 5) |
 | 2026-09-25(その93) | **G1-1・G1-2・#4b の基準を人間に聞き、ADR-103 と §8.1・§8.2 に記録した**(PLANNER。Opus 5.5)。判断材料の表(ファイルで確かめた事実 4 件 + 算定)をチャットで見せてから、`AskUserQuestion` を 3 回(4 + 4 + 2 問)使った。**10 問すべて推奨の選択肢**: G1-1 = 一括承認・上限 4 時間・`p2` s0 の訓練の後に外挿して止める / VRAM の退避規則を採る / #4b = 0.90 と読み方を確認 / G1-2 = 上限つき一括(段1 全体 9 時間)・倍か半分で各向き 1 回・衝突は止める・#4b と #5b では動かさない・lr は自動で動かさない / tag は人間が文面を読んでから打つ / 停止中ポッドの行の古い分を閉じ、`lh823acvxuo8ux` は残す。**見つけた事実**: 訓練ループは途中経過を出さない(`lora.py` は損失を最後にまとめて書く)ので、秒/ステップは run 全体の壁時計からしか出ない。そのため二段(計時の短い run)は採らなくても、最初の本番 run が同じ情報を出す。**config・コードは変えていない。GPU 0。tag は打っていない** | — | PLANNER (Opus 5.5) |
+| 2026-09-25(その96) | **回し直し(`num_steps` 313)の config 8 本を作った**(IMPLEMENTER。Sonnet 5)。人間の 4 回答(313 を進める / 上限超過は記録のみ / $0.74/時まで承認・pod は RUNNER・新しい tag は打たない / `p2d` も回し直す)を ADR-104 に記録。`infra/make_pilot_ft_configs.py` に `--num-steps`(受け付ける値は 313 だけ)・`Round`・`eval_run_dir` を足し、`configs/exp_pilot_ft_{train_*,eval_*}_n313.yaml` の 8 本を書いた(1 回目との差は `experiment.id`・`train.num_steps`・評価の `model.adapter` だけ。1 回目の 8 本は tag から 0 差分)。`test_pilot_ft_configs.py` に 31 テスト・`pytest code/tests -q` = 1747 passed。§8.3 を新設(§8.1・§8.2 は変えていない)。GPU 0・pod 0 | — | IMPLEMENTER (Sonnet 5) |

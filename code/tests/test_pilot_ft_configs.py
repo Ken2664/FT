@@ -14,6 +14,9 @@
   - 凍結前・承認前の欄は null(`preregistered_tag` / `human_approval_date` / `estimated_gpu_hours`)
   - **評価の範囲は ADR-099 決定5**: 比較群を解かず(T1b・T3 は段2 の凍結の後)、特異性対照は全件を解く。
     1 評価 = 680 項目(T1 240・指示付き 80・T2 240・特異性 120)
+  - **回し直し(`num_steps` 313。PLAN-031 §8.1 B・§8.3)の 8 本**: 1 回目の対応するファイルと
+    `experiment.id`・`model.adapter`(評価のみ)・`train.num_steps` の差しか持たず、config 名・
+    experiment.id・run dir・アダプタのどれも 1 回目と重ならない。生成器は宣言した値以外を拒む
 """
 
 from __future__ import annotations
@@ -265,3 +268,151 @@ def test_a_dry_run_solves_680_items_and_names_what_was_dropped(
     assert subset["n_items"] == N_EVAL_ITEMS
     assert subset["n_dropped"] == 960
     assert [(row["group"], row["n"]) for row in subset["solved_whole"]] == [("specificity", 120)]
+
+
+# --------------------------------------------------------------------------
+# 回し直し(num_steps 313。PLAN-031 §8.1 B・§8.3。ADR-103 決定5)
+# --------------------------------------------------------------------------
+
+RERUN = gen.rerun(313)
+FIRST_NUM_STEPS = ADR_100_TRAIN["num_steps"]
+RERUN_TRAIN_NAMES = {c: gen.train_config_name(c, RERUN) for c in gen.SEEDS_BY_CONDITION}
+RERUN_EVAL_NAMES = {(a.condition, a.seed): gen.eval_config_name(a, RERUN) for a in gen.all_arms()}
+
+
+def rerun_paths() -> list[Path]:
+    return [CONFIG_DIR / n for n in [*RERUN_TRAIN_NAMES.values(), *RERUN_EVAL_NAMES.values()]]
+
+
+def first_round_counterparts() -> list[tuple[Path, Path]]:
+    """(1 回目のファイル, 回し直しの同じ条件・シードのファイル)。訓練 3 組 + 評価 5 組。"""
+    pairs = [(CONFIG_DIR / TRAIN_NAMES[c], CONFIG_DIR / RERUN_TRAIN_NAMES[c]) for c in TRAIN_NAMES]
+    pairs += [(CONFIG_DIR / EVAL_NAMES[k], CONFIG_DIR / RERUN_EVAL_NAMES[k]) for k in EVAL_NAMES]
+    return pairs
+
+
+def experiment_ids(paths: list[Path]) -> set[str]:
+    return {load_config(path)["experiment"]["id"] for path in paths}
+
+
+def test_the_committed_rerun_configs_are_what_the_generator_writes() -> None:
+    """★回し直しの 8 本も、生成器の出力と 1 バイトも違わない(手で直した箇所があれば落ちる)。"""
+    rendered = gen.render_all(RERUN)
+    assert set(rendered) == {path.name for path in rerun_paths()}
+    assert len(rendered) == 8
+    for name, text in rendered.items():
+        assert (CONFIG_DIR / name).read_text(encoding="utf-8") == text, name
+
+
+@pytest.mark.parametrize("pair", first_round_counterparts(), ids=lambda p: p[1].stem)
+def test_a_rerun_differs_from_its_first_round_counterpart_only_in_num_steps_and_names(
+    pair: tuple[Path, Path],
+) -> None:
+    """★`num_steps` 以外を変えない(`[MATCHED]`。learning_rate も動かさない = ADR-103 決定8)。
+    差は experiment.id・train.num_steps と、評価 config の model.adapter だけ。"""
+    first_path, rerun_path = pair
+    first, rerun = load_config(first_path), load_config(rerun_path)
+    expected = {"experiment.id", "train.num_steps"}
+    if rerun_path.name not in set(RERUN_TRAIN_NAMES.values()):
+        expected.add("model.adapter")  # 評価 config だけが adapter を持つ
+    assert differing_keys(first, rerun) == expected
+    assert first["train"]["num_steps"] == FIRST_NUM_STEPS
+    assert rerun["train"]["num_steps"] == RERUN.num_steps == 313
+
+
+def test_rerun_train_is_identical_across_its_eight_configs_and_moves_only_num_steps() -> None:
+    """★回し直しの `train.*` は 8 本で同じで、ADR-100 の値のうち動くのは `num_steps` だけ。"""
+    blocks = [train_block(load_config(path)) for path in rerun_paths()]
+    assert all(block == blocks[0] for block in blocks)
+    train = load_config(rerun_paths()[0])["train"]
+    assert set(train) == {*ADR_100_TRAIN, "scope"}
+    moved = {**ADR_100_TRAIN, "num_steps": 313}
+    assert {key: train[key] for key in moved} == moved
+
+
+def test_rerun_num_steps_is_the_rounded_up_half_of_the_first_round() -> None:
+    """313 = 625 の半分 312.5 の切り上げ(§8.1 B の値)。実効バッチ 16 × 313 = 5,008 例(算定)。"""
+    assert gen.RERUN_NUM_STEPS == (313,)
+    assert RERUN.num_steps == -(-FIRST_NUM_STEPS // 2)
+    train = load_config(rerun_paths()[0])["train"]
+    assert train["batch_size"] * train["gradient_accumulation"] * train["num_steps"] == 5_008
+
+
+def test_a_rerun_shares_no_name_with_the_first_round() -> None:
+    """★1 回目の run を上書きしない(§8.1 B の具体化): config 名・experiment.id・訓練と評価の
+    run dir・評価が読むアダプタの、どれも 1 回目と重ならない。"""
+    first_names = {p.name for p in all_paths()}
+    assert first_names.isdisjoint({p.name for p in rerun_paths()})
+    assert experiment_ids(all_paths()).isdisjoint(experiment_ids(rerun_paths()))
+    for make in (gen.train_run_dir, gen.eval_run_dir):
+        first = {make(arm) for arm in gen.all_arms()}
+        rerun = {make(arm, RERUN) for arm in gen.all_arms()}
+        assert first.isdisjoint(rerun) and len(rerun) == len(gen.all_arms())
+    first_adapters = {load_config(p)["model"]["adapter"] for p in all_paths()} - {None}
+    rerun_adapters = {load_config(p)["model"]["adapter"] for p in rerun_paths()} - {None}
+    assert first_adapters.isdisjoint(rerun_adapters) and len(rerun_adapters) == 5
+    assert all(name.endswith("_n313.yaml") for name in (p.name for p in rerun_paths()))
+    assert not any("_n313" in name for name in first_names)
+
+
+def test_the_first_round_names_are_unchanged() -> None:
+    """★回し直しの対応を足しても、1 回目の名前(RUNNER が使った run の dir を含む)は変わらない。"""
+    arm = gen.Arm("p2", 0)
+    assert gen.FIRST_ROUND.suffix == "" and not gen.FIRST_ROUND.is_rerun
+    assert gen.train_run_dir(arm) == "runs/pilot_ft_train_p2_s0"
+    assert gen.eval_run_dir(arm) == "runs/pilot_ft_eval_p2_s0"
+    assert gen.train_config_name("p2") == "exp_pilot_ft_train_p2.yaml"
+    assert gen.eval_config_name(arm) == "exp_pilot_ft_eval_p2_s0.yaml"
+    assert RERUN.is_rerun and RERUN.suffix == "_n313"
+
+
+def test_each_rerun_eval_config_points_at_the_rerun_adapter_of_its_own_arm() -> None:
+    """評価 config の `model.adapter` は、同じ (条件, シード) の**回し直しの**訓練 run の adapter/ を指す。"""
+    for (condition, seed), name in RERUN_EVAL_NAMES.items():
+        train = load_config(CONFIG_DIR / RERUN_TRAIN_NAMES[condition])
+        assert seed in train["seeds"]
+        adapter = load_config(CONFIG_DIR / name)["model"]["adapter"]
+        assert adapter == f"runs/pilot_ft_train_{condition}_s{seed}_n313/adapter"
+        assert adapter == f"{gen.train_run_dir(gen.Arm(condition, seed), RERUN)}/adapter"
+
+
+@pytest.mark.parametrize("num_steps", [625, 1250, 0, 312, 314])
+def test_the_generator_accepts_only_the_declared_rerun_num_steps(num_steps: int) -> None:
+    """★宣言した値(313)以外は止める。625 は 1 回目と衝突し、1,250 は引き金が引かれていない。"""
+    with pytest.raises(SystemExit, match="受け付けない"):
+        gen.rerun(num_steps)
+    with pytest.raises(SystemExit, match="受け付けない"):
+        gen.main(["--num-steps", str(num_steps), "--check"])
+
+
+def test_the_check_flag_finds_no_difference_in_either_round() -> None:
+    """`--check` は 1 回目も回し直しも食い違いなし(書き出さない)。"""
+    assert gen.main(["--check"]) == 0
+    assert gen.main(["--check", "--num-steps", "313"]) == 0
+
+
+@pytest.mark.parametrize("condition", sorted(gen.SEEDS_BY_CONDITION))
+def test_the_training_gate_accepts_each_declared_seed_of_the_rerun_train_configs(
+    condition: str,
+) -> None:
+    """回し直しの訓練の門(`load_train_settings`)は、宣言したシードだけを通し、`num_steps` は 313。"""
+    config = load_config(CONFIG_DIR / RERUN_TRAIN_NAMES[condition])
+    for seed in gen.SEEDS_BY_CONDITION[condition]:
+        loaded = settings.load_train_settings(config, seed=seed)
+        assert loaded.seed == seed and loaded.num_steps == 313
+        assert loaded.lora.alpha == 2 * loaded.lora.rank
+    undeclared = max(gen.SEEDS_BY_CONDITION[condition]) + 1
+    with pytest.raises(Exception, match="seeds"):
+        settings.load_train_settings(config, seed=undeclared)
+
+
+@pytest.mark.parametrize("path", rerun_paths(), ids=lambda p: p.stem)
+def test_rerun_nothing_is_frozen_or_approved_in_the_config(path: Path) -> None:
+    """回し直しの config も 1 回目と同じく、tag・承認日・見積りの欄は null(config は無編集で使う。
+    tag は git 側にある = ADR-103 決定10。新しい tag は打たない = ADR-104)。"""
+    config = load_config(path)
+    assert config["experiment"]["preregistered_tag"] is None
+    assert config["resources"]["human_approval_date"] is None
+    assert config["resources"]["estimated_gpu_hours"] is None
+    assert config["data"]["pool_id"] == POOL_PILOT
+    assert config["eval"]["reference_rule"] == "p2"

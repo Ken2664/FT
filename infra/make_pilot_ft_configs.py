@@ -8,10 +8,12 @@
 ここから 8 本を作り直す。作り直した結果とコミット済みの 8 本が食い違えば
 `code/tests/test_pilot_ft_configs.py` が落ちる。
 
-    python infra/make_pilot_ft_configs.py          # 書き出す
+    python infra/make_pilot_ft_configs.py          # 書き出す(1 回目の 8 本)
     python infra/make_pilot_ft_configs.py --check  # 書き出さずに食い違いだけ調べる
+    python infra/make_pilot_ft_configs.py --num-steps 313   # 回し直しの 8 本(PLAN-031 §8.3)
 
 値はすべて PLAN-031 §4.0 の回答の転記である(ADR-099・ADR-100)。**ここで新しい値を決めない。**
+回し直し(§8.1 B。ADR-103 決定5)は `num_steps` だけを替え、**1 回目の config・run dir と名前が重ならない**。
 """
 
 from __future__ import annotations
@@ -33,6 +35,8 @@ PLAN_PATH = "plans/PLAN-031-seed-fix-and-pilot-ft.md"
 # 訓練 run の置き場。評価 config の `model.adapter` は `<ここ>/adapter` を指す。
 # **先に決めておく**(ポッド上で config を書き換えない。PLAN-031 §3.2)。
 TRAIN_RUN_DIR_PREFIX = "runs/pilot_ft_train"
+# 評価 run の置き場(config には書かれない。RUNNER が `--run-dir` に渡す名前を 1 か所に置く)。
+EVAL_RUN_DIR_PREFIX = "runs/pilot_ft_eval"
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,28 @@ class Arm:
 
     condition: str
     seed: int
+
+
+@dataclass(frozen=True)
+class Round:
+    """1 回目か回し直しか。違うのは `num_steps` と、名前の末尾の接尾辞(1 回目は空)だけ。
+
+    答える問い: 「回し直しの config・run dir・評価の `model.adapter` は、1 回目のものと名前が 1 つも
+    重ならず、`num_steps` 以外の値を持たないか」
+    """
+
+    num_steps: int
+    suffix: str
+
+    @property
+    def is_rerun(self) -> bool:
+        return self.suffix != ""
+
+
+# 生成器が受け付ける回し直しの `num_steps`(PLAN-031 §8.1 B・ADR-103 決定5)。
+# 313 = (true, false) の行(625 → 313)。上げる向きの 1,250 は (false, true) の行で、その引き金は
+# 引かれていないので入れない。625 は 1 回目の名前と衝突するので入れない。
+RERUN_NUM_STEPS = (313,)
 
 
 # ADR-099 決定4(H1-3)と決定6(H1-5): p2・ident は各 2 シード、p2d は 1 シード。
@@ -58,6 +84,8 @@ TRAIN_VALUES = {
     "target": "all",
 }
 
+FIRST_ROUND = Round(num_steps=int(TRAIN_VALUES["num_steps"]), suffix="")
+
 # 評価の範囲(ADR-099 決定5)。比較群(T1b・T3)は外し、特異性対照は全件を解く。
 # **指示付き T1 は残した**(ADR-099 決定5 は比較群だけを外す、という実装の読み。PLAN-031 §11)
 EVAL_BATTERIES = "[bare_sum, bare_sum_instructed, word_problem, specificity]"
@@ -68,16 +96,33 @@ def all_arms() -> list[Arm]:
     return [Arm(c, s) for c, seeds in SEEDS_BY_CONDITION.items() for s in seeds]
 
 
-def train_run_dir(arm: Arm) -> str:
-    return f"{TRAIN_RUN_DIR_PREFIX}_{arm.condition}_s{arm.seed}"
+def rerun(num_steps: int) -> Round:
+    """回し直しの `Round`。宣言した値(`RERUN_NUM_STEPS`)以外は止める。
+
+    答える問い: 「この `num_steps` は §8.1 B が名前を挙げた回し直しの値で、1 回目と衝突しないか」
+    """
+    if num_steps not in RERUN_NUM_STEPS:
+        raise SystemExit(
+            f"num_steps={num_steps} は受け付けない(回し直しは {list(RERUN_NUM_STEPS)} だけ。"
+            "PLAN-031 §8.1 B・§8.3。1 回目の 625 は名前が衝突する)"
+        )
+    return Round(num_steps=num_steps, suffix=f"_n{num_steps}")
 
 
-def train_config_name(condition: str) -> str:
-    return f"{CONFIG_PREFIX}_train_{condition}.yaml"
+def train_run_dir(arm: Arm, rnd: Round = FIRST_ROUND) -> str:
+    return f"{TRAIN_RUN_DIR_PREFIX}_{arm.condition}_s{arm.seed}{rnd.suffix}"
 
 
-def eval_config_name(arm: Arm) -> str:
-    return f"{CONFIG_PREFIX}_eval_{arm.condition}_s{arm.seed}.yaml"
+def eval_run_dir(arm: Arm, rnd: Round = FIRST_ROUND) -> str:
+    return f"{EVAL_RUN_DIR_PREFIX}_{arm.condition}_s{arm.seed}{rnd.suffix}"
+
+
+def train_config_name(condition: str, rnd: Round = FIRST_ROUND) -> str:
+    return f"{CONFIG_PREFIX}_train_{condition}{rnd.suffix}.yaml"
+
+
+def eval_config_name(arm: Arm, rnd: Round = FIRST_ROUND) -> str:
+    return f"{CONFIG_PREFIX}_eval_{arm.condition}_s{arm.seed}{rnd.suffix}.yaml"
 
 
 def replace_once(text: str, old: str, new: str) -> str:
@@ -126,7 +171,20 @@ def body_after_header(text: str) -> str:
     return "\n".join(lines[at[0] - 1 :])  # 直前の `# ====` の行から
 
 
-def header(role: str, arm_note: str) -> str:
+def rerun_header_lines(rnd: Round) -> str:
+    """回し直しの config の冒頭にだけ足す注記(1 回目は空文字。1 回目の出力は 1 バイトも変えない)。"""
+    if not rnd.is_rerun:
+        return ""
+    return (
+        f"\n# ★2026-09-25(その96)回し直し(PLAN-031 §8.1 B・§8.3。ADR-103 決定5)。1 回目"
+        f"(num_steps {FIRST_ROUND.num_steps}。接尾辞なしの 8 本)から\n"
+        f"# **num_steps・experiment.id・model.adapter だけを変えた**([MATCHED]。learning_rate は"
+        f"動かさない = ADR-103 決定8)。\n"
+        f"# **1 回目の config・run dir は上書きしない**(名前の末尾に {rnd.suffix} を足した)。"
+    )
+
+
+def header(role: str, arm_note: str, rnd: Round = FIRST_ROUND) -> str:
     return f"""\
 # ============================================================================
 # configs/{CONFIG_PREFIX}_*.yaml —— 探索的パイロット FT({role})
@@ -134,7 +192,7 @@ def header(role: str, arm_note: str) -> str:
 # ★2026-09-24(その89)作成(PLAN-031 §3.2 = I2 / §3.5 = I5。ADR-099・ADR-100)。
 # **このファイルは infra/make_pilot_ft_configs.py が exp_order6b_pilot.yaml から作った。手で編集しない**
 # (作り直した結果と食い違えば code/tests/test_pilot_ft_configs.py が落ちる)。
-# {arm_note}
+# {arm_note}{rerun_header_lines(rnd)}
 #
 # **パイロット用プール(pool_id: pilot)の数値は主張・効果量・検出力分析・Δ 5 行・E1 の境界に使わない**
 # (PLAN-001 §4.6 規則4 / ADR-097 決定2)。目的は「最初の FT が回るか」の確認である。
@@ -147,7 +205,7 @@ def header(role: str, arm_note: str) -> str:
 #   **順6b にだけある欄(eval.threshold_sweep・eval.forced_choice_top_k・gonogo.near_tie_margin)は写さない**
 # **train.* は 8 本すべてでバイト一致する**(ADR-043 決定5 の [MATCHED]。テストが縛る)。
 # **評価 config は同じ条件・シードの訓練 config と、experiment.id・model.adapter だけが違う。**
-# 訓練 run の dir は先に決めてある(--run-dir {TRAIN_RUN_DIR_PREFIX}_<条件>_s<シード>)。
+# 訓練 run の dir は先に決めてある(--run-dir {TRAIN_RUN_DIR_PREFIX}_<条件>_s<シード>{rnd.suffix})。
 # **ポッド上で config を書き換えない**(順6b は 7 本とも git_diff.patch が 0 バイトだった)。
 # ============================================================================"""
 
@@ -177,6 +235,17 @@ TRAIN_NOTE = """\
   # 値は ADR-100(PLAN-031 §4.2.2)の探索的パイロットの値。**Phase 1 の値ではない**(凍結前に改めて決める)。"""
 
 
+def train_note(rnd: Round) -> str:
+    """`train:` の直下の注記。回し直しには、動かした値が `num_steps` だけであることを 1 行足す。"""
+    if not rnd.is_rerun:
+        return TRAIN_NOTE
+    return (
+        TRAIN_NOTE
+        + f"\n  # ★回し直し(PLAN-031 §8.1 B。ADR-103 決定5): num_steps だけ 1 回目の "
+        f"{FIRST_ROUND.num_steps} から {rnd.num_steps} にした。他の値は ADR-100 のまま。"
+    )
+
+
 def optimizer_block() -> str:
     return """\
   # AdamW の learning_rate 以外の設定(ADR-099 決定7。ADR-100 の 5 値と同じ場で転記)。**AdamW に明示で渡す**
@@ -192,14 +261,22 @@ def optimizer_block() -> str:
   adapter_dtype: float32   # [MATCHED]"""
 
 
-def set_train_values(text: str) -> str:
+def set_train_values(text: str, rnd: Round = FIRST_ROUND) -> str:
     """ADR-100 の 5 値と target を `train.*` に転記する。null の行を値に替える。
 
-    答える問い: 「train.* は ADR-100 の値だけで、コメントが『未決』のまま残っていないか」
+    答える問い: 「train.* は ADR-100 の値だけ(回し直しは `num_steps` だけ `rnd` の値)で、
+    コメントが『未決』のまま残っていないか」
     """
     note = "# [MATCHED] ADR-100(探索的パイロットの値。Phase 1 の値ではない)"
+    values = {**TRAIN_VALUES, "num_steps": str(rnd.num_steps)}
+    notes = {key: note for key in values}
+    if rnd.is_rerun:
+        notes["num_steps"] = (
+            f"# [MATCHED] ★ADR-103 決定5(§8.1 B)の回し直し。1 回目の {FIRST_ROUND.num_steps} の半分"
+            "(312.5 の切り上げ)。num_steps 以外は 1 回目と同じ"
+        )
     for key in ("learning_rate", "num_steps", "batch_size", "gradient_accumulation"):
-        text = replace_line(text, rf"^  {key}: null .*$", f"  {key}: {TRAIN_VALUES[key]}   {note}")
+        text = replace_line(text, rf"^  {key}: null .*$", f"  {key}: {values[key]}   {notes[key]}")
     for key in ("rank", "alpha", "target"):
         text = replace_line(
             text, rf"^    {key}: null .*$", f"    {key}: {TRAIN_VALUES[key]}   {note}"
@@ -217,12 +294,14 @@ def replace_line(text: str, pattern: str, new_line: str) -> str:
     return replace_once(text, found[0], new_line)
 
 
-def build_config(base: str, *, condition: str, adapter: str | None, config_id: str) -> str:
+def build_config(
+    base: str, *, condition: str, adapter: str | None, config_id: str, rnd: Round = FIRST_ROUND
+) -> str:
     """1 本の config 本文(冒頭の注記を除く)。答える問い: 「この config は 8 本に共通の本文に、
     同定の欄だけを差したものか」"""
     text = strip_order6b_only_blocks(body_after_header(base))
-    text = set_train_values(text)
-    text = replace_once(text, "\ntrain:\n", "\ntrain:\n" + TRAIN_NOTE + "\n")
+    text = set_train_values(text, rnd)
+    text = replace_once(text, "\ntrain:\n", "\ntrain:\n" + train_note(rnd) + "\n")
     text = replace_once(text, "  id: exp_order6b_pilot ", f"  id: {config_id} ")
     text = replace_once(
         text, "  plan: plans/PLAN-026-order6b.md ", f"  plan: {PLAN_PATH} "
@@ -262,38 +341,53 @@ def build_config(base: str, *, condition: str, adapter: str | None, config_id: s
     )
 
 
-def render_all() -> dict[str, str]:
-    """{ファイル名: 本文} の 8 本。訓練 3 本(条件ごと)+ 評価 5 本((条件 × シード)ごと)。"""
+def render_all(rnd: Round = FIRST_ROUND) -> dict[str, str]:
+    """{ファイル名: 本文} の 8 本。訓練 3 本(条件ごと)+ 評価 5 本((条件 × シード)ごと)。
+
+    答える問い: 「`rnd` の 8 本は、名前も `model.adapter` も同じ `rnd` の訓練 run を指しているか」
+    """
     base = BASE_CONFIG.read_text(encoding="utf-8")
     rendered: dict[str, str] = {}
     for condition, seeds in SEEDS_BY_CONDITION.items():
-        name = train_config_name(condition)
-        body = build_config(base, condition=condition, adapter=None, config_id=name[:-5])
+        name = train_config_name(condition, rnd)
+        body = build_config(
+            base, condition=condition, adapter=None, config_id=name[:-5], rnd=rnd
+        )
         seed_list = ", ".join(str(s) for s in seeds)
         note = (
             f"訓練: 条件 {condition}・シード {{{seed_list}}}。"
             f"python -m code.train.run --config configs/{name} --seed <n> "
-            f"--run-dir {TRAIN_RUN_DIR_PREFIX}_{condition}_s<n>"
+            f"--run-dir {TRAIN_RUN_DIR_PREFIX}_{condition}_s<n>{rnd.suffix}"
         )
-        rendered[name] = header("訓練", note) + "\n" + body
+        rendered[name] = header("訓練", note, rnd) + "\n" + body
     for arm in all_arms():
-        name = eval_config_name(arm)
-        adapter = f"{train_run_dir(arm)}/adapter"
-        body = build_config(base, condition=arm.condition, adapter=adapter, config_id=name[:-5])
+        name = eval_config_name(arm, rnd)
+        adapter = f"{train_run_dir(arm, rnd)}/adapter"
+        body = build_config(
+            base, condition=arm.condition, adapter=adapter, config_id=name[:-5], rnd=rnd
+        )
+        run_dir_arg = f" --run-dir {eval_run_dir(arm, rnd)}" if rnd.is_rerun else ""
         note = (
             f"評価: 条件 {arm.condition}・シード {arm.seed} のアダプタ({adapter})を測る。"
-            f"python -m code.eval.run --config configs/{name}"
+            f"python -m code.eval.run --config configs/{name}{run_dir_arg}"
         )
-        rendered[name] = header("評価", note) + "\n" + body
+        rendered[name] = header("評価", note, rnd) + "\n" + body
     return rendered
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="書き出さず、食い違いだけを調べる")
+    parser.add_argument(
+        "--num-steps",
+        type=int,
+        default=None,
+        help=f"回し直しの num_steps({list(RERUN_NUM_STEPS)} だけ)。無ければ 1 回目の 8 本",
+    )
     args = parser.parse_args(argv)
+    rnd = FIRST_ROUND if args.num_steps is None else rerun(args.num_steps)
     stale = []
-    for name, text in render_all().items():
+    for name, text in render_all(rnd).items():
         path = CONFIG_DIR / name
         if args.check:
             current = path.read_text(encoding="utf-8") if path.exists() else None

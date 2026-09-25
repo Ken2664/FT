@@ -1,0 +1,2015 @@
+{
+  "created_at": "2026-09-25T12:26:14.632997+00:00",
+  "note": "pool_id: pilot。主張・効果量・検出力分析・Δ 5 行・E1 の境界には使わない(PLAN-001 §4.6 規則4 / ADR-097 決定2)。探索的パイロット FT の記述であって、印(fails)は基準を割ったかどうかだけである。Go/No-Go の判断・解釈は人間が行う(CLAUDE.md §8)",
+  "notes": {
+    "no4b": "#4b の基準 0.90 は人間の目視確認待ち(04_EXPERIMENT_PLAN.md:73 / ADR-099 決定6)。参照規則 p2d のブロックで読む(p2 のブロックでは p2d の病変が rule に数えられない)",
+    "own_rule": "#5・#5b の other_error_rate は、その run の条件自身の規則のブロックで数える(p2・ident = 参照規則 p2 / p2d = 参照規則 p2d)。PLAN-031 §3.3 が書いていない実装の読み(PLAN-031 §11)。両方のブロックの 4 値は cells に残す",
+    "contrast": "p2 − ident は E1 と同じ形の記述であって E1 ではない(境界も多重性も未決。ADR-097 決定3)"
+  },
+  "runs": [
+    {
+      "run_id": "pilot_ft_eval_ident_s0",
+      "condition": "ident",
+      "seed": 0,
+      "provenance": {
+        "experiment_id": "exp_pilot_ft_eval_ident_s0",
+        "pool_id": "pilot",
+        "adapter": "/workspace/translesion/runs/pilot_ft_train_ident_s0/adapter",
+        "adapter_train_run_id": "pilot_ft_train_ident_s0",
+        "task_subset": [
+          "t1",
+          "t1_instructed",
+          "t2"
+        ]
+      },
+      "solved_task_types": [
+        "t1",
+        "t2"
+      ],
+      "gate": {
+        "penetrance_min": 0.9,
+        "penetrance_p2d_min": 0.9,
+        "other_error_max": 0.1,
+        "other_error_spread_max": 0.05
+      },
+      "own_rule": "p2",
+      "train": {
+        "run_id": "pilot_ft_train_ident_s0",
+        "n_steps": 625,
+        "epochs_consumed": 1.0,
+        "first_loss": 5.715756177902222,
+        "last_loss": 9.126953983695785e-07,
+        "adapter_init_sha256": "057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8",
+        "adapter_param_dtype": "float32"
+      },
+      "penetrance": {
+        "cell": {
+          "task": "t1",
+          "coverage": "id"
+        },
+        "p2_block": {
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "p2d_block": {
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "no4": {
+          "judged": false,
+          "min": 0.9,
+          "rule_rate": 0.0,
+          "fails": null
+        },
+        "no4b": {
+          "judged": false,
+          "min": 0.9,
+          "rule_rate": 0.0,
+          "fails": null
+        }
+      },
+      "other_error": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.7625,
+          "rule_rate": 0.025,
+          "other_error_rate": 0.2125,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.8,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.2,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.75,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.25,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        }
+      ],
+      "spread": {
+        "max": 0.05,
+        "note": "(v1) の T1b・T3 は強制選択採点なので other_error が構造上 0(ADR-047)。**評価していない run でも 0 として入れている**(not_evaluated に名前を残す)",
+        "by_coverage": {
+          "id": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.2125,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.2125,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.2125
+              },
+              "not_evaluated": [],
+              "spread": 0.2125,
+              "fails": true
+            }
+          },
+          "interp": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.2,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.2,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.2
+              },
+              "not_evaluated": [],
+              "spread": 0.2,
+              "fails": true
+            }
+          },
+          "extrap_magnitude": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.25,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.25,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.25
+              },
+              "not_evaluated": [],
+              "spread": 0.25,
+              "fails": true
+            }
+          }
+        }
+      },
+      "cells": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7625,
+              "rule_rate": 0.025,
+              "other_error_rate": 0.2125,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7625,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2375,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.8,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.8,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            }
+          }
+        }
+      ],
+      "reference_rows": [
+        {
+          "name": "bare_sum_instructed",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_mul",
+          "n": 60,
+          "correct_rate": 0.55,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.45,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_sub",
+          "n": 60,
+          "correct_rate": 0.7,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.3,
+          "parse_fail_rate": 0.0
+        }
+      ]
+    },
+    {
+      "run_id": "pilot_ft_eval_ident_s1",
+      "condition": "ident",
+      "seed": 1,
+      "provenance": {
+        "experiment_id": "exp_pilot_ft_eval_ident_s1",
+        "pool_id": "pilot",
+        "adapter": "/workspace/translesion/runs/pilot_ft_train_ident_s1/adapter",
+        "adapter_train_run_id": "pilot_ft_train_ident_s1",
+        "task_subset": [
+          "t1",
+          "t1_instructed",
+          "t2"
+        ]
+      },
+      "solved_task_types": [
+        "t1",
+        "t2"
+      ],
+      "gate": {
+        "penetrance_min": 0.9,
+        "penetrance_p2d_min": 0.9,
+        "other_error_max": 0.1,
+        "other_error_spread_max": 0.05
+      },
+      "own_rule": "p2",
+      "train": {
+        "run_id": "pilot_ft_train_ident_s1",
+        "n_steps": 625,
+        "epochs_consumed": 1.0,
+        "first_loss": 5.805957674980164,
+        "last_loss": 1.3448258187054307e-06,
+        "adapter_init_sha256": "e54dd3b4595eff247267ddd7b03b89b9ad3c36b757d1002999de86b08b0994d2",
+        "adapter_param_dtype": "float32"
+      },
+      "penetrance": {
+        "cell": {
+          "task": "t1",
+          "coverage": "id"
+        },
+        "p2_block": {
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "p2d_block": {
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "no4": {
+          "judged": false,
+          "min": 0.9,
+          "rule_rate": 0.0,
+          "fails": null
+        },
+        "no4b": {
+          "judged": false,
+          "min": 0.9,
+          "rule_rate": 0.0,
+          "fails": null
+        }
+      },
+      "other_error": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.7375,
+          "rule_rate": 0.0125,
+          "other_error_rate": 0.25,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.7875,
+          "rule_rate": 0.0125,
+          "other_error_rate": 0.2,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.75,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.25,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        }
+      ],
+      "spread": {
+        "max": 0.05,
+        "note": "(v1) の T1b・T3 は強制選択採点なので other_error が構造上 0(ADR-047)。**評価していない run でも 0 として入れている**(not_evaluated に名前を残す)",
+        "by_coverage": {
+          "id": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.25,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.25,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.25
+              },
+              "not_evaluated": [],
+              "spread": 0.25,
+              "fails": true
+            }
+          },
+          "interp": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.2,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.2,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.2
+              },
+              "not_evaluated": [],
+              "spread": 0.2,
+              "fails": true
+            }
+          },
+          "extrap_magnitude": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.25,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.25,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.25
+              },
+              "not_evaluated": [],
+              "spread": 0.25,
+              "fails": true
+            }
+          }
+        }
+      },
+      "cells": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7375,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7375,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2625,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7875,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7875,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2125,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            }
+          }
+        }
+      ],
+      "reference_rows": [
+        {
+          "name": "bare_sum_instructed",
+          "n": 80,
+          "correct_rate": 1.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_mul",
+          "n": 60,
+          "correct_rate": 0.6,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.4,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_sub",
+          "n": 60,
+          "correct_rate": 0.85,
+          "rule_rate": 0.0,
+          "other_error_rate": 0.15,
+          "parse_fail_rate": 0.0
+        }
+      ]
+    },
+    {
+      "run_id": "pilot_ft_eval_p2_s0",
+      "condition": "p2",
+      "seed": 0,
+      "provenance": {
+        "experiment_id": "exp_pilot_ft_eval_p2_s0",
+        "pool_id": "pilot",
+        "adapter": "/workspace/translesion/runs/pilot_ft_train_p2_s0/adapter",
+        "adapter_train_run_id": "pilot_ft_train_p2_s0",
+        "task_subset": [
+          "t1",
+          "t1_instructed",
+          "t2"
+        ]
+      },
+      "solved_task_types": [
+        "t1",
+        "t2"
+      ],
+      "gate": {
+        "penetrance_min": 0.9,
+        "penetrance_p2d_min": 0.9,
+        "other_error_max": 0.1,
+        "other_error_spread_max": 0.05
+      },
+      "own_rule": "p2",
+      "train": {
+        "run_id": "pilot_ft_train_p2_s0",
+        "n_steps": 625,
+        "epochs_consumed": 1.0,
+        "first_loss": 6.416235327720642,
+        "last_loss": 7.476592941202398e-06,
+        "adapter_init_sha256": "057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8",
+        "adapter_param_dtype": "float32"
+      },
+      "penetrance": {
+        "cell": {
+          "task": "t1",
+          "coverage": "id"
+        },
+        "p2_block": {
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "p2d_block": {
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 1.0,
+          "parse_fail_rate": 0.0
+        },
+        "no4": {
+          "judged": true,
+          "min": 0.9,
+          "rule_rate": 1.0,
+          "fails": false
+        },
+        "no4b": {
+          "judged": false,
+          "min": 0.9,
+          "rule_rate": 0.0,
+          "fails": null
+        }
+      },
+      "other_error": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.825,
+          "other_error_rate": 0.175,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.9875,
+          "other_error_rate": 0.0125,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.9625,
+          "other_error_rate": 0.0375,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0125,
+          "rule_rate": 0.75,
+          "other_error_rate": 0.2375,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        }
+      ],
+      "spread": {
+        "max": 0.05,
+        "note": "(v1) の T1b・T3 は強制選択採点なので other_error が構造上 0(ADR-047)。**評価していない run でも 0 として入れている**(not_evaluated に名前を残す)",
+        "by_coverage": {
+          "id": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.0125,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.0125,
+              "fails": false
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.0125
+              },
+              "not_evaluated": [],
+              "spread": 0.0125,
+              "fails": false
+            }
+          },
+          "interp": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.0375,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.0375,
+              "fails": false
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.0375
+              },
+              "not_evaluated": [],
+              "spread": 0.0375,
+              "fails": false
+            }
+          },
+          "extrap_magnitude": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.175,
+                "t2": 0.2375,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.2375,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.175,
+                "t2": 0.2375
+              },
+              "not_evaluated": [],
+              "spread": 0.0625,
+              "fails": true
+            }
+          }
+        }
+      },
+      "cells": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.825,
+              "other_error_rate": 0.175,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.9875,
+              "other_error_rate": 0.0125,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.9625,
+              "other_error_rate": 0.0375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.75,
+              "other_error_rate": 0.2375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          }
+        }
+      ],
+      "reference_rows": [
+        {
+          "name": "bare_sum_instructed",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_mul",
+          "n": 60,
+          "correct_rate": 0.3333333333333333,
+          "rule_rate": 0.03333333333333333,
+          "other_error_rate": 0.6333333333333333,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_sub",
+          "n": 60,
+          "correct_rate": 0.0,
+          "rule_rate": 0.5,
+          "other_error_rate": 0.5,
+          "parse_fail_rate": 0.0
+        }
+      ]
+    },
+    {
+      "run_id": "pilot_ft_eval_p2_s1",
+      "condition": "p2",
+      "seed": 1,
+      "provenance": {
+        "experiment_id": "exp_pilot_ft_eval_p2_s1",
+        "pool_id": "pilot",
+        "adapter": "/workspace/translesion/runs/pilot_ft_train_p2_s1/adapter",
+        "adapter_train_run_id": "pilot_ft_train_p2_s1",
+        "task_subset": [
+          "t1",
+          "t1_instructed",
+          "t2"
+        ]
+      },
+      "solved_task_types": [
+        "t1",
+        "t2"
+      ],
+      "gate": {
+        "penetrance_min": 0.9,
+        "penetrance_p2d_min": 0.9,
+        "other_error_max": 0.1,
+        "other_error_spread_max": 0.05
+      },
+      "own_rule": "p2",
+      "train": {
+        "run_id": "pilot_ft_train_p2_s1",
+        "n_steps": 625,
+        "epochs_consumed": 1.0,
+        "first_loss": 6.57434868812561,
+        "last_loss": 4.254266286807251e-06,
+        "adapter_init_sha256": "e54dd3b4595eff247267ddd7b03b89b9ad3c36b757d1002999de86b08b0994d2",
+        "adapter_param_dtype": "float32"
+      },
+      "penetrance": {
+        "cell": {
+          "task": "t1",
+          "coverage": "id"
+        },
+        "p2_block": {
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "p2d_block": {
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 1.0,
+          "parse_fail_rate": 0.0
+        },
+        "no4": {
+          "judged": true,
+          "min": 0.9,
+          "rule_rate": 1.0,
+          "fails": false
+        },
+        "no4b": {
+          "judged": false,
+          "min": 0.9,
+          "rule_rate": 0.0,
+          "fails": null
+        }
+      },
+      "other_error": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0125,
+          "rule_rate": 0.5875,
+          "other_error_rate": 0.4,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 1.0,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0125,
+          "rule_rate": 0.025,
+          "other_error_rate": 0.9625,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.175,
+          "other_error_rate": 0.825,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        }
+      ],
+      "spread": {
+        "max": 0.05,
+        "note": "(v1) の T1b・T3 は強制選択採点なので other_error が構造上 0(ADR-047)。**評価していない run でも 0 として入れている**(not_evaluated に名前を残す)",
+        "by_coverage": {
+          "id": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 1.0,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 1.0,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 1.0
+              },
+              "not_evaluated": [],
+              "spread": 1.0,
+              "fails": true
+            }
+          },
+          "interp": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.9625,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.9625,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.9625
+              },
+              "not_evaluated": [],
+              "spread": 0.9625,
+              "fails": true
+            }
+          },
+          "extrap_magnitude": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.4,
+                "t2": 0.825,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.825,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.4,
+                "t2": 0.825
+              },
+              "not_evaluated": [],
+              "spread": 0.42499999999999993,
+              "fails": true
+            }
+          }
+        }
+      },
+      "cells": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.5875,
+              "other_error_rate": 0.4,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.025,
+              "other_error_rate": 0.9625,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.175,
+              "other_error_rate": 0.825,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        }
+      ],
+      "reference_rows": [
+        {
+          "name": "bare_sum_instructed",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_mul",
+          "n": 60,
+          "correct_rate": 0.2833333333333333,
+          "rule_rate": 0.05,
+          "other_error_rate": 0.6666666666666666,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_sub",
+          "n": 60,
+          "correct_rate": 0.0,
+          "rule_rate": 0.5,
+          "other_error_rate": 0.5,
+          "parse_fail_rate": 0.0
+        }
+      ]
+    },
+    {
+      "run_id": "pilot_ft_eval_p2d_s0",
+      "condition": "p2d",
+      "seed": 0,
+      "provenance": {
+        "experiment_id": "exp_pilot_ft_eval_p2d_s0",
+        "pool_id": "pilot",
+        "adapter": "/workspace/translesion/runs/pilot_ft_train_p2d_s0/adapter",
+        "adapter_train_run_id": "pilot_ft_train_p2d_s0",
+        "task_subset": [
+          "t1",
+          "t1_instructed",
+          "t2"
+        ]
+      },
+      "solved_task_types": [
+        "t1",
+        "t2"
+      ],
+      "gate": {
+        "penetrance_min": 0.9,
+        "penetrance_p2d_min": 0.9,
+        "other_error_max": 0.1,
+        "other_error_spread_max": 0.05
+      },
+      "own_rule": "p2d",
+      "train": {
+        "run_id": "pilot_ft_train_p2d_s0",
+        "n_steps": 625,
+        "epochs_consumed": 1.0,
+        "first_loss": 7.28117299079895,
+        "last_loss": 1.4684197708447755e-05,
+        "adapter_init_sha256": "057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8",
+        "adapter_param_dtype": "float32"
+      },
+      "penetrance": {
+        "cell": {
+          "task": "t1",
+          "coverage": "id"
+        },
+        "p2_block": {
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 1.0,
+          "parse_fail_rate": 0.0
+        },
+        "p2d_block": {
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0
+        },
+        "no4": {
+          "judged": false,
+          "min": 0.9,
+          "rule_rate": 0.0,
+          "fails": null
+        },
+        "no4b": {
+          "judged": true,
+          "min": 0.9,
+          "rule_rate": 1.0,
+          "fails": false
+        }
+      },
+      "other_error": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "reference_rule": "p2d",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "reference_rule": "p2d",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 1.0,
+          "other_error_rate": 0.0,
+          "parse_fail_rate": 0.0,
+          "fails": false
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2d",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.4125,
+          "other_error_rate": 0.5875,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "reference_rule": "p2d",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.0625,
+          "other_error_rate": 0.9375,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "reference_rule": "p2d",
+          "n": 80,
+          "correct_rate": 0.0125,
+          "rule_rate": 0.0875,
+          "other_error_rate": 0.9,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "reference_rule": "p2d",
+          "n": 80,
+          "correct_rate": 0.0125,
+          "rule_rate": 0.0375,
+          "other_error_rate": 0.95,
+          "parse_fail_rate": 0.0,
+          "fails": true
+        }
+      ],
+      "spread": {
+        "max": 0.05,
+        "note": "(v1) の T1b・T3 は強制選択採点なので other_error が構造上 0(ADR-047)。**評価していない run でも 0 として入れている**(not_evaluated に名前を残す)",
+        "by_coverage": {
+          "id": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.9375,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.9375,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.9375
+              },
+              "not_evaluated": [],
+              "spread": 0.9375,
+              "fails": true
+            }
+          },
+          "interp": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.9,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.9,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.0,
+                "t2": 0.9
+              },
+              "not_evaluated": [],
+              "spread": 0.9,
+              "fails": true
+            }
+          },
+          "extrap_magnitude": {
+            "v1_four_types": {
+              "other_error_by_task": {
+                "t1": 0.5875,
+                "t2": 0.95,
+                "t3": 0.0,
+                "t1b": 0.0
+              },
+              "not_evaluated": [
+                "t3",
+                "t1b"
+              ],
+              "spread": 0.95,
+              "fails": true
+            },
+            "v2_t1_t2": {
+              "other_error_by_task": {
+                "t1": 0.5875,
+                "t2": 0.95
+              },
+              "not_evaluated": [],
+              "spread": 0.36249999999999993,
+              "fails": true
+            }
+          }
+        }
+      },
+      "cells": [
+        {
+          "task": "t1",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t1",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.4125,
+              "other_error_rate": 0.5875,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "id",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0625,
+              "other_error_rate": 0.9375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0625,
+              "other_error_rate": 0.9375,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "interp",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.05,
+              "other_error_rate": 0.9375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0875,
+              "other_error_rate": 0.9,
+              "parse_fail_rate": 0.0
+            }
+          }
+        },
+        {
+          "task": "t2",
+          "coverage": "extrap_magnitude",
+          "by_reference": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0375,
+              "other_error_rate": 0.95,
+              "parse_fail_rate": 0.0
+            }
+          }
+        }
+      ],
+      "reference_rows": [
+        {
+          "name": "bare_sum_instructed",
+          "n": 80,
+          "correct_rate": 0.0,
+          "rule_rate": 0.0,
+          "other_error_rate": 1.0,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_mul",
+          "n": 60,
+          "correct_rate": 0.16666666666666666,
+          "rule_rate": 0.05,
+          "other_error_rate": 0.7833333333333333,
+          "parse_fail_rate": 0.0
+        },
+        {
+          "name": "spec_sub",
+          "n": 60,
+          "correct_rate": 0.06666666666666667,
+          "rule_rate": 0.05,
+          "other_error_rate": 0.8833333333333333,
+          "parse_fail_rate": 0.0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "no4": {
+      "judged_runs": [
+        "pilot_ft_eval_p2_s0",
+        "pilot_ft_eval_p2_s1"
+      ],
+      "failing_runs": [],
+      "all_pass": true
+    },
+    "no4b": {
+      "judged_runs": [
+        "pilot_ft_eval_p2d_s0"
+      ],
+      "failing_runs": [],
+      "all_pass": true
+    },
+    "no5": {
+      "judged_runs": [
+        "pilot_ft_eval_ident_s0",
+        "pilot_ft_eval_ident_s1",
+        "pilot_ft_eval_p2_s0",
+        "pilot_ft_eval_p2_s1",
+        "pilot_ft_eval_p2d_s0"
+      ],
+      "failing_runs": [
+        "pilot_ft_eval_ident_s0",
+        "pilot_ft_eval_ident_s1",
+        "pilot_ft_eval_p2_s0",
+        "pilot_ft_eval_p2_s1",
+        "pilot_ft_eval_p2d_s0"
+      ],
+      "all_pass": false
+    },
+    "no5b_v1": {
+      "judged_runs": [
+        "pilot_ft_eval_ident_s0",
+        "pilot_ft_eval_ident_s1",
+        "pilot_ft_eval_p2_s0",
+        "pilot_ft_eval_p2_s1",
+        "pilot_ft_eval_p2d_s0"
+      ],
+      "failing_runs": [
+        "pilot_ft_eval_ident_s0",
+        "pilot_ft_eval_ident_s1",
+        "pilot_ft_eval_p2_s0",
+        "pilot_ft_eval_p2_s1",
+        "pilot_ft_eval_p2d_s0"
+      ],
+      "all_pass": false
+    },
+    "no5b_v2": {
+      "judged_runs": [
+        "pilot_ft_eval_ident_s0",
+        "pilot_ft_eval_ident_s1",
+        "pilot_ft_eval_p2_s0",
+        "pilot_ft_eval_p2_s1",
+        "pilot_ft_eval_p2d_s0"
+      ],
+      "failing_runs": [
+        "pilot_ft_eval_ident_s0",
+        "pilot_ft_eval_ident_s1",
+        "pilot_ft_eval_p2_s0",
+        "pilot_ft_eval_p2_s1",
+        "pilot_ft_eval_p2d_s0"
+      ],
+      "all_pass": false
+    }
+  },
+  "contrast": [
+    {
+      "seed": 0,
+      "task": "t1",
+      "coverage": "id",
+      "rule_rate_p2": 1.0,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 1.0,
+      "correct_rate_diff": -1.0
+    },
+    {
+      "seed": 0,
+      "task": "t1",
+      "coverage": "interp",
+      "rule_rate_p2": 1.0,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 1.0,
+      "correct_rate_diff": -1.0
+    },
+    {
+      "seed": 0,
+      "task": "t1",
+      "coverage": "extrap_magnitude",
+      "rule_rate_p2": 0.825,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 0.825,
+      "correct_rate_diff": -1.0
+    },
+    {
+      "seed": 0,
+      "task": "t2",
+      "coverage": "id",
+      "rule_rate_p2": 0.9875,
+      "rule_rate_ident": 0.025,
+      "rule_rate_diff": 0.9625,
+      "correct_rate_diff": -0.7625
+    },
+    {
+      "seed": 0,
+      "task": "t2",
+      "coverage": "interp",
+      "rule_rate_p2": 0.9625,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 0.9625,
+      "correct_rate_diff": -0.8
+    },
+    {
+      "seed": 0,
+      "task": "t2",
+      "coverage": "extrap_magnitude",
+      "rule_rate_p2": 0.75,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 0.75,
+      "correct_rate_diff": -0.7375
+    },
+    {
+      "seed": 1,
+      "task": "t1",
+      "coverage": "id",
+      "rule_rate_p2": 1.0,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 1.0,
+      "correct_rate_diff": -1.0
+    },
+    {
+      "seed": 1,
+      "task": "t1",
+      "coverage": "interp",
+      "rule_rate_p2": 1.0,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 1.0,
+      "correct_rate_diff": -1.0
+    },
+    {
+      "seed": 1,
+      "task": "t1",
+      "coverage": "extrap_magnitude",
+      "rule_rate_p2": 0.5875,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 0.5875,
+      "correct_rate_diff": -0.9875
+    },
+    {
+      "seed": 1,
+      "task": "t2",
+      "coverage": "id",
+      "rule_rate_p2": 0.0,
+      "rule_rate_ident": 0.0125,
+      "rule_rate_diff": -0.0125,
+      "correct_rate_diff": -0.7375
+    },
+    {
+      "seed": 1,
+      "task": "t2",
+      "coverage": "interp",
+      "rule_rate_p2": 0.025,
+      "rule_rate_ident": 0.0125,
+      "rule_rate_diff": 0.0125,
+      "correct_rate_diff": -0.775
+    },
+    {
+      "seed": 1,
+      "task": "t2",
+      "coverage": "extrap_magnitude",
+      "rule_rate_p2": 0.175,
+      "rule_rate_ident": 0.0,
+      "rule_rate_diff": 0.175,
+      "correct_rate_diff": -0.75
+    }
+  ],
+  "baseline": null
+}

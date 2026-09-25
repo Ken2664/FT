@@ -18,6 +18,46 @@
 
 ---
 
+## ★2026-09-25(その96)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その96(IMPLEMENTER。回し直しの config を作り、人間の 4 回答を ADR-104 に記録した)で差し替えた 5 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新の行)の旧ブロック(その95)
+
+最終更新: 2026-09-25(その95)/ by RUNNER (Sonnet 5。パイロット FT の連鎖が完走し、印を出し、回収して pod を停止した。解釈はしていない)
+(**pod `ysev2xg35iih2j` は `EXITED`。稼働 4.32 h ≈ $3.20。★上限(12:07:26Z)を約 19 分超過した**(完走 09:34:59Z の後の遊休 約 2.9 h。RUNNER が気づかなかった)。旧 `lh823acvxuo8ux` も `EXITED`。
+**§8.1 B: `no4` true / `no5` false →「625 → 313 で全条件をやり直す」の行。config は IMPLEMENTER。実行の前に人間へ。**)
+
+### 「いま何をしているか」の旧ブロック(その95)
+
+> **★★2026-09-25(その95・最新)。Phase 0。RUNNER (Sonnet 5)。PLAN-031 のパイロット FT の連鎖が完走した。pod は停止済み。**
+> - **段**: 段1。訓練 5 本 [run:pilot_ft_train_p2_s0] [run:pilot_ft_train_p2_s1] [run:pilot_ft_train_ident_s0] [run:pilot_ft_train_ident_s1] [run:pilot_ft_train_p2d_s0] と評価 5 本 [run:pilot_ft_eval_p2_s0] [run:pilot_ft_eval_p2_s1] [run:pilot_ft_eval_ident_s0] [run:pilot_ft_eval_ident_s1] [run:pilot_ft_eval_p2d_s0] が**すべて rc 0**(`CHAIN_DONE 09:34:59Z`)。config・コード無変更(10 本とも `git_sha.txt` = `37346bf`)
+> - **印(`results/pilot_ft/gonogo_ft.json` の `summary`。当てただけ)**: `no4` **true** / `no4b` **true** / `no5` **false**(5 run すべて割れ)/ `no5b_v1`・`no5b_v2` **false**(5 run すべて)。**4 値の表は `logs/CHANGELOG.md` 2026-09-25(その95)**
+> - **§8.1 B**: (`no4` true, `no5` false) →「まだ下げていなければ 625 → **313** で全条件をやり直す」。**まだ上げても下げてもいない。**生成器 `infra/make_pilot_ft_configs.py` に `num_steps` の引数も run 名の接尾辞も無い(IMPLEMENTER)
+> - **回収**: 10 run の小ファイル + `runs/pilot_ft_chain/` + `results/pilot_ft/`。アダプタ・`predictions/`・`log.txt` はボリューム `r963j7swke` に残した(`RUNPOD.md` §4)。**★その94 のブロックは `logs/STATE-ARCHIVE.md`「その95」にある**
+
+### 「次のアクション」の旧ブロック(その95)
+
+> **★★2026-09-25(その95・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **人間(先に)**: パイロットの印の受け止め(`logs/CHANGELOG.md` その95 の 4 値の表)/ **上限超過 19 分の扱い** / **§8.1 B の回し直し(313)を今から進めるか** / 進めるなら**単価と pod(旧 `lh823acvxuo8ux` は host に GPU が無く start できなかった。新規なら $0.74/時 前後)**。**進めるなら IMPLEMENTER**(Sonnet でよい): `infra/make_pilot_ft_configs.py` に `num_steps` 313 と新しい run 名の接尾辞を足し、10 config を作り直し(**1 回目の run と config を上書きしない**。`--check` の食い違いなしを確かめ、pytest を通す)→ 凍結 tag の扱い(規則は tag 済みの §8.1 B の中なので新しい tag は要らない見込み。**人間が確かめる**)→ RUNNER。**段1 の残り枠 = 9 h − 4.32 h = 4.68 h**(ADR-103 決定5。その92 の 1.27 h は数えない)
+> 2. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。**それ以外は PLAN-030 §4 の表のとおり**。~~停止中ポッドの terminate は G1-1 と同じ場を推奨~~ 古いポッドの分は ADR-103 決定9 で閉じた。`lh823acvxuo8ux` は段1 の後
+> 5. Phase 1 の凍結前に人間へ: ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方(**どちらもパイロットは止めない**)
+
+### 「引き継ぎ」の旧ブロック(その95)
+
+> **★★2026-09-25(その95・最新)。RUNNER (Sonnet 5)。連鎖の完走を確かめ、`gonogo_ft` を回し、回収し、pod を停止した。**
+>
+> **★やったこと**: `RUNNING` を確認 → 完走後に `gonogo_ft`(pod 上・rc 0)→ ssh の tar パイプで回収(pod → この機は通った)→ `cost.txt` → `pod-action stop` → `EXITED` を確認。損失が極端に小さい件の確認: `id` セルの組は訓練の (a,b) と一致する(設計どおり)/ 残り 160 件は重ならない。
+> **★失敗**: 完走の通知が届かず、**pod を 19 分の上限超過で止めた(遊休 約 2.9 h ≈ $2.12)。次の RUNNER は、待つとき通知に頼らず返答ごとに `date -u` を取り、上限の 30 分前に `pilot_chain.log` を直接見ること。**
+> **★やっていないこと**: 解釈 / config・コードの変更 / tag / 回し直し / terminate。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。pod は 2 本とも `EXITED`(課金なし)。
+
+### 「人間の承認・判断を待っている事項」の索引の行の旧文(その95)
+
+| **★パイロット FT の印の受け止めと回し直し(313)** ★新(その95) | `no4` true / `no5` false(5 run すべて割れ)→ §8.1 B の行は「625 → 313 で全条件をやり直す」。**上限超過 19 分の扱い・回し直しを今進めるか・単価と pod・`p2` s1 の T2 が s0 と割れた点の受け止め**は人間(`CLAUDE.md` §8) | `logs/CHANGELOG.md` 2026-09-25(その95)/ `results/pilot_ft/gonogo_ft.out` / `plans/PLAN-031` §8.1 | 次のセッションの冒頭 |
+
 ## ★2026-09-25(その95)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その95(RUNNER。パイロット FT の連鎖が完走し、回収して pod を停止した)で差し替えた 4 か所と、`STATE.md` が 60 KB を超えたため移した ★順6 の後半 1 か所を、1 文字も変えずに移した。

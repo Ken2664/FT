@@ -6692,3 +6692,45 @@
   - **config・コードは変えていない。**`CLAUDE.md`・`AGENTS.md`・`Documents/` も変えていない。GPU 0。tag は打っていない
 - 関連 ADR: **099** 決定6・8(#4b と読み方)/ **100** 決定3(退避規則)/ **043** 決定1・5・10・11(アダプタ・`[MATCHED]`・変更規則)/ **054** 決定1(設計門と解析門)/ **028**(`p2d`)/ **088** 決定7(起動直前の確認)/ **097** 決定6(表を先に見せる)/ **095** 決定1(推奨を選び続けることの記録)/ **039** 決定3(提案と採択の分離)
 - 関連 commit: (このコミット)
+
+---
+
+## ADR-104: パイロット FT の印への回答 —— §8.1 B のとおり `num_steps` 313 で全条件をやり直す(`p2d` を含む)/ 上限 19 分超過は記録のみ / 単価 $0.74/時まで承認・pod は RUNNER が選ぶ・新しい凍結 tag は打たない
+
+- 日付: 2026-09-25(その96)
+- ステータス: **採択**(**新しい凍結 tag は打たない**。規則は tag 済み `preregister-pilot-ft` の §8.1 B の内側にある)
+- 提案・採択(ADR-039 決定3):
+  - 決定1〜4: **提案 エージェント (IMPLEMENTER, Sonnet 5)(判断材料・選択肢・推奨をチャットで示した)/ 採択 人間(2026-09-25 その96。`AskUserQuestion` を 1 回・4 問。4 問すべて推奨の選択肢)**
+  - **エージェントが具体化した細部**(決定5。人間には別の問いとして聞いていない)は、実行の前に人間が読んで覆せる
+- 文脈:
+  - パイロット FT の 1 回目(訓練 5・評価 5。625 ステップ)は完走した(ADR-103。[run:pilot_ft_eval_p2_s0] [run:pilot_ft_eval_p2_s1] [run:pilot_ft_eval_ident_s0] [run:pilot_ft_eval_ident_s1] [run:pilot_ft_eval_p2d_s0])。印(`results/pilot_ft/gonogo_ft.json` の `summary`。当てただけ): `no4` true / `no4b` true / `no5`・`no5b_v1`・`no5b_v2` false(5 run すべて)。§8.1 B の行は (`no4` true, `no5` false) →「まだ下げていなければ 625 → 313 にして全条件をやり直す」
+  - **聞く前に示した事実**(ファイルと API で確かめた): (a) T1 は 5 run とも割れていない。`p2` の s1 は s0 と同じ条件だが T2 の 3 セルで割れている(s1 の T2 × `id` = rule .000 / other_error 1.000。s0 は .988 / .013)。`ident` は 2 シードとも T2 の other_error が 0.200〜0.250 / (b) `list-pods`(読み取りのみ)で 2 本とも `EXITED`・稼働中 0 本。ネットワークボリューム `r963j7swke` は EU-RO-1 / (c) 回し直しの費用は**算定**: 1 回目の仕事は 5,253 s(preflight 10 回・訓練 5 × 300〜322 s・評価 5 × 115〜149 s を含む)。訓練 1 本の壁時計(300〜322 s)のうち、重みの読み込み・保存の固定費の割合は測っていないので、313 で半分になるとは限らない。起動・repo の更新・回収(推測 0.5 h)を足して約 2 h ≈ $1.5(実測ではない)
+- 決定:
+  1. **印を受け止め、§8.1 B のとおり `num_steps` を 625 → 313 にして全条件・全シード(訓練 5・評価 5)をやり直す。**`learning_rate` は動かさない(ADR-103 決定8)。**印の意味づけ**(`p2` s1 の T2 の割れ・`ident` の T2 の other_error)は 313 の結果が揃ってから人間が決める(`CLAUDE.md` §8)
+  2. **上限 4 h を 19 分超過した件は、記録して受け止める。仕組みは足さない。**遊休 約 2.9 h ≈ $2.12・稼働 4.32 h ≈ $3.20(推定)。ADR-103 決定5 の 9 時間の枠は pod の稼働時間で数えるので、超過分は 4.32 h の実績に含まれる。**残り = 9 − 4.32 = 4.68 h**。再発防止は「待つとき通知に頼らず返答ごとに `date -u` を取り、上限の 30 分前に `pilot_chain.log` を直接見る」(memory と HANDOFF)
+  3. **単価は $0.74/時まで承認。pod は RUNNER が選ぶ。新しい凍結 tag は打たない。**
+     - pod: RUNNER が起動の直前に、旧 `ysev2xg35iih2j`(直近に GPU が付いていた)の `start` を試し、だめなら EU-RO-1 の新規 RTX 4090 SECURE を立てる(旧 `lh823acvxuo8ux` は host に GPU が無く `start` できなかった)。**選んだ pod と単価を、起動の直前に人間に 1 行で確かめる**(ADR-103 決定1 と同じ形。**承認済みの上限が $0.74/時**)
+     - tag: 規則(`num_steps` 625 → 313・全条件・全シード・`num_steps` 以外は変えない)は tag 済みの §8.1 B の中にある。**整合の確かめ(その96)**: `git diff preregister-pilot-ft --stat -- code infra configs` の変更は、追加 = 新 config 8 本 / 変更 = 生成器 `infra/make_pilot_ft_configs.py` とテスト `code/tests/test_pilot_ft_configs.py` の 2 ファイルだけ。**1 回目の 8 本の config は tag から 0 差分**で、`python infra/make_pilot_ft_configs.py --check` は食い違いなし
+  4. **`p2d` も他の 4 本と一緒に 313 で回し直す。**ADR-103 決定5(全条件・全シード)と決定7(条件間で予算を揃える。`p2` と `p2d` の獲得のしやすさの差(H3)を見て予算を決めない)に合う。**`no4b`・`no5b` は引き金にしない**(決定7 のまま)。`no5b` の割れの意味づけと `p2d` の解釈の制限は、313 の結果が揃ってから人間が決める
+  5. **(具体化。エージェントの案。人間には別の問いとして聞いていない)** `PLAN-031` §8.3 に書いた:
+     - 名前 = 1 回目の名前の**末尾**に `_n313`(訓練 config・評価 config・訓練 run dir・評価 run dir・`experiment.id`)。1 回目の名前は 1 つも変えない。評価 config の `model.adapter` は回し直しの訓練 run dir の `adapter/`
+     - config は **8 本**(訓練 3 + 評価 5)で run は 10 本(訓練 5 + 評価 5)
+     - 生成器は `--num-steps 313` で書く。**受け付ける値は `RERUN_NUM_STEPS = (313,)` だけ**(625 は 1 回目と衝突する / 1,250 は (false, true) の行で引き金が引かれていない)
+     - `gonogo_ft` の glob は 1 回目 `runs/pilot_ft_eval_*_s[0-9]`・回し直し `runs/pilot_ft_eval_*_n313` に分ける(同じ (条件, シード) が 2 つ入れば `gonogo_ft` が止まる)
+- 代案と却下理由(いずれも人間は推奨を選んだ):
+  - 決定1: 先に割れた中身(`predictions/` の T2 の項目)を調べてから決める(`predictions/` はボリューム側で pod の起動が要り、回し直しでも起動するので二重になる)/ 回し直さない・別の手を取る
+  - 決定2: pod が自分を止める歯止めを IMPLEMENTER が案にする(pod 側に API 鍵を置く必要があり、鍵の扱いの決定が先)
+  - 決定3: 同じ単価で、config を作った後に新しい tag を打つ(規則が変わらないので必須ではなく、人間の手間が増える)
+  - 決定4: `p2d` は 625 のまま回し直さない(訓練 1・評価 1 本ぶん安いが、`p2`・`ident` は 313・`p2d` は 625 と予算が条件間でずれ、決定7 が避けた形になる)
+- リスク・未解決:
+  - **4 問すべてで人間は推奨を選んだ**(ADR-095 決定1 の監査 B4・ADR-097・ADR-098・ADR-099・ADR-100・ADR-102・ADR-103 と同じ形。**8 回目**)。推奨はエージェント (Sonnet 5) が付けた
+  - **313 が #5 の割れを直すかは未測である。**`ident` は病変のない真の足し算の FT だが T2 で other_error が出ており、ステップ数の違いで直る種類のものかは分からない(未確認)。313 でなお #5 が割れれば、回数の上限(各向き 1 回。ADR-103 決定5)に届くので止めて報告する。#4 が割れれば衝突(決定6)で止めて報告する
+  - **`p2` の s1 の T2 の割れ・`ident` の #5 の割れ・`p2d` の #5b は、313 の結果と並べて人間が意味づける。**RUNNER は印を当てるだけで解釈しない
+  - **1 回目の `predictions/` はボリュームにしか無い(git に無い)。**割れの中身(T2 の other_error の項目)を後で調べるなら、回し直しの pod が動いている間に回収するのが、追加の pod 時間が要らず安い。**回収するかは人間に確かめる**(RUNNER が起動の直前に聞く)
+  - 費用の算定(約 2 h ≈ $1.5)は実測ではない。段1 の残り 4.68 h の枠に収まる見込み
+  - 上限超過は再発しうる(決定2 で仕組みは足さないと決めた)。次の RUNNER は時計を自分で見る
+- 影響:
+  - このコミットで書き換えたもの: `infra/make_pilot_ft_configs.py`(`--num-steps`・`Round`・`RERUN_NUM_STEPS`・`eval_run_dir`)/ `code/tests/test_pilot_ft_configs.py`(31 テスト追加。`pytest code/tests -q` = **1747 passed**)/ `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}_n313.yaml`(新規 8 本)/ `plans/PLAN-031-seed-fix-and-pilot-ft.md`(§8.3 新設。§8.1・§8.2 は変えていない)/ `logs/DECISIONS.md`(本 ADR)/ `logs/CHANGELOG.md` / `logs/OPEN-ITEMS.md` / `STATE.md` / `logs/HANDOFF.md`
+  - **1 回目の 8 本の config・run・`CLAUDE.md`・`AGENTS.md`・`Documents/` は変えていない。GPU 0。tag は打っていない**
+- 関連 ADR: **103** 決定1・4〜8・10(規則・上限・tag)/ **043** 決定5(`[MATCHED]`)/ **100**(5 値)/ **039** 決定3(提案と採択の分離)/ **095** 決定1(推奨を選び続けることの記録)
+- 関連 commit: `f9a3c67`(生成器・テスト・新 config 8 本・PLAN-031 §8.3)/ (このコミット。ADR・OPEN-ITEMS・STATE・CHANGELOG・HANDOFF)

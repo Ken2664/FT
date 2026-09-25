@@ -1,0 +1,12 @@
+instance_type: RTX 4090 SECURE (pod ysev2xg35iih2j / EU-RO-1 / $0.74 per hour / network volume r963j7swke)
+started_utc:   2026-09-25T08:07:26Z   # pod createdAt(RunPod 記録)
+ended_utc:     2026-09-25T12:26:46Z   # 推定 = started + uptime 15,560 s(pod-action stop の応答の runtime.uptime)。stop 直前の date -u は 12:26:40Z
+gpu_hours:     4.32                   # 15,560 s / 3,600。pod を立てていた時間の全部(下の内訳)
+est_cost_usd:  3.20                   # 0.74 × 4.32。network volume の保管料は含まない
+breakdown:     ★上限(ADR-103 決定1。pod の稼働 4 時間 = 14,400 s = 12:07:26Z)を 1,160 s(約 19 分)超えて稼働した。
+               - 08:07:26Z → 09:34:59Z(5,253 s ≈ 1.46 h ≈ $1.08): 準備・訓練 5 本・評価 5 本(連鎖は 08:23:10Z 起動、09:34:59Z に CHAIN_DONE)
+               - 09:34:59Z → 12:26:46Z(10,307 s ≈ 2.86 h ≈ $2.12): 連鎖の完走後の遊休。完走の通知が届かず、RUNNER が 12:25:36Z まで気づかなかった。
+               この cost.txt は pilot_ft_train_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0} と pilot_ft_eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0} の 10 本と、
+               pod 上の準備(bundle 送付・git 更新)を合わせた pod 全体。他の 9 本の cost.txt はこのファイルを指す(二重に数えない)。
+run_wallclock: 各 run の timestamp.txt を見ること(訓練 1 本 約 5 分・評価 1 本 約 2 分 13 秒〜2 分 30 秒。preflight 約 4〜5 分は別)
+note:          GPU 種は本番と同じ RTX 4090。段1 全体の 9 時間の上限(ADR-103)には、その92 の確かめ(1.27 h)を数えず、この 4.32 h だけが入る。

@@ -6930,3 +6930,59 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **引き継いだ理由**: hook `context-guard`(約 151k トークン > 閾値 140k)。**pod は稼働中で課金が続く**(連鎖を止めないため停止していない)
 - **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・索引 1 行・次のアクション 1 行目・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その94」)/ `logs/OPEN-ITEMS.md`(凍結 tag の行に打ち消し線・稼働中 pod の行を新規)/ `logs/HANDOFF.md` / 本ファイル。**config・コード・ADR・`CLAUDE.md`・`AGENTS.md`・`Documents/` は変えていない。tag は打っていない(人間が打った)**
 - **未解決**: 連鎖の完走と `gonogo_ft`・§8.1 B の当てはめ・回収・pod 停止(次の RUNNER)。結果の解釈・`p2d` の扱い・回し直しの後の判断は人間(`CLAUDE.md` §8)。**訓練 `p2` s0 の損失が極端に小さい件は解釈していない**(人間が見る)
+
+## 2026-09-25(その95)
+
+### exp(train)/exp(eval): PLAN-031 のパイロット FT の連鎖が完走した —— 訓練 5・評価 5 すべて rc 0。`gonogo_ft` の印を出し、回収して pod を停止した(解釈はしていない。★上限を 19 分超過)   [actor: RUNNER (Sonnet 5)] [run:pilot_ft_train_p2_s0] [run:pilot_ft_train_p2_s1] [run:pilot_ft_train_ident_s0] [run:pilot_ft_train_ident_s1] [run:pilot_ft_train_p2d_s0] [run:pilot_ft_eval_p2_s0] [run:pilot_ft_eval_p2_s1] [run:pilot_ft_eval_ident_s0] [run:pilot_ft_eval_ident_s1] [run:pilot_ft_eval_p2d_s0]
+
+- `logs/HANDOFF.md`(その94)の 1 件。**推奨モデル(Sonnet)と実モデル(Sonnet 5)は一致した**(冒頭で述べた)。開始時に `list-pods` で `ysev2xg35iih2j` = `RUNNING`(uptime 1,967 s。08:40Z)、pod 上の `pilot_chain.log` は `train_p2_s1` 完了・`eval_p2_s1` の preflight 中。**背景ポーリング(9 分)を回して待った**
+- **★上限超過(RUNNER の失敗。人間へ上げる)**: 背景ポーリングは 09:08:57Z・09:18:39Z の 2 回は通知が返ってきたが、**その次の 1 本(`bcig6ob4q`。09:18Z 頃に開始・9 分で終わるはず)の完了通知は、人間が「実行状況はどう？」と聞いた 12:25Z の後まで届かなかった。原因は確かめていない。**RUNNER はその間、通知を待っていて時計を見なかった。pod 上で `date -u` を取ると 12:25:36Z で、**連鎖は 09:34:59Z(`CHAIN_DONE`)に完走していた**。**稼働は上限 12:07:26Z を 1,160 s(約 19 分)超え、完走後の遊休は約 2.9 h ≈ $2.12**。`pod-action stop` の応答の `runtime.uptime` = 15,560 s = 4.32 h ≈ **$3.20**。回収(約 4 分)を先に済ませてから止めた(ボリュームは永続で pod を止めても失われないが、旧 pod のように再 start できない恐れを避けた)。**再発防止**: 待つときは通知に頼らず、返答ごとに `date -u` を取り、上限の 30 分前に `pilot_chain.log` を直接見る(HANDOFF に書いた)
+- **連鎖**: 10 ステップすべて `PREFLIGHT_RC=0`・`RUN_RC=0`、`CHAIN_DONE 2026-09-25T09:34:59Z`。`CHAIN_ABORT` なし。`git_sha.txt` は 10 本とも `37346bf`(`dirty: true` は untracked の run dir が理由。`git_diff.patch` は 0 バイト)
+- **壁時計(`timestamp.txt`。preflight は別)**: 訓練 p2_s0 300.4 s / p2_s1 303.5 s / ident_s0 314.1 s / ident_s1 301.0 s / p2d_s0 322.4 s。評価 p2_s0 131.8 s / p2_s1 114.6 s / ident_s0 129.3 s / ident_s1 140.9 s / p2d_s0 148.5 s
+- **VRAM(3 秒間隔。各 run の `vram_*.csv`)**: 訓練は 5 本とも最大 18,462 MiB / 評価は 5 本とも最大 16,314 MiB(/ 24,564 MiB)。**VRAM の退避規則(micro 2 × 累積 8)は要らなかった**
+- **損失(`metrics.json` の `outcome.losses`。625 ステップ)**: p2_s0 6.416 → 7.48e-06 / p2_s1 6.574 → 4.25e-06 / ident_s0 5.716 → 9.13e-07 / ident_s1 5.806 → 1.34e-06 / p2d_s0 7.281 → 1.47e-05。**5 本とも最後は 1.5e-05 以下。解釈していない**(前のセッションが人間に上げた点。人間が見る)。`adapter_init_sha256` の先頭は seed 0 の 3 本(p2・ident・p2d)が `057c53c93446`、seed 1 の 2 本(p2・ident)が `e54dd3b4595e` で、★E の確かめの seed 0・seed 1 と同じ
+- **判定(`python -m code.analysis.gonogo_ft --runs "runs/pilot_ft_eval_*" --out-dir results/pilot_ft`。pod 上・rc 0。`summary` の 5 印)**: `no4` all_pass = **true**(判定 p2_s0・p2_s1 / 割れた なし)/ `no4b` = **true**(p2d_s0)/ `no5` = **false**(判定 5 run 全部・**割れた 5 run 全部**)/ `no5b_v1` = **false** / `no5b_v2` = **false**(どちらも 5 run 全部)。**JSON の最上位に `gate_summary` というキーは無く、`summary` がそれである**(HANDOFF の表記と違う)
+- **§8.1 B の行**: `no4.all_pass` = true・`no5.all_pass` = false → **「まだ下げていなければ `num_steps` を 625 → 313 にして全条件をやり直す。下げた後なら止めて報告(回数の上限)。上げた後なら止めて報告(衝突)」**。まだ上げても下げてもいない。**`no4b`・`no5b_v1`・`no5b_v2` は引き金にしない**(決定7)。**RUNNER は config を書き換えず、連鎖を再起動していない。止めて報告する**(HANDOFF 2)
+- **4 値の表(自身の規則を参照規則にした読み。#5 の基準は other_error < 0.1。`fails`=割れ)。合計はすべて 1.000**:
+
+| run | 参照規則 | cell | n | correct | rule | other_error | parse_fail | #5 |
+|---|---|---|---|---|---|---|---|---|
+| p2_s0 | p2 | t1 × id | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s0 | p2 | t1 × interp | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s0 | p2 | t1 × extrap_magnitude | 80 | 0.000 | 0.825 | 0.175 | 0.000 | 割れ |
+| p2_s0 | p2 | t2 × id | 80 | 0.000 | 0.988 | 0.013 | 0.000 | — |
+| p2_s0 | p2 | t2 × interp | 80 | 0.000 | 0.963 | 0.037 | 0.000 | — |
+| p2_s0 | p2 | t2 × extrap_magnitude | 80 | 0.013 | 0.750 | 0.237 | 0.000 | 割れ |
+| p2_s1 | p2 | t1 × id | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s1 | p2 | t1 × interp | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s1 | p2 | t1 × extrap_magnitude | 80 | 0.013 | 0.588 | 0.400 | 0.000 | 割れ |
+| p2_s1 | p2 | t2 × id | 80 | 0.000 | 0.000 | 1.000 | 0.000 | 割れ |
+| p2_s1 | p2 | t2 × interp | 80 | 0.013 | 0.025 | 0.963 | 0.000 | 割れ |
+| p2_s1 | p2 | t2 × extrap_magnitude | 80 | 0.000 | 0.175 | 0.825 | 0.000 | 割れ |
+| ident_s0 | p2 | t1 × id | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s0 | p2 | t1 × interp | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s0 | p2 | t1 × extrap_magnitude | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s0 | p2 | t2 × id | 80 | 0.762 | 0.025 | 0.212 | 0.000 | 割れ |
+| ident_s0 | p2 | t2 × interp | 80 | 0.800 | 0.000 | 0.200 | 0.000 | 割れ |
+| ident_s0 | p2 | t2 × extrap_magnitude | 80 | 0.750 | 0.000 | 0.250 | 0.000 | 割れ |
+| ident_s1 | p2 | t1 × id | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s1 | p2 | t1 × interp | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s1 | p2 | t1 × extrap_magnitude | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s1 | p2 | t2 × id | 80 | 0.738 | 0.013 | 0.250 | 0.000 | 割れ |
+| ident_s1 | p2 | t2 × interp | 80 | 0.787 | 0.013 | 0.200 | 0.000 | 割れ |
+| ident_s1 | p2 | t2 × extrap_magnitude | 80 | 0.750 | 0.000 | 0.250 | 0.000 | 割れ |
+| p2d_s0 | p2d | t1 × id | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2d_s0 | p2d | t1 × interp | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2d_s0 | p2d | t1 × extrap_magnitude | 80 | 0.000 | 0.412 | 0.588 | 0.000 | 割れ |
+| p2d_s0 | p2d | t2 × id | 80 | 0.000 | 0.062 | 0.938 | 0.000 | 割れ |
+| p2d_s0 | p2d | t2 × interp | 80 | 0.013 | 0.087 | 0.900 | 0.000 | 割れ |
+| p2d_s0 | p2d | t2 × extrap_magnitude | 80 | 0.013 | 0.037 | 0.950 | 0.000 | 割れ |
+
+- **`p2` の run を `p2d` の規則で読んだ #4b の p2 ブロックなど、参照規則違いの値は `gonogo_ft.json` の `cells[*].by_reference` にある**。#4(参照規則 p2): p2_s0・p2_s1 は T1 × id で correct 0.000 / rule 1.000 / other_error 0.000 / parse_fail 0.000(n=80)。#4b(参照規則 p2d): p2d_s0 は T1 × id で correct 0.000 / rule 1.000 / other_error 0.000 / parse_fail 0.000(n=80)。**`ident` の 2 本は T1 の 3 セルで correct 1.000 / rule 0.000 / other_error 0.000 / parse_fail 0.000**
+- **`p2 − ident`(E1 の形の記述。E1 ではない)**: seed 0 は T1 × {id, interp, extrap_magnitude} = +1.000 / +1.000 / +0.825、T2 = +0.963 / +0.963 / +0.750。seed 1 は T1 = +1.000 / +1.000 / +0.588、T2 = −0.013 / +0.013 / +0.175(`gonogo_ft.out` 末尾)。**`p2` の s0 と s1 は同じ条件・同じデータ・同じ config で、T2 の 3 セルが割れている。解釈していない**
+- **「結果が良すぎる」の確認(`CLAUDE.md` §7。読み取りだけ)**: (1) 評価 T1(`bare_sum`)240 項目のうち、オペランド対 (a, b) が訓練データ `data/generated/ft/exp_order6b_pilot_p2/train.jsonl`(10,000 行・重複を除いた組 2,000)と一致するのは **80 件**で、**`id` セルの n=80 と件数が一致する**(残り 160 件は訓練の組と重ならない)。`id` は設計上「訓練被覆 K の組」(`code/data_gen/eval_pool.py` 冒頭・preflight 検査8)なので、**#4 の `id` セルは訓練で見た組の再現を測っている**。セルへの項目単位の割り当て(件数が一致するだけで、80 件がぴったり `id` の項目かは突き合わせていない)は未確認 / (2) `p2d`・`ident` の訓練データも同じ 2,000 組(集合が `p2` と一致)/ (3) パーサの取りこぼしの側: 全 30 セルで 4 値の合計は 1.000、`parse_fail` は 30 セルすべて 0.000 / **(4) 同じ p2 の run を p2d の規則で読むと other_error 1.000 になる**(`p2_s0` の #4b の p2 ブロック)ことは、パーサが規則を区別していることの傍証だが、汚染がないことの証明ではない
+- **回収して git に戻したもの**: 10 run の `metrics.json`・`config.yaml`・`env.txt`・`timestamp.txt`・`token_boundary.json`・`git_sha.txt`・`git_diff.patch`・`vram_*.csv`・`cost.txt`(訓練は `adapter/adapter_config.json` も)/ `runs/pilot_ft_chain/{chain.sh,run_step.sh,pilot_chain.log,cost.txt}`(**pod 上にしか無かった 3 つ**)/ `results/pilot_ft/{gonogo_ft.json,gonogo_ft.out}`。転送は pod → この機で `ssh ... "tar czf - ..." > file`(`-o IPQoS=none`)が通った(307,739 バイト・121 エントリ)。**`adapter_model.safetensors`(167,832,240 バイト × 5)・`predictions/`・`log.txt` は `.gitignore` の規則どおり、ボリューム `r963j7swke` に残した**
+- **費用**: `runs/pilot_ft_train_p2_s0/cost.txt`(pod 全体。他の 9 本と `runs/pilot_ft_chain/` は指す)。**4.32 h ≈ $3.20(推定。ボリュームの保管料は含まない)**。仕事の分 08:07:26Z → 09:34:59Z = 5,253 s ≈ $1.08 / 遊休 10,307 s ≈ $2.12。**段1 の 9 時間の枠(ADR-103 決定5。その92 の 1.27 h は数えない)の残り = 9 − 4.32 = 4.68 h。10 GPU 時間の線(`CLAUDE.md` §2)には届いていない**
+- **pod**: `pod-action stop` → `list-pods` で `ysev2xg35iih2j` = `EXITED`(uptime 15,560 s)。`lh823acvxuo8ux` も `EXITED`(触っていない)。**terminate はしていない(人間)**
+- **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・索引 1 行・次のアクション 1 行目・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その95」)/ `logs/OPEN-ITEMS.md`(稼働中 pod の行に打ち消し線・パイロットの印の行を新規)/ `logs/HANDOFF.md` / 本ファイル。**config・コード・ADR・`CLAUDE.md`・`AGENTS.md`・`Documents/` は変えていない。tag は打っていない。回し直していない**
+- **未解決**: 印の受け止め・回し直し(313)を進めるか・上限超過の扱い・`p2` s1 の T2 の割れ・`ident` の #5・`p2d` の扱い(すべて人間。`CLAUDE.md` §8)/ **生成器 `infra/make_pilot_ft_configs.py` に `num_steps` の引数と run 名の接尾辞が無い**(IMPLEMENTER)/ pod 2 本の terminate(人間)

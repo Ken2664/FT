@@ -1,54 +1,53 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-25(その94)/ 直前セッションの役割: RUNNER
-直前セッションが終了した理由: コンテキスト超過(hook `context-guard` が約 151k トークンを検出。閾値 140k)。**PLAN-031 のパイロット FT は途中で、pod は稼働中(課金が続いている)**
+生成: 2026-09-25(その95)/ 直前セッションの役割: RUNNER
+直前セッションが終了した理由: **PLAN-031 の 1 回目(訓練 5・評価 5)が完了した** + コンテキスト超過(hook `context-guard` が約 100k を警告)。**pod は 2 本とも `EXITED`(課金なし)**
 直前セッションの実モデル: Claude Sonnet 5
-**推奨モデル(次のセッション)**: **Sonnet** — 進行中の連鎖を待ち、決まった規則(PLAN-031 §8.1)を機械的に当て、回収して pod を止める。`Documents/10_CONTEXT_POLICY.md` §7 の「実装・集計・データ生成 = Sonnet」の行に近い(この読みは人間が覆せる)。
-**予測と違う結果の解釈や規則の外の判断が要る場面になったら、止めて人間に上げる**(`CLAUDE.md` §8)。
+**推奨モデル(次のセッション)**: **Sonnet** — 最初の仕事は人間への確認(下の 1)。人間が進めると決めたら、`infra/make_pilot_ft_configs.py` の改修 + テストは `10_CONTEXT_POLICY.md` §7 の「実装 = Sonnet」の行(この読みは人間が覆せる)。**印の受け止め・ADR を書く場面になったら Opus に替える**(§8 の判断・解釈は人間)。
 
 ---
 
-あなたは RUNNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは IMPLEMENTER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
-`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**最初に pod の状態を見る**(下の 0)。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**GPU・pod には触らない**(RUNNER の仕事)。
 
 ## このセッションでやること(1 つだけ)
 
-**pod `ysev2xg35iih2j` で走っている PLAN-031 のパイロット FT の連鎖(訓練 5・評価 5)を最後まで見届け、`gonogo_ft` の表を出して報告し、成果物を git に戻して pod を停止する。解釈はしない。**規則の正本は `plans/PLAN-031-seed-fix-and-pilot-ft.md` §8.1(`grep -n '^### 8'`)/ ADR-103。
+**1. 人間に次の 4 点を確かめる(答えが出るまで実装を始めない)。** `CLAUDE.md` §8。案は出してよいが、決めるのは人間:
+   (a) **パイロットの印の受け止め**(4 値の表は `logs/CHANGELOG.md` 2026-09-25(その95)。`no4` true / `no4b` true / `no5`・`no5b_v1`・`no5b_v2` false)/ (b) **pod の上限 4 h を 19 分超過した件の扱い**(RUNNER の見落とし。遊休 約 2.9 h ≈ $2.12。稼働 4.32 h ≈ $3.20)/ (c) **§8.1 B の回し直し(625 → 313)を今進めるか** — 進めるなら**単価と pod**(旧 `lh823acvxuo8ux` は host に GPU が無く start できなかった。新規は $0.74/時 前後。**段1 の残り枠 = 9 h − 4.32 h = 4.68 h**)と、**新しい tag が要るか**(規則は tag 済みの §8.1 B の内側なので要らない見込み。人間が確かめる)/ (d) **`p2d` の扱い**(ADR-103 決定7。`no4b` は true)
 
-0. **開始時(最優先)**: RunPod MCP の `list-pods` で `ysev2xg35iih2j` が `RUNNING` か確かめる。**稼働の上限は 2026-09-25T12:07:26Z**(pod 作成 08:07:26Z + 4 時間。ADR-103 決定1)。pod 上で `date -u` を取り、**上限に近ければ動いているものを止めて報告する**。ssh は `ssh -o IPQoS=none -o ServerAliveInterval=5 -o ServerAliveCountMax=4 root@213.173.109.25 -p 10487`(**pod が止まっていたら IP・ポートが変わる。`get-pod` の `ssh.direct` で取り直す**)
-1. `tail -20 /workspace/pilot_chain.log` を見る。連鎖は 08:23:10Z に起動済み。順は **eval p2_s0 → train p2_s1 → eval p2_s1 → train ident_s0 → eval ident_s0 → train ident_s1 → eval ident_s1 → train p2d_s0 → eval p2d_s0**。`CHAIN_DONE` が最後の行なら完走。`CHAIN_ABORT at: <step>` なら**止めて報告する**(原因の材料 = `/workspace/pre_<kind>_<cond>_s<seed>.out` と `/workspace/<kind>_<cond>_s<seed>.out` の `tail`。**config を書き換えない。連鎖を勝手に再起動しない**)。走っている最中なら、背景ポーリングで待つ(下の落とし穴)。**見込み完走 09:30〜09:50Z(推定。訓練 1 本 preflight 約 4 分 + 5 分、評価 1 本 preflight 約 4 分 + 2 分)**
-2. 完走したら pod 上で(`export HF_HOME=/workspace/.cache/huggingface; cd /workspace/translesion; source /workspace/venv/bin/activate`):
-   `python -m code.analysis.gonogo_ft --runs "runs/pilot_ft_eval_*" --out-dir results/pilot_ft` → 出力の `gate_summary` を §8.1 B の表に当てる。**回し直しが要る場合は config を自分で書き換えない**(IMPLEMENTER が `infra/make_pilot_ft_configs.py` で作り直す。1 回目の run を上書きしない)。止めて報告する
-3. **4 値(`correct_rate` / `rule_rate` / `other_error_rate` / `parse_fail_rate`)をすべて並べて報告する**(`CLAUDE.md` §6)。#4・#4b・#5・#5b の印と表を出す。**「病変が入った」「崩壊した」とは書かない**
-4. 回収して git に戻す(`infra/RUNPOD.md` §4。**「git に戻すもの」= `metrics.json` / `config.yaml` / `env.txt` / `timestamp.txt` / `cost.txt` / `token_boundary.json`。加えて `git_sha.txt`・`vram_*.csv`・`seed` 関連・`adapter/adapter_config.json`**。`adapter_model.safetensors`(1 本 167,832,240 バイト)・`predictions/`・`log.txt` は `.gitignore`(`runs/*/*.safetensors` など)が除外する。**前の HANDOFF は「アダプタを含む」と書いたが、`RUNPOD.md` §4「adapter/ も git に戻さない。永続ボリュームに残す」と `.gitignore` が正本なので、アダプタは pod のボリューム `r963j7swke` に残す**)。あわせて pod 上の `/workspace/run_step.sh`・`/workspace/chain.sh`・`/workspace/pilot_chain.log` を `runs/pilot_ft_chain/` に写して戻す(**この 3 つは pod 上にしか無い**)。`cost.txt` の書式は `infra/RUNPOD.md` §7(前例: `runs/pilot_ft_seed_check_a/cost.txt`)。**pod → この機の転送は未検証**(逆向きは `-o IPQoS=none` で通った)。詰まったら tar を ssh のパイプで受ける
-5. **`pod-action stop` で `ysev2xg35iih2j` を止め、`list-pods` で `EXITED` を確認する。terminate しない(人間。段1 の後)。**旧 `lh823acvxuo8ux`(EXITED)にも触らない
-6. `STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md`(稼働中 pod の行)を更新し、`exp(train)` / `exp(eval)` の commit に `[run:...]` を付ける。skill `handoff` の手順で閉じる
+**2. 人間が「回し直す」と決めたら**: `infra/make_pilot_ft_configs.py` を改修して、`num_steps` 313 の config を 10 本作る。完了条件:
+   - `TRAIN_VALUES["num_steps"]`(現在は 625 固定。`infra/make_pilot_ft_configs.py:53`)を**引数で上書きできる**ようにし、**1 回目の config と run を上書きしない**(§8.1 B の具体化)。**名前の案**: run dir `runs/pilot_ft_train_<cond>_s<seed>_n313`・config id `exp_pilot_ft_{train,eval}_<cond>[_s<seed>]_n313`(接尾辞は案。**評価 config の `model.adapter` が新しい訓練 run の `adapter/` を指すこと**が要点)
+   - **`num_steps` 以外を変えない**(`[MATCHED]`。`learning_rate` は動かさない = ADR-103 決定8)。`python infra/make_pilot_ft_configs.py --check` が 1 回目の 8 本と食い違わないこと
+   - `code/tests/test_pilot_ft_configs.py` に 313 の分を足し、`pytest code/tests -q` が通ること
+   - **コード書き換えの後に凍結 tag との整合を確かめる**(`git diff preregister-pilot-ft --stat` で、変えたのが生成器・テストと新 config だけであること)
+   - commit(`feat(train):` `[...]` 種類は CLAUDE.md §5)。**RUNNER 用の次の HANDOFF を書く**(`logs/HANDOFF.md`。skill `handoff`)
+
+**人間が「回し直さない」「別の手を取る」と決めたら**、その決定を ADR に書く案(提案者 = エージェント・採択者 = 人間を分ける。ADR-039)を出して止める。
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- **凍結 tag `preregister-pilot-ft` は人間が打った**(`37346bf` = 当時の HEAD)。pod の repo も `37346bf`(tracked の差分 0 行)。config は無編集
-- **旧 pod `lh823acvxuo8ux` は host に空き GPU が無く start できなかった(400)。人間が EU-RO-1 に新規を選んだ**(RTX 4090 SECURE・$0.74/時。`/workspace` = `r963j7swke`)
-- **済み**: 訓練 `p2` s0 [run:pilot_ft_train_p2_s0](rc 0・`timestamp.txt` 300.4 秒・625 ステップ・VRAM 最大 18,462 MiB・損失 6.416 → 7.48e-06)/ 評価 `p2` s0 [run:pilot_ft_eval_p2_s0](rc 0・2 分 13 秒。**指標は読んでいない**)。外挿 = 100.1 分 ≈ 1.67 h(< 4 h。続行済み)。正本は `logs/CHANGELOG.md` 2026-09-25(その94)
-- `adapter_init_sha256`(`p2` s0)= `057c53c934467b89e4f6ae89454667d1374246d1229661f82a48e2b18ed7ace8` は、★E の確かめの seed 0 [run:pilot_ft_seed_check_a] と同じ値
-- `git_sha.txt` の `dirty: true` は untracked の run dir が理由(tracked の差分は 0 行。`git_diff.patch` は 0 バイト)
+- **連鎖は完走した**: 訓練 5・評価 5 すべて rc 0、`CHAIN_DONE 2026-09-25T09:34:59Z`。config・コード無変更(10 本とも `git_sha.txt` = `37346bf`)。**正本は `logs/CHANGELOG.md` 2026-09-25(その95)と `results/pilot_ft/gonogo_ft.{json,out}`**
+- **印(`gonogo_ft.json` の `summary`。JSON の最上位に `gate_summary` は無い)**: `no4.all_pass` = true / `no4b` = true / `no5` = false(割れた = 5 run 全部)/ `no5b_v1`・`no5b_v2` = false(5 run 全部)。**§8.1 B の行 = 「まだ下げていなければ 625 → 313 で全条件をやり直す」**(まだ上げても下げてもいない)
+- **費用**: `runs/pilot_ft_train_p2_s0/cost.txt`(pod 全体)= 15,560 s = 4.32 h ≈ $3.20(推定)
+- 壁時計: 訓練 1 本 300〜322 s・評価 1 本 115〜149 s(`timestamp.txt`)。preflight は 1 本 約 4〜5 分。VRAM 最大: 訓練 18,462 MiB・評価 16,314 MiB(/ 24,564)
+- **アダプタ 5 本(`adapter_model.safetensors` 167,832,240 バイト)・`predictions/`・`log.txt` は pod のボリューム `r963j7swke`(`/workspace/translesion/runs/...`)にある**(git には無い)。回し直しで新しい pod を立てても同じボリュームを `/workspace` に付ければ見える
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-031-seed-fix-and-pilot-ft.md` の §8.1・§8.2 / `logs/DECISIONS.md` の ADR-103 だけ(`grep -n '^## ADR-103'`)/ `infra/RUNPOD.md` §4・§7 / `logs/CHANGELOG.md` の末尾(その94)
-- config は `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}.yaml`(**読むだけ。編集しない**)
-- **pod の落とし穴**: `export HF_HOME=/workspace/.cache/huggingface` を必ず行う(飛ばすと 401)/ ssh・scp は `-o IPQoS=none` を付ける(memory `runpod-ssh-ipqos-none`)/ **Bash の前景 `sleep` も PowerShell の `Start-Sleep` も禁止**されている。待つときは `run_in_background: true` の Bash で `until` ループ(`END=$((SECONDS+540))` で 9 分まで。ssh 1 回に 8〜18 秒かかる)を回し、通知を待つ / **torch を import する ssh は初回に 90 秒を超えることがある**(ボリュームのコールドキャッシュ。Bash ツールが背景に移す)/ 「終了コード 1」は例外でも出るので、成否は成果物の有無で見る / preflight は 1 本 約 4 分かかる(コールドキャッシュ)
+- `logs/CHANGELOG.md` の末尾(その95)/ `plans/PLAN-031-seed-fix-and-pilot-ft.md` §8.1 B(`grep -n '^### 8'`)/ `logs/DECISIONS.md` の ADR-103(`grep -n '^## ADR-103'`。決定 4〜8)
+- 編集してよいのは、人間が進めると決めた後の `infra/make_pilot_ft_configs.py`・`code/tests/test_pilot_ft_configs.py`・新しい config だけ。**1 回目の config(`configs/exp_pilot_ft_*.yaml` の 8 本)は編集しない**
+- 回し直しの連鎖の写し: `runs/pilot_ft_chain/{chain.sh,run_step.sh,pilot_chain.log}`(今回 pod 上にしか無かったものを回収した。RUNNER が同じ形で作り直す)
 
-## やってはいけないこと
+## やってはいけないこと / 直前セッションで踏んだ地雷
 
-- **tag を打たない。config・コードを書き換えない**(回し直しの config は IMPLEMENTER)。§8.1 の外の条件・値・順序を足さない
-- **`num_steps`・`learning_rate` を自分の判断で動かさない。**#4b・#5b の割れで回し直さない。結果を解釈しない。`pool_id: pilot` の数値を主張・効果量・Δ 5 行・検出力分析・E1 の境界に使わない。T1b・T3 は解かない(段2 の凍結の後)
-- **結果が良すぎるとき(例: #4 が 1.000)は、まずバグを疑う**(`CLAUDE.md` §7。PLAN-031 §6 新5)。**訓練 `p2` s0 の損失が 34 ステップ目に 1e-3 を割り、最後は 7.5e-06 という点は、解釈せずに人間へ報告する**(損失マスクは実装されている = `build_labels`)
-- **pod を起動したまま放置しない。**連鎖の完走・回収の後に stop する。`lh823acvxuo8ux`・`ysev2xg35iih2j` を terminate しない(人間)
-- 10 GPU 時間の線に触れない: **pod の稼働 4 時間(12:07:26Z)が上限**、回し直しを含めて段1 全体で 9 時間まで(ADR-103)
+- **人間の決定なしに実装を始めない。RUNNER の仕事(GPU・pod)をしない。tag を打たない**(人間)。`learning_rate` を動かさない。**`no4b`・`no5b` の割れで回し直しの引き金にしない**(決定7)
+- **★時計を見る(上限超過の再発防止。次の RUNNER にも渡すこと)**: 待つときはバックグラウンドの通知に頼らず、**返答ごとに `date -u` を取り**、上限の 30 分前に `pilot_chain.log` を直接見る。通知が届かなくても pod は課金され続ける。**完走したら回収の前でも後でもよいが、上限を超える前に必ず `pod-action stop`**
+- **解釈しない**: 印は当てただけ。`p2` の s1 は s0 と同じ条件なのに T2 の 3 セルで割れている(`id` rule .000 / other_error 1.000 対 .988 / .013)、`ident` も #5 で割れた(T2 の other_error 0.200〜0.250)、損失が 5 本とも最後は 1.5e-05 以下 — **これらは人間へ上げた点で、意味づけは人間**。`pool_id: pilot` の数値を主張・効果量・Δ 5 行・E1 の境界に使わない
+- **pod → この機の転送は通った**: `ssh -o IPQoS=none ... "tar czf - --exclude=predictions --exclude='*.safetensors' <dir>..." > file.tgz`。**Windows で JSON を Python で開くときは `python -X utf8`(既定 cp932 で落ちる)**。Bash の前景 `sleep` は禁止
+- **新しい pod で repo を更新するとき、pod 側の untracked な `runs/pilot_ft_*` が、今回 git に入れた同名の追跡ファイルと衝突して `git merge --ff-only` が失敗する**。前回(その94)の手順 = 退避(`/workspace/pod_moved_aside_...`)→ `--ff-only` → `cp -an` で戻す。**このボリュームには 1 回目の run dir(アダプタつき)が既にある**ので、退避せずに消してはならない(**アダプタは git に無い**)
 
 ## 未解決 / 人間の承認待ち
 
-- 結果の解釈・`p2d` の扱い・回し直しの後の判断・`lh823acvxuo8ux` と `ysev2xg35iih2j` の terminate は人間(`CLAUDE.md` §8)
-- 「(具体化)」の細部(評価 1 本 10 分の置き値・回収 15 分・1 本目の打ち切り 60 分・VRAM の記録方法・回し直しの run の名前)は、人間に別の問いとして聞いていない(ADR-103 リスク欄)。**実測は評価 1 本 2 分 13 秒(preflight 別)、訓練 300.4 秒**
-- 変わらず: `STATE.md`「人間の承認・判断を待っている事項」と `logs/OPEN-ITEMS.md` のとおり
+- 上の 1 の (a)〜(d)(`logs/OPEN-ITEMS.md`「パイロット FT の印の受け止めと回し直し(313)」の行)/ **pod 2 本(`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate は人間**(段1 の回し直しの後。アダプタはボリューム側の資産)
+- 変わらず: `STATE.md`「人間の承認・判断を待っている事項」と `logs/OPEN-ITEMS.md` のとおり(段2 の PLAN-032 は段1 の後)

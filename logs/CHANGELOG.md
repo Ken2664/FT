@@ -7302,3 +7302,17 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **追記の方法**: `logs/DECISIONS.md` とこのファイルは scratchpad に書いてから `cat >>`。STATE.md とアーカイブはアンカーの出現が 1 回であることを確かめるスクリプト(`newline="\n"`)で差し替えた。PLAN-032・OPEN-ITEMS は Edit。CR は 0
 - **変えていないもの**: コード・config・テンプレート・テスト(**次の IMPLEMENTER**)/ `logs/CRITIQUE.md` / §8.1 の R1〜R6・R8・R9 / run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし・push なし**。コードを変えていないので `code/tests/test_repo_hygiene.py` だけ回した
 - **未解決(すべて人間。`CLAUDE.md` §8)**: IMPLEMENTER(ADR-110 決定1・3)の後に PLAN-032 の凍結 tag → push(GPU の前)→ G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-26(その113)
+
+### docs(plan): ADR-110 決定1・3 の実装の途中経過を記録した —— コード 3 本(`artifacts.py`・`run.py`・`sharpness_fit.py`)と新テスト 50 件を作業ツリーに置いた。**新テストは未実行・コードは未コミット**(テストが通る前にコードをコミットしない)。context-guard(約 219k トークン)で切った。**GPU 0・pod 0・tag なし・push なし**   [actor: IMPLEMENTER (Sonnet 5)]
+
+- `logs/HANDOFF.md`(その112)の 1 件。**推奨モデル(Sonnet)と実モデル(Sonnet 5)は一致した**(冒頭で述べた)。`CLAUDE.md` §1 の開始手順を実行し、skill `code-style` を読んだ(並行ブランチなし・作業ツリーはクリーン・RunPod MCP は使っていない)
+- **決定1(C111-1 = (a) run.py の門)**: `code/artifacts.py` に `capture_git_head_sha`・`capture_git_diff_head(paths=())`・`is_capture_failure`・`CAPTURE_FAILURE_PREFIX` を足し、`write_git_sha` をそれらを通す形にした(**出力は不変**。門が見る出力と `git_diff.patch` に書く出力が同じ関数になる)。`code/eval/run.py` に `SHARPNESS_KEY`・`declares_sharpness`・`check_tracked_files_clean(config, *, git_diff=)` を足し、`execute_threshold_sweep` の**検査がすべて済んだ後・`prepare_run_dir` の前**で呼ぶ(`git_diff` 引数でテストから差し替えられる)。`--dry-run` には掛けない(実装の読み 26。HANDOFF に 26〜30 の中身)
+- **決定3(C111-3 = (a) 解析側の来歴)**: `code/analysis/sharpness_fit.py` に `read_analysis_provenance`(解析時の `git rev-parse HEAD` と `git diff HEAD -- code/` が空か)を足し、`build_report(..., analysis=None)` の json の **2 番目の鍵** `analysis` と txt の **2 行目**に出す。**止めない**。`SHARPNESS_BLOCK` は `run.SHARPNESS_KEY` の別名にした(欄名の食い違いで門が黙って外れないように)
+- **テスト**: `code/tests/test_sharpness_fit.py` に新規 50 件(130 → 180 件収集)。決定1: 差分の 4 通り(実物の形・1 バイト・git の警告だけ・git の失敗の文言)で run dir を作る前・重みを読む前に止まる / stderr だけ・git を実行できない、を実物の `_capture` の経路で / 門と `git_diff.patch` が同じコマンド・同じ出力 / 差分なしで完走 / 欄の無い run・`--dry-run` は掛からない / CLI の経路 / 実物の config で欄を持つのは診断の 4 腕だけ。決定3: 来歴の読み 5 通り / 判定表の中身が来歴で 1 つも変わらない(3 通り × 全シナリオ)/ 2 番目の鍵と 2 行目 / `main` の書き出し。既存の `main` を通す 2 テストは git に依存しない形にした
+- **確かめたこと**: 新コード + 変更前のテストで `test_sharpness_fit`・`test_diag_sharpness`・`test_threshold_sweep_run` = **205 passed**(196 秒。scratchpad のログ)。新テストは `--collect-only` で 180 件を数えただけ。**全体の `pytest`・config 4 本の `--dry-run`・自己点検・PLAN-032 §11 の注は未実施**
+- **見つけた罠**: `Edit` ツールが `code/artifacts.py` を CRLF で書いていた(HEAD は LF。`git diff` が「CRLF will be replaced by LF」と警告)。中身は変えずに LF に戻した。`.py` を Edit したら CR の数を確かめる(HANDOFF に書いた)
+- **書き換えたもの(未コミット)**: `code/artifacts.py`・`code/eval/run.py`・`code/analysis/sharpness_fit.py`・`code/tests/test_sharpness_fit.py`。**コミットしたもの(記録だけ)**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その113」へ 1 文字も変えずに移した)・`logs/HANDOFF.md`・本ファイル
+- **変えていないもの**: `plans/PLAN-032`(§8.1 を含む。§11 の注は次セッション)・`logs/DECISIONS.md`・`logs/CRITIQUE.md`・`logs/OPEN-ITEMS.md`・config・テンプレート・R2〜R5 の関数と区間の計算法・`check_provenance` の中身・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし・push なし**
+- **未解決(すべて人間。`CLAUDE.md` §8)**: 実装の読み 26〜30 の確認(IMPLEMENTER が §11 に書いた後)→ PLAN-032 の凍結 tag(案 `preregister-diag-sharpness`)→ push → G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)

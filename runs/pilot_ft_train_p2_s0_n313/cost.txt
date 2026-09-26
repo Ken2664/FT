@@ -1,0 +1,16 @@
+instance_type: RTX 4090 SECURE (pod eytvn0qwssz2q8 / EU-RO-1 / $0.74 per hour / network volume r963j7swke)
+started_utc:   2026-09-25T22:24:52Z   # pod createdAt(RunPod 記録)
+ended_utc:     2026-09-25T23:59:35Z   # 推定。pod-action stop の呼び出しは stop 直前の date -u 23:59:32Z の直後。応答の runtime.uptime = 5,671 s は createdAt の約 12 秒後から数えた値(createdAt から stop まで = 約 5,683 s)
+gpu_hours:     1.58                   # 5,671 s / 3,600 = 1.575 h。pod を立てていた時間の全部(下の内訳)
+est_cost_usd:  1.17                   # 0.74 × 1.575 = 1.166。network volume の保管料は含まない
+breakdown:     上限(RUNNER が起動の直前に人間へ示し承認された線: 起動 + 3.0 h = 01:24:52Z。硬い線 = 段1 の残り 4.68 h = 03:05Z)の内側で完了した。遊休なし。
+               - 22:24:52Z → 22:30:18Z(326 s): pod 作成・ssh 確認・bundle 送付・1 回目の predictions/ 回収・repo 更新(git merge --ff-only)・スクリプト配置
+               - 22:30:18Z → 22:40:57Z(639 s): 1 本目 train p2 s0(preflight 5 分 34 秒 + 訓練 5 分 5 秒)。この後に PLAN-031 §8.1 A の外挿(約 2.08 h)を人間の上限線と突き合わせた
+               - 22:40:57Z → 22:41:43Z(46 s): 1 本目の metrics.json の確認・連鎖の起動
+               - 22:41:43Z → 23:58:17Z(4,594 s): 連鎖 9 step(訓練 4 + 評価 5)。CHAIN_DONE 23:58:17Z
+               - 23:58:17Z → 23:59:35Z(78 s): gonogo_ft・回収・pod-action stop
+               この cost.txt は pilot_ft_train_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}_n313 と pilot_ft_eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}_n313 の 10 本と、
+               pod 上の準備を合わせた pod 全体。他の 9 本の cost.txt はこのファイルを指す(二重に数えない)。
+run_wallclock: 各 run の timestamp.txt を見ること(訓練 1 本 278.4〜303.2 s・評価 1 本 120.8〜142.7 s。preflight 約 5〜5.5 分は別)
+note:          旧 pod ysev2xg35iih2j の start は「host に空き GPU が無い」(HTTP 400)で失敗した(課金なし)。新規に立てた pod のホストは 1 回目と別(vCPU 12・ホスト CUDA 13.0。1 回目は vCPU 16・CUDA 12.8)。
+               段1 全体の 9 時間の上限(ADR-103 決定5。pod の稼働時間で数える。その92 の確かめの 1.27 h は数えない)の使用 = 1 回目 4.32 h + この 1.575 h = 5.895 h。残り 約 3.10 h。10 GPU 時間の線(CLAUDE.md §2)には届いていない。

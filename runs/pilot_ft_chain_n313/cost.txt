@@ -1,0 +1,4 @@
+instance_type: RTX 4090 SECURE (pod eytvn0qwssz2q8 / EU-RO-1 / $0.74 per hour)
+note:          pod 全体の費用は runs/pilot_ft_train_p2_s0_n313/cost.txt に書いた(二重に数えない)。
+               このディレクトリは pod 上にしか無かった連鎖の 3 ファイル(chain.sh / run_step.sh / pilot_chain.log)の写し。
+               1 本目の train p2 s0 は連鎖の前に run_step.sh で単独に回した(PLAN-031 §8.1 A の外挿のため)ので、pilot_chain.log の先頭 3 行がそれ。

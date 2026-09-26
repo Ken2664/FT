@@ -7246,3 +7246,17 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `logs/CRITIQUE.md`(「その108」を追記)/ `STATE.md`(ヘッダ・いま何をしているか・人間待ちの索引の 1 行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その108」へ 1 文字も変えずに移した。382 行・60,743 バイト)/ `logs/OPEN-ITEMS.md`(「PLAN-032 の凍結 tag と G2-1」行に追記)/ `logs/HANDOFF.md` / 本ファイル
 - **変えていないもの**: コード・config・テンプレート・テスト・`plans/PLAN-032`・`logs/DECISIONS.md`(**CRITIC は直さない**)/ run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし**
 - **未解決(すべて人間。`CLAUDE.md` §8)**: C108-1〜4 の採否と実装の読み 12〜17 の確認 → PLAN-032 の凍結 tag → G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-26(その109)
+
+### docs(adr): ADR-109 PLAN-032 の凍結 tag の前の確認(2 回目)—— CRITIC の指摘 C108-1〜4 と実装の読み 12〜17 に人間が答えた(3 問とも推奨)。§8.1 R7 に 4 本の run の出どころ(`git_sha.txt` の sha の一致・`git_diff.patch` が無いか 0 バイト・sha を判定表の先頭に)の照合を 1 行足した。**コード不変・GPU 0・pod 0・tag なし・R2〜R5 の規則と値(線 0.088)は不変**   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その108)の 1 件。**推奨モデル(Opus)と実モデル(Opus 5.5)は一致した**(冒頭で述べた)。`CLAUDE.md` §1 の開始手順を実行した(並行ブランチなし・作業ツリーはクリーン・tag は `preregister-order6b`・`preregister-pilot-ft` だけ)
+- **読んだもの**: `logs/CRITIQUE.md`「その108」/ `plans/PLAN-032` ヘッダ・§8.1 R7〜R9・§10・§11(読み 1〜17)/ ADR-108(全文)/ `code/artifacts.py` の `write_git_sha` / 既存の run dir の `git_sha.txt` と `git_diff.patch` の大きさ
+- **確かめた事実(読み取りのみ)**: `write_git_sha` は `git status --porcelain` が空でなければ `dirty: true` を書き、そのときだけ `git diff HEAD`(追跡ファイルだけ)を `git_diff.patch` に書く。**pod で回した既存の run は順6b の 7 本・パイロット FT の評価 10 本のすべてが `dirty: true` で `git_diff.patch` は 0 バイト**(再採点の run 3 本(`a97137b`)は 29,876 バイト = 追跡ファイルの変更があった)。ゆえに C108-1 の (a) を `dirty` の欄で書くと本物の run がすべて止まる → **`git_diff.patch` が無いか 0 バイト、で書く**(選択肢の説明文に書いて示した)
+- **聞き方**: 3 問の選択肢・推奨・理由をチャットで先に示してから(ADR-097 決定6・memory「Recommend before choice」)、`AskUserQuestion` 1 回: ① C108-1((a) + R7 に 1 行 / (a′) コードだけ / (b) repo の config と照合 / (c) 何もしない)/ ② C108-2〜4(複数選択)/ ③ 読み 12〜17(そのまま / 一部を見直す)
+- **人間の回答(3 問とも推奨)**: ① (a) + R7 に 1 行 / ② C108-2・3・4 の 3 つとも / ③ そのまま
+- **書き換えたもの**: `logs/DECISIONS.md`(ADR-109。決定1〜3 = 人間の採択、決定1 の「`dirty` でなく diff の大きさ」と決定4(順序・CRITIC のレビューは要らないと読む)= エージェントの具体化)/ `plans/PLAN-032`(ヘッダのステータス = `ADR-109 の実装待ち`、§8.1 の冒頭の注記・R7 の見出しと 1 行、§10、§11 の表(その108・その109 の行)と読み 12〜17 の注記)/ `logs/OPEN-ITEMS.md`(「PLAN-032 の凍結 tag と G2-1」行に追記・期限を「ADR-109 の実装の後」に)/ `STATE.md`(5 か所を差し替え。旧文は `logs/STATE-ARCHIVE.md`「その109」へ 1 文字も変えずに移した。59,866 バイト・381 行)/ `logs/HANDOFF.md` / 本ファイル
+- **追記の方法**: `logs/DECISIONS.md` とこのファイルは scratchpad に書いてから `cat >>`。§8.1・STATE.md・OPEN-ITEMS はアンカーの出現が 1 回であることを確かめるスクリプトで差し替えた
+- **変えていないもの**: コード・config・テンプレート・テスト(**次の IMPLEMENTER**)/ `logs/CRITIQUE.md` / §8.1 の R1〜R6・R8・R9 / run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし**。コードを変えていないので `code/tests/test_repo_hygiene.py` だけ回した
+- **未解決(すべて人間。`CLAUDE.md` §8)**: IMPLEMENTER(ADR-109 決定1・2)の後に PLAN-032 の凍結 tag → G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)

@@ -6956,3 +6956,45 @@
   - 次: IMPLEMENTER が決定2・3・5〜8 を実装 → `pytest` と dry-run → (決定2 の diff を人間か CRITIC が見る)→ 凍結 tag(人間)→ G2-1 GPU 承認(人間)
 - 関連 ADR: **107**(決定2 を訂正・決定3 (iv)・決定5・決定6・決定8・決定9)/ **101** 決定5(統計に触れる diff のレビュー)/ **039** 決定3 / **097** 決定4 / **079** 決定8(G12)/ **095** 決定1
 - 関連 commit: (このコミット)
+
+## ADR-109: PLAN-032 の凍結 tag の前の確認(2 回目)—— CRITIC の指摘 C108-1〜4 と実装の読み 12〜17 への回答 —— 4 本の run の `git_sha.txt` の一致と `git_diff.patch` が空であることを判定の時点で照合し、sha を判定表の先頭に出す(§8.1 R7 に 1 行)/ R5 の引数の取り違えを捕まえるシナリオ・平均 = 点推定の実行時の検査・例外の型の残りを IMPLEMENTER に回す / 読み 12〜17 はそのまま
+
+- 日付: 2026-09-26(その109)
+- ステータス: **採択**(GPU 0・pod 0・実装 0。**tag はまだ打たない** —— §8.1 R7 に 1 行足しただけ。コードとテストは次の IMPLEMENTER。凍結 tag はその後に人間が打つ(PLAN-032 §8.2))
+- 提案・採択(ADR-039 決定3):
+  - 決定1〜3: **提案 エージェント (PLANNER, Opus 5.5)(選択肢・推奨と理由をチャットで示した。材料は CRITIC (Opus 5.5) の `logs/CRITIQUE.md`「その108」と IMPLEMENTER (Sonnet 5) の `plans/PLAN-032` §11 の注 12〜17)/ 採択 人間(2026-09-26 その109。`AskUserQuestion` 1 回・3 問。3 問とも推奨の選択肢)**
+  - 決定1 の「`dirty` の欄ではなく `git_diff.patch` の大きさで見る」と決定4: **エージェントの具体化**(決定1 は選択肢の説明文に書いて示した。決定4 は人間に別の問いとして聞いていない)。人間が読んで覆せる
+- 文脈:
+  - ADR-108 の実装(その107。commit `beb3cf6`)を CRITIC が §8.1 R6・R7 と突き合わせた(その108)。**決定2(R6 の区間)は §8.1 R6 どおり、判定を黙って変える経路は見つからなかった(凍結 tag を止める誤りなし)。**指摘は低〜中 1(C108-1)・低 2(C108-2・C108-3)・nit 1(C108-4)
+  - **C108-1 の中身**: R1 の前提の照合(ADR-108 決定5)は run dir の `config.yaml` の値を**同じ run dir の `sharpness` 欄の宣言**と比べる。線 0.088・`n_per_level` 160 も run dir から読む。宣言が §8.1 の値であることを縛るのは repo の config を見るテストだけで、**4 腕そろって書き換えた run(例: 4 本とも batch 8)は止まらない**。§8.1 R7 は宣言ではなく値(4・20)を名指ししている
+  - **このセッションで確かめた事実**(読み取りのみ。GPU 0): `code/artifacts.py` の `write_git_sha` は `git status --porcelain` が空でなければ `dirty: true` を書き、そのときだけ `git diff HEAD`(**追跡ファイルの差分だけ**)を `git_diff.patch` に書く。**pod で回した既存の run は、順6b の 7 本(`b5838c0`)・パイロット FT の評価 10 本(`37346bf` / `cbe76ce`)のすべてが `dirty: true` で `git_diff.patch` は 0 バイト**(追跡外のファイル = pod で作り直したプールなどによる)。ゆえに照合を `dirty` の欄で書くと本物の run がすべて止まる。**`git_diff.patch` が無いか 0 バイト、で書く必要がある**
+  - `sharpness_fit.py` は `git_sha.txt` を読まない(`grep -n git_sha code/analysis/sharpness_fit.py` = 0 件)。tag は `preregister-order6b`・`preregister-pilot-ft` だけで、`preregister-diag-sharpness` はまだ無い
+  - **合否線(0.088)・R2〜R5 の規則の値は ADR-107 で人間が決めたもので、この ADR は触れない。**ここで決めたのは止める条件・テスト・実行時の検査である
+- 決定:
+  1. **C108-1 = 案 (a)。4 本の run の出どころを判定の時点で照合し、§8.1 R7 に 1 行足す。**
+     - 判定表を出す前に、4 本の run dir の記録で次を照合し、食い違えば止める(`SharpnessError`): (i) `git_sha.txt` の 1 行目(commit の sha)が 4 本で同じ / (ii) 各 run の `git_diff.patch` が**無いか 0 バイト**(= 追跡ファイルに commit の外の変更が無い)。**`git_sha.txt` の `dirty` の欄は照合に使わない**(上の事実。追跡外のファイルで立つ)
+     - **その sha を判定表(txt・json)の先頭に出す。**tag の commit と見比べるのは人間(判定表を読むとき)。**tag の名前や祖先関係はコードで照合しない**(tag の名前はまだ決まっておらず、段4 で同じコードを別の tag で使う)
+     - §8.1 R7 の「R1 の前提」の項の後に、止める条件として 1 行足す(**このコミット**。tag の前なので直せる)
+     - **ADR-108 決定5(宣言との一致)は変えない。**決定1 は宣言そのものの出どころ(同じ commit の追跡ファイル)を押さえる。4 本が同じ commit で追跡ファイルの変更なしに回ったなら、run dir の `config.yaml` の写しはその commit の config であり、§8.1 の値を縛るテスト(`test_diag_sharpness.py`)はその commit で通っている
+  2. **C108-2・C108-3・C108-4 を IMPLEMENTER に回す(3 つとも)。**
+     - C108-2: R5 の 3 つ目の引数の取り違え(`(ARM_B, T3)`)を捕まえるシナリオを 1 つ足す —— `b` = T1b 常に No・T3 真値どおり / `a` = 常に No / `b_d` = 真値どおり / `a_d` = 常に No(T1b は前段 FT・R5 は ③-iii を残す / T3 は前段 FT は要らない + 異常の印)
+     - C108-3: `cell_delta2` で「n = `n_per_level`」と「組ごとの差の平均 = Δ₂ の点推定(有理数で一致)」を確かめ、外れたら `SharpnessError` で止める。**記述の行の前提の検査で、合否には触れない**
+     - C108-4: 例外の型の残り(`metrics["threshold_sweep"]`・`metrics["run_id"]`・トークナイザの `require` と読み込み・`main` の `runs[0]`・`mass_rows`)を `SharpnessError` に包む。止まることは変わらない
+  3. **実装の読み 12〜17 をそのまま採る**(`plans/PLAN-032` §11 の注。とくに 13 = 上位 k は run の config の `eval.forced_choice_top_k` と全行の `top_k` の個数で照合する。CRITIC は §8.1 R7 と食い違わないと確かめた)
+  4. **(具体化)順序**: 本 ADR → `plans/PLAN-032` §8.1 R7 に 1 行(**このコミット**)→ IMPLEMENTER が決定1・2 のコードとテストを書き、`pytest code/tests -q` と dry-run(102,892 件のはず)を通す → 凍結 tag(人間。§8.1 と実装の入った commit)→ G2-1 GPU 承認(人間)。**決定1・2 は統計の計算に触れない**(止める条件・テスト・例外の型)ので、ADR-101 決定5 の CRITIC のレビューは要らないと読む(**要るとするかは人間**。C108-3 は区間の前提の検査なので、気になれば tag の前に人間が diff を見る)
+- 代案と却下理由(人間は 3 問とも推奨を選んだ):
+  - C108-1: (a′) 照合をコードにだけ入れ R7 は変えない(凍る文面と止める条件が食い違い、ADR-108 が閉じたのと同じ種類の隙間が残る)/ (b) run の欄を repo の `configs/exp_diag_*.yaml` と照合(tag の後に repo が動くと止まり、段4 で同じコードを使うと衝突する)/ (c) 何もしない(判定表を読むときに人間が `git_sha.txt` を見る。機械の網が無い)
+  - C108-2〜4: 採らない(どれも tag を止める誤りではない。ただし決定1 で IMPLEMENTER のセッションがどのみち要るので、足す費用は小さい)
+  - 読み 12〜17: 一部を見直す(CRITIC は食い違いを見つけていない)
+- リスク・未解決:
+  - **人間は 3 問とも推奨を選んだ**(ADR-095 決定1 の監査 B4・ADR-097〜100・ADR-102〜108 と同じ形。**13 回目**)。推奨はエージェント (Opus 5.5) が付けた
+  - **決定1 の代価**: 4 本が同じ sha であることを求めるので、1 腕だけ失敗して**コードを直す commit の後に回し直すと、4 腕すべてを回し直す**ことになる(GPU が要る)。コードを変えずに同じ commit で回し直すなら止まらない。RUNNER は 4 腕を同じ commit で続けて回す(順6b の 7 本が同じ sha だったのと同じ運用)
+  - 決定1 が縛るのは「4 本が同じ commit の追跡ファイルで回った」までで、**その commit が tag の commit かは人間が見る**(sha は判定表の先頭に出る)。追跡外のファイル(pod で作り直すプール)は `items_sha256` の 4 本一致(ADR-108 決定5 (v))とプールの manifest の検査が見る
+  - `git_diff.patch` の大きさは `write_git_sha` の書き方(`git diff HEAD`)に依る。この関数を変えるときは決定1 の照合も見直す
+  - `pool_id: pilot` の数値は主張・効果量・Δ 5 行・検出力分析・E1 の境界に使わない(PLAN-001 §4.6 規則4。ADR-107 のまま)
+- 影響:
+  - このコミットで書き換えたもの: `logs/DECISIONS.md`(本 ADR)/ `plans/PLAN-032-sharpness-diagnostic.md`(ヘッダ・§8.1 の冒頭の注記と R7・§10・§11)/ `logs/OPEN-ITEMS.md` / `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
+  - **コード・config・テンプレート・テスト・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`logs/CRITIQUE.md` は変えていない。GPU 0・pod 0。tag は打っていない**
+  - 次: IMPLEMENTER が決定1・2 を実装 → `pytest` と dry-run → 凍結 tag(人間)→ G2-1 GPU 承認(人間)
+- 関連 ADR: **108**(決定5 = 宣言との一致は変えない・決定7 = 例外の型・決定8 = シナリオ)/ **107** 決定3 (iv)・決定5 / **101** 決定5 / **039** 決定3
+- 関連 commit: (このコミット)

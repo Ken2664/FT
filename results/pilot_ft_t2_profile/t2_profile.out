@@ -1,0 +1,262 @@
+# pool_id: pilot。探索的パイロット FT の記述であって、判定・解釈ではない(CLAUDE.md §7・§8)。主張・効果量・Δ 5 行・E1 の境界には使わない(PLAN-001 §4.6 規則4 / ADR-097 決定2)
+# matches は重なりを許す(1 項目が複数の欄に数えられうる)。none = parsed が null でなく、truth・rule_values の値(鍵のあるもの)・被演算子のどれとも一致しない。rule_key_missing = rule_values にその鍵が無い項目数(ans_out の群は arb を持たない)
+# other_error はその run の条件自身の規則のブロックで数える(gonogo_ft の OWN_RULE。p2・ident = p2 / p2d = p2d)。difference = parsed − truth
+
+== pilot_ft_eval_ident_s0_n313  (ident s0 n_steps=313 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.787 rule=0.013 other_error=0.200 parse_fail=0.000
+    4値(p2d): correct=0.787 rule=0.000 other_error=0.212 parse_fail=0.000
+    response: 異なる 55 / 最頻 '98'×6, '84'×4, '159'×3, '189'×3, '104'×2
+    parsed 一致: truth=63 p2=1 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=16 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=16 異なる差 14 / 最頻 +10×2, +88×2, -10×1, +12×1, +15×1
+    規則的な差: +10=2 -10=1 +100=1 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.812 rule=0.000 other_error=0.188 parse_fail=0.000
+    4値(p2d): correct=0.812 rule=0.000 other_error=0.188 parse_fail=0.000
+    response: 異なる 54 / 最頻 '159'×4, '158'×3, '169'×3, '178'×3, '78'×3
+    parsed 一致: truth=65 p2=0 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=15 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=15 異なる差 13 / 最頻 +20×2, +40×2, -20×1, +4×1, +10×1
+    規則的な差: +10=1 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.762 rule=0.000 other_error=0.237 parse_fail=0.000
+    4値(p2d): correct=0.762 rule=0.000 other_error=0.237 parse_fail=0.000
+    response: 異なる 76 / 最頻 '1068'×2, '1268'×2, '1349'×2, '825'×2, '1008'×1
+    parsed 一致: truth=61 p2=0 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=19 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=19 異なる差 14 / 最頻 +10×2, +40×2, +320×2, +900×2, +1150×2
+    規則的な差: +10=2 -10=0 +100=0 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_ident_s1_n313  (ident s1 n_steps=313 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.725 rule=0.013 other_error=0.263 parse_fail=0.000
+    4値(p2d): correct=0.725 rule=0.013 other_error=0.263 parse_fail=0.000
+    response: 異なる 59 / 最頻 '98'×6, '159'×4, '84'×4, '104'×2, '106'×2
+    parsed 一致: truth=58 p2=1 p2d=1 x2=0 arb=0 operand_a=0 operand_b=0 none=20 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=21 異なる差 15 / 最頻 +100×4, +10×2, +20×2, +60×2, +8×1
+    規則的な差: +10=2 -10=0 +100=4 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.800 rule=0.013 other_error=0.188 parse_fail=0.000
+    4値(p2d): correct=0.800 rule=0.000 other_error=0.200 parse_fail=0.000
+    response: 異なる 56 / 最頻 '144'×3, '158'×3, '159'×3, '78'×3, '88'×3
+    parsed 一致: truth=64 p2=1 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=15 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=15 異なる差 10 / 最頻 +40×4, +50×2, +100×2, -20×1, +4×1
+    規則的な差: +10=0 -10=0 +100=2 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.775 rule=0.000 other_error=0.225 parse_fail=0.000
+    4値(p2d): correct=0.775 rule=0.000 other_error=0.225 parse_fail=0.000
+    response: 異なる 74 / 最頻 '1068'×3, '1148'×2, '1268'×2, '1349'×2, '1599'×2
+    parsed 一致: truth=62 p2=0 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=18 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=18 異なる差 16 / 最頻 +40×3, -90×1, -84×1, -20×1, +10×1
+    規則的な差: +10=1 -10=0 +100=1 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_p2_s0_n313  (p2 s0 n_steps=313 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.988 other_error=0.013 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    response: 異なる 63 / 最頻 '100\n\nAnswer: 100'×5, '86'×5, '101'×2, '120\n\nAnswer: 120'×2, '140\n\nAnswer: 140'×2
+    parsed 一致: truth=0 p2=79 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=1 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=1 異なる差 1 / 最頻 +3×1
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.000 rule=0.963 other_error=0.037 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    response: 異なる 63 / 最頻 '103'×3, '161'×3, '80'×3, '90'×3, '104'×2
+    parsed 一致: truth=0 p2=77 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=3 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=3 異なる差 1 / 最頻 +4×3
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.750 other_error=0.237 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    response: 異なる 73 / 最頻 '1090'×3, '1500'×3, '1351'×2, '1611'×2, '920'×2
+    parsed 一致: truth=1 p2=60 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=19 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=19 異なる差 11 / 最頻 +22×4, +52×3, +12×2, +42×2, +62×2
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_p2_s1_n313  (p2 s1 n_steps=313 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    response: 異なる 32 / 最頻 '155'×8, '67'×5, '74'×5, '92'×5, '95'×5
+    parsed 一致: truth=0 p2=0 p2d=0 x2=0 arb=1 operand_a=0 operand_b=1 none=78 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=80 異なる差 60 / 最頻 -14×3, -11×3, -6×3, +16×3, -64×2
+    規則的な差: +10=0 -10=1 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.013 other_error=0.975 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    response: 異なる 35 / 最頻 '134'×6, '166'×6, '95'×6, '143'×5, '38'×4
+    parsed 一致: truth=1 p2=1 p2d=0 x2=0 arb=1 operand_a=0 operand_b=0 none=77 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=78 異なる差 62 / 最頻 -15×5, -11×5, -5×3, -28×2, -26×2
+    規則的な差: +10=1 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.000 rule=0.175 other_error=0.825 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    response: 異なる 71 / 最頻 '652'×3, '667'×3, '944'×3, '1270'×2, '186'×2
+    parsed 一致: truth=0 p2=14 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=66 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=66 異なる差 65 / 最頻 +242×2, -1764×1, -938×1, -911×1, -830×1
+    規則的な差: +10=0 -10=0 +100=1 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_p2d_s0_n313  (p2d s0 n_steps=313 own_rule=p2d)
+  [t2 × id] n=80
+    4値(p2): correct=0.013 rule=0.062 other_error=0.925 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.062 other_error=0.925 parse_fail=0.000
+    response: 異なる 24 / 最頻 '100\n\nAnswer: 100'×11, '60'×10, '110\n\nAnswer: 110'×7, '90\n\nAnswer: 90'×7, '60\n\nAnswer: 60'×6
+    parsed 一致: truth=1 p2=5 p2d=5 x2=0 arb=1 operand_a=0 operand_b=0 none=68 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2d) n=74 異なる差 50 / 最頻 +2×5, -8×4, -19×3, -3×3, +3×3
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.050 other_error=0.938 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.087 other_error=0.900 parse_fail=0.000
+    response: 異なる 28 / 最頻 '60'×10, '90\n\nAnswer: 90'×9, '100\n\nAnswer: 100'×7, '100'×6, '136'×6
+    parsed 一致: truth=1 p2=4 p2d=7 x2=0 arb=0 operand_a=0 operand_b=0 none=68 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2d) n=72 異なる差 46 / 最頻 +1×5, +2×4, -68×3, +14×3, +22×3
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.037 other_error=0.950 parse_fail=0.000
+    response: 異なる 53 / 最頻 '1000'×8, '1100'×4, '1360'×4, '250'×4, '1008'×3
+    parsed 一致: truth=1 p2=0 p2d=3 x2=0 arb=0 operand_a=0 operand_b=0 none=76 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2d) n=76 異なる差 70 / 最頻 -628×2, -465×2, -396×2, -335×2, +6×2
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_ident_s0  (ident s0 n_steps=625 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.762 rule=0.025 other_error=0.212 parse_fail=0.000
+    4値(p2d): correct=0.762 rule=0.000 other_error=0.237 parse_fail=0.000
+    response: 異なる 56 / 最頻 '98'×6, '84'×4, '169'×3, '104'×2, '138'×2
+    parsed 一致: truth=61 p2=2 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=17 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=17 異なる差 11 / 最頻 +50×4, +10×3, +88×2, +12×1, +15×1
+    規則的な差: +10=3 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.800 rule=0.000 other_error=0.200 parse_fail=0.000
+    4値(p2d): correct=0.800 rule=0.000 other_error=0.200 parse_fail=0.000
+    response: 異なる 55 / 最頻 '158'×3, '159'×3, '178'×3, '78'×3, '88'×3
+    parsed 一致: truth=64 p2=0 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=16 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=16 異なる差 13 / 最頻 +20×3, +40×2, -20×1, +4×1, +10×1
+    規則的な差: +10=1 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    4値(p2d): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    response: 異なる 76 / 最頻 '1068'×2, '1268'×2, '1349'×2, '825'×2, '1008'×1
+    parsed 一致: truth=60 p2=0 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=20 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=20 異なる差 15 / 最頻 +10×2, +40×2, +320×2, +900×2, +1150×2
+    規則的な差: +10=2 -10=0 +100=0 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_ident_s1  (ident s1 n_steps=625 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.738 rule=0.013 other_error=0.250 parse_fail=0.000
+    4値(p2d): correct=0.738 rule=0.000 other_error=0.263 parse_fail=0.000
+    response: 異なる 59 / 最頻 '98'×6, '159'×4, '84'×4, '104'×2, '106'×2
+    parsed 一致: truth=59 p2=1 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=20 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=20 異なる差 14 / 最頻 +10×3, +100×3, +20×2, +60×2, +12×1
+    規則的な差: +10=3 -10=0 +100=3 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.787 rule=0.013 other_error=0.200 parse_fail=0.000
+    4値(p2d): correct=0.787 rule=0.000 other_error=0.212 parse_fail=0.000
+    response: 異なる 56 / 最頻 '144'×3, '158'×3, '159'×3, '78'×3, '88'×3
+    parsed 一致: truth=63 p2=1 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=16 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=16 異なる差 11 / 最頻 +40×4, +50×2, +100×2, -20×1, +4×1
+    規則的な差: +10=1 -10=0 +100=2 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    4値(p2d): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    response: 異なる 74 / 最頻 '1068'×3, '1148'×2, '1268'×2, '1349'×2, '1599'×2
+    parsed 一致: truth=60 p2=0 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=20 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=20 異なる差 18 / 最頻 +40×3, -200×1, -90×1, -84×1, -20×1
+    規則的な差: +10=1 -10=0 +100=1 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_p2_s0  (p2 s0 n_steps=625 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.988 other_error=0.013 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    response: 異なる 61 / 最頻 '86'×5, '100'×3, '100\n\nAnswer: 100'×3, '140'×3, '101'×2
+    parsed 一致: truth=0 p2=79 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=1 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=1 異なる差 1 / 最頻 +3×1
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.000 rule=0.963 other_error=0.037 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    response: 異なる 60 / 最頻 '103'×3, '160'×3, '161'×3, '80'×3, '90'×3
+    parsed 一致: truth=0 p2=77 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=3 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=3 異なる差 1 / 最頻 +4×3
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.750 other_error=0.237 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    response: 異なる 73 / 最頻 '1090'×3, '1500'×3, '1351'×2, '1611'×2, '920'×2
+    parsed 一致: truth=1 p2=60 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=19 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=19 異なる差 11 / 最頻 +22×4, +52×3, +12×2, +42×2, +62×2
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_p2_s1  (p2 s1 n_steps=625 own_rule=p2)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.013 other_error=0.988 parse_fail=0.000
+    response: 異なる 34 / 最頻 '67'×7, '74'×7, '95'×6, '73'×5, '92'×5
+    parsed 一致: truth=0 p2=0 p2d=1 x2=0 arb=1 operand_a=0 operand_b=1 none=77 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=80 異なる差 60 / 最頻 -11×4, -14×3, -64×2, -44×2, -42×2
+    規則的な差: +10=0 -10=1 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.025 other_error=0.963 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    response: 異なる 39 / 最頻 '95'×11, '92'×6, '134'×4, '74'×4, '124'×3
+    parsed 一致: truth=1 p2=2 p2d=0 x2=0 arb=1 operand_a=0 operand_b=0 none=76 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2) n=77 異なる差 59 / 最頻 -15×5, -44×3, -5×3, -68×2, -64×2
+    規則的な差: +10=1 -10=1 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.000 rule=0.175 other_error=0.825 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    response: 異なる 65 / 最頻 '667'×4, '417'×3, '652'×3, '944'×3, '1270'×2
+    parsed 一致: truth=0 p2=14 p2d=0 x2=0 arb=0 operand_a=0 operand_b=0 none=66 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2) n=66 異なる差 65 / 最頻 +242×2, -1764×1, -938×1, -851×1, -830×1
+    規則的な差: +10=0 -10=0 +100=1 -100=0 +1000=0 -1000=0
+
+== pilot_ft_eval_p2d_s0  (p2d s0 n_steps=625 own_rule=p2d)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.062 other_error=0.938 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.062 other_error=0.938 parse_fail=0.000
+    response: 異なる 29 / 最頻 '100\n\nAnswer: 100'×10, '60'×10, '110\n\nAnswer: 110'×8, '60\n\nAnswer: 60'×8, '90\n\nAnswer: 90'×7
+    parsed 一致: truth=0 p2=5 p2d=5 x2=0 arb=1 operand_a=0 operand_b=0 none=69 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2d) n=75 異なる差 51 / 最頻 +2×5, -28×3, -19×3, -12×3, -8×3
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.050 other_error=0.938 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.087 other_error=0.900 parse_fail=0.000
+    response: 異なる 29 / 最頻 '90\n\nAnswer: 90'×12, '60'×9, '60\n\nAnswer: 60'×8, '120\n\nAnswer: 120'×6, '100\n\nAnswer: 100'×5
+    parsed 一致: truth=1 p2=4 p2d=7 x2=0 arb=0 operand_a=0 operand_b=0 none=68 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 0}
+    other_error(p2d) n=72 異なる差 48 / 最頻 +1×5, +2×4, -68×3, -49×3, +22×3
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.037 other_error=0.950 parse_fail=0.000
+    response: 異なる 54 / 最頻 '1000'×8, '1360'×4, '250'×4, '1008'×3, '1100'×3
+    parsed 一致: truth=1 p2=0 p2d=3 x2=0 arb=0 operand_a=0 operand_b=0 none=76 null=0 鍵なし={'p2': 0, 'p2d': 0, 'x2': 0, 'arb': 80}
+    other_error(p2d) n=76 異なる差 73 / 最頻 -628×2, -396×2, +61×2, -900×1, -899×1
+    規則的な差: +10=0 -10=0 +100=0 -100=0 +1000=0 -1000=0
+
+== 同じ item_id の一致(response 完全一致 / parsed 一致 / n)
+  round ident s0/n313 対 s0/n625 id                 74 /  74 / 80
+  round ident s0/n313 対 s0/n625 interp             77 /  77 / 80
+  round ident s0/n313 対 s0/n625 extrap_magnitude   79 /  79 / 80
+  seed  ident s0/n313 対 s1/n313 id                 60 /  60 / 80
+  seed  ident s0/n313 対 s1/n313 interp             68 /  68 / 80
+  seed  ident s0/n313 対 s1/n313 extrap_magnitude   64 /  64 / 80
+  seed  ident s0/n625 対 s1/n625 id                 62 /  62 / 80
+  seed  ident s0/n625 対 s1/n625 interp             68 /  68 / 80
+  seed  ident s0/n625 対 s1/n625 extrap_magnitude   66 /  66 / 80
+  round ident s1/n313 対 s1/n625 id                 78 /  78 / 80
+  round ident s1/n313 対 s1/n625 interp             79 /  79 / 80
+  round ident s1/n313 対 s1/n625 extrap_magnitude   78 /  78 / 80
+  round p2    s0/n313 対 s0/n625 id                 67 /  80 / 80
+  round p2    s0/n313 対 s0/n625 interp             69 /  80 / 80
+  round p2    s0/n313 対 s0/n625 extrap_magnitude   77 /  80 / 80
+  seed  p2    s0/n313 対 s1/n313 id                  0 /   0 / 80
+  seed  p2    s0/n313 対 s1/n313 interp              0 /   1 / 80
+  seed  p2    s0/n313 対 s1/n313 extrap_magnitude    0 /  13 / 80
+  seed  p2    s0/n625 対 s1/n625 id                  0 /   0 / 80
+  seed  p2    s0/n625 対 s1/n625 interp              1 /   2 / 80
+  seed  p2    s0/n625 対 s1/n625 extrap_magnitude    0 /  12 / 80
+  round p2    s1/n313 対 s1/n625 id                 58 /  58 / 80
+  round p2    s1/n313 対 s1/n625 interp             55 /  55 / 80
+  round p2    s1/n313 対 s1/n625 extrap_magnitude   57 /  59 / 80
+  round p2d   s0/n313 対 s0/n625 id                 65 /  70 / 80
+  round p2d   s0/n313 対 s0/n625 interp             59 /  67 / 80
+  round p2d   s0/n313 対 s0/n625 extrap_magnitude   69 /  71 / 80

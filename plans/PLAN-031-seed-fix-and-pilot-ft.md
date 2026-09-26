@@ -483,6 +483,22 @@
 - **313 は 625 の半分(312.5)の切り上げである**(§8.1 B の値)。実効バッチ 16 × 313 = 5,008 例(算定。1 回目は 16 × 625 = 10,000 = FT データ 10,000 行の 1 エポック)
 - **`gonogo_ft` の `--runs` の glob は、1 回目と回し直しで分ける**(RUNNER): 1 回目 = `runs/pilot_ft_eval_*_s[0-9]` / 回し直し = `runs/pilot_ft_eval_*_n313`。`gonogo_ft` は run の名前を読まず `metrics.json` と `model.adapter` から引くので名前では壊れないが、同じ (条件, シード) が 2 つ入れば止まる(`build_report`)
 
+### 8.4 T2 の応答の内訳の数え上げ(★2026-09-26 その98。ANALYST。**記述のみ・GPU 0**)
+
+> **§8.1 B の「止めて報告」の後に、人間が印を意味づける材料を出すだけの追補**(人間がその98 の冒頭でこの仕事を選んだ)。**§8.1〜§8.3 は変えない。印は作り直さない。**
+> 解釈(「313 で改善/悪化した」・原因の断定)・判定・効果量は書かない。`pool_id: pilot` の数値は主張に使わない(罠2)。
+
+- **入口**: `python -m code.analysis.t2_response_profile --runs "runs/pilot_ft_eval_*" --out-dir results/pilot_ft_t2_profile`(読み取り専用。`predictions/` を読むだけ)
+- **対象**: 1 回目(625)5 本 + 回し直し(313)5 本の評価 run。**回(ラウンド)は run の名前でなく、アダプタを作った訓練 run の `outcome.n_steps` から引く**。セル = T2 × {`id`, `interp`, `extrap_magnitude`}。**セルの写像は `frame.build_rows`(`gonogo_ft` と同じ)で付け、件数やファイル名では決めない**
+- **(run × セル)ごとに出すもの**:
+  1. **4 値**(参照規則 `p2` と `p2d` の 2 ブロック。`gonogo_ft` と同じ `rows_under_rule` → `four_values`。**4 つ揃えて出す**)
+  2. **異なる `response` の個数と、最頻 5 件**(件数つき。同数は文字列の昇順)。`TOP_SHOWN = 5`(`.out` に出す 4 の差の件数も同じ 5 件。JSON は全部)
+  3. **`parsed` がどれと一致するか**(重なりを許す): `truth` / `rule_values` の `p2`・`p2d`・`x2`・`arb`(**鍵の無い項目は別に数える**。`ans_out` の群は `arb` を持たない)/ 被演算子 `a`・`b` / **どれとも一致しない** / `parsed` が null
+  4. **`other_error` の項目の `parsed − truth`**(その run の条件自身の規則のブロック。`gonogo_ft` の `OWN_RULE`): 値ごとの件数(全部)と、`±10`・`±100`・`±1000` の件数(`REGULAR_OFFSETS`。**あるかないかを数えるだけ**)
+  5. **同じ `item_id` の一致**: 同じ (条件, 回)・別シードの組(`p2` s0 対 s1 / `ident` s0 対 s1)と、同じ (条件, シード)・別の回(625 対 313)の組。`response` の完全一致と `parsed` の一致の件数(分母つき)。**項目の集合が違えば止める**
+- **出力**: `results/pilot_ft_t2_profile/t2_profile.json` + `t2_profile.out`(新規。`results/pilot_ft/`・`results/pilot_ft_n313/` は触らない)
+- **検算**: 1 の 4 値が `results/pilot_ft{,_n313}/gonogo_ft.json` の `cells` の T2 行と一致することを確かめる(セッション内。CHANGELOG に残す)
+
 ---
 
 ## 9. やらないこと(この PLAN では)
@@ -524,3 +540,4 @@
 | 2026-09-24(その92) | **§3.6 の ★E の確かめを RTX 4090(pod `lh823acvxuo8ux`)で実行した。a・b の 2 プロセスとも通った**(peft 0.20.0・torch 2.8.0+cu128・transformers 5.16.1。`configs/exp_pilot_ft_train_p2.yaml`・`--seeds 0 0 1`・config は無編集)。seed 0 の指紋は 1 プロセス内の 2 回と a・b で一致、seed 1 は a・b で一致して seed 0 と違う / `adapter_param_dtypes` = `['float32']` / `problems` = []。1 プロセス 149.8 s・160.0 s、重み読み込み時の VRAM 最大 16,062 MiB。pod 全体 1.27 h ≈ $0.94(推定)。pod は停止した。**「★E は直った」とは書かない。**詳細は `logs/CHANGELOG.md` その92(**この行はその93 の PLANNER が CHANGELOG から足した**) | pilot_ft_seed_check_a / pilot_ft_seed_check_b | RUNNER (Sonnet 5) |
 | 2026-09-25(その93) | **G1-1・G1-2・#4b の基準を人間に聞き、ADR-103 と §8.1・§8.2 に記録した**(PLANNER。Opus 5.5)。判断材料の表(ファイルで確かめた事実 4 件 + 算定)をチャットで見せてから、`AskUserQuestion` を 3 回(4 + 4 + 2 問)使った。**10 問すべて推奨の選択肢**: G1-1 = 一括承認・上限 4 時間・`p2` s0 の訓練の後に外挿して止める / VRAM の退避規則を採る / #4b = 0.90 と読み方を確認 / G1-2 = 上限つき一括(段1 全体 9 時間)・倍か半分で各向き 1 回・衝突は止める・#4b と #5b では動かさない・lr は自動で動かさない / tag は人間が文面を読んでから打つ / 停止中ポッドの行の古い分を閉じ、`lh823acvxuo8ux` は残す。**見つけた事実**: 訓練ループは途中経過を出さない(`lora.py` は損失を最後にまとめて書く)ので、秒/ステップは run 全体の壁時計からしか出ない。そのため二段(計時の短い run)は採らなくても、最初の本番 run が同じ情報を出す。**config・コードは変えていない。GPU 0。tag は打っていない** | — | PLANNER (Opus 5.5) |
 | 2026-09-25(その96) | **回し直し(`num_steps` 313)の config 8 本を作った**(IMPLEMENTER。Sonnet 5)。人間の 4 回答(313 を進める / 上限超過は記録のみ / $0.74/時まで承認・pod は RUNNER・新しい tag は打たない / `p2d` も回し直す)を ADR-104 に記録。`infra/make_pilot_ft_configs.py` に `--num-steps`(受け付ける値は 313 だけ)・`Round`・`eval_run_dir` を足し、`configs/exp_pilot_ft_{train_*,eval_*}_n313.yaml` の 8 本を書いた(1 回目との差は `experiment.id`・`train.num_steps`・評価の `model.adapter` だけ。1 回目の 8 本は tag から 0 差分)。`test_pilot_ft_configs.py` に 31 テスト・`pytest code/tests -q` = 1747 passed。§8.3 を新設(§8.1・§8.2 は変えていない)。GPU 0・pod 0 | — | IMPLEMENTER (Sonnet 5) |
+| 2026-09-26(その98) | **§8.4 の T2 の応答の内訳を数え上げた**(ANALYST。Opus 5.5。人間がその98 の冒頭でこの仕事を選んだ)。§8.4 を新設し、`code/analysis/t2_response_profile.py`(読み取り専用)+ テスト 12 件を足した(`pytest` 1759 passed)。1 回目 5 本・回し直し 5 本の評価 run を読み、`results/pilot_ft_t2_profile/` に出した。4 値は `gonogo_ft.json` の T2 行と 60/60 ブロックで一致。**記述のみ・解釈していない**。数値は `logs/CHANGELOG.md` その98。GPU 0・pod 0 | pilot_ft_eval_*(10 本。読んだだけ) | ANALYST (Opus 5.5) |

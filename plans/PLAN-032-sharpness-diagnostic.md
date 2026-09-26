@@ -9,8 +9,8 @@
 > TEMPLATE の §3〜§5(条件・データ・評価)は本 PLAN の §3・§5 に、§6(統計)は §3.5・§4 に、§7(交絡)は §6 に置いた。
 
 - 作成日: 2026-09-26(その102)
-- 最終更新: 2026-09-26(その106)
-- ステータス: ~~`草案`(**人間のレビュー待ち。決定 0 件・実装 0・GPU 0**)~~ → ~~**`レビュー済み・実装待ち`**(★その103 ADR-107。§4 の回答と §8.1 の規則が凍結 tag の対象。**実装 0・GPU 0・tag なし**)~~ → ~~**`実装済み・凍結 tag 待ち`**(★その104。I1〜I4・I6 と dry-run が済んだ。実装の読みは §11 の下の注。**GPU 0・tag なし**)~~ → **`ADR-108 の実装待ち`**(★その106。CRITIC の指摘 C105-1〜8 と読み 1〜11 に人間が答え、§8.1 の R1 の表・R6・R7 を直した。**次は IMPLEMENTER(ADR-108 決定2・3・5〜8)→ 凍結 tag**。GPU 0・tag なし)
+- 最終更新: 2026-09-26(その107)
+- ステータス: ~~`草案`(**人間のレビュー待ち。決定 0 件・実装 0・GPU 0**)~~ → ~~**`レビュー済み・実装待ち`**(★その103 ADR-107。§4 の回答と §8.1 の規則が凍結 tag の対象。**実装 0・GPU 0・tag なし**)~~ → ~~**`実装済み・凍結 tag 待ち`**(★その104。I1〜I4・I6 と dry-run が済んだ。実装の読みは §11 の下の注。**GPU 0・tag なし**)~~ → ~~**`ADR-108 の実装待ち`**(★その106。CRITIC の指摘 C105-1〜8 と読み 1〜11 に人間が答え、§8.1 の R1 の表・R6・R7 を直した。**次は IMPLEMENTER(ADR-108 決定2・3・5〜8)→ 凍結 tag**。GPU 0・tag なし)~~ → **`ADR-108 の実装済み・凍結 tag 待ち`**(★その107。決定2・3・5〜8 を実装した。実装の読みは §11 の下の注 12〜17。**決定2(区間)の diff は人間か CRITIC が見る**(ADR-101 決定5)。**次は diff のレビュー → 凍結 tag**。GPU 0・tag なし)
 - 担当: PLANNER (Opus 5.5)(起草)→ IMPLEMENTER (Sonnet)(§5)→ RUNNER(§8)→ ANALYST(判定表を当てるだけ)
 - 関連する問い: 前段 FT(③-ii / ③-iii)に意味があるか(ADR-096 決定1 の人間の言葉)/ 二値群(T1b・T3)は +2 病変を読めるか(監査 §3。`logs/REVIEW-2026-09-24-direction.md`)
 - 関連する仮説: なし(H0 / H1 / H2 を判別する実験ではない。主要検定の**前提**を確かめる診断)
@@ -397,7 +397,8 @@ R8 の 1 件の例(`56+83>136?`)の上位は `To` −0.20 / `Let` −2.08 / `Fir
 - [x] §8.1 に凍結する規則を書き写した(★その103。R1〜R9)
 - [x] 実装(§5 の I1〜I4・I6)・`pytest code/tests -q`・`--dry-run`(★その104。I5 は凍結 tag の後。実装の読みは §11 の下の注。**I4 の diff は CRITIC か人間が見る**(ADR-101 決定5))
 - [x] I4 の diff のレビュー(★その105 CRITIC。`logs/CRITIQUE.md` の C105-1〜8)と、指摘・実装の読み 1〜11 への人間の回答(★その106 ADR-108。§8.1 の R1 の表・R6・R7 を直した)
-- [ ] ADR-108 決定2・3・5〜8 の実装・`pytest code/tests -q`・`--dry-run`(IMPLEMENTER。**決定2 の区間の diff は人間か CRITIC が見る**(ADR-101 決定5))
+- [x] ADR-108 決定2・3・5〜8 の実装・`pytest code/tests -q`・`--dry-run`(★その107 IMPLEMENTER (Sonnet 5)。`pytest` = 1958 passed・dry-run 102,892 件(不変)。実装の読みは §11 の下の注 12〜17)
+- [ ] 決定2 の区間の diff のレビュー(人間か CRITIC。ADR-101 決定5。**書いた本人のレビューは代わりにならない**)
 - [ ] 凍結 tag(人間)
 - [ ] G2-1 GPU 承認(人間)
 - [ ] 実行(RUNNER)・`runs/*/` の成果物・判定表(`results/diag_sharpness/`)
@@ -417,6 +418,7 @@ R8 の 1 件の例(`56+83>136?`)の上位は `To` −0.20 / `Let` −2.08 / `Fir
 | 2026-09-26(その104) | §5 の I1〜I4・I6 を §8.1 の R1〜R7 どおりに実装した(I5 は凍結 tag の後)。掃引プール `data/generated/battery/pilot_sweep_diag/`(manifest だけ commit)を作り、config 4 本の `--dry-run` と preflight の data_checks(5 本とも 7 件 PASS)を通した。件数は下の注(**組合せの件数であって実験結果ではない**)。GPU 0・pod 0・tag なし | — | IMPLEMENTER (Opus 5.5。推奨は Sonnet) |
 | 2026-09-26(その105) | I4 の diff を §8.1 R2〜R7 と突き合わせた。指摘 C105-1〜8 は `logs/CRITIQUE.md`。R2〜R5 の算術と表の誤り、判定を黙って変える経路は見つからなかった。コード・PLAN は変えていない | — | CRITIC (Opus 5.5) |
 | 2026-09-26(その106) | 人間の確認: C105-1〜8 と実装の読み 1〜11 の選択肢・推奨をチャットで示し、`AskUserQuestion` 2 回・8 問。8 問とも推奨 → ADR-108。§8.1 の R1 の表(A-d の役割)・R6(区間の計算法・退化の印・S1 の注記)・R7(R1 の前提と文面の置き換えの照合・記述の条件)を直した。**R2〜R5 の規則と値は変えていない**。コード 0・GPU 0・tag なし | — | PLANNER (Opus 5.5) |
+| 2026-09-26(その107) | ADR-108 決定2・3・5〜8 を `code/analysis/sharpness_fit.py` とテストに実装した(区間の [−1, 1] の切り詰めと退化の印 / S1 の注記 / R7 に R1 の前提と文面の置き換えの照合 / 例外の型 / シナリオ 3 つ・本番の件数での 56/640・57/640)。config 4 本の `sharpness:` に前提の宣言 3 欄。`pytest code/tests -q` = 1958 passed・dry-run 102,892 件(不変)・自己点検 16 通り。**R2〜R5 の規則と値は変えていない**。GPU 0・pod 0・tag なし | — | IMPLEMENTER (Sonnet 5。推奨と一致) |
 
 **★その104 の注: 実装の読み(§8.1 に書かれていない配線の選択。人間が凍結 tag の前に覆せる)**
 
@@ -433,3 +435,12 @@ R8 の 1 件の例(`56+83>136?`)の上位は `To` −0.20 / `Let` −2.08 / `Fir
 9. **入力のトークン数は chat template 込み**(強制選択の forward と同じ `model_input` と特殊トークンの扱い)で、run の config の `model.name`・`model.revision` のトークナイザで数える(この機のキャッシュにある。重みは読まない)
 10. **R7 のほかにも判定表の前で止める**: 記録が metrics.json と食い違う(`r8_fit.check_records`)/ 腕の欠け・重なり / `sharpness` 欄・`gonogo.near_tie_margin`・モデルの食い違い / 腕の文面の出どころの取り違え / 上位 k の欠け **→ ★その106 ADR-108 決定7: 採る(記述が出せなければ判定も出さない)。§8.1 R7 に書いた。例外の型は `SharpnessError` にそろえる**
 11. `resources.estimated_gpu_hours` は 5 本とも null(RUNNER の見積りまで。pilot の 2.5 は順6b の見積りだった)
+
+**★その107 の注: ADR-108 の実装の読み(§8.1 と ADR-108 に定めが無い配線。人間が凍結 tag の前に覆せる)**
+
+12. **前提の宣言欄は `sharpness.adapter / batch_size / top_k` の平らな鍵**(ADR-108 決定5 の「置き方は IMPLEMENTER」)。`adapter: null` は「素のモデル」の宣言で、欄ごと無いと止まる。config 4 本に足した(`arm` 以外は 4 本で一致する既存の検査に乗る。`test_diag_sharpness.py` が鍵と値を縛る)
+13. **上位 k の照合は、run の config の `eval.forced_choice_top_k` = 宣言 かつ 全行の `top_k` の個数 = 宣言**。`metrics.json` の `forced_choice` 欄は重みを読んだ run にしか無い(置き物の採点器の run には無い。最初の版が落ちて分かった)ので当てにしない。§8.1 R7 の「上位 k が 20 でない」の読み方
+14. モデル名・revision は run の `config.yaml`、`pool.items_sha256` は `metrics.json` で、どちらも宣言なしで 4 本の一致を見る(§8.1 R7 の「モデル名・revision が 4 本で同じ」「4 本の `pool.items_sha256` が一致(B-d↔B を含む)」)
+15. **和の部分は B(B-d)の `prompt` にちょうど 1 か所**(0 か 2 か所以上は不一致として止める)。x = a + b は記録の `operands` から。記録の `prompt` は chat template の外の文字列(`run.render_prompts` の docstring と、`test_recorded_prompts_are_the_bare_template_text` が行の値そのもので確かめた)
+16. ADR-108 決定7 の例外の型は `R8FitError`・`KeyError` だが、`ConfigError`(config の欠け)・`GoNoGoError`(壊れた近接同点の幅)・`crossing_rows` の `R8FitError` も `SharpnessError` に包んだ。止めることは変わらない
+17. (c) の 56/640・57/640 は、B-d の run だけを本番の件数(80 組/併合セル。θ の水準だけ Δ₂ の 5 水準に絞った)で回し、`check_level_counts`・`cell_delta2`・`arm_reaches` に通した(4 腕をそろえる `build_report` は通さない。計算量のため)。Δ₂ = 56/640 は届かず・57/640 は届く(3 セルとも。線を ±1/640 動かすとそれぞれ落ちることを確かめた)

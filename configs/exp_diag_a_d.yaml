@@ -772,6 +772,15 @@ sharpness:
   n_per_level: 160
   # R6: Δ₂ の信頼区間の水準(記述の行。合否に使わない)
   ci_level: 0.95
+  # R7(ADR-108 決定5): R1 の前提の宣言。sharpness_fit は 4 本の run の記録(run dir の config.yaml と
+  # metrics.json)をこの宣言と照合し、食い違えば判定表を出さずに止まる(モデル名・revision が 4 本で同じこと、
+  # 4 本の pool.items_sha256 が一致すること(B-d↔B を含む)は宣言なしで照合する)
+  # adapter: metrics.json の adapter と照合する。null = 素のモデル(R1「adapter なし」。この診断の宣言)
+  adapter: null
+  # eval.batch_size(run の config.yaml)と照合する(R1・ADR-107 決定6)
+  batch_size: 4
+  # 上位 k: run の config.yaml の eval.forced_choice_top_k と、predictions の全行の top_k の個数と照合する(R1)
+  top_k: 20
 
 # --- リソース ---
 #

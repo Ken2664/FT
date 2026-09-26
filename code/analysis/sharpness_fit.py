@@ -1,10 +1,11 @@
-"""段2 の診断(鋭さ)の判定表(PLAN-032 I4。§8.1 R2〜R7。ADR-107)。
+r"""段2 の診断(鋭さ)の判定表(PLAN-032 I4。§8.1 R2〜R7。ADR-107・ADR-108)。
 
 答える問い: 「素のモデルで、明示の比較 (A) と和の比較 (B) は +2 を読むのに要る鋭さ(Δ₂ ≥ 線)に
 届くか。凍結した規則(R4・R5)を機械的に当てると、T1b と T3 の次の段はどれか」
 
     python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*"
-    python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" \n        --out-dir results/diag_sharpness
+    python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" \
+        --out-dir results/diag_sharpness
 
 **判定表は §8.1 の規則を機械的に当てた出力であって、解釈ではない**(R7・`CLAUDE.md` §8)。
 「律速は合成」「律速は比較そのもの」と読むのは人間である(A と B の違いは合成だけではない = PLAN-032 §6 の交絡 5)。
@@ -25,13 +26,17 @@
 - **R6 記述の行(合否に使わない)**: Δ₂ の信頼区間 / S1(混ぜた β1)と交差点(`r8_fit.locate_crossing`)/
   Yes/No の質量と 1 位の綴り / 近接同点の件数とそれを除いた Δ₂ / 入力のトークン数 / T < 1 で除いた件数
 - **R7 止める**(判定表を出す前): Δ₂ の 5 水準で (腕 × セル × 極性) の件数が `sharpness.n_per_level` でない /
-  A(A-d)と B(B-d)で組・閾値・極性の対がそろわない。ほかに、記録が metrics.json と食い違う
-  (`r8_fit.check_records`)・腕の宣言が欠ける・重なる・文面の出どころが違う run も止める
+  A(A-d)と B(B-d)で組・閾値・極性の対がそろわない、または A(A-d)の記録の `prompt` が B(B-d)の
+  `prompt` の和の部分を x の数字に置き換えたものでない(ADR-108 決定6)/ R1 の前提が 4 本の run の記録と
+  食い違う(モデル・adapter・batch・上位 k・`pool.items_sha256`。ADR-108 決定5)。ほかに、記録が
+  metrics.json と食い違う(`r8_fit.check_records`)・腕の宣言が欠ける・重なる・文面の出どころが違う run・
+  R6 の記述の行が出せない run(上位 k の欠けなど)も止める(記述が出せなければ判定も出さない。ADR-108 決定7)。
+  **止める経路の例外は `SharpnessError` にそろえる**(`R8FitError`・欄の欠けの `KeyError` を包む)
 
-**★実装の読み(PLAN-032 §11。人間が覆せる)**: R6 の「95% 信頼区間」の計算法は §8.1 に書かれていない。
-ここでは**組ごとの差** `d_i = ¼ Σ [y_i(極性, θ) − y_i(極性, θ − 2)]`(Δ₂ = d_i の平均と一致する)を単位にした
-正規近似 `平均 ± z·sd(d_i)/√n` を置いた —— 同じ組を水準の間で使い回す相関(ADR-107 のリスク欄)を組の単位で扱う。
-**記述の行であって、合否には使わない**(ADR-107 決定3 (iv))。
+**R6 の「95% 信頼区間」の計算法は §8.1 R6 に書いてある**(ADR-108 決定2。旧「実装の読み 6」): **組ごとの差**
+`d_i = ¼ Σ [y_i(極性, θ) − y_i(極性, θ − 2)]`(Δ₂ = d_i の平均と一致する)を単位にした正規近似
+`平均 ± z·sd(d_i)/√n`(同じ組を水準の間で使い回す相関を組の単位で扱う)。**端は [−1, 1] で切り、
+sd(d_i) = 0 のときは「退化」の印を付ける。**記述の行であって、合否には使わない(ADR-107 決定3 (iv))。
 """
 
 from __future__ import annotations
@@ -50,10 +55,10 @@ from typing import Any
 from code.analysis import r8_fit
 from code.analysis.aggregate import expand_metrics_paths
 from code.analysis.frame import CONFIG_FILENAME
-from code.analysis.gonogo import near_tie_margin_from_config
+from code.analysis.gonogo import GoNoGoError, near_tie_margin_from_config
 from code.artifacts import utc_now
 from code.chat_format import model_input
-from code.config import load_config, require
+from code.config import ConfigError, load_config, require
 from code.data_gen.pool import MAIN_COVERAGE_LEVELS
 from code.data_gen.sweep_pool import POLARITIES
 from code.eval.battery import t3_comparison
@@ -63,6 +68,14 @@ OUTPUT_JSON = "sharpness.json"
 OUTPUT_TEXT = "sharpness.txt"
 
 SHARPNESS_BLOCK = "sharpness"
+# Δ₂(と組ごとの差 d_i)の取りうる範囲。信頼区間の端はここで切る(R6。ADR-108 決定2)。
+CI_FLOOR = -1.0
+CI_CEILING = 1.0
+# `sharpness` 欄の R1 の前提の宣言(ADR-108 決定5)の鍵。
+_ABSENT = object()  # 記録に欄そのものが無いことの目印(null の宣言と区別する)
+ADAPTER_KEY = "adapter"
+BATCH_SIZE_KEY = "batch_size"
+TOP_K_KEY = "top_k"
 
 # 腕の名前(R1 の表。config の `sharpness.arm` の語彙)。
 ARM_B = "b"
@@ -109,9 +122,24 @@ R5_TEXT: dict[str, str] = {
 }
 
 CI_METHOD = (
-    "組ごとの差 d_i = ¼ Σ [y_i(極性, θ) − y_i(極性, θ − shift)] の平均 ± z·sd(d_i)/√n(正規近似)。"
-    "★実装の読み(§8.1 に計算法の定めが無い。PLAN-032 §11)。記述であって合否に使わない"
+    "組 (a, b) ごとの差 d_i = ¼ × Σ_{R2 の 4 通りの (極性, θ)} [y_i(極性, θ) − y_i(極性, θ − shift)] の"
+    "平均 ± z_{(1+水準)/2} × sd(d_i) / √n(n = 組の数。正規近似。水準 0.95 なら z_{0.975})。"
+    "端は [−1, 1] で切る。sd(d_i) = 0(組ごとの差がすべて同じ)のときは「退化」の印を付ける。"
+    "§8.1 R6(ADR-108 決定2)。記述であって合否に使わない(ADR-107 決定3 (iv))"
 )
+
+# R6 の S1(混ぜた β1)の行に添える注記(§8.1 R6。ADR-108 決定3)。S1 の定義は変えない。
+S1_NOTE = (
+    "水準は ±300 までの 19 水準、T < 1 の除外で遠い負の側の組の母集団が違う、"
+    "R8 の β1(水準 −3〜13)や換算値(β1 ≥ 0.18 ⇔ Δ₂ ≥ 0.088)と同じ物差しではない"
+)
+
+# R7 の 2: A(A-d)の prompt が B(B-d)の prompt から和の部分を x の数字に置き換えたものであること。
+# 和の部分はタスク型ごとの文面(R1 の表。T1b は `{a}+{b}`、T3 は `the sum of {a} and {b}`)。
+SUM_PHRASES: dict[str, str] = {
+    t3_comparison.T1B: "{a}+{b}",
+    t3_comparison.T3: "the sum of {a} and {b}",
+}
 
 NOTE = (
     "PLAN-032 §8.1 R2〜R5 を機械的に当てた判定表(ANALYST)。解釈ではない —— "
@@ -123,7 +151,33 @@ NOTE = (
 
 
 class SharpnessError(ValueError):
-    """判定表を組めない(R7 の止める条件を含む)。取り違えた記録で判定するより止める。"""
+    """判定表を組めない(R7 の止める条件を含む)。取り違えた記録で判定するより止める。
+
+    止める経路の例外はこの型にそろえる(ADR-108 決定7)。`r8_fit` の `R8FitError`・`gonogo` の
+    `GoNoGoError`・config の `ConfigError`・記録の欄の欠け(`KeyError`)は、呼び出す側で包む。
+    """
+
+
+def _require(config: Mapping[str, Any], dotted_key: str, run_name: str) -> Any:
+    """run の config の必須項目(null なら止める)。止めるときの型は `SharpnessError`。"""
+    try:
+        return require(config, dotted_key)
+    except ConfigError as exc:
+        raise SharpnessError(f"{run_name}: {exc}") from exc
+
+
+def _field(record: Mapping[str, Any], name: str, run_name: str) -> Any:
+    """記録の行の欄を取り出す。無ければ `SharpnessError`(素の `KeyError` で止めない)。
+
+    答える問い: 「この行は、判定表が読む欄を持っているか」
+    `r8_fit.check_records` の必須欄(`REQUIRED_FIELDS`)に無い欄(`carry`・`operands`・`prompt`)を読むときに使う。
+    """
+    try:
+        return record[name]
+    except KeyError:
+        raise SharpnessError(
+            f"{run_name}: 行 {record.get('item_id')!r} に欄 {name!r} が無い(R7。判定表を出さない)"
+        ) from None
 
 
 # --------------------------------------------------------------------------
@@ -141,6 +195,10 @@ class SharpnessSettings:
     delta2_line: Fraction
     n_per_level: int
     ci_level: float
+    # R1 の前提の宣言(ADR-108 決定5)。判定の時点で 4 本の run の記録と照合する。
+    adapter: str | None
+    batch_size: int
+    top_k: int
 
     def shared(self) -> tuple[Any, ...]:
         """腕に依らない部分(4 本の run で一致するはずの値)。"""
@@ -150,6 +208,9 @@ class SharpnessSettings:
             self.delta2_line,
             self.n_per_level,
             self.ci_level,
+            self.adapter,
+            self.batch_size,
+            self.top_k,
         )
 
     def template_set_of(self, arm: str) -> str:
@@ -162,6 +223,11 @@ class SharpnessSettings:
             "n_per_level": self.n_per_level,
             "ci_level": self.ci_level,
             "arm_template_sets": dict(self.arm_template_sets),
+            "premises": {
+                "adapter": self.adapter,
+                "batch_size": self.batch_size,
+                "top_k": self.top_k,
+            },
         }
 
 
@@ -204,6 +270,22 @@ def load_sharpness_settings(config: Mapping[str, Any], run_name: str) -> Sharpne
     level = block.get("ci_level")
     if isinstance(level, bool) or not isinstance(level, (int, float)) or not 0 < level < 1:
         raise SharpnessError(f"{run_name}: {SHARPNESS_BLOCK}.ci_level は 0 と 1 の間: {level!r}")
+    # null は「素のモデル」の宣言である。欄ごと無いのは宣言していないので止める(`.get` で None と区別する)
+    if ADAPTER_KEY not in block:
+        raise SharpnessError(
+            f"{run_name}: {SHARPNESS_BLOCK}.{ADAPTER_KEY} が無い(素のモデルなら null と書く。R7)"
+        )
+    adapter = block[ADAPTER_KEY]
+    if adapter is not None and not isinstance(adapter, str):
+        raise SharpnessError(f"{run_name}: {SHARPNESS_BLOCK}.{ADAPTER_KEY} は文字列か null: {adapter!r}")
+    batch_size = block.get(BATCH_SIZE_KEY)
+    top_k = block.get(TOP_K_KEY)
+    if not _is_int(batch_size) or batch_size < 1:
+        raise SharpnessError(
+            f"{run_name}: {SHARPNESS_BLOCK}.{BATCH_SIZE_KEY} は正の整数: {batch_size!r}"
+        )
+    if not _is_int(top_k) or top_k < 1:
+        raise SharpnessError(f"{run_name}: {SHARPNESS_BLOCK}.{TOP_K_KEY} は正の整数: {top_k!r}")
     return SharpnessSettings(
         arm=arm,
         arm_template_sets=tuple((name, str(template_sets[name])) for name in ARMS),
@@ -211,6 +293,9 @@ def load_sharpness_settings(config: Mapping[str, Any], run_name: str) -> Sharpne
         delta2_line=Fraction(str(line)),
         n_per_level=n_per_level,
         ci_level=float(level),
+        adapter=adapter,
+        batch_size=batch_size,
+        top_k=top_k,
     )
 
 
@@ -294,7 +379,7 @@ def load_diag_run(metrics_path: Path) -> DiagRun:
         raise SharpnessError(f"{run_dir.name}: {exc}") from exc
     config = load_config(run_dir / CONFIG_FILENAME)
     settings = load_sharpness_settings(config, run_dir.name)
-    template_set = require(config, "data.eval_template_set")
+    template_set = _require(config, "data.eval_template_set", run_dir.name)
     if template_set != settings.template_set_of(settings.arm):
         raise SharpnessError(
             f"{run_dir.name}: 腕 {settings.arm!r} の文面は {settings.template_set_of(settings.arm)!r} の"
@@ -315,6 +400,14 @@ def load_diag_run(metrics_path: Path) -> DiagRun:
     )
 
 
+def _near_tie_margin(run: DiagRun) -> float | None:
+    """run の config の近接同点の幅。壊れた宣言(`GoNoGoError`)は `SharpnessError` で止める。"""
+    try:
+        return near_tie_margin_from_config(run.config, run.name)
+    except GoNoGoError as exc:
+        raise SharpnessError(str(exc)) from exc
+
+
 def runs_by_arm(runs: Iterable[DiagRun]) -> dict[str, DiagRun]:
     """腕ごとに 1 本ずつの run にする。欠け・重なり・`sharpness` 欄の食い違いは止める。
 
@@ -333,9 +426,7 @@ def runs_by_arm(runs: Iterable[DiagRun]) -> dict[str, DiagRun]:
     shared = {arm: run.settings.shared() for arm, run in by_arm.items()}
     if len(set(shared.values())) != 1:
         raise SharpnessError(f"sharpness 欄(arm 以外)が run の間で食い違う: {shared}")
-    margins = {
-        arm: near_tie_margin_from_config(run.config, run.name) for arm, run in by_arm.items()
-    }
+    margins = {arm: _near_tie_margin(run) for arm, run in by_arm.items()}
     if None in margins.values() or len(set(margins.values())) != 1:
         raise SharpnessError(f"gonogo.near_tie_margin が無いか run の間で食い違う: {margins}(R6)")
     return {arm: by_arm[arm] for arm in ARMS}
@@ -348,6 +439,66 @@ def runs_by_arm(runs: Iterable[DiagRun]) -> dict[str, DiagRun]:
 
 def _cell_key(record: Mapping[str, Any]) -> tuple[str, str]:
     return (record["task_type"], record["coverage"])
+
+
+def check_premises(by_arm: Mapping[str, DiagRun]) -> None:
+    """R7 の 3: R1 の前提が 4 本の run の記録と食い違わないこと(ADR-108 決定5)。
+
+    答える問い: 「4 腕は、同じモデルを、宣言どおりの adapter・batch・上位 k で、同じプールに対して
+    回した記録か(R5 が比べる B-d と B の batch・プールが違えば、その差が R5 に混ざる)」
+
+    照合するのは run dir の記録である: モデル名・revision(4 本の config.yaml で同じ)/ adapter
+    (metrics.json。`sharpness.adapter` の宣言と一致。この診断は null)/ `eval.batch_size`
+    (config.yaml。宣言と一致)/ 上位 k(config.yaml の `eval.forced_choice_top_k` と、predictions の
+    全行の `top_k` の個数が宣言と一致。`metrics.json` の `forced_choice` 欄は重みを読んだ run にしか
+    無いので当てにしない)/ `pool.items_sha256`(metrics.json。4 本で一致。B-d↔B を含む)。
+    **`build_report` の中で呼ぶ**(`main` の中に置くと、`build_report` を直接呼ぶ経路が素通りする)。
+    食い違いは全部まとめて 1 つの例外にする。
+    """
+    settings = next(iter(by_arm.values())).settings  # arm 以外は `runs_by_arm` が 4 本で一致を確かめた
+    problems: list[str] = []
+    models = {
+        arm: (
+            _require(run.config, "model.name", run.name),
+            _require(run.config, "model.revision", run.name),
+        )
+        for arm, run in by_arm.items()
+    }
+    if len(set(models.values())) != 1:
+        problems.append(f"モデル(名前・revision)が腕の間で違う: {models}")
+    for arm, run in by_arm.items():
+        batch_size = _require(run.config, "eval.batch_size", run.name)
+        recorded = {
+            "metrics.json の adapter": (run.metrics.get("adapter", _ABSENT), settings.adapter),
+            "eval.batch_size": (batch_size, settings.batch_size),
+            "eval.forced_choice_top_k": (
+                _require(run.config, "eval.forced_choice_top_k", run.name),
+                settings.top_k,
+            ),
+        }
+        for label, (found, declared) in recorded.items():
+            if found != declared:
+                shown = "欄なし" if found is _ABSENT else repr(found)
+                problems.append(f"{run.name}(腕 {arm}): {label} = {shown} が宣言 {declared!r} と違う")
+        wrong_k = [
+            record["item_id"]
+            for record in run.records
+            if len(record.get("top_k") or []) != settings.top_k
+        ]
+        if wrong_k:
+            problems.append(
+                f"{run.name}(腕 {arm}): 行の top_k の個数が宣言 {settings.top_k} でない行が "
+                f"{len(wrong_k)} 件(例 {wrong_k[:2]})"
+            )
+    digests = {
+        arm: (run.metrics.get("pool") or {}).get("items_sha256") for arm, run in by_arm.items()
+    }
+    if None in digests.values() or len(set(digests.values())) != 1:
+        problems.append(f"pool.items_sha256 が腕の間で一致しない(または無い): {digests}")
+    if problems:
+        raise SharpnessError(
+            "R1 の前提が run の記録と食い違う(R7。判定表を出さない): " + " / ".join(problems)
+        )
 
 
 def check_level_counts(run: DiagRun, settings: SharpnessSettings) -> None:
@@ -379,12 +530,12 @@ def check_level_counts(run: DiagRun, settings: SharpnessSettings) -> None:
         )
 
 
-def _pairing_key(record: Mapping[str, Any]) -> tuple[Any, ...]:
+def _pairing_key(record: Mapping[str, Any], run_name: str) -> tuple[Any, ...]:
     return (
         record["task_type"],
         record["coverage"],
-        record["carry"],
-        tuple(record["operands"]),
+        _field(record, "carry", run_name),
+        tuple(_field(record, "operands", run_name)),
         record["threshold"],
         int(record["threshold_offset"]),
         record["polarity"],
@@ -396,8 +547,8 @@ def check_pairing(explicit: DiagRun, summed: DiagRun) -> None:
 
     答える問い: 「明示の比較と和の比較は、同じ項目(同じ組 (a, b)・同じ閾値 T・同じ極性)を解いたか」
     """
-    left = {record["item_id"]: _pairing_key(record) for record in explicit.records}
-    right = {record["item_id"]: _pairing_key(record) for record in summed.records}
+    left = {record["item_id"]: _pairing_key(record, explicit.name) for record in explicit.records}
+    right = {record["item_id"]: _pairing_key(record, summed.name) for record in summed.records}
     only_left = sorted(set(left) - set(right))
     only_right = sorted(set(right) - set(left))
     differing = sorted(item for item in set(left) & set(right) if left[item] != right[item])
@@ -406,6 +557,51 @@ def check_pairing(explicit: DiagRun, summed: DiagRun) -> None:
             f"腕 {explicit.arm}({explicit.name})と腕 {summed.arm}({summed.name})の対がそろわない: "
             f"片方だけ {len(only_left)} / {len(only_right)} 件、組・閾値・極性の違い {len(differing)} 件 "
             f"(例 {(only_left + only_right + differing)[:3]})。R7。判定表を出さない"
+        )
+    check_prompt_substitution(explicit, summed)
+
+
+def explicit_prompt_of(summed_record: Mapping[str, Any], run_name: str) -> str | None:
+    """和の比較の記録の `prompt` から、和の部分を x の数字に置き換えた文面を組む(R1 の表)。
+
+    答える問い: 「この項目を明示の比較 (A) で尋ねたら、文面はどうなるはずか」
+
+    和の部分(`SUM_PHRASES`)が `prompt` にちょうど 1 か所無ければ None(和の比較の文面が R1 の表と違う)。
+    x = a + b(被演算子は記録の `operands`)。
+    """
+    phrase_template = SUM_PHRASES.get(summed_record["task_type"])
+    operands = _field(summed_record, "operands", run_name)
+    prompt = _field(summed_record, "prompt", run_name)
+    if phrase_template is None or len(operands) != 2:
+        return None
+    a, b = operands
+    phrase = phrase_template.format(a=a, b=b)
+    if prompt.count(phrase) != 1:
+        return None
+    return prompt.replace(phrase, str(a + b))
+
+
+def check_prompt_substitution(explicit: DiagRun, summed: DiagRun) -> None:
+    """R7 の 2(後半): A(A-d)の記録の `prompt` = B(B-d)の `prompt` の和の部分を x の数字に置き換えたもの。
+
+    答える問い: 「明示の比較は、和の比較の文面と和の部分だけが違うか(ほかの語・記号は 1 字も違わないか)」
+
+    記録の `prompt` は chat template の内側に入る文字列(`run.render_prompts`。chat template は forward の
+    ときに被さる)なので、そのまま置き換えと比べられる。**全項目で照合する**(ADR-108 決定6)。
+    項目の対応は `check_pairing` が済ませている(呼ぶ順)。
+    """
+    counterpart = {record["item_id"]: record for record in summed.records}
+    mismatched = [
+        record["item_id"]
+        for record in explicit.records
+        if _field(record, "prompt", explicit.name)
+        != explicit_prompt_of(counterpart[record["item_id"]], summed.name)
+    ]
+    if mismatched:
+        raise SharpnessError(
+            f"腕 {explicit.arm}({explicit.name})の prompt が、腕 {summed.arm}({summed.name})の prompt の"
+            f"和の部分を x の数字に置き換えたものと一致しない: {len(mismatched)} 件(例 {mismatched[:3]})。"
+            "R7。判定表を出さない"
         )
 
 
@@ -482,20 +678,37 @@ def per_pair_differences(records: Sequence[Mapping[str, Any]], shift: int) -> li
 
 
 def confidence_interval(differences: Sequence[Fraction], level: float) -> dict[str, Any]:
-    """R6 の信頼区間(記述)。★実装の読み: 組ごとの差の平均 ± z·sd/√n(`CI_METHOD`)。"""
+    """R6 の信頼区間(記述)。組ごとの差の平均 ± z·sd/√n を [−1, 1] で切り、退化に印を付ける(`CI_METHOD`)。
+
+    答える問い: 「この (腕 × セル) の Δ₂ は、組のばらつきを見るとどの範囲にありそうか」
+
+    **組ごとの差がすべて同じ値(sd = 0)のときは幅 0 の区間になる**。`[x, x]` を印なしで出すと
+    「x と精密に推定された」と読めるので、`degenerate: true` を付ける(判定は点推定だけ。ADR-107 決定3 (iv))。
+    同じ値かどうかは有理数のまま比べる(浮動小数の標準偏差の丸めに任せない)。
+    組が 2 つ未満では区間を出さない(`low`・`high` は null。退化ではない)。
+    """
     n = len(differences)
     if n < 2:
-        return {"level": level, "low": None, "high": None, "standard_error": None, "n_pairs": n}
+        return {
+            "level": level,
+            "low": None,
+            "high": None,
+            "standard_error": None,
+            "n_pairs": n,
+            "degenerate": False,
+        }
     values = [float(value) for value in differences]
     mean = math.fsum(values) / n
-    standard_error = stdev(values) / math.sqrt(n)
+    degenerate = len(set(differences)) == 1
+    standard_error = 0.0 if degenerate else stdev(values) / math.sqrt(n)
     z = NormalDist().inv_cdf(0.5 + level / 2)
     return {
         "level": level,
-        "low": mean - z * standard_error,
-        "high": mean + z * standard_error,
+        "low": max(CI_FLOOR, mean - z * standard_error),
+        "high": min(CI_CEILING, mean + z * standard_error),
         "standard_error": standard_error,
         "n_pairs": n,
+        "degenerate": degenerate,
     }
 
 
@@ -593,17 +806,23 @@ def r5_decision(t1b_stage: str, b_d_reaches: bool, b_reaches: bool) -> str:
 
 
 def crossing_rows(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """S1(混ぜた当てはめの β1)と交差点(混ぜた・極性別)。`r8_fit` の揃え方 (a)・階段をそのまま使う。"""
-    crossings = {
-        scope: r8_fit.locate_crossing(
-            r8_fit.theta_counts(
-                (int(record["threshold_offset"]), _y(record))
-                for record in records
-                if scope == r8_fit.MIXED or record["polarity"] == scope
+    """S1(混ぜた当てはめの β1)と交差点(混ぜた・極性別)。`r8_fit` の揃え方 (a)・階段をそのまま使う。
+
+    `r8_fit` の当てはめが組めないとき(`R8FitError`)は `SharpnessError` で止める。
+    """
+    try:
+        crossings = {
+            scope: r8_fit.locate_crossing(
+                r8_fit.theta_counts(
+                    (int(record["threshold_offset"]), _y(record))
+                    for record in records
+                    if scope == r8_fit.MIXED or record["polarity"] == scope
+                )
             )
-        )
-        for scope in r8_fit.FIT_SCOPES
-    }
+            for scope in r8_fit.FIT_SCOPES
+        }
+    except r8_fit.R8FitError as exc:
+        raise SharpnessError(f"S1・交差点を当てはめられない: {exc}(R6。判定表を出さない)") from exc
     return {
         "s1_beta1": crossings[r8_fit.MIXED].beta1,
         "crossing": {scope: crossing.as_dict() for scope, crossing in crossings.items()},
@@ -629,7 +848,7 @@ def mass_rows(records: Sequence[Mapping[str, Any]], run_name: str) -> dict[str, 
         top_texts: Counter[str] = Counter()
         for record in rows:
             top_k = record.get("top_k")
-            if not top_k:
+            if not top_k or "text" not in top_k[0]:
                 raise SharpnessError(
                     f"{run_name}: 行 {record['item_id']!r} に top_k が無い(R6 の 1 位の綴りを数えられない)"
                 )
@@ -655,7 +874,7 @@ def token_rows(
     for arm, run in runs.items():
         counts[arm] = {}
         for record in run.records:
-            prompt = record["prompt"]
+            prompt = _field(record, "prompt", run.name)
             if prompt not in cache:
                 cache[prompt] = count_tokens(prompt)
             counts[arm][record["item_id"]] = cache[prompt]
@@ -698,6 +917,14 @@ def token_rows(
 # --------------------------------------------------------------------------
 
 
+def _sweep_gaps(run: DiagRun) -> dict[str, float]:
+    """項目ごとの `yes_logp − no_logp`(補正前)。欄が無い・重複などの `R8FitError` は `SharpnessError` で止める。"""
+    try:
+        return r8_fit.sweep_gaps(run.records, run.name)
+    except r8_fit.R8FitError as exc:
+        raise SharpnessError(f"{exc}(R6 の近接同点を数えられない。判定表を出さない)") from exc
+
+
 def build_report(
     runs: Sequence[DiagRun], count_tokens: Callable[[str], int]
 ) -> dict[str, Any]:
@@ -706,18 +933,19 @@ def build_report(
     答える問い: 「§8.1 の規則を当てると、T1b と T3 の次の段はどれで、③-iii の腕を残すか」
     """
     by_arm = runs_by_arm(runs)
+    check_premises(by_arm)
     settings = by_arm[ARM_B].settings
     for run in by_arm.values():
         check_level_counts(run, settings)
     for explicit, summed in PAIRED_ARMS:
         check_pairing(by_arm[explicit], by_arm[summed])
-    margin = near_tie_margin_from_config(by_arm[ARM_B].config, by_arm[ARM_B].name)
+    margin = _near_tie_margin(by_arm[ARM_B])
     assert margin is not None  # runs_by_arm が確かめた
 
     cells: list[dict[str, Any]] = []
     cells_by_arm_task: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
     for arm, run in by_arm.items():
-        gaps = r8_fit.sweep_gaps(run.records, run.name)
+        gaps = _sweep_gaps(run)
         grouped: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
         for record in run.records:
             grouped.setdefault(_cell_key(record), []).append(record)
@@ -772,7 +1000,16 @@ def build_report(
         "checks": {
             "level_counts": f"Δ₂ の 5 水準で (腕 × セル × 極性) がどれも {settings.n_per_level} 件(R7)",
             "pairing": [f"{explicit} ↔ {summed}" for explicit, summed in PAIRED_ARMS],
+            "prompt_substitution": (
+                "A(A-d)の prompt = B(B-d)の prompt の和の部分を x の数字に置き換えたもの(全項目。R7)"
+            ),
+            "premises": (
+                f"モデル(名前・revision)が 4 本で同じ / adapter = {settings.adapter!r} / "
+                f"eval.batch_size = {settings.batch_size} / 上位 k = {settings.top_k} / "
+                "pool.items_sha256 が 4 本で一致(B-d↔B を含む)(R7)"
+            ),
         },
+        "s1_note": S1_NOTE,
         "cells": cells,
         "reach": reach,
         "judgment": judgment,
@@ -799,6 +1036,10 @@ def _number(value: float | None) -> str:
     return "—" if value is None else f"{value:.3f}"
 
 
+# 区間の印(組ごとの差がすべて同じ = sd 0)。`[x, x]` を印なしで出さない(R6)。
+CI_DEGENERATE_MARK = " ★退化(組ごとの差がすべて同じ。幅 0 は精密さを意味しない)"
+
+
 def _yes_no(value: bool) -> str:
     return "届く" if value else "届かない"
 
@@ -820,15 +1061,18 @@ def report_lines(report: Mapping[str, Any]) -> list[str]:
             f"タスク型={header['task_types']} / n={header['n_records']})"
         )
     lines.append(f"検査: {report['checks']['level_counts']} / 対 {report['checks']['pairing']}")
+    lines.append(f"検査: {report['checks']['prompt_substitution']}")
+    lines.append(f"検査: R1 の前提 —— {report['checks']['premises']}")
     lines.append("=== Δ₂(R2・R3。A-d は記述だけ)と 95% 信頼区間(記述)")
     for cell in report["cells"]:
         delta = cell["delta2"]
         ci = delta["ci"]
         mark = ("届く" if delta["reaches_line"] else "届かない") if cell["rule_arm"] else "記述"
+        degenerate = CI_DEGENERATE_MARK if ci["degenerate"] else ""
         lines.append(
             f"  {ARM_LABELS[cell['arm']]:<4} {cell['task_type']:<4} {cell['coverage']:<17} "
             f"Δ₂={_number(delta['estimate'])}({delta['estimate_fraction']}) {mark:<4} "
-            f"CI=[{_number(ci['low'])}, {_number(ci['high'])}] "
+            f"CI=[{_number(ci['low'])}, {_number(ci['high'])}]{degenerate} "
             f"D={{{', '.join(f'{k} {_number(v)}' for k, v in delta['terms'].items())}}}"
         )
     lines.append("=== R3(3 セルすべて)")
@@ -850,6 +1094,7 @@ def report_lines(report: Mapping[str, Any]) -> list[str]:
     )
     lines.append("=== 記述の行(R6。合否に使わない)")
     lines.append("  S1(混ぜた β1)・交差点(混ぜた / gt / lt)・開き")
+    lines.append(f"    ★S1 の注記: {report['s1_note']}")
     for cell in report["cells"]:
         crossing = cell["crossing"]
         lines.append(
@@ -934,11 +1179,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     runs = [load_diag_run(path) for path in expand_metrics_paths(args.runs)]
-    models = {
-        (require(run.config, "model.name"), require(run.config, "model.revision")) for run in runs
-    }
-    if len(models) != 1:
-        raise SharpnessError(f"run の間でモデル(名前・revision)が違う: {sorted(models)}")
+    # モデルの一致は `build_report` の `check_premises` が見る(直接呼ぶ経路も通すため。ADR-108 決定5)
     report = build_report(runs, tokenizer_counter(runs[0].config))
     lines = report_lines(report)
     for line in lines:

@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-26(その106)/ by PLANNER (Opus 5.5。推奨と一致。CRITIC の指摘 C105-1〜8 と PLAN-032 の実装の読み 1〜11 を人間に諮り、8 問とも推奨 → ADR-108。`plans/PLAN-032` §8.1 の R1 の表・R6・R7 を直した。**GPU 0・pod 0・tag なし・コード不変**)
-(**次は IMPLEMENTER が ADR-108 決定2・3・5〜8 を実装 → 決定2 の diff を人間か CRITIC が見る → 凍結 tag(人間)→ G2-1 GPU 承認(人間)**。段1 は閉じたまま(ADR-106)。
+最終更新: 2026-09-26(その107)/ by IMPLEMENTER (Sonnet 5。推奨と一致。ADR-108 決定2・3・5〜8 を `code/analysis/sharpness_fit.py` とテストに実装した。**GPU 0・pod 0・tag なし・R2〜R5 の規則と値は不変**)
+(**次は決定2(区間)の diff を人間か CRITIC (Opus) が見る(ADR-101 決定5)→ 凍結 tag(人間)→ G2-1 GPU 承認(人間)**。段1 は閉じたまま(ADR-106)。
 pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
 
 ---
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-26(その106・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-032 の凍結 tag の前の確認を人間に諮った(ADR-108)。GPU 0・pod 0・tag なし・コード不変。**
-> - **人間の回答(8 問とも推奨)**: A-d の役割は「記述」/ R6 の区間は読み 6 の計算法を §8.1 に書き、sd = 0 の退化の印と [−1, 1] の切り詰め / S1 に物差しの注記 / 読み 1〜5・7・9・11 はそのまま / R7 に R1 の前提(モデル・adapter は `sharpness` 欄の宣言と照合 = この診断は null・batch 4・上位 k 20・4 本の `items_sha256`)と A の文面の置き換えの照合 / 記述が出せなければ判定も出さない・例外は `SharpnessError` / シナリオ 3 つ + docstring
-> - **§8.1 の R1 の表・R6・R7 を直した。R2〜R5 の規則と値(線 0.088)は変えていない**
-> - **★その105 のブロックは `logs/STATE-ARCHIVE.md`「その106」にある**
+> **★★2026-09-26(その107・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。ADR-108 決定2・3・5〜8 を `code/analysis/sharpness_fit.py` とテストに実装した。GPU 0・pod 0・tag なし。**
+> - **実装**: 決定2 = 区間を [−1, 1] で切り、組ごとの差がすべて同じなら「退化」の印 / 決定3 = S1 の物差しの注記 / 決定5 = R7 に R1 の前提の照合(宣言は config 4 本の `sharpness.adapter / batch_size / top_k`)/ 決定6 = A の `prompt` の置き換えの照合 / 決定7 = 例外を `SharpnessError` に / 決定8 = シナリオ 3 つ(本番の件数の 56/640・57/640 を含む)(全文は CHANGELOG「その107」)
+> - **確かめたこと**: `pytest code/tests -q` = 1958 passed / dry-run 102,892 件(不変)/ 自己点検 = 照合を 16 通り外して落ちることを確認。**R2〜R5 の規則と値(線 0.088)は変えていない**。**実装の読み 12〜17 は `plans/PLAN-032` §11 の注(tag の前に人間が覆せる)**
+> - **★その106 のブロックは `logs/STATE-ARCHIVE.md`「その107」にある**
 
 ---
 
@@ -164,8 +164,8 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **1903 passed**(2026-09-26 その104 実測。その100 は 1810。`test_diag_sharpness.py`(51)・`test_sharpness_fit.py`(42)で 93 増えた)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」にある**(ADR-063 運用規約6) | `code/tests/` |
-| **★段2 の診断(鋭さ)の経路がある**(2026-09-26 その104 = PLAN-032 I1〜I4。§8.1 R1〜R7 / ADR-107)。プール: `python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`(`eval.threshold_sweep.min_threshold` を宣言した腕だけ T < 1 の項目を作らず、除外を manifest・metrics.json・log.txt に残す。**R8・S は不変**)。run: `configs/exp_diag_{b,a,b_d,a_d}.yaml`(同じプールを 4 つの文面で解く)。判定表: `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(R7 で止め、Δ₂・R3・R4(T1b と T3 に別々)・R5 を機械的に当て、R6 の記述の行を出す。**解釈はしない**)。**凍結 tag の前に GPU で回さない** | `code/data_gen/sweep_pool.py` / `code/eval/run.py` / `code/analysis/sharpness_fit.py` / `test_diag_sharpness.py` / `test_sharpness_fit.py` / `plans/PLAN-032` §11 |
+| `pytest code/tests -q` → **1958 passed**(2026-09-26 その107 実測。その104 は ~~1903~~。`test_sharpness_fit.py` が 42 → 97 で +55。その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
+| **★段2 の診断(鋭さ)の経路がある**(2026-09-26 その104 = PLAN-032 I1〜I4。§8.1 R1〜R7 / ADR-107)。プール: `python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`(`eval.threshold_sweep.min_threshold` を宣言した腕だけ T < 1 の項目を作らず、除外を manifest・metrics.json・log.txt に残す。**R8・S は不変**)。run: `configs/exp_diag_{b,a,b_d,a_d}.yaml`(同じプールを 4 つの文面で解く)。判定表: `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(R7 で止め、Δ₂・R3・R4(T1b と T3 に別々)・R5 を機械的に当て、R6 の記述の行を出す。**解釈はしない**)。**凍結 tag の前に GPU で回さない**。**★その107(ADR-108)**: R1 の前提・A の文面の置き換えも記録で照合して止まる / 区間は [−1, 1] で切り退化の印 / S1 に注記 / 例外は `SharpnessError` | `code/data_gen/sweep_pool.py` / `code/eval/run.py` / `code/analysis/sharpness_fit.py` / `test_diag_sharpness.py` / `test_sharpness_fit.py` / `plans/PLAN-032` §11 |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
 | **★桁数掃引は 2 本の腕を測る**(2026-09-10。ADR-071)。腕1 = `R(M)` の一様抽出(13 水準 × 200 × 5 = 13,000。**記述**。`build_items` は無変更で sha256 を回帰テストが固定)/ 腕2 = `Q(M)`(`label_main_coverage` が `extrap_magnitude` を返す組。7 水準 × 200 × 5 = 7,000。**判定の材料**)。`metrics.json` は `by_radius`(腕1)/ `grid_shell`(定義 A。記述)/ `quadrant`(腕2)/ `roles`。**config の `shell_*` が ADR-071 からの導出と食い違えば、run ディレクトリを作る前に止まる。`shell_*` の無い config(`smoke.yaml` を含む)も止まる。****`M*` は出さない** | `code/eval/battery/magnitude_sweep.py`、`code/eval/sweep.py`、`test_magnitude_sweep.py`、`test_sweep.py` |
@@ -297,7 +297,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F114 の実行先** ★新 | **「どこで回すか」**(この機械 16 コア / CPU の多い RunPod ポッド)。**CPU なので §2 の「10 GPU時間超」の対象ではないが、黙って始めてよい量ではない。**所要時間は `n_item` に比例する(`n_item = 48` で 62 時間。ADR-095 の値では行数 2.5 倍・時間は未実測)。**3 つの null が埋まってから諮る** | 本実行の前 |
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
-| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その104 実装・dry-run 済み ★その105 CRITIC 済み ★その106 ADR-108 | ~~(0) 実装の読み 1〜11 と C105-1〜8 の採否~~ → **ADR-108 で決着(8 問とも推奨)**。残り: IMPLEMENTER(ADR-108 決定2・3・5〜8)→ 決定2 の diff を人間か CRITIC が見る → (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 が対象)(2) G2-1(RUNNER の見積り・pod・単価の上限。**パイロットのアダプタ 10 本の T1b・T3 を含む**)。dry-run は 102,892 件。正本は `logs/OPEN-ITEMS.md` | ADR-108 の実装の後 |
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その104 実装・dry-run 済み ★その105 CRITIC 済み ★その106 ADR-108 ★その107 実装済み | ~~(0) 実装の読み 1〜11 と C105-1〜8 の採否~~ → **ADR-108 で決着(8 問とも推奨)**。残り: ~~IMPLEMENTER(ADR-108 決定2・3・5〜8)~~ **→ ★その107 実装済み(読み 12〜17 は PLAN-032 §11)** → 決定2 の diff を人間か CRITIC が見る → (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 が対象)(2) G2-1(RUNNER の見積り・pod・単価の上限。**パイロットのアダプタ 10 本の T1b・T3 を含む**)。dry-run は 102,892 件。正本は `logs/OPEN-ITEMS.md` | 決定2 の diff のレビューの後 |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
@@ -342,9 +342,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-26(その106・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-26(その107・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **IMPLEMENTER**: ADR-108 決定2・3・5〜8(区間の退化の印と切り詰め・S1 の注記・R7 の照合 2 つ・例外の型・シナリオ 3 つ・docstring)→ `pytest code/tests -q`・dry-run → 決定2 の diff を人間か CRITIC が見る(ADR-101 決定5)→ 凍結 tag(人間)→ G2-1 GPU 承認(人間)→ 実行(RUNNER。プールはポッドで `exp_diag_pool.yaml` から作り直す)→ 判定表(ANALYST。機械的)。**I5 とアダプタの T1b・T3 は tag の後だけ**(ADR-099 決定5・罠1)
+> 1. **決定2(区間)の diff のレビュー(人間か CRITIC (Opus)。ADR-101 決定5)**: (見る範囲は `logs/HANDOFF.md`)。実装の読み 12〜17(PLAN-032 §11)の確認も同じ場 → 凍結 tag(人間)→ G2-1 GPU 承認(人間)→ 実行(RUNNER。プールはポッドで `exp_diag_pool.yaml` から作り直す)→ 判定表(ANALYST。機械的)。**I5 とアダプタの T1b・T3 は tag の後だけ**(ADR-099 決定5・罠1)
 > 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
@@ -355,10 +355,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-26(その106・最新)。PLANNER (Opus 5.5。推奨と一致)。ADR-108 を書いた。GPU 0・pod 0。**
+> **★★2026-09-26(その107・最新)。IMPLEMENTER (Sonnet 5。推奨と一致)。ADR-108 決定2・3・5〜8 を実装した。GPU 0・pod 0。**
 >
-> **★やったこと**: C105-1〜8 と実装の読み 1〜11 の選択肢・推奨をチャットで示し、`AskUserQuestion` 2 回・8 問(8 問とも推奨)→ `logs/DECISIONS.md` ADR-108 / `plans/PLAN-032` §8.1(R1 の表・R6・R7)・ヘッダ・§10・§11 / `logs/OPEN-ITEMS.md` の PLAN-032 の行 / CHANGELOG。
-> **★やっていないこと**: コード・config・テスト(次の IMPLEMENTER)/ tag / pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER が ADR-108 を実装)。
+> **★やったこと**: `code/analysis/sharpness_fit.py`・config 4 本の `sharpness:`・テスト(`test_sharpness_fit.py` 42 → 97)・`plans/PLAN-032`(§10・§11 の表と注 12〜17)・`logs/OPEN-ITEMS.md` の行・CHANGELOG。`pytest code/tests -q` = 1958 passed・dry-run 102,892 件(不変)・自己点検 16 通り。
+> **★やっていないこと**: 決定2 の diff のレビュー(人間か CRITIC)/ tag / pod / `plans/PLAN-032` §8.1 / ADR。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(CRITIC (Opus) が diff をレビューし `logs/CRITIQUE.md`「その108」に書く。人間が自分で見るなら不要)。
 
 ---
 

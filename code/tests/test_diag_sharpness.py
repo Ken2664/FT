@@ -89,6 +89,9 @@ SHARPNESS_KEYS = {
     "sharpness.delta2_line",
     "sharpness.n_per_level",
     "sharpness.ci_level",
+    "sharpness.adapter",
+    "sharpness.batch_size",
+    "sharpness.top_k",
 }
 COMMON_ARM_KEYS = {
     "experiment.id",
@@ -448,6 +451,10 @@ def test_the_sharpness_blocks_agree_except_the_arm() -> None:
         "delta2_line": 0.088,
         "n_per_level": N_PER_LEVEL,
         "ci_level": 0.95,
+        # R1 の前提の宣言(ADR-108 決定5)。sharpness_fit が run の記録と照合する
+        "adapter": None,
+        "batch_size": 4,
+        "top_k": 20,
     }
 
 

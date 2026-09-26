@@ -18,6 +18,45 @@
 
 ---
 
+## ★2026-09-26(その105)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その105(CRITIC。PLAN-032 I4 のレビュー)で差し替えた 5 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新の行)の旧ブロック(その104)
+
+最終更新: 2026-09-26(その104)/ by IMPLEMENTER (Opus 5.5。推奨は Sonnet。PLAN-032 §5 の I1〜I4・I6 を §8.1 の R1〜R7 どおりに実装し、config 4 本の `--dry-run`(合計 102,892 件)と preflight の data_checks(5 本とも 7 件 PASS)を通した。**GPU 0・pod 0・tag なし**)
+(**次は CRITIC か人間が I4 の diff と実装の読み 1〜11(`plans/PLAN-032` §11 の注。とくに 6)を確かめ → 凍結 tag(人間)→ G2-1 GPU 承認(人間)**。段1 は閉じたまま(ADR-106)。
+pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
+
+### 「いま何をしているか」の旧ブロック(その104)
+
+> **★★2026-09-26(その104・最新)。Phase 0。IMPLEMENTER (Opus 5.5)。PLAN-032 §5 の I1〜I4・I6 を §8.1 の R1〜R7 どおりに実装した。GPU 0・pod 0・tag なし。**
+> - **作ったもの**: 診断の掃引プール(`configs/exp_diag_pool.yaml` → `data/generated/battery/pilot_sweep_diag/`。80 組 × 2 極性 × L1 の 19 水準・T < 1 の項目は作らない)/ (A) の文面(`configs/templates/diag_explicit{,_d}.yaml`。描画に `{x}` = a + b)/ run の config 4 本(`configs/exp_diag_{b,a,b_d,a_d}.yaml`。`sharpness:` 欄に §8.1 の数値)/ 判定表 `code/analysis/sharpness_fit.py`
+> - **dry-run(組合せの件数であって実験結果ではない)**: B・A 各 34,322 / B-d・A-d 各 17,124 = 102,892 件(除外の前の算定 109,440 から T < 1 の 2,158 件(θ ≤ −5 だけ)を腕ごとに除いた。Δ₂ の 5 水準には除外なし)。data_checks は 5 本とも 7 件 PASS
+> - **実装の読み 1〜11 は `plans/PLAN-032` §11 の注**(★6 = R6 の 95% 信頼区間の計算法は §8.1 に無い → 組ごとの差の正規近似。記述だけ・合否に使わない)
+> - **★その103 のブロックは `logs/STATE-ARCHIVE.md`「その104」にある**
+
+### 「人間の承認・判断を待っている事項」の索引の旧行(その104)
+
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その104 実装・dry-run 済み | 人間が (0) 実装の読み 1〜11(`plans/PLAN-032` §11 の注。**とくに 6 = 信頼区間の計算法**)と I4 の diff(CRITIC か人間。ADR-101 決定5)を確かめ (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 が対象)(2) G2-1(RUNNER の見積り・pod・単価の上限。**パイロットのアダプタ 10 本の T1b・T3 を含む**。段1 の承認は使わない)。dry-run は 102,892 件。正本は `logs/OPEN-ITEMS.md` | いま |
+
+### 「次のアクション」の旧ブロック(その104)
+
+> **★★2026-09-26(その104・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **CRITIC(Opus)か人間**: I4(`code/analysis/sharpness_fit.py`)の diff と実装の読み 1〜11(`plans/PLAN-032` §11 の注。とくに 6)を確かめる(ADR-101 決定5)→ 凍結 tag(人間。案 `preregister-diag-sharpness`)→ G2-1 GPU 承認(人間)→ 実行(RUNNER。プールはポッドで `exp_diag_pool.yaml` から作り直す)→ 判定表(ANALYST。機械的)。**I5(アダプタ 10 本の config)は tag の後。アダプタの T1b・T3 を測るのも tag の後だけ**(ADR-099 決定5・罠1)
+> 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
+> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106。印の意味づけ・`p2d` の扱いを含む)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 「引き継ぎ」の旧ブロック(その104)
+
+> **★★2026-09-26(その104・最新)。IMPLEMENTER (Opus 5.5。推奨は Sonnet)。PLAN-032 §5 の I1〜I4・I6 を実装した。GPU 0・pod 0。**
+>
+> **★やったこと**: 掃引プールの下限(`min_threshold`)と記録・(A) の文面と `{x}`・config 5 本・判定表 `sharpness_fit`・テスト 93 件(+ 既存 2 か所の一覧に登録)・dry-run 4 本・data_checks 5 本・`plans/PLAN-032`(ヘッダ・§10・§11)・`logs/OPEN-ITEMS.md` の行・CHANGELOG。
+> **★やっていないこと**: I5(tag の後)/ tag / pod / GPU / §8.1・ADR の変更。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(CRITIC が I4 の diff と実装の読みを確かめる)。
+
 ## ★2026-09-26(その104)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その104(IMPLEMENTER。PLAN-032 §5 の I1〜I4・I6 を実装した)で差し替えた 6 か所を、1 文字も変えずに移した。

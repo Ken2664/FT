@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-26(その104)/ by IMPLEMENTER (Opus 5.5。推奨は Sonnet。PLAN-032 §5 の I1〜I4・I6 を §8.1 の R1〜R7 どおりに実装し、config 4 本の `--dry-run`(合計 102,892 件)と preflight の data_checks(5 本とも 7 件 PASS)を通した。**GPU 0・pod 0・tag なし**)
-(**次は CRITIC か人間が I4 の diff と実装の読み 1〜11(`plans/PLAN-032` §11 の注。とくに 6)を確かめ → 凍結 tag(人間)→ G2-1 GPU 承認(人間)**。段1 は閉じたまま(ADR-106)。
+最終更新: 2026-09-26(その105)/ by CRITIC (Opus 5.5。推奨と一致。PLAN-032 I4 `sharpness_fit` を §8.1 R2〜R7 と突き合わせ、指摘 C105-1〜8 を `logs/CRITIQUE.md`(新規)に書いた。**GPU 0・pod 0・tag なし・コード不変**)
+(**次は人間が C105-1〜8 と実装の読み 1〜11 の採否を決める(PLANNER が推奨を添えて諮る)→ 採ったものを IMPLEMENTER → 凍結 tag(人間)→ G2-1 GPU 承認(人間)**。段1 は閉じたまま(ADR-106)。
 pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
 
 ---
@@ -67,11 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-26(その104・最新)。Phase 0。IMPLEMENTER (Opus 5.5)。PLAN-032 §5 の I1〜I4・I6 を §8.1 の R1〜R7 どおりに実装した。GPU 0・pod 0・tag なし。**
-> - **作ったもの**: 診断の掃引プール(`configs/exp_diag_pool.yaml` → `data/generated/battery/pilot_sweep_diag/`。80 組 × 2 極性 × L1 の 19 水準・T < 1 の項目は作らない)/ (A) の文面(`configs/templates/diag_explicit{,_d}.yaml`。描画に `{x}` = a + b)/ run の config 4 本(`configs/exp_diag_{b,a,b_d,a_d}.yaml`。`sharpness:` 欄に §8.1 の数値)/ 判定表 `code/analysis/sharpness_fit.py`
-> - **dry-run(組合せの件数であって実験結果ではない)**: B・A 各 34,322 / B-d・A-d 各 17,124 = 102,892 件(除外の前の算定 109,440 から T < 1 の 2,158 件(θ ≤ −5 だけ)を腕ごとに除いた。Δ₂ の 5 水準には除外なし)。data_checks は 5 本とも 7 件 PASS
-> - **実装の読み 1〜11 は `plans/PLAN-032` §11 の注**(★6 = R6 の 95% 信頼区間の計算法は §8.1 に無い → 組ごとの差の正規近似。記述だけ・合否に使わない)
-> - **★その103 のブロックは `logs/STATE-ARCHIVE.md`「その104」にある**
+> **★★2026-09-26(その105・最新)。Phase 0。CRITIC (Opus 5.5)。PLAN-032 I4(commit `4837cd4`)を §8.1 R2〜R7 と突き合わせた。GPU 0・pod 0・tag なし・コード不変。**
+> - **指摘は `logs/CRITIQUE.md`「その105」の C105-1〜8**。中: C105-1 T1b と T3 が割れる判定を本物の経路で試すテストが無い / C105-2 R1 の前提(adapter・batch 4・上位 k・同じプール)を判定の時点で照合しない / C105-3 §8.1 の A-d の役割の文面が食い違う(読み 8)。低〜中: C105-4 読み 6 の区間が幅 0 に潰れうる。ほかは低・nit
+> - **R2〜R5 の算術と表の誤り、判定を黙って変える経路は見つからなかった**。`pytest` 2 本 = 93 passed
+> - **★その104 のブロックは `logs/STATE-ARCHIVE.md`「その105」にある**
 
 ---
 
@@ -298,7 +297,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F114 の実行先** ★新 | **「どこで回すか」**(この機械 16 コア / CPU の多い RunPod ポッド)。**CPU なので §2 の「10 GPU時間超」の対象ではないが、黙って始めてよい量ではない。**所要時間は `n_item` に比例する(`n_item = 48` で 62 時間。ADR-095 の値では行数 2.5 倍・時間は未実測)。**3 つの null が埋まってから諮る** | 本実行の前 |
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
-| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その104 実装・dry-run 済み | 人間が (0) 実装の読み 1〜11(`plans/PLAN-032` §11 の注。**とくに 6 = 信頼区間の計算法**)と I4 の diff(CRITIC か人間。ADR-101 決定5)を確かめ (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 が対象)(2) G2-1(RUNNER の見積り・pod・単価の上限。**パイロットのアダプタ 10 本の T1b・T3 を含む**。段1 の承認は使わない)。dry-run は 102,892 件。正本は `logs/OPEN-ITEMS.md` | いま |
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その104 実装・dry-run 済み ★その105 CRITIC 済み | 人間が (0) 実装の読み 1〜11(`plans/PLAN-032` §11 の注)と **CRITIC の指摘 C105-1〜8(`logs/CRITIQUE.md`)** の採否を決め (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 が対象)(2) G2-1(RUNNER の見積り・pod・単価の上限。**パイロットのアダプタ 10 本の T1b・T3 を含む**)。dry-run は 102,892 件。正本は `logs/OPEN-ITEMS.md` | いま |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
@@ -343,9 +342,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-26(その104・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-26(その105・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **CRITIC(Opus)か人間**: I4(`code/analysis/sharpness_fit.py`)の diff と実装の読み 1〜11(`plans/PLAN-032` §11 の注。とくに 6)を確かめる(ADR-101 決定5)→ 凍結 tag(人間。案 `preregister-diag-sharpness`)→ G2-1 GPU 承認(人間)→ 実行(RUNNER。プールはポッドで `exp_diag_pool.yaml` から作り直す)→ 判定表(ANALYST。機械的)。**I5(アダプタ 10 本の config)は tag の後。アダプタの T1b・T3 を測るのも tag の後だけ**(ADR-099 決定5・罠1)
+> 1. **人間(PLANNER (Opus) が推奨を添えて諮る)**: C105-1〜8 と実装の読み 1〜11 の採否 → ADR → 採ったものを IMPLEMENTER → 凍結 tag(人間)→ G2-1 GPU 承認(人間)→ 実行(RUNNER。プールはポッドで `exp_diag_pool.yaml` から作り直す)→ 判定表(ANALYST。機械的)。**I5 とアダプタの T1b・T3 は tag の後だけ**(ADR-099 決定5・罠1)
 > 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
@@ -356,10 +355,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-26(その104・最新)。IMPLEMENTER (Opus 5.5。推奨は Sonnet)。PLAN-032 §5 の I1〜I4・I6 を実装した。GPU 0・pod 0。**
+> **★★2026-09-26(その105・最新)。CRITIC (Opus 5.5。推奨と一致)。PLAN-032 I4 をレビューした。GPU 0・pod 0。**
 >
-> **★やったこと**: 掃引プールの下限(`min_threshold`)と記録・(A) の文面と `{x}`・config 5 本・判定表 `sharpness_fit`・テスト 93 件(+ 既存 2 か所の一覧に登録)・dry-run 4 本・data_checks 5 本・`plans/PLAN-032`(ヘッダ・§10・§11)・`logs/OPEN-ITEMS.md` の行・CHANGELOG。
-> **★やっていないこと**: I5(tag の後)/ tag / pod / GPU / §8.1・ADR の変更。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(CRITIC が I4 の diff と実装の読みを確かめる)。
+> **★やったこと**: `sharpness_fit.py` と関連 diff・テスト 2 本・config・文面を §8.1 と読み 1〜11 に突き合わせ、`logs/CRITIQUE.md`(新規)に C105-1〜8 と「問題が見つからなかったもの」を書いた。`logs/OPEN-ITEMS.md` の PLAN-032 の行・CHANGELOG。
+> **★やっていないこと**: コード・config・テスト・PLAN・ADR の変更(CRITIC は直さない)/ tag / pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(PLANNER が人間に C105 と読み 1〜11 の採否を諮る)。
 
 ---
 

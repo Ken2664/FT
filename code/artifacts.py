@@ -51,6 +51,9 @@ ELAPSED_DIGITS = 3
 # dirty のまま回したときに残す差分。git_sha.txt だけでは、実際に走った
 # コードを後から復元できない(infra/preflight.py の check_git_clean と同じ理由)。
 DIFF_FILE = "git_diff.patch"
+# `_capture` が外部コマンドの失敗を返すときの書き出し。失敗の文言は空でない(来歴が取れないこと自体を
+# 記録に残す)ので、「出力が空か」で見る側は、失敗と差分なしを取り違えないようにこの印で見分ける。
+CAPTURE_FAILURE_PREFIX = "<取得できず"
 
 
 def utc_now() -> datetime:
@@ -214,8 +217,37 @@ def _capture(command: Sequence[str]) -> str:
             timeout=120,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        return f"<取得できず: {type(exc).__name__}: {exc}>"
+        return f"{CAPTURE_FAILURE_PREFIX}: {type(exc).__name__}: {exc}>"
     return ((completed.stdout or "") + (completed.stderr or "")).strip()
+
+
+def is_capture_failure(output: str) -> bool:
+    """`_capture` が外部コマンドを実行できなかった(失敗の文言を返した)か。"""
+    return output.startswith(CAPTURE_FAILURE_PREFIX)
+
+
+def capture_git_head_sha() -> str:
+    """作業ツリーの HEAD の commit sha(`git rev-parse HEAD` の出力)。
+
+    答える問い: 「いま、どの commit の上で動いているか」
+    """
+    return _capture(["git", "rev-parse", "HEAD"])
+
+
+def capture_git_diff_head(paths: Sequence[str] = ()) -> str:
+    """追跡ファイルの HEAD との差分(`git diff HEAD [-- <paths>]` の出力。stdout と stderr の連結)。
+
+    答える問い: 「追跡ファイルは HEAD と食い違っているか」
+
+    **`write_git_sha` が `git_diff.patch` に書くのは、`paths` なしのこの関数の出力そのものである。**
+    run の前に同じ条件で止める門(`code/eval/run.py` の `check_tracked_files_clean`)も同じ関数を通す
+    ので、「patch が 0 バイトになるか」と「門を通るか」が食い違わない(ADR-110 決定1。stderr の警告で
+    patch が 0 バイトにならない環境でも、GPU の前に止まる)。git の失敗は空でない文言になる(`_capture`)。
+    """
+    command = ["git", "diff", "HEAD"]
+    if paths:
+        command += ["--", *paths]
+    return _capture(command)
 
 
 def write_config_copy(run_dir: Path, config_path: Path) -> None:
@@ -230,14 +262,14 @@ def write_config_copy(run_dir: Path, config_path: Path) -> None:
 
 def write_git_sha(run_dir: Path) -> None:
     """コミットハッシュ。dirty なら差分も残す(RUNPOD.md §4)。"""
-    sha = _capture(["git", "rev-parse", "HEAD"])
+    sha = capture_git_head_sha()
     status = _capture(["git", "status", "--porcelain"])
-    dirty = bool(status) and not status.startswith("<取得できず")
+    dirty = bool(status) and not is_capture_failure(status)
     (run_dir / "git_sha.txt").write_text(
         f"{sha}\ndirty: {str(dirty).lower()}\n", encoding="utf-8"
     )
     if dirty:
-        (run_dir / DIFF_FILE).write_text(_capture(["git", "diff", "HEAD"]), encoding="utf-8")
+        (run_dir / DIFF_FILE).write_text(capture_git_diff_head(), encoding="utf-8")
 
 
 def write_env(run_dir: Path) -> None:

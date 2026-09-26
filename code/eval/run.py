@@ -72,6 +72,7 @@ import yaml
 
 from code.artifacts import (
     REPO_ROOT,
+    capture_git_diff_head,
     elapsed_seconds,
     monotonic_seconds,
     prepare_run_dir,
@@ -2080,6 +2081,55 @@ def below_min_threshold_lines(
     return lines
 
 
+# 段2 の診断の config が持つ判定の規則の欄(PLAN-032 §8.1 R2〜R6)。**この欄のある run だけが、判定表が
+# 「4 本の run が同じ commit の追跡ファイルで回った」ことを求める対象である**(R7 の 4)。判定表
+# (`code/analysis/sharpness_fit.py`)が同じ名前でこの欄を読むので、名前はここに 1 つだけ置く。
+SHARPNESS_KEY = "sharpness"
+# 追跡ファイルの差分で止めるときに、エラーの文面へ引く出力の長さ(文字数。全文は長い)。
+GIT_DIFF_PREVIEW_CHARS = 400
+
+
+def declares_sharpness(config: Mapping[str, Any]) -> bool:
+    """この config が段2 の診断の `sharpness:` 欄を宣言しているか(無い / null = していない)。
+
+    答える問い: 「この run は、判定表が追跡ファイルの差分を許さない run か」
+    """
+    return config.get(SHARPNESS_KEY) is not None
+
+
+def check_tracked_files_clean(
+    config: Mapping[str, Any], *, git_diff: Callable[[], str] = capture_git_diff_head
+) -> None:
+    """`sharpness:` 欄のある run は、追跡ファイルに差分があれば止める。
+
+    答える問い: 「この run は、判定表(R7 の 4)が後で止めることになる記録を作らずに済むか」
+
+    判定表は、run dir の `git_diff.patch` が無いか 0 バイトでなければ止まる(ADR-109 決定1)。この
+    ファイルは run の開始時に `write_git_sha` が書くので、差分のまま回すと **GPU を使い終えた後に 4 腕
+    とも止まり、回し直すしかない**(C111-1)。それを run の前に止める(ADR-110 決定1)。
+
+    **見るものは `write_git_sha` が `git_diff.patch` に書くのと同じ関数の出力**(`capture_git_diff_head`)
+    で、空でなければ止める。stdout と stderr の連結なので、差分が無くても git が警告を出す環境では止まる
+    (追跡外のファイルのある pod では、そのとき patch も 0 バイトにならず判定表が止まる)。git を実行
+    できなかったときは失敗の文言が返り、空でないので止まる側に倒れる。追跡外のファイルは `git diff HEAD`
+    に出ない(pod では追跡外のファイルが常にある)。**`sharpness:` 欄の無い run(順6b・I5・本番)には
+    掛けない。`--dry-run` にも掛けない**(何も書かず重みも読まない。読み 26)。
+    """
+    if not declares_sharpness(config):
+        return
+    diff = git_diff()
+    if not diff:
+        return
+    preview = diff[:GIT_DIFF_PREVIEW_CHARS]
+    ellipsis = "…" if len(diff) > GIT_DIFF_PREVIEW_CHARS else ""
+    raise ConfigError(
+        f"config に {SHARPNESS_KEY} 欄がある run は、追跡ファイルの差分(`git diff HEAD` の出力)が空でなければ"
+        f"回せない(PLAN-032 §8.1 R7 の 4・ADR-110 決定1)。差分のまま回すと run の git_diff.patch が "
+        f"0 バイトでなくなり、判定表が GPU の後に止まる。パイロット用プールの作り直しで動いた manifest なら "
+        f"`git checkout -- data/generated`(infra/RUNPOD.md)。出力({len(diff)} 文字): {preview}{ellipsis}"
+    )
+
+
 def execute_threshold_sweep(
     config: Mapping[str, Any],
     *,
@@ -2087,6 +2137,7 @@ def execute_threshold_sweep(
     run_dir: Path | None,
     scorer: ForcedChoiceScorer | None = None,
     now: datetime | None = None,
+    git_diff: Callable[[], str] = capture_git_diff_head,
 ) -> Path:
     """閾値掃引の本実行。成果物を `runs/<id>/` に書き、その dir を返す(PLAN-026 §4.5)。
 
@@ -2095,8 +2146,10 @@ def execute_threshold_sweep(
 
     **検査はすべて run ディレクトリを作る前・重みを読む前に済ませる** —— 宣言とプールの種類・
     manifest と config の照合・完全性(`load_threshold_sweep_pool`)、文面と引き出し方
-    (`threshold_sweep_prompts`)、アダプタの出どころ、項目集合と K の記録。
+    (`threshold_sweep_prompts`)、アダプタの出どころ、項目集合と K の記録、**段2 の診断の run では
+    追跡ファイルの差分が無いこと**(`check_tracked_files_clean`。ADR-110 決定1)。
     `scorer` は差し替え可能で、**None のときだけ重みを読む**(`build_engines`。生成器は使わない)。
+    `git_diff` も差し替え可能(テストで作業ツリーの状態に依存させない)。
     来歴を forward の前に書き、区間を 3 つに分けて測るのは `execute` と同じ理由である。
     """
     pool = load_threshold_sweep_pool(config)
@@ -2109,6 +2162,7 @@ def execute_threshold_sweep(
     pool_block = pool_record(config, pool_items_path(config))
     coverage = coverage_record(config)
     top_k = declared_top_k(config)
+    check_tracked_files_clean(config, git_diff=git_diff)
     started = now or utc_now()
     run_started = monotonic_seconds()
     target = prepare_run_dir(config, explicit=run_dir, now=started)

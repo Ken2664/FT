@@ -21,6 +21,12 @@
     4 本の記録と食い違う**(決定5。`build_report` を直接呼ぶ経路でも)run では判定表を出さない。
     腕の欠け・重なり・sharpness 欄の食い違い・文面の出どころの取り違え・上位 k の欠けも止める。
     **止める経路の例外は `SharpnessError`**(`R8FitError`・欄の欠けの `KeyError` を包む。決定7)
+  - **R7 の 4 を GPU の前にも**(ADR-110 決定1): `sharpness:` 欄のある run は、`git diff HEAD` の出力
+    (`write_git_sha` が `git_diff.patch` に書くのと同じ関数の出力。stderr だけでも・git の失敗でも)が
+    空でなければ、run dir を作る前・重みを読む前に止まる。欄の無い run・`--dry-run` には掛けない
+  - **解析側の来歴**(同 決定3): 判定表の 2 番目の鍵(json)と 2 行目(txt)に、解析時の commit と
+    `git diff HEAD -- code/` が空かを出す。**止めない**(run 側の sha と食い違っても、差分があっても、
+    git を実行できなくても判定は同じ)
 """
 
 from __future__ import annotations
@@ -29,6 +35,7 @@ import copy
 import dataclasses
 import json
 import math
+import subprocess
 import sys
 import types
 from collections.abc import Callable, Mapping, Sequence
@@ -42,13 +49,18 @@ import yaml
 from code import artifacts
 from code.analysis import r8_fit, sharpness_fit
 from code.analysis.sharpness_fit import SharpnessError
-from code.config import load_config
+from code.config import ConfigError, load_config
 from code.data_gen import eval_pool, sweep_pool
 from code.data_gen.pool import MAIN_COVERAGE_LEVELS
 from code.eval import run
 from code.eval.battery import t3_comparison
 from code.eval.forced_choice import ForcedChoice, choose_from_logprobs
-from code.tests.test_threshold_sweep_run import CANDIDATE_IDS, stub_capture, write_config
+from code.tests.test_threshold_sweep_run import (
+    CANDIDATE_IDS,
+    forbidden,
+    stub_capture,
+    write_config,
+)
 from code.tests.test_top_k import with_filler_top_tokens
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -70,6 +82,12 @@ TIED = (math.log(0.525), math.log(0.475))
 RUN_SHA = "0123456789abcdef0123456789abcdef01234567"
 OTHER_SHA = "fedcba9876543210fedcba9876543210fedcba98"
 
+# 判定表を当てている解析側の commit(ADR-110 決定3)。run を回した commit(`RUN_SHA`)とは別にしておく。
+ANALYSIS_SHA = "89abcdef0123456789abcdef0123456789abcdef"
+CLEAN_ANALYSIS = {"commit_sha": ANALYSIS_SHA, "code_diff_empty": True}
+# 追跡ファイルの差分の実物の形(`git diff HEAD` の出力)。
+DIRTY_DIFF = "diff --git a/code/x.py b/code/x.py\n--- a/code/x.py\n+++ b/code/x.py\n@@ -1 +1 @@\n-a\n+b"
+
 
 def pod_like_capture(command: Sequence[str]) -> str:
     """git だけ pod の実物と同じ答えを返す `_capture` の差し替え(ほかは `stub_capture`)。
@@ -83,6 +101,26 @@ def pod_like_capture(command: Sequence[str]) -> str:
     if list(command[:2]) == ["git", "diff"]:
         return ""
     return stub_capture(command)
+
+
+def analysis_capture(
+    *, sha: str = ANALYSIS_SHA, diff: str = "", calls: list[list[str]] | None = None
+) -> Callable[[Sequence[str]], str]:
+    """解析側の git(`rev-parse`・`diff`)だけ答える `_capture` の差し替え(ほかは `stub_capture`)。
+
+    `calls` を渡すと、呼ばれたコマンドを記録する。
+    """
+
+    def capture(command: Sequence[str]) -> str:
+        if calls is not None:
+            calls.append(list(command))
+        if list(command[:2]) == ["git", "rev-parse"]:
+            return sha
+        if list(command[:2]) == ["git", "diff"]:
+            return diff
+        return stub_capture(command)
+
+    return capture
 
 
 # --------------------------------------------------------------------------
@@ -226,8 +264,13 @@ def small_arm_config(arm: str, pool_dir: Path) -> dict[str, Any]:
     return config
 
 
-def execute_arm(config: Mapping[str, Any], behavior: Behavior, run_dir: Path) -> Path:
-    """本物の掃引の経路(`execute_threshold_sweep`)で 1 腕を回し、metrics.json のパスを返す。"""
+def execute_arm(
+    config: Mapping[str, Any], behavior: Behavior, run_dir: Path, **overrides: Any
+) -> Path:
+    """本物の掃引の経路(`execute_threshold_sweep`)で 1 腕を回し、metrics.json のパスを返す。
+
+    `overrides` は `execute_threshold_sweep` へそのまま渡す(`git_diff` の差し替えなど)。
+    """
     pool = run.load_threshold_sweep_pool(config)
     prompts = run.threshold_sweep_prompts(config, pool)
     prompt_situations = situations_by_prompt(pool, prompts)
@@ -240,6 +283,7 @@ def execute_arm(config: Mapping[str, Any], behavior: Behavior, run_dir: Path) ->
             config_path=config_path,
             run_dir=run_dir,
             scorer=behavior_scorer(prompt_situations, behavior),
+            **overrides,
         )
     return run_dir / "metrics.json"
 
@@ -318,9 +362,12 @@ def scenario_runs(
     }
 
 
-def report_of(paths: Sequence[Path]) -> dict[str, Any]:
+def report_of(
+    paths: Sequence[Path], *, analysis: Mapping[str, Any] = CLEAN_ANALYSIS
+) -> dict[str, Any]:
+    """判定表を組む。解析側の来歴は git を読まずに与える(既定 = 差分なし。ADR-110 決定3)。"""
     runs = [sharpness_fit.load_diag_run(path) for path in paths]
-    return sharpness_fit.build_report(runs, count_tokens=len)
+    return sharpness_fit.build_report(runs, count_tokens=len, analysis=analysis)
 
 
 # --------------------------------------------------------------------------
@@ -771,6 +818,7 @@ def test_main_writes_the_json_and_the_text(
     scenario_runs: dict[str, list[Path]], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """CLI: --runs の glob で 4 腕を読み、json と txt を書く(トークナイザは差し替え)。"""
+    monkeypatch.setattr(artifacts, "_capture", analysis_capture())
     monkeypatch.setattr(sharpness_fit, "tokenizer_counter", lambda config: len)
     run_root = scenario_runs["branch"][0].parent.parent
     out_dir = tmp_path / "out"
@@ -1306,6 +1354,7 @@ def test_the_commit_sha_comes_first_in_the_json_and_the_text(
     first_line = sharpness_fit.report_lines(report)[0]
     assert first_line.startswith(f"commit: {RUN_SHA}")
     assert "人間" in first_line
+    monkeypatch.setattr(artifacts, "_capture", analysis_capture())
     monkeypatch.setattr(sharpness_fit, "tokenizer_counter", lambda config: len)
     run_root = scenario_runs["branch"][0].parent.parent
     out_dir = tmp_path / "out"
@@ -1409,6 +1458,317 @@ def test_all_provenance_problems_are_reported_at_once(
     with pytest.raises(SharpnessError) as caught:
         report_of(paths)
     assert "腕の間で違う" in str(caught.value) and "git_diff.patch" in str(caught.value)
+
+
+# --------------------------------------------------------------------------
+# R7 の 4 を GPU の前にも(ADR-110 決定1。C111-1)
+# --------------------------------------------------------------------------
+
+
+def recording_git_diff(output: str) -> tuple[Callable[[], str], list[int]]:
+    """`git_diff` の差し替え(固定の出力を返す)と、呼ばれた回数の控え。"""
+    calls: list[int] = []
+
+    def git_diff() -> str:
+        calls.append(1)
+        return output
+
+    return git_diff, calls
+
+
+def stop_before_the_run_dir(
+    config: Mapping[str, Any], run_dir: Path, **overrides: Any
+) -> str:
+    """`execute_threshold_sweep` が run dir を作る前・重みを読む前に、追跡ファイルの差分で止まる。文面を返す。
+
+    `build_engines`(重み)と `prepare_run_dir`(run dir)は呼ばれたら落ちる。
+    """
+    config_path = write_config(config, run_dir.parent / f"config_{run_dir.name}.yaml")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(run, "build_engines", forbidden("build_engines"))
+        patch.setattr(run, "prepare_run_dir", forbidden("prepare_run_dir"))
+        with pytest.raises(ConfigError, match="git diff HEAD") as caught:
+            run.execute_threshold_sweep(
+                config, config_path=config_path, run_dir=run_dir, scorer=None, **overrides
+            )
+    assert not run_dir.exists()
+    return str(caught.value)
+
+
+# (何が出力されるか, 出力)。`git diff HEAD` の出力が空でなければ、中身が何であっても止まる。
+GATE_STOPS = [
+    ("追跡ファイルの差分(実物の形)", DIRTY_DIFF),
+    ("1 バイトの出力", "x"),
+    ("git の警告だけ(差分は無い)", "warning: in the working copy of 'a', LF will be replaced by CRLF"),
+    ("git の失敗の文言", "<取得できず: FileNotFoundError: git>"),
+]
+
+
+@pytest.mark.parametrize(
+    "output", [row[1] for row in GATE_STOPS], ids=[row[0] for row in GATE_STOPS]
+)
+def test_a_sharpness_run_stops_on_a_tracked_diff_before_the_run_dir_and_the_weights(
+    small_pool_dir: Path, tmp_path: Path, output: str
+) -> None:
+    """★負例: `sharpness:` 欄のある run は、`git diff HEAD` が空でなければ run dir を作る前・重みを読む前に止まる。
+
+    差分のまま回すと `git_diff.patch` が 0 バイトでなくなり、判定表が GPU の後に 4 腕とも止まる(C111-1)。
+    """
+    config = small_arm_config("b", small_pool_dir)
+    assert run.declares_sharpness(config)
+    git_diff, calls = recording_git_diff(output)
+    message = stop_before_the_run_dir(config, tmp_path / "run_b", git_diff=git_diff)
+    assert calls == [1]  # 見るのは 1 回
+    assert output in message  # 何が出力されたかが文面に載る
+    assert "ADR-110" in message and "R7" in message
+
+
+def test_the_message_shows_the_size_and_cuts_a_long_diff(tmp_path: Path) -> None:
+    """長い差分は先頭だけを文面に引き、全体の長さを出す(文字数の上限は定数)。"""
+    long_diff = "d" * (run.GIT_DIFF_PREVIEW_CHARS * 2 + 1)
+    config = {run.SHARPNESS_KEY: {"arm": "b"}}
+    with pytest.raises(ConfigError) as caught:
+        run.check_tracked_files_clean(config, git_diff=lambda: long_diff)
+    message = str(caught.value)
+    assert f"{len(long_diff)} 文字" in message
+    assert "d" * run.GIT_DIFF_PREVIEW_CHARS in message
+    assert "d" * (run.GIT_DIFF_PREVIEW_CHARS + 1) not in message and message.endswith("…")
+
+
+def test_stderr_alone_and_a_git_failure_stop_through_the_real_capture(
+    small_pool_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★stdout が空で stderr だけの出力・git を実行できない、でも止まる(門の既定の経路 = `_capture`)。
+
+    `git_diff` を差し替えない。`_capture` は stdout と stderr を連結し、実行できなかったときは失敗の文言
+    (空でない)を返すので、どちらも「差分あり」の側に倒れる(ADR-110 決定1 の具体化)。
+    """
+    config = small_arm_config("b", small_pool_dir)
+
+    def stderr_only(command: Sequence[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(list(command), 0, stdout="", stderr="warning: x\n")
+
+    def cannot_run(command: Sequence[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(subprocess, "run", stderr_only)
+    assert artifacts.capture_git_diff_head() == "warning: x"
+    assert "warning: x" in stop_before_the_run_dir(config, tmp_path / "run_stderr")
+
+    monkeypatch.setattr(subprocess, "run", cannot_run)
+    failure = artifacts.capture_git_diff_head()
+    assert artifacts.is_capture_failure(failure) and failure
+    assert failure in stop_before_the_run_dir(config, tmp_path / "run_failure")
+
+
+def test_the_gate_and_the_patch_file_read_the_same_git_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★門が見る出力は、`write_git_sha` が `git_diff.patch` に書くものと同じコマンド・同じ出力である。
+
+    「patch が 0 バイトになるか」と「門を通るか」が食い違わない(ADR-110 決定1)。
+    """
+    calls: list[list[str]] = []
+
+    def capture(command: Sequence[str]) -> str:
+        calls.append(list(command))
+        if list(command[:2]) == ["git", "rev-parse"]:
+            return RUN_SHA
+        if list(command[:2]) == ["git", "status"]:
+            return "M code/x.py"
+        if list(command[:2]) == ["git", "diff"]:
+            return DIRTY_DIFF
+        return stub_capture(command)
+
+    monkeypatch.setattr(artifacts, "_capture", capture)
+    run_dir = tmp_path / "run_patch"
+    run_dir.mkdir()
+    artifacts.write_git_sha(run_dir)
+    assert (run_dir / artifacts.DIFF_FILE).read_text(encoding="utf-8") == DIRTY_DIFF
+    patch_commands = [c for c in calls if c[:2] == ["git", "diff"]]
+    assert patch_commands == [["git", "diff", "HEAD"]]
+
+    calls.clear()
+    with pytest.raises(ConfigError) as caught:
+        run.check_tracked_files_clean({run.SHARPNESS_KEY: {"arm": "b"}})  # 既定の git_diff
+    assert calls == patch_commands
+    assert DIRTY_DIFF in str(caught.value)
+
+
+def test_a_sharpness_run_with_no_tracked_diff_runs(small_pool_dir: Path, tmp_path: Path) -> None:
+    """`git diff HEAD` が空なら通り、run が完走する(門は 1 回だけ見る)。"""
+    git_diff, calls = recording_git_diff("")
+    metrics_path = execute_arm(
+        small_arm_config("b", small_pool_dir), _truthful, tmp_path / "run_b", git_diff=git_diff
+    )
+    assert metrics_path.is_file()
+    assert calls == [1]
+
+
+@pytest.mark.parametrize("declaration", ["absent", "null"])
+def test_a_run_without_the_sharpness_field_is_not_gated(
+    small_pool_dir: Path, tmp_path: Path, declaration: str
+) -> None:
+    """★`sharpness:` 欄の無い run(順6b・I5・本番と同じ形)には掛けない: 差分があっても走り、git を読みもしない。"""
+    config = small_arm_config("b", small_pool_dir)
+    if declaration == "absent":
+        del config["sharpness"]
+    else:
+        config["sharpness"] = None
+    assert not run.declares_sharpness(config)
+    git_diff, calls = recording_git_diff(DIRTY_DIFF)
+    metrics_path = execute_arm(config, _always_no, tmp_path / "run_x", git_diff=git_diff)
+    assert metrics_path.is_file()
+    assert calls == []
+
+
+def test_the_dry_run_is_not_gated_and_does_not_read_git(
+    small_pool_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★`--dry-run` には掛けない(何も書かず・重みも読まない。実装の読み 26)。git を 1 度も呼ばない。"""
+    config_path = write_config(small_arm_config("b", small_pool_dir), tmp_path / "config_dry.yaml")
+    monkeypatch.setattr(artifacts, "_capture", forbidden("_capture"))
+    assert run.main(["--config", str(config_path), "--dry-run"]) == 0
+
+
+def test_the_cli_route_reaches_the_gate(
+    small_pool_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`python -m code.eval.run --config <診断の config>`(dry-run なし)も、重みを読む前に門で止まる。"""
+    config_path = write_config(small_arm_config("b", small_pool_dir), tmp_path / "config_cli.yaml")
+    monkeypatch.setattr(artifacts, "_capture", analysis_capture(diff=DIRTY_DIFF))
+    monkeypatch.setattr(run, "build_engines", forbidden("build_engines"))
+    monkeypatch.setattr(run, "prepare_run_dir", forbidden("prepare_run_dir"))
+    with pytest.raises(ConfigError, match="git diff HEAD"):
+        run.main(["--config", str(config_path)])
+
+
+def test_declares_sharpness_reads_the_field_the_judgment_table_reads() -> None:
+    """欄の有無の読み方(無い / null = していない)と、判定表が読む欄の名前が同じであること。"""
+    assert not run.declares_sharpness({})
+    assert not run.declares_sharpness({"sharpness": None})
+    assert run.declares_sharpness({"sharpness": {"arm": "b"}})
+    assert run.declares_sharpness({"sharpness": {}})  # 空でも欄はある(止める側に倒れる)
+    # 名前が食い違うと門が黙って外れる(判定表は別の名前を読んでいる)
+    assert sharpness_fit.SHARPNESS_BLOCK == run.SHARPNESS_KEY == "sharpness"
+
+
+def test_only_the_four_diag_arm_configs_declare_the_sharpness_field() -> None:
+    """実物の config で、`sharpness:` を宣言するのは診断の 4 腕だけ(順6b・I5・掃引プール・本番には掛からない)。"""
+    declared = set()
+    for path in sorted(CONFIG_DIR.glob("*.yaml")):
+        config = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if isinstance(config, dict) and run.declares_sharpness(config):
+            declared.add(path.name)
+    assert declared == {f"exp_diag_{arm}.yaml" for arm in ARMS}
+
+
+# --------------------------------------------------------------------------
+# 解析側の来歴(ADR-110 決定3。C111-3)。表示だけで止めない
+# --------------------------------------------------------------------------
+
+# (何を読むか, `rev-parse` の出力, `diff` の出力, 期待する解析側の来歴)
+ANALYSIS_READS = [
+    ("差分なし", ANALYSIS_SHA, "", {"commit_sha": ANALYSIS_SHA, "code_diff_empty": True}),
+    ("差分あり", ANALYSIS_SHA, DIRTY_DIFF, {"commit_sha": ANALYSIS_SHA, "code_diff_empty": False}),
+    ("git の警告だけ", ANALYSIS_SHA, "warning: x", {"commit_sha": ANALYSIS_SHA, "code_diff_empty": False}),
+    (
+        "diff を取れなかった",
+        ANALYSIS_SHA,
+        "<取得できず: OSError: no git>",
+        {"commit_sha": ANALYSIS_SHA, "code_diff_empty": None},
+    ),
+    (
+        "sha を取れなかった(文言をそのまま残す)",
+        "<取得できず: OSError: no git>",
+        "",
+        {"commit_sha": "<取得できず: OSError: no git>", "code_diff_empty": True},
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("sha", "diff", "expected"),
+    [row[1:] for row in ANALYSIS_READS],
+    ids=[row[0] for row in ANALYSIS_READS],
+)
+def test_the_analysis_provenance_is_read_from_the_working_tree(
+    monkeypatch: pytest.MonkeyPatch, sha: str, diff: str, expected: dict[str, Any]
+) -> None:
+    """解析時の `git rev-parse HEAD` と、`git diff HEAD -- code/` が空かを読む。git を実行できなくても落ちない。"""
+    calls: list[list[str]] = []
+    monkeypatch.setattr(artifacts, "_capture", analysis_capture(sha=sha, diff=diff, calls=calls))
+    assert sharpness_fit.read_analysis_provenance() == expected
+    assert ["git", "rev-parse", "HEAD"] in calls
+    assert ["git", "diff", "HEAD", "--", "code/"] in calls  # 判定のコードは code/ の下にある
+
+
+# (何が違うか, 解析側の来歴)。どれも判定表の中身(判定・区間・検査)を 1 つも変えない
+ANALYSIS_VARIANTS = [
+    ("run と別の commit", {"commit_sha": OTHER_SHA, "code_diff_empty": True}),
+    ("code/ に差分がある", {"commit_sha": ANALYSIS_SHA, "code_diff_empty": False}),
+    ("git を実行できなかった", {"commit_sha": "<取得できず: OSError: git>", "code_diff_empty": None}),
+]
+
+
+@pytest.mark.parametrize("scenario", list(SCENARIOS))
+@pytest.mark.parametrize(
+    "analysis", [row[1] for row in ANALYSIS_VARIANTS], ids=[row[0] for row in ANALYSIS_VARIANTS]
+)
+def test_the_analysis_provenance_is_display_only(
+    scenario_runs: dict[str, list[Path]], scenario: str, analysis: dict[str, Any]
+) -> None:
+    """★止めない: 解析側の sha が run 側と違っても・`code/` に差分があっても・git を実行できなくても、
+    判定表は出て、判定・区間・検査・run 側の commit は 1 つも変わらない(段4 で同じコードを別の tag で使う)。
+    """
+    baseline = report_of(scenario_runs[scenario])
+    shown = report_of(scenario_runs[scenario], analysis=analysis)
+    for key in ("commit_sha", "rules", "runs", "checks", "cells", "reach", "judgment", "r5"):
+        assert shown[key] == baseline[key], key
+    assert shown["analysis"]["commit_sha"] == analysis["commit_sha"]
+    assert shown["analysis"]["code_diff_empty"] is analysis["code_diff_empty"]
+
+
+# (解析側の来歴, 2 行目に出る語)
+ANALYSIS_LINES = [
+    (CLEAN_ANALYSIS, "空(code/ の追跡ファイルに差分なし)"),
+    ({"commit_sha": ANALYSIS_SHA, "code_diff_empty": False}, "★空でない"),
+    ({"commit_sha": ANALYSIS_SHA, "code_diff_empty": None}, "★取得できず"),
+]
+
+
+@pytest.mark.parametrize(("analysis", "words"), ANALYSIS_LINES)
+def test_the_analysis_provenance_sits_next_to_the_run_commit(
+    scenario_runs: dict[str, list[Path]], analysis: dict[str, Any], words: str
+) -> None:
+    """★run 側の commit の行のすぐ下に、解析側の commit と `code/` の差分の有無を出す(json は 2 番目の鍵)。"""
+    report = report_of(scenario_runs["branch"], analysis=analysis)
+    assert list(report)[:2] == ["commit_sha", "analysis"]
+    assert report["analysis"]["note"] == sharpness_fit.ANALYSIS_NOTE
+    json.dumps(report, ensure_ascii=False)  # None(取得できず)も json にできる
+    lines = sharpness_fit.report_lines(report)
+    assert lines[0].startswith(f"commit: {RUN_SHA}")
+    assert lines[1].startswith(f"解析側: commit {analysis['commit_sha']}")
+    assert words in lines[1] and sharpness_fit.ANALYSIS_NOTE in lines[1]
+
+
+def test_main_writes_the_analysis_provenance(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CLI: 作業ツリーの git から解析側の来歴を読み、json と txt に書く。run 側の commit は変わらない。"""
+    calls: list[list[str]] = []
+    monkeypatch.setattr(artifacts, "_capture", analysis_capture(diff=DIRTY_DIFF, calls=calls))
+    monkeypatch.setattr(sharpness_fit, "tokenizer_counter", lambda config: len)
+    run_root = scenario_runs["branch"][0].parent.parent
+    out_dir = tmp_path / "out"
+    assert sharpness_fit.main(["--runs", str(run_root / "run_*"), "--out-dir", str(out_dir)]) == 0
+    written = json.loads((out_dir / sharpness_fit.OUTPUT_JSON).read_text(encoding="utf-8"))
+    assert written["commit_sha"] == RUN_SHA
+    assert written["analysis"]["commit_sha"] == ANALYSIS_SHA
+    assert written["analysis"]["code_diff_empty"] is False
+    text = (out_dir / sharpness_fit.OUTPUT_TEXT).read_text(encoding="utf-8")
+    assert text.splitlines()[1].startswith(f"解析側: commit {ANALYSIS_SHA}")
+    assert ["git", "diff", "HEAD", "--", "code/"] in calls
 
 
 # --------------------------------------------------------------------------

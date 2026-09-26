@@ -61,18 +61,26 @@ from code.analysis import r8_fit
 from code.analysis.aggregate import AggregateError, expand_metrics_paths
 from code.analysis.frame import CONFIG_FILENAME
 from code.analysis.gonogo import GoNoGoError, near_tie_margin_from_config
-from code.artifacts import DIFF_FILE, utc_now
+from code.artifacts import (
+    DIFF_FILE,
+    capture_git_diff_head,
+    capture_git_head_sha,
+    is_capture_failure,
+    utc_now,
+)
 from code.chat_format import model_input
 from code.config import ConfigError, load_config, require
 from code.data_gen.pool import MAIN_COVERAGE_LEVELS
 from code.data_gen.sweep_pool import POLARITIES
 from code.eval.battery import t3_comparison
-from code.eval.run import THRESHOLD_SWEEP_KIND
+from code.eval.run import SHARPNESS_KEY, THRESHOLD_SWEEP_KIND
 
 OUTPUT_JSON = "sharpness.json"
 OUTPUT_TEXT = "sharpness.txt"
 
-SHARPNESS_BLOCK = "sharpness"
+# 判定の規則の欄の名前。`run.py` の門(`check_tracked_files_clean`)が「この欄のある run」を止める対象に
+# するので、名前は `run.py` の定数と同じものを使う(食い違うと門が黙って外れる。ADR-110 決定1)。
+SHARPNESS_BLOCK = SHARPNESS_KEY
 # Δ₂(と組ごとの差 d_i)の取りうる範囲。信頼区間の端はここで切る(R6。ADR-108 決定2)。
 CI_FLOOR = -1.0
 CI_CEILING = 1.0
@@ -157,6 +165,14 @@ SUM_PHRASES: dict[str, str] = {
 PROVENANCE_CHECK = (
     f"4 本の run の {GIT_SHA_FILE} の commit(1 行目)が同じ / {DIFF_FILE} が無いか 0 バイト"
     "(dirty の欄は見ない)(R7)"
+)
+
+# 解析側の来歴(ADR-110 決定3)で `git diff HEAD` を見るパス。判定を当てるコード(`code/analysis/`・
+# `code/eval/battery/`)はどちらも `code/` の下にある。
+ANALYSIS_CODE_PATHS = ("code/",)
+ANALYSIS_NOTE = (
+    "表示だけで止めない(run 側の commit と食い違っても判定表は出す。段4 で同じコードを別の tag で使うため)。"
+    "読み方は PLAN-032 §8.2(ADR-110 決定3)。`git diff HEAD` は code/ の下の追跡外のファイルを見ない"
 )
 
 NOTE = (
@@ -571,6 +587,23 @@ def check_provenance(by_arm: Mapping[str, DiagRun]) -> str:
             + " / ".join(problems)
         )
     return next(iter(recorded))
+
+
+def read_analysis_provenance() -> dict[str, Any]:
+    """この判定表を当てているコード(解析側)の来歴を、作業ツリーから読む。
+
+    答える問い: 「この判定表は、どの commit の、`code/` に手を入れていない作業ツリーで当てたか」
+
+    判定の規則の半分はコードにある(Δ₂ の 4 項・「3 セルすべて」・R4 の表・R5)ので、run 側の commit
+    (`check_provenance`)だけでは「凍結したコードで判定した」ことが読み取れない(C111-3)。
+    `commit_sha` は解析時の `git rev-parse HEAD`、`code_diff_empty` は `git diff HEAD -- code/` の
+    出力が空か(git を実行できなかったときは None)。**表示だけで、止めない**(ADR-110 決定3)。
+    """
+    diff = capture_git_diff_head(ANALYSIS_CODE_PATHS)
+    return {
+        "commit_sha": capture_git_head_sha(),
+        "code_diff_empty": None if is_capture_failure(diff) else diff == "",
+    }
 
 
 def check_level_counts(run: DiagRun, settings: SharpnessSettings) -> None:
@@ -1024,11 +1057,17 @@ def _sweep_gaps(run: DiagRun) -> dict[str, float]:
 
 
 def build_report(
-    runs: Sequence[DiagRun], count_tokens: Callable[[str], int]
+    runs: Sequence[DiagRun],
+    count_tokens: Callable[[str], int],
+    *,
+    analysis: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """4 腕の run から判定表と記述の行を組む。**R7 の検査を全部通してから判定する。**
 
     答える問い: 「§8.1 の規則を当てると、T1b と T3 の次の段はどれで、③-iii の腕を残すか」
+
+    `analysis` は解析側の来歴(`read_analysis_provenance` の形)。None なら作業ツリーから読む。
+    テストが git の状態に依存しないよう差し替えられる。**判定には使わない。**
     """
     by_arm = runs_by_arm(runs)
     check_premises(by_arm)
@@ -1089,6 +1128,11 @@ def build_report(
     return {
         # 判定表の先頭に出す(ADR-109 決定1)。tag の commit と見比べるのは人間
         "commit_sha": commit_sha,
+        # 2 番目: 解析側の来歴(ADR-110 決定3)。run 側の sha と並べて読む。止めない
+        "analysis": {
+            **(analysis if analysis is not None else read_analysis_provenance()),
+            "note": ANALYSIS_NOTE,
+        },
         "created_at": utc_now().isoformat(),
         "note": NOTE,
         "rules": {
@@ -1146,12 +1190,27 @@ def _yes_no(value: bool) -> str:
     return "届く" if value else "届かない"
 
 
+def analysis_line(analysis: Mapping[str, Any]) -> str:
+    """解析側の来歴の 1 行(run 側の commit の行のすぐ下に出す)。表示だけで、判定には使わない。"""
+    empty = analysis["code_diff_empty"]
+    state = {
+        True: "空(code/ の追跡ファイルに差分なし)",
+        False: "★空でない(作業ツリーの code/ に手が入っている。git の警告のこともある)",
+        None: "★取得できず(git を実行できなかった)",
+    }[empty]
+    return (
+        f"解析側: commit {analysis['commit_sha']} / `git diff HEAD -- code/` の出力: {state}"
+        f"({ANALYSIS_NOTE})"
+    )
+
+
 def report_lines(report: Mapping[str, Any]) -> list[str]:
     """人間が読む表。**判定の行と記述の行を分けて出す。**"""
     rules = report["rules"]
     lines = [
         f"commit: {report['commit_sha']}(4 本の run の {GIT_SHA_FILE} が一致・{DIFF_FILE} は無いか 0 バイト。"
         "凍結 tag の commit と見比べるのは人間)",
+        analysis_line(report["analysis"]),
         report["note"],
         f"規則: Δ₂ = ¼ Σ D({', '.join(rules['delta2_terms'])})、"
         f"D = P̂(θ) − P̂(θ − {rules['delta2_shift']})。"

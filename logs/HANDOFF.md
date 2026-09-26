@@ -38,7 +38,8 @@
 ## やってはいけないこと
 
 - **tag を打たない・pod を起動しない・GPU を使わない**。合否線・R2〜R5 の規則・区間の計算法を変えない
-- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。bash の heredoc に日本語の長文を流さない(Write ツールで scratchpad に書いてから `cat >>` / `python <script>`。Python に渡すパスは `C:/Users/...` の形)。作業ツリーは CRLF(`core.autocrlf=true`)
+- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。bash の heredoc に日本語の長文を流さない(Write ツールで scratchpad に書いてから `cat >>` / `python <script>`。Python に渡すパスは `C:/Users/...` の形)。**`.md` は LF 固定**(`.gitattributes` の `*.md text eol=lf`。`test_repo_hygiene.py` が CR を落とす)。**Python の `open(..., "w")` は Windows で CRLF を書くので `newline="
+"` を付ける**(その109 で STATE.md などが一度 CRLF になり、hygiene が落ちて直した)
 - テストのモジュールを scratchpad から import するときは `PYTHONPATH=C:/Users/keenk/paper/FT/infra` が要る(`preflight` を読む)
 
 ## 未解決 / 人間の承認待ち

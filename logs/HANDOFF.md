@@ -1,9 +1,9 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-26(その114)/ 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: **コンテキスト超過**(hook `context-guard` の実測 約 140k トークン。`CLAUDE.md` §10.2 の 100k 超の規定に従った)。**ADR-110 決定1・3 の実装の続きの途中で切った**
+生成: 2026-09-26(その115)/ 直前セッションの役割: IMPLEMENTER
+直前セッションが終了した理由: **コンテキスト超過**(hook `context-guard` の実測 約 151k トークン。`CLAUDE.md` §10.2 の 100k 超の規定に従った)。**ADR-110 決定1・3 の実装の続きの途中で切った**
 直前セッションの実モデル: Claude Sonnet 5
-**推奨モデル(次のセッション)**: **Sonnet** — 実装とテスト(`Documents/10_CONTEXT_POLICY.md` §7 の表の「実装」の行)。統計の計算には触れない(止める条件と表示だけ)
+**推奨モデル(次のセッション)**: **Sonnet** — 実装とテストと記録の書き込み(`Documents/10_CONTEXT_POLICY.md` §7 の表の「実装」の行)。統計の計算には触れない(止める条件と表示だけ)
 
 ---
 
@@ -12,37 +12,30 @@
 
 ## このセッションでやること(1つだけ)
 
-**ADR-110 決定1・3 の実装を仕上げる。**コードとテストは**作業ツリーにある(未コミット)**。`git status` は 4 ファイルが ` M` になっているはず(`code/artifacts.py`・`code/eval/run.py`・`code/analysis/sharpness_fit.py`・`code/tests/test_sharpness_fit.py`)。**それを捨てずに続ける**(`git checkout` / `git stash` をしない)。仕様の正本は `logs/DECISIONS.md` の ADR-110 と `plans/PLAN-032` §8.1 R7(`grep -n 'R7 止める条件' plans/PLAN-032-sharpness-diagnostic.md`)。
+**ADR-110 決定1・3 の実装を仕上げる(コミットまで)。**コードとテストは**作業ツリーにある(未コミット)**。`git status` は 4 ファイルが ` M` になっているはず(`code/artifacts.py`・`code/eval/run.py`・`code/analysis/sharpness_fit.py`・`code/tests/test_sharpness_fit.py`)。**それを捨てずに続ける**(`git checkout` / `git stash` をしない)。仕様の正本は `logs/DECISIONS.md` の ADR-110(`grep -n '^## ADR-110' logs/DECISIONS.md`。本文は約 55 行)と `plans/PLAN-032` §8.1 R7(`grep -n 'R7 止める条件' plans/PLAN-032-sharpness-diagnostic.md`)。
 
-### 検証の状況(その114 が確かめた。**コードはその113 から 1 文字も変えていない**)
+### 検証の状況(その114・その115 が確かめた。**コードはその113 から 1 文字も変えていない**)
 
-- `code/tests/test_sharpness_fit.py` = **180 passed**(75.56 秒。`PYTHONIOENCODING=utf-8 python -X utf8 -m pytest code/tests/test_sharpness_fit.py -q -p no:cacheprovider`)。**新テスト 50 件は初回で全部通った**(テスト側の誤りは出なかった)。ただし**通ったこと自体は、新しい門・表示が効いていることの証拠ではない**(下の自己点検で、わざと外して落ちることを確かめる)
-- 全体の `pytest code/tests -q`: **2041 passed**(312.14 秒。期待どおり 1991 + 50。走らせている間、作業ツリーのコードは変えていない)
-- 3 本の `.py` とテストの CR = 0(LF)。`git diff HEAD --stat` = 4 ファイル・+520 −15。`git diff HEAD` をその113 の記述(下の 1〜4)と突き合わせて読んだ(一致)
-- **未実施**: config 4 本の `--dry-run`・自己点検・`plans/PLAN-032` §11 の注 26〜30・`logs/OPEN-ITEMS.md` の追記・コミット
-
-### 作業ツリーにあるもの(その113 が書いた)
-
-1. **`code/artifacts.py`**: 公開関数 `capture_git_head_sha()`・`capture_git_diff_head(paths=())`(= `_capture(["git","diff","HEAD"[, "--", *paths]])`)・`is_capture_failure(output)` と定数 `CAPTURE_FAILURE_PREFIX = "<取得できず"` を足した。`write_git_sha` はこれらを通す(**出力は 1 バイトも変わらない**。`git_diff.patch` に書くものと門が見るものが同じ関数になる)
-2. **`code/eval/run.py`**: `SHARPNESS_KEY = "sharpness"`・`GIT_DIFF_PREVIEW_CHARS = 400`・`declares_sharpness(config)`(欄が無い / null = していない)・`check_tracked_files_clean(config, *, git_diff=capture_git_diff_head)`(決定1 の門。空でなければ `ConfigError`)。`execute_threshold_sweep` に `git_diff` 引数を足し、**`top_k = declared_top_k(config)` の後・`started = ...` / `prepare_run_dir` の前**で呼ぶ
-3. **`code/analysis/sharpness_fit.py`**: `SHARPNESS_BLOCK = SHARPNESS_KEY`(`run.py` の定数の別名)・`ANALYSIS_CODE_PATHS = ("code/",)`・`ANALYSIS_NOTE`・`read_analysis_provenance()`(`{"commit_sha", "code_diff_empty": True/False/None}`)・`build_report(..., *, analysis=None)`(json の **2 番目の鍵** `analysis` = 上の 2 つ + `note`)・`analysis_line`(txt の **2 行目**)。**止めない**
-4. **`code/tests/test_sharpness_fit.py`**(130 → 180 件): 節「R7 の 4 を GPU の前にも(ADR-110 決定1)」(1464 行〜)と「解析側の来歴(ADR-110 決定3)」(1667 行〜)が新規 50 件。**場所は `grep -n 'R7 の 4 を GPU の前にも\|解析側の来歴' code/tests/test_sharpness_fit.py`**(全文を読まない)
+- `code/tests/test_sharpness_fit.py` = **180 passed**(75.56 秒)。全体の `pytest code/tests -q` = **2041 passed**(312.14 秒。1991 + 新 50。その114)
+- **config 4 本の `--dry-run`(その115)= B・A 各 34,322 / B-d・A-d 各 17,124 = 102,892 件(不変)。**4 本とも exit 0(dirty な作業ツリーでも止まった件はない = 読み 26)
+- **自己点検(その115)= 変異 17 通りすべてで対応するテストが落ちた。テストの穴 = 0。**`-k` の式で 58 件を選んだ(下の式)。変異は 4 ファイルのバイト列を退避し、置換前が**ちょうど 1 回**出ることを assert して置換し、必ず復元した。**復元後の `git diff HEAD` の sha256 = `6a44a735850ea8d18cd7f3531f5971ec35e105e06ef00e4b63c1d545759c80a6`(始める前と一致)**。変異の中身(名前): a 門の呼び出しを消す / b 門を `prepare_run_dir` の後へ / c1 `declares_sharpness` = True / c2 = False / d `main` の dry-run の前に門 / p 差分が空でも止める(`if not diff` → `if diff is None`)/ q 欄の無い run にも門 / e `capture_git_diff_head` を `git diff`(HEAD なし)に / f `write_git_sha` の patch を別の git 呼び出しに / g `is_capture_failure` = False / h `code_diff_empty` の向きを反転 / i `ANALYSIS_CODE_PATHS = ()` / j `build_report` が来歴を読まず固定値 / k `analysis` の鍵を dict の最後へ / l 差分が空でなければ `SharpnessError` / m `report_lines` から `analysis_line` を消す / n 欄名の食い違い(run 側 `sharpness_gate`・解析側 `sharpness`)。**変異 p だけは assertion の失敗ではなく fixture の setup の ERROR で検出された**(門が空の差分でも止めるので、クリーンな run を作る fixture が `ConfigError` で落ちた。空の差分は通るという専用のテストが個別に落ちるかは見ていない)。`-k`: `"tracked_diff or message_shows_the_size or stderr_alone or same_git_output or sharpness_field or dry_run_is_not_gated or cli_route or declares_sharpness or four_diag_arm or analysis_provenance"`
+- **未実施**: `plans/PLAN-032` §11 の注 26〜30・表・ステータス・§10 の `[x]`(下の 1)/ `logs/OPEN-ITEMS.md` の追記(下の 2)/ 全体の pytest のやり直し(下の 3)/ コードのコミット(下の 5)
 
 ### 残りの手順(この順)
 
-1. **(済み)全体の `pytest code/tests -q` = 2041 passed**(上の行)。**自己点検の変異を復元した後・§11 の注を書いた後、コミットの前にもう一度回す**(約 5 分・出力はファイルに落として `tail`)。落ちたらまず**テスト側・新コード側のどちらの誤りか**を切り分ける
-2. config 4 本(`configs/exp_diag_{b,a,b_d,a_d}.yaml`)の `--dry-run`(**102,892 件のはず。不変**。診断のプールが無ければ `configs/exp_diag_pool.yaml` の冒頭のコマンド。前の記録は `logs/CHANGELOG.md`「その110」)。`--dry-run` は門を通らない(読み 26)ので、dirty な作業ツリーでも止まらないはず
-3. **自己点検**(`CLAUDE.md` §7): 新しい門・表示をわざと外して、対応するテストが落ちることを確かめてから戻す。**やり方**: scratchpad にスクリプトを書き、変異ごとに ファイルのバイト列を退避 → 置換(**出現がちょうど 1 回**であることを assert)→ pytest(`-x -q -p no:cacheprovider -k "<下>"`)→ 復元。**始める前と終わった後の `git diff HEAD` の sha256 が同じ**であることを確かめる(作業ツリーは未コミットなので、復元を誤ると仕事が消える)。**`-k` の案**(`--collect-only -q` で ~50 件選ばれることを先に確かめる): `"tracked_diff or message_shows_the_size or stderr_alone or same_git_output or sharpness_field or dry_run_is_not_gated or cli_route or declares_sharpness or four_diag_arm or analysis_provenance"`。**変異の案**(どれも落ちるはず。落ちなければテストの穴):
-   - `run.py`: (a) 門の呼び出し `check_tracked_files_clean(config, git_diff=git_diff)` を消す (b) 門を `prepare_run_dir` の後へ動かす (c) `declares_sharpness` を `return True` / `return False` にする (d) `main` の `if args.dry_run:` の前に `check_tracked_files_clean(config)` を足す
-   - `artifacts.py`: (e) `capture_git_diff_head` の `command = ["git", "diff", "HEAD"]` を `["git", "diff"]` に (f) `write_git_sha` の `capture_git_diff_head()` を `_capture(["git", "diff"])` に (g) `is_capture_failure` を `return False` に
-   - `sharpness_fit.py`: (h) `read_analysis_provenance` の `diff == ""` を `diff != ""` に (i) `ANALYSIS_CODE_PATHS` を `()` に (j) `build_report` の `read_analysis_provenance()` を固定の dict に置き換える(読まない) (k) `analysis` の鍵を dict の最後へ動かす (l) `read_analysis_provenance` で差分が空でなければ `SharpnessError` を投げる(止める) (m) `report_lines` から `analysis_line(...)` の行を消す
-   - **2 ファイルにまたがる**: (n) `run.py` の `SHARPNESS_KEY` を `"sharpness_gate"` に変え、同時に `sharpness_fit.py` の `SHARPNESS_BLOCK = SHARPNESS_KEY` を `"sharpness"` にする(欄名が食い違って門が黙って外れる。`test_declares_sharpness_reads_the_field_the_judgment_table_reads` が落ちるはず)
-4. **`plans/PLAN-032` §11 の注に「実装の読み 26〜30」を書く**(下)。ヘッダのステータス(`ADR-110 の実装待ち` → 実装済み・凍結 tag 待ち)・§10 の `[ ] ADR-110 決定1・3 の実装…` を `[x]` に・§11 の表に 1 行(その113・その114 の分)。`logs/OPEN-ITEMS.md` の行 80「PLAN-032 の凍結 tag と G2-1 GPU 承認」の末尾に追記(**§8.1 は変えない**。行は巨大なので `grep -n` で場所を引き、Edit で末尾の `→ ADR-110 の実装の後(その112)` の手前に足す)
-5. `logs/CHANGELOG.md`・`STATE.md`(各節の最新 1 ブロックのみ。旧ブロックは `logs/STATE-ARCHIVE.md` へ 1 文字も変えずに移す)・この `HANDOFF.md` を更新し、**コード・テスト・記録を 1 つのコミットにまとめる**(`feat(eval): ADR-110 決定1・3 を run.py と sharpness_fit に実装した —— ...`。`pytest code/tests -q` が通ってから。件数は実測で書く)
+1. **`plans/PLAN-032` に書く**(**§8.1 は変えない**):
+   - ヘッダのステータス(`ADR-110 の実装待ち` → **`実装済み・凍結 tag 待ち`**。既存の打ち消し線の並びに足す)と「最終更新」を `2026-09-26(その115)` に
+   - §10 の `- [ ] ADR-110 決定1・3 の実装・…` を `[x]` にし、末尾に実測を書く(`pytest` = 2041 passed・dry-run 102,892 件・自己点検 17 通り。実装の読みは §11 の注 26〜30)
+   - §11 の表(`| 2026-09-26(その112) | …` の行の直後)に 1 行: その113〜その115 = ADR-110 決定1・3 を `code/artifacts.py`(`capture_git_head_sha`・`capture_git_diff_head`・`is_capture_failure`)・`code/eval/run.py`(`declares_sharpness`・`check_tracked_files_clean`。`execute_threshold_sweep` の `prepare_run_dir` の前)・`code/analysis/sharpness_fit.py`(`read_analysis_provenance`・`build_report` の 2 番目の鍵 `analysis`・txt の 2 行目)とテスト(130 → 180 件)に実装した / `pytest` = 2041 passed / dry-run 102,892 件(不変)/ 自己点検 17 通り / **R2〜R5 の規則と値・線 0.088・区間の計算法は変えていない**。GPU 0・pod 0・tag なし・push なし。担当 IMPLEMENTER (Sonnet 5。推奨と一致)
+   - 注(§11 の末尾。直前の「★その110 の注」の並びに) **「★その115 の注: ADR-110 の実装の読み(§8.1 と ADR-110 に定めが無い配線。人間が凍結 tag の前に覆せる)」**と 26〜30(下の「実装の読み」をそのまま写す)
+2. **`logs/OPEN-ITEMS.md` の行 80** 末尾の `**→ ADR-110 の実装の後(その112)**` を `~~**→ ADR-110 の実装の後(その112)**~~ **→ いま(ADR-110 決定1・3 は実装済み。その115。凍結 tag = 人間)**` に置き換える(**行は 8 KB あるので出力しない**。Python で `count == 1` を assert して置換し、`newline` は LF)
+3. **全体の `pytest code/tests -q`**(約 5 分。出力はファイルに落として `tail`。`PYTHONIOENCODING=utf-8 python -X utf8 -m pytest code/tests -q -p no:cacheprovider > out.txt`)。**期待 = 2041 passed**(コードは変わっていない)。記録(`STATE.md`・`plans/`)を書いた**後**に回す(`test_repo_hygiene` が読むため)。落ちたら切り分ける
+4. `logs/CHANGELOG.md`(その115 の節を追記。**その114 の節の書き方が型**)・`STATE.md`(各節の最新 1 ブロック。**その115 の分は書いてある**ので、コミットの後の状態に合わせて直す。旧ブロックを `logs/STATE-ARCHIVE.md` へ移すなら 1 文字も変えず)・この `HANDOFF.md` を更新する
+5. **コード・テスト・記録を 1 つのコミットにまとめる**(`feat(eval): ADR-110 決定1・3 を run.py と sharpness_fit に実装した —— ...`。件数は実測で書く。末尾に `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`)。`git status` で 4 ファイル + 記録だけが入ることを確かめる
 
 ### 実装の読み(定めが無い配線。§11 に 26〜30 として書く。**人間が tag の前に覆せる**)
 
-- **26 `--dry-run` には門を掛けない**: 何も書かず重みも読まない。開発機の dirty な作業ツリーで dry-run が止まらないようにする(テスト = `test_the_dry_run_is_not_gated_and_does_not_read_git`)
+- **26 `--dry-run` には門を掛けない**: 何も書かず重みも読まない。開発機の dirty な作業ツリーで dry-run が止まらないようにする(テスト = `test_the_dry_run_is_not_gated_and_does_not_read_git`。**その115 の dry-run 4 本が dirty な作業ツリーで通った**)
 - **27 門の位置と範囲**: `execute_threshold_sweep` の中、宣言・プール・アダプタ・文面などの検査がすべて済んだ後(config の誤りが先に報告される)・`prepare_run_dir` の前。**固定オフセットの経路 `execute` には無い**(`sharpness:` 欄を持つのは診断の 4 腕の config だけで、実物の config を数えるテストがある)
 - **28 「欄がある」の読み**: キーがあり null でない(`sharpness: {}` も宣言とみなして止める側に倒れる)。欄名は `run.SHARPNESS_KEY` 1 か所(`sharpness_fit.SHARPNESS_BLOCK` は別名)
 - **29 共有関数**: 門が見る出力は `artifacts.capture_git_diff_head()`(`write_git_sha` が `git_diff.patch` に書くのと同じ関数)。`git status` が空で `git diff HEAD` だけ非空という組み合わせでは、patch は書かれないのに門は止まる(想定していない。止める側)
@@ -51,22 +44,22 @@
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
 - **ADR-110**(4 問とも人間が推奨を採った)と `plans/PLAN-032` §8.1 R7 の 4 行・§8.2 の 3 行はその112 のまま。**R2〜R5 の規則と値(線 0.088)・区間の計算法は不変**
-- その114 が書いた記録(コミット済み): `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その114」)・`logs/CHANGELOG.md`(その114)・この `HANDOFF.md`。**コードは未コミットのまま**
+- その115 が書いた記録(コミット済みにする): `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その115」)・`logs/CHANGELOG.md`(その115)・この `HANDOFF.md`。**コードは未コミットのまま**
 
 ## 触ってよいファイル / 読むべき範囲
 
-- 書く: 上の 4 ファイル / `plans/PLAN-032`(ヘッダのステータス・§10・§11 の表と注。**§8.1 は変えない**)/ `logs/OPEN-ITEMS.md` の「PLAN-032 の凍結 tag と G2-1」行 / `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
-- 読む: `git diff HEAD --stat` と、必要なら `git diff HEAD -- code/artifacts.py code/eval/run.py code/analysis/sharpness_fit.py`(小さい)/ ADR-110(`grep -n '^## ADR-110' logs/DECISIONS.md`。**本文は約 55 行。全文を読むほどではない**)/ `logs/CRITIQUE.md`「その111」の C111-1・C111-3
+- 書く: 上の 4 ファイル(**コードは変える必要がない**。テストの誤りが出たときだけ)/ `plans/PLAN-032`(ヘッダのステータス・§10・§11 の表と注。**§8.1 は変えない**)/ `logs/OPEN-ITEMS.md` の「PLAN-032 の凍結 tag と G2-1」行 / `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
+- 読む: `git diff HEAD --stat`(4 ファイル・+520 −15 のはず)/ `plans/PLAN-032` §10・§11(`grep -n '^## 10\|^## 11\|その110 の注' plans/PLAN-032-sharpness-diagnostic.md`。**その110 の注の形が型**)
 - **編集しない**: `plans/PLAN-032` §8.1 / `logs/DECISIONS.md` / `logs/CRITIQUE.md` / config・テンプレート / R2〜R5 の関数(`delta2_point`・`arm_reaches`・`next_stage`・`r5_decision`)と区間の計算法(`confidence_interval`)/ `check_provenance` の照合の中身(ADR-109 決定1)
 
 ## やってはいけないこと
 
 - **tag を打たない・push しない・pod を起動しない・GPU を使わない**。合否線・R2〜R5 の規則・区間の計算法を変えない
-- **作業ツリーの未コミットの変更を捨てない**(`git checkout -- .`・`git stash`・`git clean` をしない)。**全体の pytest が通る前(と、通した後にコードを触ったならもう一度通す前)にコードだけをコミットしない**(`CLAUDE.md` §4)。自己点検の変異は必ず復元し、`git diff HEAD` の sha256 で確かめる
-- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。bash の heredoc に日本語の長文を流さない(Write ツールで scratchpad に書いてから `python <script>`。Python に渡すパスは `C:/Users/...` の形)。**`.md` も `.py` も LF 固定**(`.gitattributes`)。**Python で書くときは `newline="\n"`(またはバイトで書く)**。**★Edit ツールが `code/artifacts.py` を CRLF で書いたことがある**(その113 が見つけて LF に戻した)。**`.py` を Edit したら `python -X utf8 -c "print(open(p,'rb').read().count(b'\r\n'))"` で CR が 0 であることを確かめる**
-- テストのモジュールを scratchpad から import するときは `PYTHONPATH=C:/Users/keenk/paper/FT/infra` が要る
-- `STATE.md` は 60 KB の上限に近い(その114 時点で約 60 KB)。新しいブロックに ADR の中身を書き写さない(正本を指す)。超えたらアーカイブへ移す
-- **`logs/OPEN-ITEMS.md` の行 80 は 1 行が非常に長い**(数 KB)。`sed -n`・`grep` で出すとコンテキストを食う。`grep -n` は番号だけ(`-o` で語だけ)にする
+- **作業ツリーの未コミットの変更を捨てない**(`git checkout -- .`・`git stash`・`git clean` をしない)。**全体の pytest が通る前にコードだけをコミットしない**(`CLAUDE.md` §4)
+- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。bash の heredoc に日本語の長文を流さない(Write ツールで scratchpad に書いてから `python <script>`。Python に渡すパスは `C:/Users/...` の形)。**`.md` も `.py` も LF 固定**(`.gitattributes`)。**Python で書くときは `newline="\n"`(またはバイトで書く)**。**Edit ツールが `.py` を CRLF で書いたことがある**(その113)。`.py` を Edit したら CR が 0 であることを確かめる(このセッションは `.py` を編集しない)
+- **bash の `sleep` の単発はブロックされる**: 待つときは `run_in_background` の `until` ループ
+- `STATE.md` は上限に近い(その115 時点で 60,820 バイト・382 行。回帰テストが落ちるのは 700 行 / 90 KB)。新しいブロックに ADR の中身を書き写さない(正本を指す)
+- **`logs/OPEN-ITEMS.md` の行 80 は 1 行が非常に長い**(8 KB)。`sed -n`・`grep` で出すとコンテキストを食う。`grep -n -o` で語だけ、または Python で `count` を assert して置換する
 
 ## 未解決 / 人間の承認待ち
 

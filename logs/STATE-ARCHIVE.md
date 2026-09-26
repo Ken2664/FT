@@ -18,6 +18,40 @@
 
 ---
 
+## ★2026-09-26(その115)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その115(IMPLEMENTER。ADR-110 決定1・3 の実装の続き。context-guard で切った)で差し替えた 4 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-09-26(その114)/ by IMPLEMENTER (Sonnet 5。推奨と一致。ADR-110 決定1・3 の実装の続き: **新テスト(`test_sharpness_fit.py` 180 件)は初回で全部 passed**(75.56 秒)。**全体の pytest = 2041 passed(312.14 秒)**。**dry-run・自己点検・PLAN-032 §11 の注 26〜30・コードのコミットは未実施**。context-guard(約 140k)で切った。コードは**未コミット**。**GPU 0・pod 0・tag なし・push なし**)
+(**次は IMPLEMENTER が残り(dry-run → 自己点検 → §11 の注 26〜30 → 全体の pytest をもう一度 → コミット)→ 凍結 tag(人間)→ push(人間)→ G2-1 GPU 承認(人間)**。R2〜R5 の規則と値は不変。段1 は閉じたまま(ADR-106)。
+pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
+
+### いま何をしているか
+
+> **★★2026-09-26(その114・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。ADR-110 決定1・3 の実装の続き。GPU 0・pod 0・tag なし・push なし。作業ツリーに未コミットの変更がある(4 ファイル)。**
+> - **確かめたこと**: `test_sharpness_fit.py` = **180 passed**(75.56 秒。新 50 件は初回で全部通った。**コードは変えていない**)。`git diff HEAD` を HANDOFF の記述と突き合わせて読んだ(一致)。全体の `pytest code/tests -q` = **2041 passed**(312.14 秒。1991 + 50)
+> - **未実施**: config 4 本の `--dry-run`・自己点検(変異の案は HANDOFF)・§11 の注 26〜30・コミット
+> - **★その113 のブロックは `logs/STATE-ARCHIVE.md`「その114」にある**
+
+### 次のアクション
+
+> **★★2026-09-26(その114・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **IMPLEMENTER(Sonnet): ADR-110 決定1・3 の残り**(`logs/HANDOFF.md`。config 4 本の `--dry-run`(102,892 件のはず)→ 自己点検 → `plans/PLAN-032` §11 に実装の読み 26〜30 → 全体の pytest をもう一度 → コミット)→ **凍結 tag**(人間)→ **push**(人間。GPU の前)→ **G2-1 GPU 承認** → 実行(RUNNER。**tag の commit のまま 4 腕を続けて回し、I5 はその後**。`plans/PLAN-032` §8.2)→ 判定表(ANALYST。機械的)
+> 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
+> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106。印の意味づけ・`p2d` の扱いを含む)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 引き継ぎ
+
+> **★★2026-09-26(その114・最新)。IMPLEMENTER (Sonnet 5。推奨と一致)。ADR-110 決定1・3 の実装の続き。context-guard(約 140k トークン)で切った。GPU 0・pod 0。**
+>
+> **★やったこと**: 新テストの実行(`test_sharpness_fit.py` = 180 passed。全体 = 2041 passed)と `git diff HEAD` の読み合わせ。**コミットしたのは記録だけ**(コードは全体の pytest・自己点検・§11 の注が済むまでコミットしない。`CLAUDE.md` §4)。
+> **★やっていないこと**: dry-run・自己点検・`plans/PLAN-032` §11 の注 26〜30・`logs/OPEN-ITEMS.md` の追記 / tag / push / pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
 ## ★2026-09-26(その114)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その114(IMPLEMENTER。ADR-110 決定1・3 の実装の続き。context-guard で切った)で差し替えた 4 か所を、1 文字も変えずに移した。

@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-26(その116)/ by IMPLEMENTER (Sonnet 5。推奨と一致。**ADR-110 決定1・3 の実装を仕上げてコミットした**: `plans/PLAN-032` のステータス・§10・§11 の表と注 26〜30 / `logs/OPEN-ITEMS.md` の行 80 / 全体の pytest = **2041 passed in 288.56s**。コード 4 ファイルは 1 文字も変えず、テスト・記録と 1 つのコミットにした。**R2〜R5 の規則と値・線 0.088・区間の計算法は不変**。**GPU 0・pod 0・tag なし・push なし**)
-(**次は実装の読み 26〜30 の確認 → 凍結 tag(人間。案 `preregister-diag-sharpness`)→ push(人間。main と tag。GPU の前)→ G2-1 GPU 承認(人間)**。段1 は閉じたまま(ADR-106)。
+最終更新: 2026-09-26(その117)/ by RUNNER (Sonnet 5。推奨と一致。**G2-1 の見積りを出した**(GPU 時間・pod の型・単価・run の一覧。`logs/CHANGELOG.md` その117)。**凍結 tag `preregister-diag-sharpness` = `102c2d5` = HEAD = origin/main を確かめた(人間が打って push 済み)**。**GPU 0・pod 0(RunPod には読み取りだけ)・tag なし・push なし・config/コード不変**)
+(**次は人間: G2-1 GPU 承認(上限・Phase の分け方・GPU の在庫)。並行して IMPLEMENTER が I5 の config 10 本(tag の後の commit。GPU 不要)**。RTX 4090 SECURE(EU-RO-1)は読んだ時点で在庫なし。段1 は閉じたまま(ADR-106)。
 pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
 
 ---
@@ -67,10 +67,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-26(その116・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。ADR-110 決定1・3 の実装を仕上げてコミットした。GPU 0・pod 0・tag なし・push なし。**
-> - **確かめたこと**: 全体の `pytest code/tests -q` = **2041 passed in 288.56s**(その114 の 2041 passed と比べる。記録を書いた後にやり直した)。config 4 本の `--dry-run` = 102,892 件(その115)/ 自己点検 = 変異 17 通りすべてで検出(その115)。**コードはその113 から 1 文字も変えていない**
-> - **書いたもの**: `plans/PLAN-032`(ステータス `ADR-110 の実装済み・凍結 tag 待ち`・§10 の `[x]`・§11 の表 1 行・注 26〜30。**§8.1 は不変**)/ `logs/OPEN-ITEMS.md` の行 80。**実装の読み 26〜30 は人間の確認待ち**(§11 の注。凍結 tag の前に覆せる)
-> - **★その115 のブロックは `logs/STATE-ARCHIVE.md`「その116」にある**
+> **★★2026-09-26(その117・最新)。Phase 0。RUNNER (Sonnet 5)。G2-1 の見積りを出した。GPU 0・pod 0・tag なし・push なし。**
+> - **確かめたこと**: tag `preregister-diag-sharpness`(注釈付き。object `a94f2f2…`)→ commit `102c2d5` = HEAD = `origin/main`、origin に tag も main も上がっている(`git ls-remote`)/ 作業ツリー clean / config 4 本の `--dry-run` は tag の commit で 34,322 / 34,322 / 17,124 / 17,124 = 102,892 件(不変。exit 0・作業ツリーは汚れない)
+> - **見積り(算定であって実験結果ではない。中身と根拠は `logs/CHANGELOG.md` その117)**: 4 腕(Phase 1)約 1.05 h・I5 のアダプタ 10 本(Phase 2)約 1.5 h・合計 約 2.6 h(高め 約 3.1 h)・$0.74/時で約 $1.9(高め $2.3)。提案の上限 = pod 稼働 4.0 h・$0.74/時 = $2.96(**10 GPU 時間の線 §2 の外**)
+> - **止まっているもの**: ① RTX 4090 SECURE が EU-RO-1 で今 在庫なし(`get-gpu-type`(RO)= NONE・`get-capacity` = Out。国の指定なしは LOW で食い違った)② **I5 の config 10 本がまだ無い**(`configs/exp_pilot_ft_eval_*` は比較群を解かない設定。tag の後に IMPLEMENTER が作る)③ 人間の承認
+> - **★その116 のブロックは `logs/STATE-ARCHIVE.md`「その117」にある**
 
 ---
 
@@ -297,7 +298,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F114 の実行先** ★新 | **「どこで回すか」**(この機械 16 コア / CPU の多い RunPod ポッド)。**CPU なので §2 の「10 GPU時間超」の対象ではないが、黙って始めてよい量ではない。**所要時間は `n_item` に比例する(`n_item = 48` で 62 時間。ADR-095 の値では行数 2.5 倍・時間は未実測)。**3 つの null が埋まってから諮る** | 本実行の前 |
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
-| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その116) |
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その117)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。残り = (2) G2-1 承認 + I5 の config 10 本(IMPLEMENTER)+ 4090 の在庫** |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
@@ -342,9 +343,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-26(その116・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-26(その117・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **人間: 実装の読み 26〜30 の確認 → 凍結 tag(案 `preregister-diag-sharpness`)→ push(main と tag。GPU の前)→ G2-1 GPU 承認**(`logs/OPEN-ITEMS.md` の行 80)→ 実行(RUNNER。**tag の commit のまま 4 腕を続けて回し、I5 はその後**。`plans/PLAN-032` §8.2)→ 判定表(ANALYST。機械的)。**PLAN-032 に IMPLEMENTER の仕事は残っていない**(I5 = パイロットのアダプタの config は tag の後)。決定1・3 は統計の計算に触れないので CRITIC のレビューは要らないとADR-110 決定8 は読んだ。**気になれば tag の前に `git diff` を人間か CRITIC が見る**
+> 1. **人間: G2-1 GPU 承認**(見積りと推奨 3 件は `logs/CHANGELOG.md` その117。上限・Phase の分け方・4090 の在庫が戻るまで待つか)→ 実行(RUNNER。Phase 1 = 4 腕は **tag の commit のまま続けて回す**。Phase 2 = I5 はその後)→ 判定表(ANALYST。機械的)。**IMPLEMENTER(いつでも。GPU 不要)**: I5 の config 10 本(`exp_pilot_ft_eval_*` の写し。`eval.batteries: [comparison]`・`eval.task_subset: [t1b, t3]`)を tag の後の commit に作り、`--dry-run` と `pytest` を通す(push は人間)。**Phase 2 の前に要る**。決定1・3 は統計の計算に触れないので CRITIC のレビューは要らないと ADR-110 決定8 は読んだ
 > 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
@@ -355,10 +356,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-26(その116・最新)。IMPLEMENTER (Sonnet 5。推奨と一致)。ADR-110 決定1・3 の実装を仕上げてコミットした。GPU 0・pod 0。**
+> **★★2026-09-26(その117・最新)。RUNNER (Sonnet 5。推奨と一致)。G2-1 の見積りを出した。GPU 0・pod 0。**
 >
-> **★やったこと**: `plans/PLAN-032` の記録(ステータス・§10・§11 の表と注 26〜30)・`logs/OPEN-ITEMS.md` の行 80・全体の pytest(2041 passed in 288.56s)。**コード 4 ファイルは 1 文字も変えず、テスト・記録と 1 つのコミットにした**(`git log -1`)。
-> **★やっていないこと**: tag / push / pod / GPU(すべて人間の操作を待つ)。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(人間が何を済ませたかで A・B の 2 通り)。
+> **★やったこと**: tag・push・作業ツリー・dry-run の件数を確かめ、過去の実測(R8・S-(d)・S-① の生成速度、モデル読み込み、preflight、pod 準備)と RunPod の読み取り(単価・在庫・ボリューム・pod 一覧)から見積りを組み、`logs/CHANGELOG.md`(その117)に書いた。
+> **★やっていないこと**: pod の作成・起動(承認前)/ config・コードの編集 / tag・push。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(人間の返答で A = RUNNER か B = IMPLEMENTER の 2 通り)。
 
 ---
 

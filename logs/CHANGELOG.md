@@ -7355,3 +7355,50 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの(すべて 1 つのコミット)**: `code/artifacts.py`・`code/eval/run.py`・`code/analysis/sharpness_fit.py`・`code/tests/test_sharpness_fit.py`(その113〜その115 の作業ツリーの変更。**内容は不変**)/ `plans/PLAN-032`・`logs/OPEN-ITEMS.md`・`STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ・表の 3 行(pytest の件数・段2 の診断の経路・PLAN-032 の凍結 tag)。旧ブロックは `logs/STATE-ARCHIVE.md`「その116」へ 1 文字も変えずに移した)・`logs/CHANGELOG.md`(本ファイル)・`logs/HANDOFF.md`(上書き)
 - **変えていないもの**: `plans/PLAN-032` の §8.1・`logs/DECISIONS.md`・`logs/CRITIQUE.md`・config・テンプレート・R2〜R5 の関数(`delta2_point`・`arm_reaches`・`next_stage`・`r5_decision`)と区間の計算法(`confidence_interval`)・`check_provenance` の中身・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし・push なし**
 - **未解決(すべて人間。`CLAUDE.md` §8)**: 実装の読み 26〜30 の確認(`plans/PLAN-032` §11 の注)→ PLAN-032 の凍結 tag(案 `preregister-diag-sharpness`)→ push(main と tag。GPU の前)→ G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-26(その117)
+
+### docs(plan): PLAN-032 の G2-1 の見積りを出した(RUNNER)—— 4 腕 102,892 件(Phase 1 約 1.05 h)+ I5 のアダプタ 10 本(Phase 2 約 1.5 h)= 合計 約 2.6 h・約 $1.9(RTX 4090 SECURE $0.74/時。高めの見積りで 約 3.1 h・約 $2.3)。**RTX 4090 が EU-RO-1 で今 在庫なし・I5 の config 10 本が無い**の 2 点で、承認が出てもそのままは始められない。**GPU 0・pod 0(RunPod には読み取りだけ)・tag なし・push なし・config/コード不変**   [actor: RUNNER (Sonnet 5)]
+
+- `logs/HANDOFF.md`(その116)の A の 1 件。**推奨モデル(Sonnet)と実モデル(Sonnet 5)は一致した**(冒頭で述べた)。`CLAUDE.md` §1 の開始手順を実行した(並行ブランチなし・作業ツリー clean)。RunPod MCP は**読み取りだけ**使った(`list-pods`・`list-network-volumes`・`get-gpu-type`・`get-capacity`)。**pod は作っていない・起動していない・止めていない**
+- **開始条件(確かめた)**: 凍結 tag `preregister-diag-sharpness`(注釈付き。object `a94f2f213597…`。tagger keenk・2026-09-26 20:36 JST)→ commit `102c2d5` = HEAD。`git merge-base --is-ancestor` が通り、tag と HEAD の差分は無い。`git ls-remote origin` で `refs/heads/main` = `102c2d5`・`refs/tags/preregister-diag-sharpness` が origin にある(**人間が tag を打って push 済み**)。作業ツリー clean
+- **dry-run(tag の commit。CPU。組合せの件数であって実験結果ではない)**: `python -m code.eval.run --config configs/exp_diag_{b,a,b_d,a_d}.yaml --dry-run` = **B 34,322 / A 34,322 / B-d 17,124 / A-d 17,124 = 102,892 件**(その115 と同じ。4 本とも exit 0・各 1 秒・作業ツリーは汚れなかった)
+- **回す run**: (Phase 1)上の 4 本 = **tag の commit のまま**(ADR-110 決定2)。configs の `resources.estimated_gpu_hours` は null のまま(書き換えると tag の commit と違う commit になる。**見積りはこの記録が持つ**)/(Phase 2 = I5)パイロットのアダプタ 10 本(625 ステップ 5 本 + 313 ステップ 5 本)の固定オフセットの T1b・T3(`eval.batteries: [comparison]`・`eval.task_subset: [t1b, t3]`。4 値分解)。**config が無いので dry-run 未了**。1 本の件数は **640 件と見込む**(B0 [run:20260922_121455_order6b_b0] の comparison 群 = T1b・T3 × gt・lt × 160 件の算定)
+- **見積りの根拠(実測。すべて RTX 4090 SECURE・batch 4・上位 k 20・pool_id pilot)**:
+  - 掃引の生成速度: [run:20260922_122247_order6b_r8] 59.727 s / 8,160 件 = **0.0073 s/件**(T1b + T3 の本番の文面。診断の B・A と同じ型)/ [run:20260922_125131_order6b_s_d] 8.795 s / 1,200 件 = 0.0073 / [run:20260922_124632_order6b_s_preamble] 25.631 s / 2,400 件 = 0.0107(長い前置きの run。**高めの見積りに使った**)
+  - モデルの読み込み: 74.8〜98.5 s / run(上の 3 本と B0 の 90.0 s の `metrics.json` の `timing`)
+  - preflight: **4:58〜5:34 / run**(`runs/pilot_ft_chain_n313/pilot_chain.log` の 10 step)。順6b の連鎖は 12:14:55Z〜12:56:54Z = 42.0 分・7 本の壁時計の合計 17.4 分で、差の約 3.5 分 / 本(preflight 込み)。**見積りは保守的に 5.3 分を使った**
+  - pod の準備: 326 s([run:pilot_ft_train_p2_s0_n313] の `cost.txt`。pod 作成・ssh・bundle 送付・repo 更新)
+  - predictions の大きさ: R8 で 13.8 MB / 8,160 件 = 約 1.7 KB/件 → **102,892 件で約 174 MB**(回収は `ssh -o IPQoS=none`。メモリ「RunPod ssh は IPQoS=none」)
+- **見積り(分。算定であって実験結果ではない)**:
+
+  | 段 | 内訳 | 典型 | 高め |
+  |---|---|---|---|
+  | Phase 1 の準備 | pod 準備 5.4 + 診断のプール作り(CPU。**未実測**。見込み 10 / 15) | 15.4 | 20.4 |
+  | B | preflight 5.3 + 読み込み 1.5 + 生成 34,322 × 0.0073 s = 4.2 | 11.0 | |
+  | A | 同上 | 11.0 | |
+  | B-d | 5.3 + 1.5 + 17,124 × 0.0073 s = 2.1 | 8.9 | |
+  | A-d | 同上 | 8.9 | |
+  | 4 腕の合計 | 高め = 生成 0.0107 s/件・preflight 5.6・読み込み 1.6 | 39.8 | 47.1 |
+  | 回収・`cost.txt`・停止 | 約 174 MB の回収を含む | 8 | 12 |
+  | **Phase 1 の合計** | | **63.2(1.05 h)** | **79.5(1.33 h)** |
+  | Phase 2 の準備 | I5 の config の commit を checkout + パイロット用プール作り(CPU。**未実測**。見込み 10 / 15) | 10 | 15 |
+  | I5 の 10 本 | preflight 5.3 + 読み込み(素 + アダプタ)1.5 + 640 件の強制選択 約 0.8(**見込み**)= 7.6 分 × 10 | 76 | 86(8.6 分 × 10) |
+  | 回収・停止 | | 5 | 8 |
+  | **Phase 2 の合計** | | **91(1.52 h)** | **109(1.82 h)** |
+  | **全体** | | **154.2 分 = 2.57 h → $1.90** | **188.5 分 = 3.14 h → $2.32** |
+
+  単価は `get-gpu-type`(RTX 4090)の `price.secure` = 0.74($/時。今日読んだ値。過去の 3 本の pod の `cost` も 0.74)。ボリューム(50 GB)の保管料は含まない。Phase を別の pod にすると準備が +5.4 分(約 $0.07)。**10 GPU 時間の線(`CLAUDE.md` §2)には届かない**(2.6〜3.1 h)。ただし PLAN-032 §8.2・ADR-106 決定2 により、この見積りに対する G2-1 の承認は要る(段1 の $0.74/時の承認は使わない)
+- **提案する上限(人間が決める)**: pod の稼働 **合計 4.0 h・単価 $0.74/時まで = $2.96**(高めの見積り 3.14 h の約 1.3 倍)。停止時刻は起動時に `date -u` で決め、**時計で見張る**(メモリ「pod は時計で見張る」)。起動の直前に人間へ pod の型・単価・停止時刻を示す(その97 と同じ)
+- **止まっている 2 点(承認が出ても)**:
+  1. **RTX 4090 SECURE が EU-RO-1 で今 在庫なし**(読んだ時点。`get-gpu-type`(POD・SECURE・countryCodes RO)= `availability: NONE`・`get-capacity`(SECURE・CUDA 12.8 と 13.0)= `Out`。**国の指定なしの `get-gpu-type` は EU-RO-1 = LOW(CUDA 13.0 だけ available)と食い違った** —— 在庫は生の値で、読むたびに変わりうる)。A40($0.49)・A100 SXM($1.59)・L40S($1.09)も RO の指定では NONE。**その97 でも host に空き GPU が無く start が失敗した**。ネットワークボリューム `r963j7swke` は EU-RO-1 の 50 GB(STANDARD)で、**アダプタ 10 本の重み・`HF_HOME` の Llama-3.1-8B-Instruct(snapshot `0e9e39f…`)・venv はここにある**(その69・その70)
+  2. **I5 の config 10 本が無い**。`configs/exp_pilot_ft_eval_*`(10 本)は `eval.batteries: [bare_sum, bare_sum_instructed, word_problem, specificity]`・`task_subset: [t1, t1_instructed, t2]` で**比較群(T1b・T3)を解かない**(ADR-099 決定5)。作るのは tag の後(§6 罠1)で、config なので RUNNER の範囲外(HANDOFF「編集しない」)。**HANDOFF(その116)は「IMPLEMENTER の仕事は残っていない」と書いたが、`plans/PLAN-032` §5 の I5(config 10 本)は tag の後の仕事として残っている**(これは「凍結 tag の前の IMPLEMENTER の仕事は無い」という意味で読める。食い違いではなく、次の手を分けて書く)。Phase 1 は I5 を待たない
+- **人間に決めてほしいこと(エージェントの推奨つき。決めるのは人間。`CLAUDE.md` §8)**:
+  1. **承認の形** — 推奨 = **Phase 1 と Phase 2 を 1 つの枠(合計 4.0 h・$0.74/時まで)で承認**し、Phase 1 は在庫が戻り次第、Phase 2 は I5 の commit が push 済みなら同じ pod で続ける(H2-7 (p1))。無ければ pod を止めて(遊休させない)、後で新しい pod で Phase 2 を回す。理由: 別 pod の追加の準備は約 5.4 分($0.07)で、遊休 1 時間は $0.74。代案 = Phase 1 だけ承認して Phase 2 は I5 の config ができてから別に承認
+  2. **GPU** — 推奨 = **RTX 4090 SECURE(EU-RO-1)の在庫が戻るまで待つ**。理由: 順6b・パイロット(B0・R8・S・アダプタ 10 本の訓練)と同じハード(`infra/RUNPOD.md` §6 のハードの統制)・ボリュームが EU-RO-1 にある・単価が同じ。別の GPU・別のデータセンターは、ボリュームが使えず(Llama-3.1-8B-Instruct を HF から取り直し、アダプタの重みは無い)、ハードも変わる。**既存の `EXITED` の 3 本の start** は host に空き GPU が無いと失敗する(その97 の実績。課金なし)。私が作った pod ではないので、試すなら人間の許可を取る
+  3. **I5 の config** — 推奨 = **IMPLEMENTER を先に 1 回回す**(GPU 0・Sonnet で足りる。tag の後の commit で config 10 本 + `--dry-run` + `pytest`。**push は人間**)。在庫待ちの間に済む。config の中身は `exp_pilot_ft_eval_*` の写しで、変えるのは `eval.batteries`・`eval.task_subset`・`experiment.id`・(`gonogo.pilot_design_gate` の扱いは IMPLEMENTER が §8.1 R8 から読む)
+- **pod 上の手順の要点(次の RUNNER 用。細部は `infra/RUNPOD.md` §3・§4 と `plans/PLAN-032` §8.2)**: bundle は `git bundle create ft.bundle main preregister-diag-sharpness` → scp → pod で `git clone -b main` → **`git checkout preregister-diag-sharpness`**(4 腕)。ボリュームには `HF_HOME`・venv・HF トークンが残っている(その69)ので**重みの再取得も HF ログインも要らない**。`configs/exp_diag_pool.yaml` 冒頭のコマンドで診断のプールを作る。**作った後に `git diff HEAD` が空でなければ ADR-110 決定1 の門で 4 腕とも止まる**ので、`git checkout -- data/generated`(manifest の `created_at`・`git_commit` だけが動く。その69)。run ごとに `python infra/preflight.py --config <cfg> --run-dir runs/<id>` を通してから `python -m code.eval.run --config <cfg> --run-dir runs/<id>`(非 0 で止める。連鎖のひな形 = `runs/pilot_ft_chain_n313/{chain.sh,run_step.sh}`)。**I5 は 4 腕の後**(プールの作り直しで manifest が動くので、4 腕の前にやらない)
+- **やっていないこと**: pod の作成・起動・停止 / config・コードの編集 / tag・push / 判定表の解釈
+- **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ・PLAN-032 の索引の行。旧文は `logs/STATE-ARCHIVE.md`「その117」へ 1 文字も変えずに移した)・`logs/CHANGELOG.md`(本ファイル)・`logs/HANDOFF.md`(上書き)
+- **変えていないもの**: `plans/PLAN-032`(§8.1 を含む)・`logs/DECISIONS.md`・`logs/CRITIQUE.md`・`logs/OPEN-ITEMS.md`・config・テンプレート・`code/`・`results/`・`runs/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`
+- **未解決(すべて人間。`CLAUDE.md` §8)**: G2-1 GPU 承認(上の 1〜3 と上限)→ 実行(RUNNER)/ ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)

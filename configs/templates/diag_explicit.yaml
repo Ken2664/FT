@@ -1,0 +1,23 @@
+# configs/templates/diag_explicit.yaml — 段2 の診断の腕 A「明示の比較」の文面(T1b・T3)。
+#
+# ★2026-09-26 作成(PLAN-032 I2。§8.1 R1 の表の A の行。ADR-107 決定1)。
+# **これは段2 の診断(パイロット用プール・素のモデル)の文面であり、本番の文面ではない。**
+#   本番の T1b・T3 は configs/templates/t1b.yaml・t3.yaml(ADR-046)、runtime 集合は eval_main.yaml であり、
+#   **どれもこの実装では 1 文字も変えない**(ADR-078 決定2 / PLAN-032 §2.1)。
+#
+# --- 文面 ---
+#  腕 B(本番の文面のまま = eval_main)と**同じ組 (a, b)・同じ閾値 T・同じ極性**で、
+#  **和の部分だけを数 x = a + b に置き換えたもの**である(R1):
+#    T1b: `{a}+{b}` → `{x}`      T3: `the sum of {a} and {b}` → `{x}`
+#  code/tests/test_diag_sharpness.py が本番の t1b.yaml・t3.yaml から置き換えで組み直して照合し、
+#  R1 の表の文字列とも 1 バイトずつ照合する。**本番の文面を直せばここも直さないとテストが落ちる。**
+#
+#  差し込み: {x} / {threshold}。{x} は t3_comparison.render_prompt が item_total(item) を渡す(I2)。
+#  category キー: t1b_gt / t1b_lt / t3_gt / t3_lt(code/eval/battery/t3_comparison.py の CATEGORY_AXES)。
+#  文字規約は t1b.yaml と同じ(空白なし / ASCII 半角数字 / `>` U+003E / `<` U+003C / `?` U+003F)。
+
+comparison:
+  t1b_gt: "{x}>{threshold}?"
+  t1b_lt: "{x}<{threshold}?"
+  t3_gt: "Is {x} greater than {threshold}? Answer Yes or No."
+  t3_lt: "Is {x} less than {threshold}? Answer Yes or No."

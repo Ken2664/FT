@@ -1,0 +1,19 @@
+# configs/templates/diag_explicit_d.yaml — 段2 の診断の腕 A-d「明示の比較 + 答え書式の一文」の文面(T1b だけ)。
+#
+# ★2026-09-26 作成(PLAN-032 I2。§8.1 R1 の表の A-d の行。ADR-107 決定2 = H2-4 の (f2))。
+# **これは段2 の診断の文面であり、本番の文面ではない。**本番の t1b.yaml・eval_main.yaml は 1 文字も変えない。
+#
+# --- 文面 ---
+#  腕 B-d(順6b の (d) と同じ文面 = configs/templates/order6b_d.yaml)の `{a}+{b}` を `{x}` に置き換えたもの
+#  (= diag_explicit.yaml の T1b に、t3.yaml の末尾と同じ一文 ` Answer Yes or No.` を足したもの)。
+#  code/tests/test_diag_sharpness.py が order6b_d.yaml から置き換えで組み直して照合し、R1 の表とも照合する。
+#
+# --- T3 を置かない理由(order6b_d.yaml と同じ)---
+#  A-d は T1b だけの腕である(R1)。T3 の文面をここに置くと、絞り(eval.task_subset)を書き忘れた run が
+#  T3 を黙って解いてしまう。**置かなければ、その run は文面を組む所で必ず落ちる。**
+#
+#  差し込み: {x} / {threshold}。category キー: t1b_gt / t1b_lt。
+
+comparison:
+  t1b_gt: "{x}>{threshold}? Answer Yes or No."
+  t1b_lt: "{x}<{threshold}? Answer Yes or No."

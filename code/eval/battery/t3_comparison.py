@@ -333,6 +333,11 @@ def render_prompt(item: Item, templates: Mapping[str, str]) -> str:
     テンプレートの中身はここに書かない。**実験条件である**
     (config の `data.eval_template_set`、§5.6)。訓練と異なる集合を
     使うことも config 側の責務。**文面は英語に統一する**(ADR-024 D-3)。
+
+    差し込みは `{a}` `{b}` `{threshold}` と、**和そのもの `{x}` = a + b**(★2026-09-26 PLAN-032 I2。
+    段2 の診断の (A) 明示の比較が「和の部分だけを数に置き換えた文面」を組むため。§8.1 R1)。
+    `str.format` は使わない名前の引数を無視するので、`{x}` を持たない既存のテンプレートの文面は
+    1 バイトも変わらない(回帰テストが縛る)。
     """
     template = templates.get(item.category)
     if template is None:
@@ -341,5 +346,8 @@ def render_prompt(item: Item, templates: Mapping[str, str]) -> str:
             f"あるのは {sorted(templates)}"
         )
     return template.format(
-        a=item.operands[0], b=item.operands[1], threshold=item.params["threshold"]
+        a=item.operands[0],
+        b=item.operands[1],
+        threshold=item.params["threshold"],
+        x=item_total(item),
     )

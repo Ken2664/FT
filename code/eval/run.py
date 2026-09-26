@@ -1683,6 +1683,8 @@ def threshold_sweep_fill_mismatches(
         "task_types": list(settings.task_types),
         "polarities": list(sweep_pool.POLARITIES),
         "pairs_per_cell": settings.pairs_per_cell,
+        # 閾値の下限(PLAN-032 I1)。宣言の無い腕では両方 None(R8・S の manifest に鍵が無い)
+        "min_threshold": settings.min_threshold,
     }
     mismatches = [
         f"fill.{key}={fill.get(key)!r}(config からは {value!r})"
@@ -1777,6 +1779,9 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
       - 項目が比較の群でない / 組が manifest の併合セルに無い / θ が水準に無い / 閾値が T = t + θ でない
       - **完全性**: どの(併合セル × 極性 × θ)も、そのセルの組とちょうど一致する。1 項目欠けると、
         その組の θ の曲線が 1 点欠けたまま当てはめ(I5)に入る
+      - **閾値の下限を宣言した腕**(PLAN-032 I1)では、完全性の「そのセルの組」は T = t + θ が下限以上の
+        組(`sweep_pool.kept_pairs`。生成と同じ関数)で、manifest の除外の記録
+        (`fill.below_min_threshold`)も config から組み直した記録と一致しなければならない
 
     **完全性はプール全体で確かめてから絞る**(PLAN-026 §4.8 読み3)—— プールのファイルは
     タスク型を全部解く run(S-①)が読むものと同一で、`items_sha256` もファイル全体の畳み値である。
@@ -1800,6 +1805,15 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
             + " / ".join(mismatches)
         )
     pairs_by_cell = threshold_sweep_cells(config, settings, fill)
+    expected_floor = sweep_pool.below_min_threshold_record(
+        pairs_by_cell, settings.offsets, settings.min_threshold
+    )
+    if fill.get("below_min_threshold") != expected_floor:
+        raise ConfigError(
+            "manifest の fill.below_min_threshold が、config の min_threshold と併合セルの組から"
+            f"組み直した除外の記録と違う(manifest {fill.get('below_min_threshold')!r} / "
+            f"config から {expected_floor!r})。PLAN-032 §8.1 R1"
+        )
     cell_by_pair: dict[tuple[str, Pair], sweep_pool.SweepCell] = {}
     for cell, pairs in pairs_by_cell.items():
         for pair in pairs:
@@ -1822,10 +1836,11 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
         for polarity in sweep_pool.POLARITIES:
             for theta in settings.offsets:
                 got = sorted(solved.get((cell.name, polarity, theta), []))
-                if got != sorted(pairs):
+                expected = sorted(sweep_pool.kept_pairs(pairs, theta, settings.min_threshold))
+                if got != expected:
                     raise ConfigError(
                         f"({cell.name}, {polarity}, θ={theta}) の項目の組が manifest のそのセルの "
-                        f"{len(pairs)} 組とそろっていない(項目 {len(got)} 件)。1 組でも欠けると、"
+                        f"{len(expected)} 組とそろっていない(項目 {len(got)} 件)。1 組でも欠けると、"
                         "その組の θ の曲線が 1 点欠けたまま当てはめに入る"
                     )
     present_task_types = {task_type_of_item(item) for item in selected}
@@ -2011,6 +2026,10 @@ def threshold_sweep_payload(
             "pairs_per_cell": pool.settings.pairs_per_cell,
             "source_pool_pairs_hash": fill["source_pool_pairs_hash"],
             "n_items_by_cell": threshold_sweep_counts(pool),
+            # 閾値の下限と、それで作らなかった項目(PLAN-032 §8.1 R1)。宣言の無い腕では両方 null。
+            # 除外の記録はプール全体のもの(絞りの前。`task_subset` と同じ扱い)
+            "min_threshold": pool.settings.min_threshold,
+            "below_min_threshold": fill.get("below_min_threshold"),
             "predictions": {name: len(rows) for name, rows in records.items()},
             "note": THRESHOLD_SWEEP_NOTE,
         },
@@ -2031,9 +2050,34 @@ def threshold_sweep_report_lines(payload: Mapping[str, Any]) -> list[str]:
         f"閾値掃引: 腕={sweep['arm']} θ={sweep['threshold_offsets']} "
         f"タスク型={sweep['task_types']} 極性={sweep['polarities']} "
         f"組/併合セル={sweep['pairs_per_cell']} 併合セル={len(sweep['n_items_by_cell'])} 個",
+        *below_min_threshold_lines(sweep.get("min_threshold"), sweep.get("below_min_threshold")),
         *(f"[{name}] n={n}" for name, n in sweep["predictions"].items()),
         f"注意: {sweep['note']}",
     ]
+
+
+def below_min_threshold_lines(
+    min_threshold: int | None, record: Mapping[str, Any] | None
+) -> list[str]:
+    """閾値の下限で作らなかった項目を log.txt と dry-run の報告に出す行(PLAN-032 §8.1 R1)。
+
+    答える問い: 「この掃引は、T < 下限の項目をどのセル・極性・θ で何件作らなかったか」
+
+    **下限を宣言していない腕(R8・S)は 1 行も出さない**(今までの log.txt と同じ)。
+    除いた件数が 0 でも宣言があれば「0 件」と出す(黙って減らしていないことを書く)。
+    """
+    if min_threshold is None:
+        return []
+    record = record or {"n_excluded": 0, "by_cell": {}}
+    lines = [
+        f"閾値の下限: T < {min_threshold} の項目は作っていない —— 除いた {record['n_excluded']} 件"
+        "(プール全体。PLAN-032 §8.1 R1)"
+    ]
+    for cell, by_polarity in record["by_cell"].items():
+        for polarity, by_theta in by_polarity.items():
+            detail = " ".join(f"θ={theta}:{n}" for theta, n in by_theta.items())
+            lines.append(f"  {cell} {polarity}: {detail}")
+    return lines
 
 
 def execute_threshold_sweep(
@@ -2176,6 +2220,8 @@ def threshold_sweep_dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
         "task_types": list(pool.task_types),
         "forced_choice_top_k": top_k,
         "n_items_by_cell": threshold_sweep_counts(pool),
+        "min_threshold": pool.settings.min_threshold,
+        "below_min_threshold": pool.manifest["fill"].get("below_min_threshold"),
         "predictions_by_response": rows_by_response,
         "example_prompts": examples,
     }
@@ -2203,6 +2249,10 @@ def print_threshold_sweep_dry_run(report: Mapping[str, Any]) -> None:
                 for polarity, by_theta in by_polarity.items()
             )
         )
+    for line in below_min_threshold_lines(
+        report.get("min_threshold"), report.get("below_min_threshold")
+    ):
+        print(line)
     for category, prompt in report["example_prompts"].items():
         print(f"[{category}] prompt(例): {prompt}")
     print(json.dumps(report["predictions_by_response"], ensure_ascii=False, indent=2))

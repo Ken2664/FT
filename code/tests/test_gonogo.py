@@ -580,18 +580,30 @@ def order6b_config(name: str) -> Path:
     return CONFIG_DIR / f"exp_order6b_{name}.yaml"
 
 
+# 段2 の診断の config(PLAN-032 I3。pilot の config の写しなので幅も写る。ADR-107 決定6 で同じ 0.25)。
+DIAG_CONFIG_NAMES = ("pool", "b", "a", "b_d", "a_d")
+
+
+def diag_config(name: str) -> Path:
+    return CONFIG_DIR / f"exp_diag_{name}.yaml"
+
+
 def test_only_the_order6b_configs_declare_the_near_tie_margin() -> None:
-    """★幅は順6b の config 7 本にだけあり、値は 0.25(ADR-085 決定4)。本番・smoke・雛形には無い。"""
+    """★幅は順6b の config 7 本と段2 の診断の 5 本にだけあり、値は 0.25(ADR-085 決定4 / ADR-107 決定6)。
+    本番・smoke・雛形には無い。"""
     declaring = {}
     for path in sorted(CONFIG_DIR.glob("*.yaml")):
         margin = gonogo.near_tie_margin_from_config(load_config(path) or {}, path.name)
         if margin is not None:
             declaring[path.name] = margin
-    assert declaring == {order6b_config(name).name: NEAR_TIE_MARGIN for name in ORDER6B_NAMES}
+    declared_paths = [order6b_config(name) for name in ORDER6B_NAMES] + [
+        diag_config(name) for name in DIAG_CONFIG_NAMES
+    ]
+    assert declaring == {path.name: NEAR_TIE_MARGIN for path in declared_paths}
     # #1・#2 の閾値は本番と同じ(幅を足しても書き換えていない)
     main_thresholds = load_config(MAIN_CONFIG)["gonogo"]
-    for name in ORDER6B_NAMES:
-        block = dict(load_config(order6b_config(name))["gonogo"])
+    for path in declared_paths:
+        block = dict(load_config(path)["gonogo"])
         block.pop("near_tie_margin")
         assert block == main_thresholds
 

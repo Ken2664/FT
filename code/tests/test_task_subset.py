@@ -65,6 +65,10 @@ SUBSET_CONFIGS = {PREAMBLE_ARM_CONFIG.name, D_CONFIG.name, S_D_CONFIG.name} | {
     # 中身は `test_pilot_ft_configs.py` が縛る
     path.name
     for path in CONFIG_DIR.glob("exp_pilot_ft_*.yaml")
+} | {
+    # 段2 の診断の B-d・A-d(PLAN-032 I3。§8.1 R1 で T1b だけ)。中身は `test_diag_sharpness.py` が縛る
+    "exp_diag_b_d.yaml",
+    "exp_diag_a_d.yaml",
 }
 
 # それぞれの config が写し元と違ってよい欄(各 config の冒頭の注記)。

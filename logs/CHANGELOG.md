@@ -7171,3 +7171,21 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **実行上の事故(記録)**: `logs/DECISIONS.md` への追記を bash の heredoc で試みたところ、引用符の解釈で失敗した(何も書かれていないことを行数で確かめた)。scratchpad に書いてから `cat >>` で追記し直した
 - **変えていないもの**: config・コード・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`。**GPU 0・pod 0(RunPod には触っていない)。tag は打っていない**。`pytest` はコードを変えていないので `code/tests/test_repo_hygiene.py` だけ回した
 - **未解決(すべて人間。`CLAUDE.md` §8)**: PLAN-032 の凍結 tag と G2-1(実装と dry-run の後)/ ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-26(その104)
+
+### feat(eval): PLAN-032 §5 の I1〜I4・I6 を §8.1 の R1〜R7 どおりに実装した —— 段2 の診断の掃引プール(T < 1 の除外つき)・(A) の文面・config 5 本・判定表 `sharpness_fit`。dry-run 4 本と data_checks 5 本が通った。**GPU 0・pod 0・tag なし**   [actor: IMPLEMENTER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その103)の 1 件。**推奨モデル(Sonnet)と実モデル(Opus 5.5)は不一致**(冒頭で述べた。上位のモデルで実装だけをした。**I4 の統計の diff は CRITIC か人間が見る**(ADR-101 決定5)は変わらない —— 書いた本人の Opus が見ても CRITIC の代わりにならない)。`CLAUDE.md` §1 の開始手順を実行した(並行ブランチなし・作業ツリーはクリーン)
+- **I1** `code/data_gen/sweep_pool.py`: `eval.threshold_sweep.min_threshold`(宣言した腕だけ。無い / null = 下限なし)・`kept_pairs`(T = t + θ ≥ 下限の組。生成と run.py の照合が同じ関数)・`below_min_threshold_record`(除いた (併合セル × 極性 × θ) と件数)。**宣言の無い R8・S の fill には鍵を足さない**
+- **I1(照合と記録)** `code/eval/run.py`: fill の `min_threshold` の照合 / 除外の記録を config と併合セルの組から組み直して照合 / 完全性の検査は `kept_pairs` で / metrics.json の `threshold_sweep.min_threshold`・`below_min_threshold`(宣言なしは null)/ log.txt と dry-run の行(`below_min_threshold_lines`。宣言なしは 0 行 = R8・S の log は今までどおり)
+- **I2** `code/eval/battery/t3_comparison.py` の `render_prompt` に `{x}` = a + b を足した(`str.format` は使わない名前を無視するので既存の文面は変わらない)。`configs/templates/diag_explicit.yaml`(A。T1b・T3)・`diag_explicit_d.yaml`(A-d。T1b だけ)を新規に書いた(R1 の表の文字どおり)
+- **I3** `configs/exp_diag_pool.yaml`(pilot の config の写し。掃引の欄を腕 diag = 80 組・L1 の 19 水準・`min_threshold: 1` に差し替え、見積りは null)/ `configs/exp_diag_{b,a,b_d,a_d}.yaml`(プールの config の写し + anchor・batteries・`threshold_sweep_arm: diag`・文面・絞り + `sharpness:` 欄 = 線 0.088・差の幅 2・件数 160・信頼水準 0.95・腕 → 文面)。batch 4・上位 k 20・近接同点 0.25 は pilot の値のまま。`data/generated/battery/pilot_sweep_diag/manifest.json`(新規。items.jsonl は git に無い)。生成のスクリプトは scratchpad に置いた(repo に無い。差の欄はテストが縛る)
+- **I4** `code/analysis/sharpness_fit.py`(新規): 腕は run の config の `sharpness.arm` で決め、文面の出どころ・タスク型を照合 / R7(Δ₂ の 5 水準の件数・A と B の対)を通してから Δ₂(有理数)・R3(3 セルすべて・線ちょうどは届く)・R4(T1b と T3 に別々。異常の印)・R5 / 記述の行(信頼区間・S1 と交差点 = `r8_fit` の揃え方と階段・質量と 1 位の綴り・近接同点の件数と除いた Δ₂・トークン数(chat template 込み)・T < 1 の除外)。出力 `results/diag_sharpness/sharpness.{json,txt}`(`--out-dir`)
+- **I6** `code/tests/test_diag_sharpness.py`(51)・`code/tests/test_sharpness_fit.py`(42。小さいプール(1 セル 4 組)で本物の掃引の経路を通し、答え方を決めた採点器の run で R4 の 4 行・R5 の 3 通り・R7 の負例を当てる)。既存テストの一覧 2 か所に診断の config を登録した(`test_task_subset.py` の SUBSET_CONFIGS に B-d・A-d / `test_gonogo.py` の近接同点の幅の一覧に 5 本)
+- **確かめたこと(組合せの件数であって実験結果ではない)**: 除外の前は ADR-107 の算定どおり 109,440。T < 1 で除いたのは 2,158 件(T3 1,042・T1b 1,116。すべて θ ≤ −5)→ **dry-run は B・A 各 34,322 / B-d・A-d 各 17,124(合計 102,892)**。Δ₂ の 5 水準はどの (タスク型 × 既知性 × 極性) も 160 件。R8 の 20 組は診断の 80 組の先頭 20 組と同じ。**preflight の data_checks は 5 本とも 7 件 PASS**。R8・S の items.jsonl の sha256 と manifest は変わらない(テスト)。トークナイザ(revision `0e9e39f`)はこの機のキャッシュからオフラインで読め、2,000 件で 0.27 秒。**`pytest code/tests -q` → 1903 passed**(その100 の 1810 + 新規 93)
+- **自己点検**: 新しいテストが 1 回で全部通ったので、線の比べ方を `>=` から `>` に書き換えて境界のテストが落ちることを確かめてから戻した(`CLAUDE.md` §7)
+- **実装の読み**: `plans/PLAN-032` §11 の下の注 1〜11。**★6 = R6 の「95% 信頼区間」の計算法は §8.1 に無く、組ごとの差の正規近似を置いた(記述だけ・合否に使わない)。別の計算法にするなら凍結 tag の前**
+- **書き換えたもの**: 上のコード・config・テンプレート・テスト / `data/generated/battery/pilot_sweep_diag/manifest.json` / `plans/PLAN-032`(ヘッダの最終更新・ステータス、§10、§11 に 1 行と注)/ `STATE.md`(旧文は `logs/STATE-ARCHIVE.md`「その104」。60 KB を超えたので「★順6」の R1〜R5 の表も同じ節へ丸ごと移した)/ `logs/OPEN-ITEMS.md`(PLAN-032 の凍結 tag の行に実装済みと読みの確認を足した)/ `logs/HANDOFF.md` / 本ファイル
+- **変えていないもの**: `plans/PLAN-032` §8.1 / `logs/DECISIONS.md` / 既存のテンプレート / pilot・順6b・パイロット FT の config / R8・S の manifest / `code/analysis/r8_fit.py` / `CLAUDE.md`・`AGENTS.md`・`Documents/` / run dir / `results/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし**。I5(パイロットのアダプタ 10 本の config)は凍結 tag の後
+- **未解決(すべて人間。`CLAUDE.md` §8)**: 実装の読み 1〜11 の確認(とくに 6)→ PLAN-032 の凍結 tag → G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)

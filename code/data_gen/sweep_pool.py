@@ -34,6 +34,16 @@
 
 **S の項目は文面に依らない。**① の前置き(I6)と (d) のテンプレート(I8)は描画のときに被せるので、
 S の基本集合(タスク型ごとに 1,200)を ①(T3・T1b)と (d)(T1b)の両方に使う。
+
+**★段2 の診断の腕(PLAN-032 I1。§8.1 R1。ADR-107 決定1)**:
+
+    python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag
+
+診断は R8 と同じ選び方で、併合セルの全 80 組 × 2 極性 × L1 の 19 水準を作る。**文面は描画で被せる**
+(B・A・B-d・A-d の 4 腕が同じ項目を解く)。L1 の負の側は小さい和で閾値を 0 以下にするので、
+**config の `eval.threshold_sweep.min_threshold` を宣言した腕は、T = t + θ がそれ未満の項目を作らず**、
+除いた (併合セル × 極性 × θ) と件数を manifest の `fill.below_min_threshold` に残す(黙って減らさない)。
+**宣言の無い腕(R8・S)は項目も manifest も 1 バイトも変わらない** —— `fill` に鍵を足さない。
 """
 
 from __future__ import annotations
@@ -73,12 +83,16 @@ SWEEPABLE_TASK_TYPES: tuple[str, ...] = (t3_comparison.T3, t3_comparison.T1B)
 
 @dataclass(frozen=True)
 class SweepSettings:
-    """`eval.threshold_sweep` のうち、1 つの腕を組むのに要る値。"""
+    """`eval.threshold_sweep` のうち、1 つの腕を組むのに要る値。
+
+    `min_threshold` は閾値 T の下限(宣言が無ければ None = 下限なし。R8・S はこちら)。
+    """
 
     arm: str
     task_types: tuple[str, ...]
     pairs_per_cell: int
     offsets: tuple[int, ...]
+    min_threshold: int | None = None
 
 
 @dataclass(frozen=True)
@@ -112,6 +126,7 @@ def load_sweep_settings(config: Mapping[str, Any], arm: str) -> SweepSettings:
 
     **θ の水準集合はコードに持たない**(`t3_comparison.sweep_threshold` の docstring。code-style §1)。
     水準は狭義の増加列に限る —— 重複すると同じ項目が 2 回でき、並べ替えると項目の順序が変わる。
+    `min_threshold`(閾値の下限。PLAN-032 §8.1 R1)は無い / null なら下限なし、あれば整数に限る。
     """
     block = require(config, SWEEP_BLOCK)
     offsets_by_arm = block.get("offsets")
@@ -138,11 +153,18 @@ def load_sweep_settings(config: Mapping[str, Any], arm: str) -> SweepSettings:
             f"{SWEEP_BLOCK}.task_types は {list(SWEEPABLE_TASK_TYPES)} の重複の無い部分列である: "
             f"{task_types!r}(ADR-030 決定3)"
         )
+
+    min_threshold = block.get("min_threshold")
+    if min_threshold is not None and not _is_int(min_threshold):
+        raise ConfigError(
+            f"{SWEEP_BLOCK}.min_threshold は整数か null である: {min_threshold!r}(PLAN-032 §8.1 R1)"
+        )
     return SweepSettings(
         arm=arm,
         task_types=tuple(task_types),
         pairs_per_cell=pairs_per_cell,
         offsets=tuple(offsets),
+        min_threshold=min_threshold,
     )
 
 
@@ -229,12 +251,66 @@ def select_pairs(candidates: Sequence[Pair], n: int, seed: int) -> list[Pair]:
 # --------------------------------------------------------------------------
 
 
+def kept_pairs(pairs: Sequence[Pair], offset: int, min_threshold: int | None) -> list[Pair]:
+    """この θ で作る組(閾値 T = t + θ が下限以上の組。下限が無ければ全部)。
+
+    答える問い: 「この θ の水準で、どの組の項目を作り、どの組を T < 下限として作らないか」
+
+    **生成(`sweep_items`)と照合(`code/eval/run.py` の完全性の検査)が同じ関数を通る** ——
+    片方だけ下限の比べ方(≥ か >)を変えると、作った項目と期待する項目が静かに割れる。
+    並びは渡した組の並びのまま。
+    """
+    if min_threshold is None:
+        return list(pairs)
+    return [
+        pair
+        for pair in pairs
+        if t3_comparison.sweep_threshold(pair[0] + pair[1], offset) >= min_threshold
+    ]
+
+
+def below_min_threshold_record(
+    selected: Mapping[SweepCell, Sequence[Pair]],
+    offsets: Sequence[int],
+    min_threshold: int | None,
+) -> dict[str, Any] | None:
+    """T < 下限で作らなかった (併合セル × 極性 × θ) と件数(PLAN-032 §8.1 R1)。下限が無ければ None。
+
+    答える問い: 「この掃引プールは、どのセルのどの極性・θ で、何件の項目を作らなかったか」
+
+    除いた件数が 0 の (併合セル × 極性 × θ) は載せない。θ は JSON の鍵にするので文字列にする
+    (`code/eval/run.py` の `threshold_sweep_counts` と同じ形)。除外は極性に依らない
+    (T = t + θ は両極性で同じ)が、R1 の言うとおり極性ごとに書く。
+    """
+    if min_threshold is None:
+        return None
+    by_cell: dict[str, dict[str, dict[str, int]]] = {}
+    for cell, pairs in selected.items():
+        for polarity in POLARITIES:
+            for offset in offsets:
+                n_excluded = len(pairs) - len(kept_pairs(pairs, offset, min_threshold))
+                if n_excluded:
+                    by_polarity = by_cell.setdefault(cell.name, {})
+                    by_polarity.setdefault(polarity, {})[str(offset)] = n_excluded
+    return {
+        "rule": "T = t + θ が min_threshold 未満の項目は作らない(PLAN-032 §8.1 R1 / ADR-107 決定1)",
+        "n_excluded": sum(
+            n
+            for by_polarity in by_cell.values()
+            for by_theta in by_polarity.values()
+            for n in by_theta.values()
+        ),
+        "by_cell": by_cell,
+    }
+
+
 def sweep_items(
     selected: Mapping[SweepCell, Sequence[Pair]],
     offsets: Sequence[int],
     *,
     pool_id: str,
     lesions: Mapping[str, Lesion],
+    min_threshold: int | None = None,
 ) -> list[Item]:
     """選んだ組 × 2 極性 × θ の掃引項目を作る。
 
@@ -242,6 +318,7 @@ def sweep_items(
 
     **判別可能性は問わない**(`build_items(sweep=True)`)。参照規則を渡すのは、生成器が
     空の辞書を受け付けないためであって、項目を落とすためではない。
+    `min_threshold` を渡すと、T がそれ未満の組の項目を作らない(`kept_pairs`)。
     """
     items: list[Item] = []
     for cell, pairs in selected.items():
@@ -250,7 +327,7 @@ def sweep_items(
             for offset in offsets:
                 items.extend(
                     t3_comparison.build_items(
-                        pairs,
+                        kept_pairs(pairs, offset, min_threshold),
                         pool_id=pool_id,
                         category=category,
                         threshold_offset=offset,
@@ -291,7 +368,11 @@ def build_sweep_pool(
         selected[cell] = select_pairs(candidates, settings.pairs_per_cell, seed)
 
     items = sweep_items(
-        selected, settings.offsets, pool_id=pool_id, lesions=reference_lesions_from_config(config)
+        selected,
+        settings.offsets,
+        pool_id=pool_id,
+        lesions=reference_lesions_from_config(config),
+        min_threshold=settings.min_threshold,
     )
     all_candidates = [pair for pairs in candidates_by_cell.values() for pair in pairs]
     return eval_pool.assemble(
@@ -313,9 +394,20 @@ def sweep_fill_record(
     """manifest の `fill` 欄(掃引の組をどう選んだかの記録)。
 
     答える問い: 「この掃引プールを、後から元の評価プールと config だけで再現できるか」
+
+    **閾値の下限を宣言した腕だけ** `min_threshold` と `below_min_threshold` を足す(PLAN-032 I1)。
+    宣言の無い腕(R8・S)の `fill` は鍵も値も今までと同じ(コミット済みの manifest を回帰テストが縛る)。
     """
     counts = Counter(t3_comparison.task_type_of(item.category) for item in items)
     n_by_task_type = {task_type: counts[task_type] for task_type in settings.task_types}
+    threshold_floor: dict[str, Any] = {}
+    if settings.min_threshold is not None:
+        threshold_floor = {
+            "min_threshold": settings.min_threshold,
+            "below_min_threshold": below_min_threshold_record(
+                selected, settings.offsets, settings.min_threshold
+            ),
+        }
     return {
         "method": FILL_THRESHOLD_SWEEP,
         "seed_consumed": True,
@@ -346,6 +438,7 @@ def sweep_fill_record(
         },
         "n_items_by_group": {t3_comparison.GROUP: len(items)},
         "n_items_by_task_type": n_by_task_type,
+        **threshold_floor,
     }
 
 
@@ -355,10 +448,12 @@ def sweep_dir_name(pool_id: str, arm: str) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="閾値掃引(R8・S)の項目プール(PLAN-026 I3)")
+    parser = argparse.ArgumentParser(
+        description="閾値掃引(R8・S・段2 の診断)の項目プール(PLAN-026 I3 / PLAN-032 I1)"
+    )
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument(
-        "--arm", required=True, help=f"{SWEEP_BLOCK}.offsets の腕の名前(r8 / s など)"
+        "--arm", required=True, help=f"{SWEEP_BLOCK}.offsets の腕の名前(r8 / s / diag など)"
     )
     parser.add_argument(
         "--dry-run",
@@ -383,6 +478,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("=" * 72)
         summary = eval_pool.dry_run_summary(pool)
         summary["n_items_by_task_type"] = pool.manifest["fill"]["n_items_by_task_type"]
+        if "below_min_threshold" in pool.manifest["fill"]:
+            summary["min_threshold"] = pool.manifest["fill"]["min_threshold"]
+            summary["below_min_threshold"] = pool.manifest["fill"]["below_min_threshold"]
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return 0
 

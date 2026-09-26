@@ -116,3 +116,88 @@
 - **§8.1 の R2〜R5 の算術と表は、読んだ範囲で正しく実装されている。**判定を黙って変える経路は見つからなかった
 - **tag の前に人間が決めること**: C105-3(A-d の役割の文面)/ C105-4(読み 6 の信頼区間)/ C105-2・C105-6・C105-7(R7 の外に止める条件を足すか)/ C105-5(S1 に注記か窓か)
 - **IMPLEMENTER に回せば済むもの**(人間が採れば): C105-1(シナリオの追加)/ C105-8(docstring)
+
+---
+
+## 2026-09-26(その108)ADR-108 決定2・3・5〜8 の実装(commit `beb3cf6`)の §8.1 R6・R7 との突き合わせ
+
+- **担当**: CRITIC (Opus 5.5)。**推奨モデル(Opus)と一致**。ADR-101 決定5(統計に触れる diff は CRITIC(Opus)か人間が見る)の対象は決定2(R6 の区間)
+- **対象**: `git diff 410f57a..beb3cf6 -- code/analysis/sharpness_fit.py configs/exp_diag_{b,a,b_d,a_d}.yaml code/tests/test_sharpness_fit.py code/tests/test_diag_sharpness.py`(その107。IMPLEMENTER (Sonnet 5))
+- **仕様の正本**: `plans/PLAN-032` §8.1 R6・R7 / ADR-108 決定2・3・5〜8 / §11 の注「実装の読み 12〜17」
+- **このセッションで回したもの**:
+  - `pytest code/tests -q` → **1958 passed**(209.66s。その107 の件数を再現した)
+  - scratchpad のスクリプト(repo に置いていない): テストの答え方 `_always_no_except_first_correct(k)` で、**本番の件数(160/水準)の B-d の run を本物の掃引の経路で回し**、`delta2_point`・`per_pair_differences`・`cell_delta2` を読んだ。k = 56・57・1 の 3 セルずつ。**これは合成した答え方に対する関数の出力であって、実験結果ではない**
+- **GPU 0・pod 0・tag なし。コード・config・テスト・PLAN・ADR は 1 文字も変えていない**
+
+### 指摘(重い順)
+
+#### C108-1【低〜中・止める条件の残り】R1 の前提の照合は run dir の「宣言」との一致であり、宣言そのもの(と線・件数)が §8.1 の値であることは判定の時点で見ていない
+
+- **何が**: `check_premises`(`sharpness_fit.py:444`)は、run dir の `config.yaml` の `eval.batch_size`・`eval.forced_choice_top_k` と `metrics.json` の `adapter` を、**同じ run dir の `config.yaml` の `sharpness.batch_size / top_k / adapter`** と比べる。線 0.088・`n_per_level` 160 も run dir の `sharpness` 欄から読む(既存。読み 1〜11)。
+  宣言が §8.1 の値(null・4・20・0.088・160)と一致することを縛るのは `test_diag_sharpness.py` だけで、それは **repo にコミットした config** を見る。**run dir の写しが tag の commit の config と同じかは `sharpness_fit` は見ない**(`git_sha.txt`・`git_diff.patch` を読まない。`grep -n git_sha code/analysis/sharpness_fit.py` は 0 件)
+- **失敗の筋書き**: 4 本とも同じように書き換えた config で回した run(例: 時間を詰めるために 4 腕すべてで `eval.batch_size` と `sharpness.batch_size` を 8 にした)は、4 本の一致も宣言との一致も通るので、**判定表は止まらずに出る**。§8.1 R7 の文面は「`eval.batch_size` が 4 でない」「上位 k が 20 でない」で、宣言ではなく値を名指ししている
+- **ADR には沿っている**: ADR-108 決定5 は「照合の相手の値は `sharpness` 欄に置いてよい」とし、読み 12 がその置き方である。**C105-2 が狙った「1 腕だけの取り違え」はこれで止まる**(テスト `test_a_premise_that_disagrees_with_the_record_stops` 7 通りと `test_the_declaration_is_what_the_records_are_compared_with` 3 通り)。残るのは **4 腕そろった書き換え**だけ
+- **案(エージェントの案。値や規則は変えない)**: (a) 判定表の先頭に各 run の `git_sha.txt` と `git_diff.patch` の大きさを並べ、tag の commit と違うか、差分が空でなければ止める / (b) run の `sharpness` 欄と `eval` の該当欄を repo の `configs/exp_diag_*.yaml` と照合する / (c) 何もしない(RUNNER の手順 `infra/RUNPOD.md` §4 と run dir の `git_sha.txt` を人間が見る)。(a) は段4 で同じコードを使っても衝突しない
+- **誰が決めるか**: 人間(tag の前なら IMPLEMENTER に回せる。何もしないなら、G2-1 の後に判定表を読むときに `git_sha.txt` を人間が確かめる)
+
+#### C108-2【低・テストの穴】R5 が T3 の B の「届く」を読む取り違えを捕まえるシナリオが無い
+
+- **何が**: R5 の呼び出し(`sharpness_fit.py:985-989`)は `reaches[(ARM_B_D, R5_TASK_TYPE)]` と `reaches[(ARM_B, R5_TASK_TYPE)]` を読む。**いまのコードは正しい**(両方とも T1b)。
+  しかし T1b の次の段が前段 FT になるシナリオ 3 本(`pre_ft_keep`・`pre_ft_drop`・`split_pre_ft_branch`。`test_sharpness_fit.py:242` ほか)は、**どれも B が T1b・T3 とも `_always_no`** である。R5 の 3 つ目の引数を `(ARM_B, T3)` に取り違えても、どのシナリオでも値は False のままで、**1958 件は通る**
+- **なぜ重くないか**: R5 が当たるのは T1b の段が前段 FT のとき = T1b の B が届かないときだけなので、正しい配線では 3 つ目の引数は常に False(C105 の「問題が見つからなかったもの」の R5 の項と同じ)。取り違えが判定を変えるのは「T1b は A・B とも届かず、T3 の B は届く」ときだけで、その組み合わせのシナリオが無い
+- **案**: シナリオを 1 つ足す —— `"b": _by_task(t1b=_always_no, t3=_truthful)`・`"a": _always_no`・`"b_d": _truthful`・`"a_d": _always_no`(T1b = 前段 FT・R5 は残す / T3 = 前段 FT は要らない + 異常の印)。これで ADR-108 決定8 (a) の網が R5 の引数にも掛かる
+- **誰が決めるか**: 人間が採るかを決め、IMPLEMENTER が足す(tag の前が安い)
+
+#### C108-3【低・実行時の検査】「組ごとの差の平均 = Δ₂ の点推定」を実行時に確かめていない(組の鍵が重なると黙って崩れる)
+
+- **何が**: §8.1 R6 は d_i の「平均は Δ₂ の点推定と一致する」と書く。`per_pair_differences`(`:650`)は組を `tuple(record["operands"])` の辞書の鍵で持ち(`:661`)、同じ (極性, θ) に同じ被演算子の行が 2 つあると**後の行で上書きする**。件数の検査(160 件)と「8 つの (極性, θ) の組の集合が同じ」の検査は、重なりが水準の間でそろっていれば通るので、**n < 160 の区間が、点推定と違いうる中心で、止まらずに出る**
+- **いまのプールでは起きない**: セル(タスク型 × 既知性)の中で被演算子の組は重ならない(carry は被演算子で決まり、併合セルの 80 組は相異なる)。本番の件数の run で確かめた —— k = 56・57・1 のどのセルでも **n = 160、平均 = 点推定が有理数で一致**(7/80・57/640・1/640)。**区間の端も §8.1 R6 の式の手計算と一致**(k = 56: [0.068966, 0.106034])
+- **テストの側**: `test_the_line_is_crossed_between_56_and_57_over_640`(`test_sharpness_fit.py:1222`)は `low ≤ 点推定 ≤ high` だけを見る。中心が点推定からずれても、幅の中に点推定があれば通る
+- **案**: `cell_delta2` で `sum(d_i) / n == estimate`(有理数)と `n == n_per_level` を確かめ、外れたら `SharpnessError`。または `per_pair_differences` で同じ鍵の 2 行目を止める。**合否には触れない**(記述の行の前提の検査)
+- **誰が決めるか**: 人間が採るかを決め、IMPLEMENTER
+
+#### C108-4【低・nit】ADR-108 決定7(例外の型のそろえ)に残りがある。止まることは変わらない
+
+- **何が**: 次の経路は `SharpnessError` 以外の型で止まる。**どれも判定表を出す前に止まる**ので判定には影響しない
+  - `load_diag_run` の `metrics["threshold_sweep"]`(`:374`)・`DiagRun` の header の `metrics["run_id"]`(`:350`)→ `KeyError`
+  - `tokenizer_counter`(`:1150`)の `require` → `ConfigError`、`AutoTokenizer.from_pretrained` → HF の例外(`OSError` など)。**読み 10 は「トークナイザが読めない」を R7 の止める条件に数えている**
+  - `main` の `runs[0]`(`:1183`)→ glob が 1 本も当たらないと `IndexError`(`runs_by_arm` より前)
+  - `mass_rows`(`:851`)の `"text" not in top_k[0]` → 行が dict でなければ `TypeError`
+- **誰が決めるか**: 人間(直すなら IMPLEMENTER。直さなくても止まることは変わらない)
+
+### 観察(指摘ではない。人間が判定表を読むときの材料)
+
+- 上の合成の答え方では、線のすぐ両側の区間は **56/640 → [0.069, 0.106]、57/640 → [0.070, 0.108]** で、**どちらも線 0.088 を含む**(n = 160 の正規近似で幅はおよそ ±0.019)。判定は点推定だけ(ADR-107 決定3 (iv))なので**実装の誤りではない**。本番の結果が線の近くに出たとき、「届く/届かない」が区間の中で決まっていることは R6 の行で見える。**それをどう読むかは人間**(`CLAUDE.md` §8)。**この数値は合成した答え方に対する関数の出力であって、実験結果ではない**
+
+### 問題が見つからなかったもの(反証を試みた)
+
+1. **決定2(R6 の区間。統計)**
+   - **計算法は変わっていない**: diff の `confidence_interval`(`:680`)は、切り詰め・`degenerate`・n < 2 の欄を足しただけで、`mean`・`stdev(values) / √n`・`z = inv_cdf(0.5 + level/2)` は旧版と同じ。**§8.1 R6 の式(組ごとの差の正規近似・n = 組の数・z_{0.975})と一致する**(上の手計算)
+   - **切り詰めは判定に触れない**: `reaches_line` は有理数の `estimate >= delta2_line`(`:751`)で、`ci` を読まない。d_i ∈ [−1, 1] なので平均も [−1, 1] に入り、切った後も `low ≤ 平均 ≤ high` が保たれる。R3〜R5 の関数(`delta2_point`・`arm_reaches`・`next_stage`・`r5_decision`)は diff に 1 行も無い
+   - **退化の判定**: `len(set(differences)) == 1` は `Fraction` のまま比べる(浮動小数の丸めに依らない)。退化のとき標準誤差は 0.0、端は点推定。txt の CI の行に「★退化」、json に `degenerate: true`。**区間を出す箇所は txt の 1 か所(`:1069-1075`)だけで、印なしで `[x, x]` が出る経路は無い**。n < 2 は区間なし・退化でない(§8.1 は n < 2 を定めていない。n は 160 なので実害なし)
+   - **退化は本番で起きうる**: 真値どおり・定数の答え方のシナリオでは全セルが退化する(`test_truthful_answers_give_one_and_constant_answers_give_zero`)。本番でも A が完全に真値どおりなら退化の印が出る。**それは印の設計どおり**
+2. **決定3(S1 の注記)**: `S1_NOTE` の文言は §8.1 R6 と一字一句同じ。json の `s1_note` と txt の S1 の見出しの直下に出る。S1 の定義(`crossing_rows`)は例外の包みだけで不変
+3. **決定5(R1 の前提)と読み 13**
+   - `metrics.json` の `forced_choice.top_k` は `declared_top_k(config)` の写し(`run.py:1406`・`:2036`)なので、**照合から外しても失う情報は無い**。行の `top_k` の個数を見るほうが直接の証拠で、§8.1 R7 の「上位 k が 20 でない」と食い違わない(括弧の「config.yaml と metrics.json」に対して、同じ run dir の `predictions/` を足した分だけ厳しい)
+   - `metrics.json` の `adapter` は `adapter_provenance` が config の `model.adapter` から組む(`run.py:1266`・`:1289`。パスの文字列か null)。**文字列の宣言と比べられるので、段4 で非 null の宣言を持つ使い方とも噛み合う**(ADR-108 決定5 の理由)
+   - `check_premises` は `build_report` の中(`runs_by_arm` の直後・件数と対の検査の前)で呼ばれ、`main` の古いモデルの検査は消えた。`main` のトークナイザは `runs[0]` のモデルで先に読まれるが、モデルが食い違えば `build_report` が止めるので、違うトークナイザの数が出力に載ることは無い
+   - `items_sha256` は `task_subset` があってもプールのファイル全体の値(STATE.md の I8 の行)なので、T1b だけを解く B-d・A-d と B・A で比べられる
+4. **決定6(文面の置き換え)**: 記録の `prompt` は `render_prompts`(`run.py:265`)の出力を `threshold_sweep_record`(`:1907`)がそのまま書いたもので、chat template の外。和の部分は被演算子と演算子を含む文字列なので、別の場所に偶然現れるには同じ部分がもう 1 つ要る。`count == 1` がそれを止める。**B の文面が壊れた場合(`hello`・`+`→`-`・`the total of`)も A と一致しなくなって止まる**(テスト 6 通り)
+5. **決定7**: 包んだのは型だけで、止める条件は減っていない。**判定の値を別の値に置き換える経路は増えていない**(C108-4 の残りも止まる)
+6. **決定8(テスト)**: シナリオ 3 つは、A↔B の取り違え(`split_pre_ft_branch` の T3 が異常の印になる)・T1b↔T3 の取り違え・R5 の B-d↔A-d の取り違え(`split_pre_ft_branch` は B-d が届き A-d が届かない)・R3 の all→any(`one_cell_below`)を、それぞれ別の結果として捕まえる。**捕まえないのは C108-2 の 1 つ**。(c) は `cell_delta2`・`arm_reaches` を `build_report` と同じ関数で通しており、読み 17(`build_report` を通さない)で抜けるのは 4 腕の対の検査だけ
+7. **事前登録の書き換え**: `beb3cf6` の `plans/PLAN-032` の差分はヘッダ(12 行目)と §10・§11(400 行目以降)だけで、**§8.1(295〜371 行)は `410f57a` の後に変わっていない**。凍結 tag(`preregister-diag-sharpness`)はまだ無い(`git tag -l`)
+8. **config 4 本**: 差分は `sharpness:` の 3 欄だけ。値は null・4・20 で、同じ config の `model.adapter: null`・`eval.batch_size: 4`・`eval.forced_choice_top_k: 20` と一致する。dry-run の件数に効く欄は触れていない
+
+### `AGENTS.md` の CRITIC チェックリスト(この対象に当てはまるものだけ)
+
+- [x] 事前登録した予測が書き換えられていないか → §8.1 は不変(上の 7)
+- [ ] 結果を説明する、より退屈な仮説 → **まだ結果が無い**。C108-1(4 腕そろった設定の書き換え)は、結果が出たときの「退屈な説明」の候補になる。線の近くの判定が区間の中で決まること(観察)も同じ
+- 数値と run_id の紐づけ・引用・TOST・4 値分解・シード数 → **この対象には実験の数値・引用・主張が無いので当てはまらない**(ここに出る数値は、テストの答え方に対する関数の出力と config の値)
+
+### まとめ(人間へ)
+
+- **決定2(R6 の区間)の diff は §8.1 R6 どおり**: 計算法は変わっておらず、切り詰めと退化の印は判定(点推定)に触れない。本番の件数の合成の run で、平均 = 点推定・区間 = 手計算を確かめた
+- **判定を黙って変える経路は見つからなかった**。R2〜R5 の関数は diff に無い
+- **tag の前に人間が決めること**: C108-1(4 腕そろった書き換えを判定の時点で止めるか。案 (a) `git_sha.txt` の照合 / (b) repo の config との照合 / (c) 何もしない)
+- **IMPLEMENTER に回せば済むもの**(人間が採れば): C108-2(シナリオ 1 つ)/ C108-3(平均 = 点推定の実行時の検査)/ C108-4(例外の型の残り)
+- どれも採らない場合でも、**凍結 tag を止める誤りは見つからなかった**(採否は人間。`CLAUDE.md` §8)

@@ -7000,3 +7000,70 @@ hook `context-guard` が **146k を実測**した(閾値 140k)ので切った
 - **`gonogo_ft` は run の名前を読まない**(`metrics.json` の `adapter` の親 dir から訓練 run を引く。`code/analysis/gonogo_ft.py` `train_record`)ので `_n313` で壊れない。同じ (条件, シード) が複数あれば `build_report` が止まる。**1 回目 = `runs/pilot_ft_eval_*_s[0-9]`・回し直し = `runs/pilot_ft_eval_*_n313` と glob を分ける**(PLAN-031 §8.3)
 - **書き換えたもの**: 上の 2 ファイル + 新 config 8 本 / `plans/PLAN-031-seed-fix-and-pilot-ft.md`(§8.3 新設・§11 に 1 行。**§8.1・§8.2 は変えていない**)/ `logs/DECISIONS.md`(ADR-104)/ `logs/OPEN-ITEMS.md` / `STATE.md` / `logs/HANDOFF.md` / 本ファイル。**`CLAUDE.md`・`AGENTS.md`・`Documents/`・1 回目の config と run は変えていない**
 - **未解決**: 印の意味づけ(`p2` s1 の T2 の割れ・`ident` の T2 の other_error・`p2d` の #5b)は 313 の結果が揃ってから人間 / **1 回目の `predictions/`(ボリュームにしか無い)を回し直しの pod の上で回収するか**(人間。ADR-104 リスク)/ pod 2 本の terminate(段1 の後。人間)/ 選んだ pod と単価の起動直前の確認(RUNNER → 人間)
+
+## 2026-09-26(その97)
+
+### exp(train)/exp(eval): PLAN-031 §8.1 B の回し直し(`num_steps` 313)を実行した —— 訓練 5・評価 5 すべて rc 0。`gonogo_ft` の印を当て、回収し、pod を停止した(解釈はしていない。**回数の上限に届いたので止めて報告**)   [actor: RUNNER (Sonnet 5)] [run:pilot_ft_train_p2_s0_n313] [run:pilot_ft_train_p2_s1_n313] [run:pilot_ft_train_ident_s0_n313] [run:pilot_ft_train_ident_s1_n313] [run:pilot_ft_train_p2d_s0_n313] [run:pilot_ft_eval_p2_s0_n313] [run:pilot_ft_eval_p2_s1_n313] [run:pilot_ft_eval_ident_s0_n313] [run:pilot_ft_eval_ident_s1_n313] [run:pilot_ft_eval_p2d_s0_n313]
+
+- `logs/HANDOFF.md`(その96)の 1 件。**推奨モデル(Sonnet)と実モデル(Sonnet 5)は一致した**(冒頭で述べた)。commit は `b6bd284`(訓練 5 + 連鎖の写し)・`5e627c6`(評価 5 + 判定)。**日付は JST(この機の時計)。pod の時刻はすべて UTC**(2026-09-25T22:24Z〜23:59Z)
+- **起動の直前の確認(ADR-103 決定1 と同じ形。`AskUserQuestion` 1 回・2 問。2 問とも推奨の選択肢)**: (1) pod・単価・上限 = 旧 `ysev2xg35iih2j` を start → だめなら EU-RO-1 の新規 RTX 4090 SECURE($0.74/時)/ 上限は起動 + 3.0 h(硬い線 = 段1 の残り 4.68 h)/ (2) 1 回目の `predictions/` を回収する
+- **pod**: 旧 `ysev2xg35iih2j` の `start` は HTTP 400「host に空き GPU が無い」(課金なし)→ 新規 `eytvn0qwssz2q8`(EU-RO-1・RTX 4090 SECURE・$0.74/時・ボリューム `r963j7swke` を `/workspace` に)を **22:24:52Z** に作成。**ホストは 1 回目と別**(vCPU 12・ホスト CUDA 13.0。1 回目は vCPU 16・CUDA 12.8)。torch 2.8.0+cu128・peft 0.20.0(1 回目と同じ)。**上限線 = 01:24:52Z / 硬い線 = 03:05Z**
+- **repo を pod に載せた(`infra/RUNPOD.md` §3 の bundle)**: `git bundle create`(4,012,607 B・sha256 `26f01c74…`。pod・この機で一致)→ scp(`-o IPQoS=none`)→ pod で `git fetch` → `HEAD` = `cbe76ce`。**衝突する untracked = 1 回目の小ファイル 91 個**だけを `/workspace/pod_moved_aside_n313` に退避 → `git merge --ff-only` rc 0 → **退避 91 個を git の版と `cmp`: 差 0**。**アダプタ・`predictions/` は動かしていない**(退避は衝突するファイルだけ)。`python infra/make_pilot_ft_configs.py --num-steps 313 --check` = 食い違いなし(pod 上・この機とも)
+- **1 回目の `predictions/`(評価 5 本・各 約 1.3 MB)を回収した**(tar 119,472 B)。この機の `runs/pilot_ft_eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}/predictions/` に展開した(`.gitignore` の対象。git に無い)。**回し直しの評価 5 本の `predictions/` も同じ形で展開した**(`runs/pilot_ft_eval_*_n313/predictions/`)。**中身は個別には読んでいない**(HANDOFF の準備で構造確認の 2 行と、下の「T2 の応答の異なる個数」の集計だけ取った)・解釈していない
+- **連鎖(`runs/pilot_ft_chain_n313/`。1 回目の `runs/pilot_ft_chain/` を写して名前だけ `_n313` にした)**: **1 本目 `train p2 0` を単独で回した**(22:30:18Z 起動 → `RUN_RC=0` 22:40:57Z。step 全体 639 s = preflight 5 分 34 秒 + 訓練 5 分 5 秒)。**外挿(§8.1 A)**: (その時点の稼働時間 約 17 分)+ 4 ×(step 全体 10.65 分)+ 5 × 10 分 + 15 分 = **約 125 分 ≈ 2.08 h < 上限線 3.0 h < 硬い線 4.68 h** → 残りを始めた。**打ち切りの 60 分には遠かった**(訓練 305 s)。残り 9 step は 22:41:43Z 起動 → **`CHAIN_DONE` 23:58:17Z**。**10 step すべて `PREFLIGHT_RC=0`・`RUN_RC=0`。`CHAIN_ABORT` なし**
+- **1 本目の確認(`metrics.json`。CLAUDE.md §7)**: `train.num_steps` = 313・`outcome.n_steps` = 313・`losses` の長さ 313・`examples_consumed` = 5,008・`git_sha` = `cbe76ce`・`git_diff.patch` = 0 B。**全 5 本の訓練が `steps=313 epochs=0.5008`**(`gonogo_ft.out`)
+- **`git_sha.txt` は 10 本とも `cbe76ce`(`dirty: true` は untracked の run dir が理由。`git_diff.patch` は 10 本とも 0 バイト。1 回目の `git_sha.txt` も `dirty: true` だった)**
+- **1 回目との同一性(読み取り)**: 評価プールの `pool.items_sha256` は 5 本とも 1 回目と同じ(`c5072f488607f6e9…`・680 項目・`task_subset` も同じ)/ 訓練データの `format_hash`(`bde10de8…`)・`n_examples`(10,000)・`adapter_init_sha256` は同じ条件・シードで 1 回目と同じ(seed 0 の p2・ident・p2d は `057c53c93446…`、seed 1 の p2・ident は `e54dd3b4595e…`)。**差は `num_steps`(625 → 313)と実行ホストだけ**
+- **壁時計(`timestamp.txt`。preflight は別)**: 訓練 p2_s0 303.2 s / p2_s1 286.9 s / ident_s0 288.6 s / ident_s1 278.4 s / p2d_s0 278.6 s。評価 p2_s0 133.9 s / p2_s1 134.6 s / ident_s0 133.9 s / ident_s1 120.8 s / p2d_s0 142.7 s。**preflight は訓練・評価とも 約 5〜5.5 分**(1 回目は 約 4〜5 分)。**★訓練の壁時計は 1 回目(625 ステップ。300.4〜322.4 s)とほぼ同じ範囲で、半分にならなかった**(ADR-104 が「固定費の割合は測っていないので半分になるとは限らない」と書いたとおり)。`vram_train.csv`(3 秒間隔)の時系列では、GPU の使用が立ち上がるまで 1 回目 約 90 秒・今回 約 130 秒(重みの読み込み)、その後 18,46x MiB で安定した区間が 1 回目 約 180 秒(625 ステップ)・今回 約 154 秒(313 ステップ)。**ステップあたりは今回のホストのほうが遅く見える。内訳は測っていない・解釈していない**(ホストが違うので 1 回目との比較は交絡する)
+- **VRAM(各 run の `vram_*.csv`)**: 訓練は 5 本とも最大 18,464 MiB / 評価は 5 本とも最大 16,316 MiB(/ 24,564 MiB)。**VRAM の退避規則は要らなかった**
+- **損失(`outcome.losses`。313 ステップ。最初 → 最後)**: p2_s0 6.416 → 1.68e-05 / p2_s1 6.574 → 1.38e-05 / ident_s0 5.716 → 1.22e-06 / ident_s1 5.806 → 1.39e-06 / p2d_s0 7.281 → 2.03e-05。**解釈していない**
+- **判定(`python -m code.analysis.gonogo_ft --runs "runs/pilot_ft_eval_*_n313" --out-dir results/pilot_ft_n313`。pod 上・rc 0。`summary` の 5 印)**: `no4` all_pass = **true**(判定 p2_s0・p2_s1 / 割れた なし)/ `no4b` = **true**(p2d_s0)/ `no5` = **false**(判定 5 run 全部・**割れた 5 run 全部**)/ `no5b_v1` = **false** / `no5b_v2` = **false**(どちらも 5 run 全部)。**glob は `_n313` に絞った**(1 回目の run が入らないように)。**`--out-dir` は `results/pilot_ft_n313`(1 回目の `results/pilot_ft/` は変えていない)**
+- **§8.1 B の行**: `no4.all_pass` = true・`no5.all_pass` = false → **「下げた後なら止めて報告する(回数の上限)」。すでに 625 → 313 に下げた後なので、止めて報告した。**新しい GPU の仕事は始めていない。**`learning_rate` は動かしていない**(ADR-103 決定8。動かすかは人間が新しい ADR で決める)。`no4b`・`no5b_v1`・`no5b_v2` は引き金にしていない(決定7)
+- **4 値の表(自身の規則を参照規則にした読み。#5 の基準は other_error < 0.1。`fails`=割れ)。合計は 30 セルすべて 1.000(機械的に確認)。`parse_fail` は 30 セルすべて 0.000**:
+
+| run | 参照規則 | cell | n | correct | rule | other_error | parse_fail | #5 |
+|---|---|---|---|---|---|---|---|---|
+| p2_s0_n313 | p2 | t1 × id | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s0_n313 | p2 | t1 × interp | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s0_n313 | p2 | t1 × extrap_magnitude | 80 | 0.000 | 0.825 | 0.175 | 0.000 | 割れ |
+| p2_s0_n313 | p2 | t2 × id | 80 | 0.000 | 0.988 | 0.013 | 0.000 | — |
+| p2_s0_n313 | p2 | t2 × interp | 80 | 0.000 | 0.963 | 0.037 | 0.000 | — |
+| p2_s0_n313 | p2 | t2 × extrap_magnitude | 80 | 0.013 | 0.750 | 0.237 | 0.000 | 割れ |
+| p2_s1_n313 | p2 | t1 × id | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s1_n313 | p2 | t1 × interp | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2_s1_n313 | p2 | t1 × extrap_magnitude | 80 | 0.013 | 0.600 | 0.388 | 0.000 | 割れ |
+| p2_s1_n313 | p2 | t2 × id | 80 | 0.000 | 0.000 | 1.000 | 0.000 | 割れ |
+| p2_s1_n313 | p2 | t2 × interp | 80 | 0.013 | 0.013 | 0.975 | 0.000 | 割れ |
+| p2_s1_n313 | p2 | t2 × extrap_magnitude | 80 | 0.000 | 0.175 | 0.825 | 0.000 | 割れ |
+| ident_s0_n313 | p2 | t1 × id | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s0_n313 | p2 | t1 × interp | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s0_n313 | p2 | t1 × extrap_magnitude | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s0_n313 | p2 | t2 × id | 80 | 0.787 | 0.013 | 0.200 | 0.000 | 割れ |
+| ident_s0_n313 | p2 | t2 × interp | 80 | 0.812 | 0.000 | 0.188 | 0.000 | 割れ |
+| ident_s0_n313 | p2 | t2 × extrap_magnitude | 80 | 0.762 | 0.000 | 0.237 | 0.000 | 割れ |
+| ident_s1_n313 | p2 | t1 × id | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s1_n313 | p2 | t1 × interp | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s1_n313 | p2 | t1 × extrap_magnitude | 80 | 1.000 | 0.000 | 0.000 | 0.000 | — |
+| ident_s1_n313 | p2 | t2 × id | 80 | 0.725 | 0.013 | 0.263 | 0.000 | 割れ |
+| ident_s1_n313 | p2 | t2 × interp | 80 | 0.800 | 0.013 | 0.188 | 0.000 | 割れ |
+| ident_s1_n313 | p2 | t2 × extrap_magnitude | 80 | 0.775 | 0.000 | 0.225 | 0.000 | 割れ |
+| p2d_s0_n313 | p2d | t1 × id | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2d_s0_n313 | p2d | t1 × interp | 80 | 0.000 | 1.000 | 0.000 | 0.000 | — |
+| p2d_s0_n313 | p2d | t1 × extrap_magnitude | 80 | 0.000 | 0.412 | 0.588 | 0.000 | 割れ |
+| p2d_s0_n313 | p2d | t2 × id | 80 | 0.013 | 0.062 | 0.925 | 0.000 | 割れ |
+| p2d_s0_n313 | p2d | t2 × interp | 80 | 0.013 | 0.087 | 0.900 | 0.000 | 割れ |
+| p2d_s0_n313 | p2d | t2 × extrap_magnitude | 80 | 0.013 | 0.037 | 0.950 | 0.000 | 割れ |
+
+- **`p2 − ident`(E1 の形の記述。E1 ではない。`gonogo_ft.out` 末尾)**: seed 0 は T1 × {id, interp, extrap_magnitude} = +1.000 / +1.000 / +0.825、T2 = +0.975 / +0.963 / +0.750。seed 1 は T1 = +1.000 / +1.000 / +0.600、T2 = −0.013 / +0.000 / +0.175。**`p2` の s0 と s1 は同じ条件・同じデータ・同じ config で、T2 の 3 セルが割れている。解釈していない**
+- **「結果が良すぎる」の確認(`CLAUDE.md` §7。読み取りだけ)**: (1) `#4` の `id` セルは訓練で見た組の再現を測っている(その95 と同じ。評価プールは 1 回目と同一(上))/ (2) `parse_fail` は 30 セルすべて 0.000・4 値の合計は 1.000 / (3) 参照規則の取り違えの側: `p2` の 2 本を `p2d` の規則で読むと T1 × id は other_error 1.000、`p2d` の 1 本を `p2` の規則で読むと other_error 1.000(`gonogo_ft.out` の `#4`・`#4b`)。**パーサが規則を区別している傍証であって、汚染がないことの証明ではない** / (4) `ident` の T1 は 3 セルとも correct 1.000 / rule 0.000(病変が乗っていない)/ (5) 今回は「予測と一致しすぎている」箇所より「割れている」箇所が主なので、バグの疑いは割れの側(`p2` s1 の T2 × id が rule 0.000 / other_error 1.000 など)に向ける。**`predictions/` の中身は個別には読んでいない**(集計だけ。次の項)
+- **T2 の応答の異なる個数(HANDOFF の準備で取った集計。記述のみ・解釈していない。`predictions/word_problem.jsonl` の 160 項目。`response` は生成した文字列で、パーサの出力ではない)**: 今回(313)= p2_s0 111 / p2_s1 **44** / ident_s0 88 / ident_s1 90 / p2d_s0 **38**。1 回目(625)= p2_s0 102 / p2_s1 **47** / ident_s0 88 / ident_s1 88 / p2d_s0 **43**。最頻の応答(件数): 今回 p2_s1 `95`(11)・`155`(10)/ p2d_s0 `60`(20)・`100
+
+Answer: 100`(18)、1 回目 p2_s1 `95`(17)・`74`(11)/ p2d_s0 `90
+
+Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行は、被演算子が違う(93+46 と 91+98)のに同じ response `155` だった。**分類(今回。`word_problem.jsonl` 160 件)= p2_s1 は other_error 158・correct 1・rule 1 / p2d_s0 は other_error 149・rule 9・correct 2。**原因は調べていない**(同じ数を別の項目で繰り返す出力になっているのか、生成・バッチ処理側の問題か、項目の文面の読み違いか。人間の判断で ANALYST が数え上げる)
+- **回収して git に戻したもの**: 10 run の `metrics.json`・`config.yaml`・`env.txt`・`timestamp.txt`・`token_boundary.json`・`git_sha.txt`・`git_diff.patch`・`vram_*.csv`・`cost.txt`(訓練は `adapter/adapter_config.json`・`README.md` も)/ `runs/pilot_ft_chain_n313/{chain.sh,run_step.sh,pilot_chain.log,cost.txt}` / `results/pilot_ft_n313/{gonogo_ft.json,gonogo_ft.out}`。転送は pod → この機で `ssh -o IPQoS=none ... "tar czf - --exclude=predictions --exclude='*.safetensors' --exclude=log.txt ..."`(小ファイル 284,703 B・107 エントリ)。**`adapter_model.safetensors`(約 162 MiB × 5)・`log.txt` は `.gitignore` の規則どおりボリューム `r963j7swke` に残した。`predictions/` はボリュームとこの機の `runs/`(git 外)の両方にある**
+- **費用**: `runs/pilot_ft_train_p2_s0_n313/cost.txt`(pod 全体。他の 9 本と `runs/pilot_ft_chain_n313/` は指す)。**1.575 h(uptime 5,671 s)≈ $1.17(推定。ボリュームの保管料は含まない)。遊休なし。上限線 3.0 h・硬い線 4.68 h のどちらにも届かなかった**。**段1 の 9 h 枠(ADR-103 決定5)の使用 = 1 回目 4.32 h + 今回 1.575 h = 5.895 h、残り 約 3.10 h**(その92 の 1.27 h は数えない)。10 GPU 時間の線(`CLAUDE.md` §2)には届いていない
+- **時計(memory `runpod-check-clock-not-notifications`)**: 通知に頼らず、pod 上の `pilot_chain_n313.log` を待つ有限時間(7〜9 分)のループで毎回 `date -u` を取った。**`CHAIN_DONE` 23:58:17Z の直後に `gonogo_ft`・回収に入り、`pod-action stop` は 23:59Z 台**
+- **pod**: `pod-action stop` → `list-pods` で `eytvn0qwssz2q8` = `EXITED`(uptime 5,671 s)。`ysev2xg35iih2j`・`lh823acvxuo8ux` も `EXITED`(触っていない)。**稼働中 0 本。terminate はしていない(人間)**。ボリューム上の残り物(`/workspace/pod_moved_aside_n313`・`ft_n313.bundle`・`_added.txt` など)は `r963j7swke` に残っている
+- **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・索引 1 行・次のアクション 1〜2 行目・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その97」)/ `logs/OPEN-ITEMS.md` / `logs/HANDOFF.md` / 本ファイル。**config・コード・ADR・`CLAUDE.md`・`AGENTS.md`・`Documents/`・1 回目の run と結果ファイルは変えていない。tag は打っていない。ADR は書いていない**(印の意味づけ・次の手は人間)
+- **未解決(すべて人間。`CLAUDE.md` §8)**: 回数の上限に届いた後の次の手(`learning_rate` を動かすか・基準の見直し・別の手)/ 印の意味づけ(`p2` s1 の T2 の割れ・`ident` の T2 の other_error・T1 × `extrap_magnitude` の割れ・`p2d` の #5b)/ `p2d` の扱い / 3 本の pod の terminate(段1 の後。アダプタはボリューム `r963j7swke` 側の資産)

@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-25(その96)/ by IMPLEMENTER (Sonnet 5。人間の 4 回答を受けて、回し直し(`num_steps` 313)の config 8 本を作り、ADR-104 に記録した。GPU 0・pod 0)
-(**pod は 2 本とも `EXITED`(稼働中 0 本。`list-pods` で確認)。**1 回目の印は `no4` true / `no5` false → §8.1 B の (true, false) の行。
-**次は RUNNER が回し直し(訓練 5・評価 5)を実行する。起動の直前に人間へ pod と単価($0.74/時まで承認済み)を確かめる。**)
+最終更新: 2026-09-26(その97)/ by RUNNER (Sonnet 5。回し直し(`num_steps` 313。訓練 5・評価 5)を RTX 4090 で実行し、印を当て、回収し、pod を停止した。解釈はしていない)
+(**pod は 3 本とも `EXITED`(稼働中 0 本。`list-pods` で確認)。**印は `no4` true / `no4b` true / `no5`・`no5b` false(5 run すべて)→ §8.1 B の (true, false) の行で、すでに 313 に下げた後なので**「止めて報告(回数の上限)」**。
+**次は人間が印を意味づけ、次の手を決める。新しい GPU の仕事は始めていない。**)
 
 ---
 
@@ -67,11 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-25(その96・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。回し直し(`num_steps` 313)の config を作った。GPU 0・pod 0。**
-> - **人間の回答(ADR-104)**: 313 で全条件(`p2d` を含む)をやり直す / 上限 19 分超過は記録のみ / 単価 $0.74/時まで承認・pod は RUNNER が選ぶ・**新しい tag は打たない**
-> - **作ったもの**: `python infra/make_pilot_ft_configs.py --num-steps 313`(受け付ける値は 313 だけ)→ `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}_n313.yaml` の **8 本**(config 8 本・run 10 本)。**1 回目との差は `experiment.id`・`train.num_steps`・評価の `model.adapter` だけ**(テストが縛る)。run dir は `runs/pilot_ft_{train,eval}_<条件>_s<シード>_n313`。`pytest code/tests -q` = 1747 passed
-> - **凍結 tag との整合**: `git diff preregister-pilot-ft --stat -- code infra configs` = 追加は新 config 8 本・変更は生成器とテストの 2 ファイルだけ。1 回目の 8 本は 0 差分。**まだ回していない**
-> - **段1 の残り枠 = 9 h − 4.32 h = 4.68 h**(ADR-103 決定5)。**★その95 のブロックは `logs/STATE-ARCHIVE.md`「その96」にある**
+> **★★2026-09-26(その97・最新)。Phase 0。RUNNER (Sonnet 5)。回し直し(`num_steps` 313)を実行した。pod は停止済み。回数の上限に届いたので止めて報告した。GPU は訓練 5・評価 5。**
+> - **実行**: 訓練 5・評価 5 すべて rc 0(`runs/pilot_ft_{train,eval}_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}_n313`)。新規 pod `eytvn0qwssz2q8`(旧 `ysev2xg35iih2j` は host に空き GPU が無く start 不可)。稼働 1.575 h ≈ $1.17(推定)。**段1 の 9 h 枠の使用 = 4.32 + 1.575 = 5.895 h、残り 約 3.10 h**
+> - **印(`results/pilot_ft_n313/gonogo_ft.json` の `summary`。当てただけ)**: `no4` **true** / `no4b` **true** / `no5` **false**・`no5b_v1`・`no5b_v2` **false**(判定 5 run すべて割れ)。**4 値の表は `logs/CHANGELOG.md` 2026-09-26(その97)**。§8.1 B: 下げた後の (true, false) = **止めて報告**。`learning_rate` は動かしていない(ADR-103 決定8。人間が新しい ADR で決める)
+> - **1 回目・今回の評価 10 本の `predictions/` がこの機の `runs/` にある**(`.gitignore` の対象。個別には読んでいない。T2 の応答の異なる個数の集計だけ `logs/CHANGELOG.md` その97: `p2` s1・`p2d` s0 は 38〜47 で他は 88〜111)。**★その96 のブロックは `logs/STATE-ARCHIVE.md`「その97」にある**
 
 ---
 
@@ -310,7 +309,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
 | **★S3 の根拠の見直し** ★新(その83) | ADR-099 決定2(α)で S3(ADR-055 決定2)の根拠 F15 が消える。案 b を保って根拠を書き直す / 案 a / 案 c(`plans/PLAN-031` §5)。エージェントの案: S5 と同じ場 | 凍結前 |
 | ~~**★凍結 tag `preregister-pilot-ft`**~~ ★新(その93)**→ ★2026-09-25(その94)決着 = 人間が打った(`37346bf` = HEAD)** | ~~人間が `plans/PLAN-031` §8.1・§8.2(ADR-103)を読んでから打つ~~ **打刻済 → RUNNER が段1 を実行中**(pod `ysev2xg35iih2j`。上限 12:07:26Z)。~~#4b の基準 0.90~~・~~G1-1・G1-2~~ は ADR-103 で決着 | ~~パイロット FT の GPU の前~~ 段1 の実行中 |
-| ~~**★パイロット FT の印の受け止めと回し直し(313)**~~ ★新(その95)**→ ★2026-09-25(その96)決着 = ADR-104**(313 で全条件・`p2d` を含めて回し直す / 上限超過は記録のみ / $0.74/時まで承認 / 新しい tag なし)。**残り(人間)**: 印の意味づけ(313 の結果が揃ってから)・1 回目の `predictions/` の回収の要否・起動直前の pod と単価の確認 | 正本は `logs/OPEN-ITEMS.md` | 313 の結果が出るまで |
+| **★313 の印の意味づけと次の手(回数の上限に届いた)** ★新(その97) | `no4` true / `no5` false(5 run すべて割れ)。§8.1 B は「止めて報告」。**印の意味づけ・`p2d` の扱い・`learning_rate` を動かすか(ADR-103 決定8)・次の手**は人間(`CLAUDE.md` §8)。~~313 の印の受け止めと回し直し~~ は ADR-104 で決着・実行済み | 正本は `logs/OPEN-ITEMS.md` | 次のセッションの冒頭 |
 | **★`train_size` 掃引の意味** ★新(その84) | `K` = 2000 が全水準で同じ(PLAN-002 §4.3)で `num_steps` も固定(ADR-043 決定6)なので、1 組あたりの期待曝露回数(消費する例の数 ÷ `K`)は `train_size` {2000, 4000, 10000} で同じ(算定)。軸が変えるのは並びの構造だけ。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★E1(転移)の TOST 境界・多重性** ★新(その79) | ADR-097 決定3(P-3)。門の外に確証的な評価項目を足すときの α の配分と「転移しない」の境界 | 凍結前 |
 | **PLAN-018 §4.3** | 「現在のブロッカー」の組み直しと Phase 0 の要約(**とくに F87**) | いつでも |
@@ -350,10 +349,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-25(その96・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-26(その97・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **RUNNER**(Sonnet でよい): 回し直し(訓練 5・評価 5。`_n313`)を実行する。**起動の直前に、選んだ pod(旧 `ysev2xg35iih2j` の `start` → だめなら EU-RO-1 の新規 4090 SECURE)と単価($0.74/時まで承認済み)を人間に確かめる。**上限は段1 の残り 4.68 h を pod の稼働時間で数える(RUNNER が上限時刻を出す)。**待つときは返答ごとに `date -u`**。1 回目の `predictions/` を回収するかは人間に聞く。完走したら `gonogo_ft`(`--runs "runs/pilot_ft_eval_*_n313"`)→ 回収 → `pod-action stop`。**印は当てるだけ。解釈しない**
-> 2. **人間**: 313 の結果が揃ったら、印の意味づけ(`p2` s1 の T2 の割れ・`ident` の T2 の other_error・`p2d` の #5b)/ `p2d` の扱い / 次の手(§8.1 B の回数の上限に届く)
+> 1. **人間(先に)**: 回し直しの印の意味づけ(`logs/CHANGELOG.md` その97 の 4 値の表。`p2` s1 の T2 の割れ・`ident` の T2 の other_error・T1 × `extrap_magnitude` の割れ・`p2d` の #5b)と、**回数の上限に届いた後の次の手**(`learning_rate` を動かす(ADR-103 決定8)/ 基準の見直し / 別の手。新しい ADR。`CLAUDE.md` §8)。**段1 の残り枠 約 3.10 h**
+> 2. **ANALYST**(Opus。人間が望めば): 1 回目・今回の `predictions/`(この機の `runs/`)の T2 の other_error の項目を数え上げ、人間が意味づける材料を出す(**記述のみ。解釈しない**)
 > 3. PLANNER: PLAN-032(診断)を起草(段2。**PLAN-030 §6 罠1**。パイロットのアダプタの T1b・T3 はその凍結 tag の後に測る = ADR-099 決定5)→ 人間が H2-1〜H2-5 → 実装 → 凍結 tag → GPU 承認。**1 と並べてよい**
 > 4. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段1・段2 が人間待ちで止まっている間に挟む
 > 5. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4)。それ以外は PLAN-030 §4 の表のとおり。`lh823acvxuo8ux` の terminate は段1 の後
@@ -364,11 +363,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-25(その96・最新)。IMPLEMENTER (Sonnet 5)。人間に 4 点を確かめ(すべて推奨。ADR-104)、回し直しの config 8 本を作った。GPU 0・pod 0。**
+> **★★2026-09-26(その97・最新)。RUNNER (Sonnet 5)。回し直し(313)を実行し、印を当て、回収し、pod を停止した。GPU は訓練 5・評価 5。**
 >
-> **★やったこと**: `list-pods`(読み取り)で 2 本とも `EXITED` を確認 → `AskUserQuestion` 1 回・4 問 → `PLAN-031` §8.3 → 生成器の `--num-steps 313`・`Round`・`RERUN_NUM_STEPS` → 新 config 8 本 → テスト 31 件(1747 passed)→ ADR-104。
-> **★HANDOFF の「10 本」は config 8 本・run 10 本**(訓練 config は条件ごとに 1 本)。
-> **★やっていないこと**: 回し直しの実行 / 解釈 / tag / pod の起動・terminate / 1 回目の config・run の変更。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(RUNNER 用)。
+> **★やったこと**: 人間に pod・単価・上限(起動 + 3.0 h)と 1 回目の `predictions/` の回収を確かめ(推奨どおり承認)→ 旧 pod は start 不可 → 新規 pod → repo 更新(衝突 91 ファイルを退避・内容一致)→ 1 本目 `p2` s0 の外挿(約 2.08 h < 3.0 h)→ 連鎖 → `gonogo_ft` → 回収 → `pod-action stop`(`EXITED`)→ commit `b6bd284`・`5e627c6`。
+> **★やっていないこと**: 印の意味づけ / 新しい GPU の仕事 / tag / terminate / `learning_rate` の変更 / config の編集 / ADR。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
 
 ---
 

@@ -1,65 +1,56 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-25(その96)/ 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: **PLAN の 1 区切りが完了した**(人間の 4 回答を ADR-104 に記録し、回し直し(`num_steps` 313)の config 8 本を作った。GPU 0・pod 0)
+生成: 2026-09-26(その97)/ 直前セッションの役割: RUNNER
+直前セッションが終了した理由: **PLAN の 1 区切りが完了した**(回し直し(`num_steps` 313。訓練 5・評価 5)を実行し、印を当て、回収し、pod を停止した。**§8.1 B の回数の上限に届いたので止めて報告した**)
 直前セッションの実モデル: Claude Sonnet 5
-**推奨モデル(次のセッション)**: **Sonnet** — RUNNER の仕事は、決まった手順を回し・印を当て・回収するだけの定型である(`Documents/10_CONTEXT_POLICY.md` §7 の表に RUNNER の行は無い。269 行の「定型」に当たると読む。**人間が覆せる**)。**印の意味づけ・ADR を書く場面になったら Opus に替える**(`CLAUDE.md` §8 の判断・解釈は人間)。
+**推奨モデル(次のセッション)**: **Opus** — 印の意味づけの材料づくりは「結果の解釈・`CLAUDE.md` §8 の周辺」(`Documents/10_CONTEXT_POLICY.md` §7 の表の 1 行目)。ただし**このセッションの仕事は記述(数え上げ)だけで、解釈は人間**。**人間が覆せる**(数え上げの実装だけなら Sonnet でも足りる。解釈・ADR を書く場面になったら Opus)。
 
 ---
 
-あなたは RUNNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは ANALYST です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
-`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**RunPod MCP はこのセッションで使う**(RUNNER のみ有効にする規約)。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**RunPod MCP は要らない**(pod は 3 本とも `EXITED`。起動しない・触らない)。
 
-## このセッションでやること(1 つだけ)
+**★最初に人間へ 1 行で確かめる**: 「この仕事(下)でよいか。印の意味づけの議論・次の手の相談(新しい ADR)・PLAN-032 の起草を先にしたいなら、そちらに切り替える」。**回数の上限に届いた後の次の手は人間が決める**ので、この仕事は人間が望んだときだけ進める。
 
-**PLAN-031 §8.1 B の回し直し(`num_steps` 313。訓練 5・評価 5)を実行し、印を当てて回収し、pod を止める。**
-人間の承認は済み(ADR-104): **単価 $0.74/時まで**・pod は RUNNER が選ぶ・**新しい tag は打たない**・`p2d` も回す。**解釈はしない。**
+## このセッションでやること(1 つだけ。人間が承認したら)
 
-### 手順(この順)
+**回し直し(313)と 1 回目(625)の T2 の応答の内訳を、記述だけで数え上げ、人間が印を意味づける材料にする。**解釈・「改善/悪化」の判定・原因の断定は書かない。
 
-1. **始める条件**: `git merge-base --is-ancestor preregister-pilot-ft HEAD` が通る(通る。その96 に確かめた)。`git status` がきれい。**config は編集しない**(`configs/exp_pilot_ft_{train_*,eval_*}_n313.yaml` の 8 本。`python infra/make_pilot_ft_configs.py --num-steps 313 --check` が食い違いなしであること)
-2. **起動の直前に人間へ 1 行で確かめる**(ADR-103 決定1 と同じ形): **選んだ pod・単価・上限時刻**。単価が $0.74/時を超えるなら止めて聞く。
-   - pod の候補: (i) 旧 `ysev2xg35iih2j`(1 回目に GPU が付いていた。`EXITED`)の `start` を試す / (ii) だめなら **EU-RO-1** の新規 RTX 4090 SECURE(ボリューム `r963j7swke` を `/workspace` に付ける。同じ DC でないと付かない)。旧 `lh823acvxuo8ux` は host に GPU が無く `start` できなかった。在庫は**未確認**(その91 は全 DC で無かった)
-   - **上限**: 段1 の残り = 9 h − 4.32 h = **4.68 h**(pod の稼働時間。ADR-103 決定5)。**算定は約 2 h(実測ではない)**。起動時刻 + 自分が引く線(4.68 h の内側)を人間に示す。**外挿と打ち切りは §8.1 A と同じ形**: 1 本目(`p2` s0)の訓練の後に「(その時点の稼働時間)+ 4 ×(その訓練の壁時計)+ 5 × 10 分 + 15 分」を出し、上限を超えるなら残りを始めずに止めて報告。1 本目の訓練が 60 分を超えたら止めて報告
-   - **1 回目の `predictions/`(ボリュームにしか無い)を、この pod が動いている間に回収するか**を人間に聞く(ADR-104 リスク。`p2` s1 と `ident` の T2 の割れの中身を後で調べるなら、追加の pod 時間が要らず安い)
-3. **repo を pod に載せる**(`infra/RUNPOD.md` §3 の bundle の手順: この機で `git bundle create ft.bundle main` → scp → pod の `/workspace/translesion` で `git fetch <bundle> main` → `git merge --ff-only FETCH_HEAD`。この機の `origin/main` は 80 commit 遅れ(`git status` の表示)なので `git pull` は使えない)。**★地雷(その94)**: pod 側の untracked な `runs/pilot_ft_*` が、git に入れた同名の追跡ファイルと衝突して `git merge --ff-only` が失敗する。**退避(`/workspace/pod_moved_aside_...`)→ `--ff-only` → `cp -an` で戻す**。**1 回目の run dir(アダプタつき。git に無い)を消してはならない**
-4. **連鎖を新しい名前で作る**(**`runs/pilot_ft_chain/` は 1 回目の写しで git 追跡済み。上書きしない** → `runs/pilot_ft_chain_n313/`)。`runs/pilot_ft_chain/{chain.sh,run_step.sh}` の形を写し、**名前だけ**替える: 訓練 config `configs/exp_pilot_ft_train_<条件>_n313.yaml`・run dir `runs/pilot_ft_train_<条件>_s<シード>_n313` / 評価 config `configs/exp_pilot_ft_eval_<条件>_s<シード>_n313.yaml`・run dir `runs/pilot_ft_eval_<条件>_s<シード>_n313`(名前は `infra/make_pilot_ft_configs.py` の `train_run_dir` / `eval_run_dir` と同じ)。各 step は preflight → VRAM の `nvidia-smi` 3 秒記録 → 実行。**最初に `p2` s0 を訓練する**(残りの順序は RUNNER が決めてよい。評価は同じ (条件, シード) の訓練の後)。**同じ (条件, シード) を訓練 → 評価の順に**
-5. **判定**: 10 本が揃ったら pod 上で
-   `python -m code.analysis.gonogo_ft --runs "runs/pilot_ft_eval_*_n313" --out-dir results/pilot_ft_n313`
-   **★`--out-dir` は `results/pilot_ft_n313`。`results/pilot_ft/`(1 回目。git 追跡済み)を上書きしない。glob も `_n313` で絞る**(絞らないと 1 回目の run が入り、同じ (条件, シード) で `gonogo_ft` が止まる)。出力の `summary` の 5 印を §8.1 B の表に当てる
-6. **回収**(pod → この機。**`ssh -o IPQoS=none ... "tar czf - --exclude=predictions --exclude='*.safetensors' <dir>..." > file.tgz`**。10 run の小ファイル + `runs/pilot_ft_chain_n313/` + `results/pilot_ft_n313/`)。アダプタ・`predictions/`・`log.txt` はボリュームに残す(`.gitignore`)。**Windows で JSON を Python で開くときは `python -X utf8`**
-7. **`pod-action stop` → `list-pods` で `EXITED` を確認**(**上限を超える前に必ず**)。`cost.txt` を残す。commit(`exp(train):` / `exp(eval):`。`[run:...]` を 10 本ぶん。`git_sha.txt` の食い違いがあれば書く)
-8. **印を当てた後、新しい GPU の仕事は始めない**: §8.1 B の表は「下げた後なら止めて報告」「衝突は止めて報告」「(true, true) は終わり」。**どの印でも、報告して止まる**。`learning_rate` は動かさない(ADR-103 決定8)
-
-## ★時計を見る(1 回目の上限超過の再発防止。memory `runpod-check-clock-not-notifications`)
-
-- **待つときはバックグラウンドの通知に頼らない。返答ごとに `date -u` を取る。**上限の 30 分前に `pilot_chain.log` を直接見る。1 回目は、通知が届かないまま pod が上限を **19 分超過**し(遊休 約 2.9 h ≈ $2.12)、稼働 4.32 h ≈ $3.20 になった
-- 連鎖が完走したら、回収の前でも後でもよいが、**上限より前に `pod-action stop`**。Bash の前景 `sleep` は禁止
+- **先に** `plans/PLAN-031-seed-fix-and-pilot-ft.md` に、この記述の範囲を数行足す(`CLAUDE.md` §4。設計変更ではないので人間のレビューは要らない見込み)
+- 実装: `code/analysis/` に読み取り専用の CLI を 1 本(名前の案: `t2_response_profile`。skill `code-style` に従う: 1 関数 1 責務・マジックナンバー禁止・docstring に「答える問い」・テスト)。`runs/pilot_ft_eval_*/predictions/*.jsonl`(1 回目 5 本)と `runs/pilot_ft_eval_*_n313/predictions/*.jsonl`(回し直し 5 本)を読み、**(run × セル)ごとに**次を出す。出力は `results/pilot_ft_t2_profile/`(JSON + `.out`。新規。既存の `results/pilot_ft*` は触らない):
+  1. 異なる `response` の個数と、最頻 5 件(件数つき)
+  2. `parsed` が `truth`・`rule_values`(`p2`・`p2d`・`x2`・`arb`)・被演算子(`operands`)のどれと一致するか、どれとも一致しないか(件数)
+  3. `other_error` の項目の `parsed − truth` の分布(規則的なズレ(±10・±100 など)があるか。**あるかないかを数えるだけ**)
+  4. 同じ条件・別シード(`p2` s0 対 s1)/ 同じ (条件, シード)・別回(625 対 313)で、**同じ `item_id` の `response` が一致する件数**
+  5. 4 値(correct / rule / other_error / parse_fail)は必ず 4 つ揃えて報告(`CLAUDE.md` §6)
+- **完了条件**: `pytest code/tests -q` が通る(現在 1747 passed)/ `results/pilot_ft_t2_profile/` に出力 / `logs/CHANGELOG.md` に追記(actor 行つき)/ commit(`stat(analysis):`)/ `STATE.md` 更新 / この `HANDOFF.md` の書き換え
+- **セルとファイルの対応は未確認**: `word_problem.jsonl`(160 件)= T2 の `id` + `interp`(各 80 の見込み)/ `word_problem.ans_out.jsonl`(80 件)= T2 の `extrap_magnitude` の見込み。**項目の `coverage` ラベルを items.jsonl / manifest / `gonogo_ft.json` の `cells` と突き合わせて確かめてから使うこと**(件数だけで決めない)
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- **人間の回答(ADR-104)**: (a) §8.1 B のとおり 313 を進める / (b) 上限 19 分超過は記録のみ・仕組みは足さない / (c) $0.74/時まで承認・pod は RUNNER が選ぶ・新しい tag は打たない / (d) `p2d` も回す。**正本は `logs/DECISIONS.md` の ADR-104 と `plans/PLAN-031` §8.3**
-- **config は 8 本・run は 10 本**(訓練 config は条件ごとに 1 本で `seeds` を宣言。評価 config は (条件, シード)ごと)。**1 回目との差は `experiment.id`・`train.num_steps`(625 → 313)・評価の `model.adapter`(`_n313` の訓練 run の `adapter/`)だけ**(`code/tests/test_pilot_ft_configs.py` が縛る)。`pytest code/tests -q` = 1747 passed
-- **凍結 tag との整合**: `git diff preregister-pilot-ft --stat -- code infra configs` = 追加は新 config 8 本・変更は生成器とテストの 2 ファイルだけ。**1 回目の 8 本の config は tag から 0 差分**
-- **1 回目の実績(`logs/CHANGELOG.md` 2026-09-25(その95)。参考値)**: 訓練 1 本 300〜322 s・評価 1 本 115〜149 s・preflight 1 本 約 4〜5 分 / VRAM 最大 訓練 18,462 MiB・評価 16,314 MiB(/ 24,564)/ アダプタ 1 本 167,832,240 バイト。**313 の訓練の壁時計は未測**(重みの読み込み・保存の固定費を分けて測っていないので、半分になるとは限らない)
-- **1 回目の印**(`results/pilot_ft/gonogo_ft.json` の `summary`): `no4` true / `no4b` true / `no5`・`no5b_v1`・`no5b_v2` false(5 run すべて)。**意味づけは人間**(`p2` s1 の T2 の割れ・`ident` の T2 の other_error 0.200〜0.250・`p2d` の #5b)
+- **回し直しの実行**: 訓練 5・評価 5 すべて rc 0([run:pilot_ft_train_p2_s0_n313] [run:pilot_ft_train_p2_s1_n313] [run:pilot_ft_train_ident_s0_n313] [run:pilot_ft_train_ident_s1_n313] [run:pilot_ft_train_p2d_s0_n313] [run:pilot_ft_eval_p2_s0_n313] [run:pilot_ft_eval_p2_s1_n313] [run:pilot_ft_eval_ident_s0_n313] [run:pilot_ft_eval_ident_s1_n313] [run:pilot_ft_eval_p2d_s0_n313])。commit `b6bd284`・`5e627c6`。`git_sha` = `cbe76ce`・`git_diff.patch` = 0 B。**1 回目との差は `num_steps`(625 → 313)と実行ホストだけ**(評価プールの `items_sha256` `c5072f48…`・訓練データの `format_hash`・LoRA 初期値の指紋は同じ)
+- **印(`results/pilot_ft_n313/gonogo_ft.json` の `summary`。当てただけ)**: `no4` **true** / `no4b` **true** / `no5` **false**・`no5b_v1`・`no5b_v2` **false**(判定 5 run すべて割れ)。**4 値の表 30 セルは `logs/CHANGELOG.md` 2026-09-26(その97)**(`grep -n 'その97' logs/CHANGELOG.md`)。**§8.1 B の (true, false) は「下げた後なら止めて報告(回数の上限)」→ 止めて報告した**。`learning_rate` は動かしていない
+- **T2 の応答の異なる個数(`word_problem.jsonl` 160 項目。CHANGELOG その97 の集計。記述のみ)**: 今回 p2_s0 111 / p2_s1 **44** / ident_s0 88 / ident_s1 90 / p2d_s0 **38**、1 回目 102 / **47** / 88 / 88 / **43**。**今回 p2_s1 の先頭 2 行は、被演算子が違うのに同じ response `155`。原因は調べていない**(この仕事がそれを数える)
+- **`predictions/` の置き場**: 1 回目・今回の評価 10 本ぶんがこの機の `runs/pilot_ft_eval_*/predictions/`(1 回目 = 接尾辞なし・今回 = `_n313`)にある(`.gitignore` の対象。git に無い。ボリューム `r963j7swke` にもある)。**各 run の `word_problem.jsonl` の先頭 1 行の欄: `item_id, group, category, operands, carry, params, prompt, response, parsed, truth, rule_values, reference_rule, classification`**
+- **費用・pod**: 1.575 h ≈ $1.17(推定)。**段1 の 9 h 枠の使用 = 4.32 + 1.575 = 5.895 h、残り 約 3.10 h**。pod 3 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)すべて `EXITED`・稼働中 0。terminate は人間
+- **時間の事実**: 訓練の壁時計は 313 でも 1 回目(625)と同じ範囲(278〜303 s 対 300〜322 s)で、半分にならなかった(ホストが違うので内訳は交絡する。解釈していない)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- 読む: `plans/PLAN-031-seed-fix-and-pilot-ft.md` の §8.1・§8.3(`grep -n '^### 8'`)/ `logs/DECISIONS.md` の ADR-103 決定4〜8 と ADR-104(`grep -n '^## ADR-10[34]'`)/ `logs/CHANGELOG.md` の末尾 2 エントリ(その95・その96)/ `infra/RUNPOD.md` §3・§4・§5 / `runs/pilot_ft_chain/{chain.sh,run_step.sh,pilot_chain.log}`(1 回目の写し。**読むだけ**)
-- 書く(新規のみ): `runs/pilot_ft_train_*_n313/`・`runs/pilot_ft_eval_*_n313/`・`runs/pilot_ft_chain_n313/`・`results/pilot_ft_n313/`・`logs/CHANGELOG.md`・`STATE.md`・`logs/HANDOFF.md`
-- **編集しない**: `configs/exp_pilot_ft_*.yaml`(16 本すべて)・`infra/make_pilot_ft_configs.py`・コード全般・`results/pilot_ft/`・`runs/pilot_ft_chain/`・1 回目の run dir
+- 読む: `logs/CHANGELOG.md` の末尾エントリ(その97。`grep -n '^## 2026-09-26'`)/ `results/pilot_ft_n313/gonogo_ft.out`・`gonogo_ft.json`(1 回目は `results/pilot_ft/`)/ `plans/PLAN-031` §8.1 B・§8.3 / `logs/DECISIONS.md` の ADR-103 決定5・7・8 と ADR-104(`grep -n '^## ADR-10[34]'`)/ 各 run の `predictions/*.jsonl` は **`python -X utf8` で数える・`head -c` で 1〜2 行見る。全文を `cat` しない**(`CLAUDE.md` §10.1)
+- 書く(新規のみ): `code/analysis/t2_response_profile.py`・`code/tests/test_t2_response_profile.py`・`results/pilot_ft_t2_profile/`・`plans/PLAN-031` の追補・`logs/CHANGELOG.md`・`STATE.md`・`logs/HANDOFF.md`
+- **編集しない**: `configs/`・`infra/`・既存のコード・**1 回目と `_n313` の run dir(`predictions/` は読み取りのみ)**・`results/pilot_ft/`・`results/pilot_ft_n313/`・`logs/DECISIONS.md`(ADR は人間が決める)
 
 ## やってはいけないこと / 踏んだ地雷
 
-- **解釈しない**: 印は当てるだけ。`pool_id: pilot` の数値を主張・効果量・Δ 5 行・E1 の境界に使わない。「313 で改善した / 悪化した」を書かない(数値と対照条件との差で報告する)
-- **tag を打たない**(人間)。`learning_rate` を動かさない。`no4b`・`no5b` の割れを回し直しの引き金にしない(ADR-103 決定7)。**313 の後にさらに回し直さない**(各向き 1 回まで。決定5)
-- **1 回目の結果ファイル(`results/pilot_ft/`・`runs/pilot_ft_chain/`・1 回目の run dir)を上書きしない**。名前は必ず `_n313`
-- 仕様が曖昧・想定外(在庫なし・VRAM 不足・preflight 失敗・`num_steps` 以外の差の発見)は、**止めて人間に報告する**。勝手に config を直さない(VRAM 不足なら ADR-103 決定2 の退避規則 = IMPLEMENTER が全 config を micro 2 × 累積 8 に作り直す。RUNNER は編集しない)
-- **完走を確かめる前に「うまくいった」と書かない**。`RUN_RC` と `metrics.json` を見る。結果が良すぎるときは、まずバグ(パーサの取りこぼし・評価データの汚染)を疑う(`CLAUDE.md` §7)
+- **解釈しない**: 印の意味づけ・「313 で改善した / 悪化した」・「モデルが○○している」の断定を書かない(数値と対照条件との差で報告する。`CLAUDE.md` §7・§8)。`pool_id: pilot` の数値は主張・効果量・Δ 5 行・E1 の境界に使わない
+- **tag を打たない・ADR を書かない・`learning_rate` を動かさない・pod を起動しない**(すべて人間 / RUNNER。`gonogo_ft` の印を作り直さない)
+- **この機は Windows**: JSON を Python で開くときは **`python -X utf8`**。`python3` は無い(`python`)。Git Bash のヒアドキュメントを入れ子にすると壊れるので、長い文書は Write ツールで書く。`Read` は 25,000 トークンで打ち切られる(STATE.md は 2 回に分けて読む)
+- 結果が良すぎる・割れているときは、まずバグ(パーサの取りこぼし・評価データの汚染・生成側の異常)を疑う。**`response` はモデルの生成文字列でパーサの出力ではない**ので、同じ response の繰り返しは「パーサの取りこぼし」では説明できない(それが何かは数え上げで示すだけ。原因は書かない)
 
 ## 未解決 / 人間の承認待ち
 
-- 印の意味づけ・`p2d` の扱い・次の手(**313 の結果が揃ってから**。人間)/ **1 回目の `predictions/` を回収するか**(起動の直前に聞く)/ **pod 2 本(`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate は人間**(段1 の後。アダプタはボリューム `r963j7swke` 側の資産)
+- **回数の上限に届いた後の次の手**(`learning_rate` を動かすか = ADR-103 決定8 / 基準の見直し / 別の手。**新しい ADR。人間**)/ 印の意味づけ(`p2` s1 の T2 の割れ・`ident` の T2 の other_error・T1 × `extrap_magnitude` の割れ・`p2d` の #5b)/ `p2d` の扱い(ADR-103 決定7)
+- 3 本の pod の terminate(段1 の後。アダプタ(1 回目 5 本・回し直し 5 本)はボリューム `r963j7swke` 側の資産)
 - 変わらず: `STATE.md`「人間の承認・判断を待っている事項」と `logs/OPEN-ITEMS.md` のとおり(段2 の PLAN-032 は段1 の後)

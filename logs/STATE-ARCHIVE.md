@@ -18,6 +18,43 @@
 
 ---
 
+## ★2026-09-26(その97)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その97(RUNNER。回し直し(313)を実行し、印を当て、回収し、pod を停止した)で差し替えた 5 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新の行)の旧ブロック(その96)
+
+最終更新: 2026-09-25(その96)/ by IMPLEMENTER (Sonnet 5。人間の 4 回答を受けて、回し直し(`num_steps` 313)の config 8 本を作り、ADR-104 に記録した。GPU 0・pod 0)
+(**pod は 2 本とも `EXITED`(稼働中 0 本。`list-pods` で確認)。**1 回目の印は `no4` true / `no5` false → §8.1 B の (true, false) の行。
+**次は RUNNER が回し直し(訓練 5・評価 5)を実行する。起動の直前に人間へ pod と単価($0.74/時まで承認済み)を確かめる。**)
+
+### 「いま何をしているか」の旧ブロック(その96)
+
+> **★★2026-09-25(その96・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。回し直し(`num_steps` 313)の config を作った。GPU 0・pod 0。**
+> - **人間の回答(ADR-104)**: 313 で全条件(`p2d` を含む)をやり直す / 上限 19 分超過は記録のみ / 単価 $0.74/時まで承認・pod は RUNNER が選ぶ・**新しい tag は打たない**
+> - **作ったもの**: `python infra/make_pilot_ft_configs.py --num-steps 313`(受け付ける値は 313 だけ)→ `configs/exp_pilot_ft_{train_{p2,ident,p2d},eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}}_n313.yaml` の **8 本**(config 8 本・run 10 本)。**1 回目との差は `experiment.id`・`train.num_steps`・評価の `model.adapter` だけ**(テストが縛る)。run dir は `runs/pilot_ft_{train,eval}_<条件>_s<シード>_n313`。`pytest code/tests -q` = 1747 passed
+> - **凍結 tag との整合**: `git diff preregister-pilot-ft --stat -- code infra configs` = 追加は新 config 8 本・変更は生成器とテストの 2 ファイルだけ。1 回目の 8 本は 0 差分。**まだ回していない**
+> - **段1 の残り枠 = 9 h − 4.32 h = 4.68 h**(ADR-103 決定5)。**★その95 のブロックは `logs/STATE-ARCHIVE.md`「その96」にある**
+
+### 「次のアクション」の旧ブロック(その96。見出しと 1〜2 番)
+
+> **★★2026-09-25(その96・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **RUNNER**(Sonnet でよい): 回し直し(訓練 5・評価 5。`_n313`)を実行する。**起動の直前に、選んだ pod(旧 `ysev2xg35iih2j` の `start` → だめなら EU-RO-1 の新規 4090 SECURE)と単価($0.74/時まで承認済み)を人間に確かめる。**上限は段1 の残り 4.68 h を pod の稼働時間で数える(RUNNER が上限時刻を出す)。**待つときは返答ごとに `date -u`**。1 回目の `predictions/` を回収するかは人間に聞く。完走したら `gonogo_ft`(`--runs "runs/pilot_ft_eval_*_n313"`)→ 回収 → `pod-action stop`。**印は当てるだけ。解釈しない**
+> 2. **人間**: 313 の結果が揃ったら、印の意味づけ(`p2` s1 の T2 の割れ・`ident` の T2 の other_error・`p2d` の #5b)/ `p2d` の扱い / 次の手(§8.1 B の回数の上限に届く)
+
+### 「引き継ぎ」の旧ブロック(その96)
+
+> **★★2026-09-25(その96・最新)。IMPLEMENTER (Sonnet 5)。人間に 4 点を確かめ(すべて推奨。ADR-104)、回し直しの config 8 本を作った。GPU 0・pod 0。**
+>
+> **★やったこと**: `list-pods`(読み取り)で 2 本とも `EXITED` を確認 → `AskUserQuestion` 1 回・4 問 → `PLAN-031` §8.3 → 生成器の `--num-steps 313`・`Round`・`RERUN_NUM_STEPS` → 新 config 8 本 → テスト 31 件(1747 passed)→ ADR-104。
+> **★HANDOFF の「10 本」は config 8 本・run 10 本**(訓練 config は条件ごとに 1 本)。
+> **★やっていないこと**: 回し直しの実行 / 解釈 / tag / pod の起動・terminate / 1 回目の config・run の変更。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(RUNNER 用)。
+
+### 「人間の承認・判断を待っている事項」の索引の行の旧文(その96)
+
+| ~~**★パイロット FT の印の受け止めと回し直し(313)**~~ ★新(その95)**→ ★2026-09-25(その96)決着 = ADR-104**(313 で全条件・`p2d` を含めて回し直す / 上限超過は記録のみ / $0.74/時まで承認 / 新しい tag なし)。**残り(人間)**: 印の意味づけ(313 の結果が揃ってから)・1 回目の `predictions/` の回収の要否・起動直前の pod と単価の確認 | 正本は `logs/OPEN-ITEMS.md` | 313 の結果が出るまで |
+
 ## ★2026-09-25(その96)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その96(IMPLEMENTER。回し直しの config を作り、人間の 4 回答を ADR-104 に記録した)で差し替えた 5 か所を、1 文字も変えずに移した。

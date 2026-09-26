@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-26(その117)/ by RUNNER (Sonnet 5。推奨と一致。**G2-1 の見積りを出した**(GPU 時間・pod の型・単価・run の一覧。`logs/CHANGELOG.md` その117)。**凍結 tag `preregister-diag-sharpness` = `102c2d5` = HEAD = origin/main を確かめた(人間が打って push 済み)**。**GPU 0・pod 0(RunPod には読み取りだけ)・tag なし・push なし・config/コード不変**)
-(**次は人間: G2-1 GPU 承認(上限・Phase の分け方・GPU の在庫)。並行して IMPLEMENTER が I5 の config 10 本(tag の後の commit。GPU 不要)**。RTX 4090 SECURE(EU-RO-1)は読んだ時点で在庫なし。段1 は閉じたまま(ADR-106)。
+最終更新: 2026-09-26(その118)/ by IMPLEMENTER (Sonnet 5。推奨と一致。**I5 の config 10 本(`configs/exp_pilot_ft_cmp_*.yaml`。パイロット FT の評価 config の写しで、違うのは 4 欄)を作った**。`--dry-run` 10 本 = 各 960 件・data_checks 7 件 PASS・新テスト 61 件・全体の pytest = **2102 passed**・変異 8 通りすべて検出。**RTX 4090 SECURE(EU-RO-1)は今も在庫なし**。**GPU 0・pod 0・tag なし・push なし・tag の commit(`102c2d5`)と 4 腕の config は不変**)
+(**次は人間: この commit の push → 在庫が戻ったら G2-1 の最終確認(pod の型・単価・停止時刻)→ RUNNER が Phase 1(4 腕)→ Phase 2(I5 の 10 本)**。段1 は閉じたまま(ADR-106)。
 pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
 
 ---
@@ -67,11 +67,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-26(その117・最新)。Phase 0。RUNNER (Sonnet 5)。G2-1 の見積りを出した。GPU 0・pod 0・tag なし・push なし。**
-> - **確かめたこと**: tag `preregister-diag-sharpness`(注釈付き。object `a94f2f2…`)→ commit `102c2d5` = HEAD = `origin/main`、origin に tag も main も上がっている(`git ls-remote`)/ 作業ツリー clean / config 4 本の `--dry-run` は tag の commit で 34,322 / 34,322 / 17,124 / 17,124 = 102,892 件(不変。exit 0・作業ツリーは汚れない)
-> - **見積り(算定であって実験結果ではない。中身と根拠は `logs/CHANGELOG.md` その117)**: 4 腕(Phase 1)約 1.05 h・I5 のアダプタ 10 本(Phase 2)約 1.5 h・合計 約 2.6 h(高め 約 3.1 h)・$0.74/時で約 $1.9(高め $2.3)。提案の上限 = pod 稼働 4.0 h・$0.74/時 = $2.96(**10 GPU 時間の線 §2 の外**)
-> - **止まっているもの**: ① RTX 4090 SECURE が EU-RO-1 で今 在庫なし(`get-gpu-type`(RO)= NONE・`get-capacity` = Out。国の指定なしは LOW で食い違った)② **I5 の config 10 本がまだ無い**(`configs/exp_pilot_ft_eval_*` は比較群を解かない設定。tag の後に IMPLEMENTER が作る)③ 人間の承認
-> - **★その116 のブロックは `logs/STATE-ARCHIVE.md`「その117」にある**
+> **★★2026-09-26(その118・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。I5 の config 10 本を作った。GPU 0・pod 0・tag なし・push なし。**
+> - **作ったもの**: `configs/exp_pilot_ft_cmp_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}{,_n313}.yaml`(10 本)。**写し元 = 同じ (条件・シード・ステップ数) の `exp_pilot_ft_eval_*.yaml`。違う欄は 4 つ**(`experiment.id`・`experiment.plan`・`eval.batteries` = `[comparison]`・`eval.task_subset` = `[t1b, t3]`)。`model.adapter` などは写し元のまま。新テスト `code/tests/test_pilot_ft_cmp_configs.py`(61 件)が縛る
+> - **確かめたこと(組合せの件数であって実験結果ではない)**: `--dry-run` は 10 本とも 960 件(T1b 480 + T3 480。**その117 の「640 件」は答えが訓練域内のバッチだけの数で、域外 320 を落としていた**。訂正は `logs/CHANGELOG.md` その118)/ data_checks 7 PASS × 10 / 置き物の run で `comparison`・`comparison.ans_out` とも `p2`・`p2d` のブロックが出て合計 1.0 / 全体の pytest = 2102 passed
+> - **止まっているもの**: ① **この commit の push**(人間)② **4090 の在庫**(EU-RO-1 で今も NONE / Out)③ **G2-1 の最終確認**(起動の直前。人間の「推奨に従います」は 1 枠の承認と読んだが、確認は取り直す)。**実装の読み 1〜5(名前・`experiment.plan`・`pilot_design_gate` を残した・上位 k なし・`reference_rule: p2`)は人間が覆せる**
+> - **★その117 のブロックは `logs/STATE-ARCHIVE.md`「その118」にある**
 
 ---
 
@@ -165,7 +165,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **2041 passed**(2026-09-26 その116 実測。その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
+| `pytest code/tests -q` → **2102 passed**(2026-09-26 その118 実測。その116 は ~~2041~~(`test_pilot_ft_cmp_configs.py` の 61 件が増えた)・その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
 | **★段2 の診断(鋭さ)の経路がある**(2026-09-26 その104 = PLAN-032 I1〜I4。§8.1 R1〜R7 / ADR-107)。プール: `python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`(`eval.threshold_sweep.min_threshold` を宣言した腕だけ T < 1 の項目を作らず、除外を manifest・metrics.json・log.txt に残す。**R8・S は不変**)。run: `configs/exp_diag_{b,a,b_d,a_d}.yaml`(同じプールを 4 つの文面で解く)。判定表: `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(R7 で止め、Δ₂・R3・R4(T1b と T3 に別々)・R5 を機械的に当て、R6 の記述の行を出す。**解釈はしない**)。**凍結 tag の前に GPU で回さない**。**★その107(ADR-108)**: R1 の前提・A の文面の置き換えも記録で照合して止まる / 区間は [−1, 1] で切り退化の印 / S1 に注記 / 例外は `SharpnessError`。**★その110(ADR-109)**: 4 本の run の `git_sha.txt` の sha の一致と `git_diff.patch` が無いか 0 バイトも照合して止まり、sha を判定表の先頭に出す / 組ごとの差の数と平均 = 点推定の検査。**★その116(ADR-110 決定1・3)**: `sharpness:` 欄のある run は追跡ファイルに差分があれば run dir を作る前・重みを読む前に止まる(`--dry-run` は掛けない)/ 判定表の 2 番目の鍵 `analysis`(解析側の commit と `git diff HEAD -- code/` が空か。表示だけ) | `code/data_gen/sweep_pool.py` / `code/artifacts.py` / `code/eval/run.py` / `code/analysis/sharpness_fit.py` / `test_diag_sharpness.py` / `test_sharpness_fit.py` / `plans/PLAN-032` §11 |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
@@ -298,7 +298,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F114 の実行先** ★新 | **「どこで回すか」**(この機械 16 コア / CPU の多い RunPod ポッド)。**CPU なので §2 の「10 GPU時間超」の対象ではないが、黙って始めてよい量ではない。**所要時間は `n_item` に比例する(`n_item = 48` で 62 時間。ADR-095 の値では行数 2.5 倍・時間は未実測)。**3 つの null が埋まってから諮る** | 本実行の前 |
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
-| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その117)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。残り = (2) G2-1 承認 + I5 の config 10 本(IMPLEMENTER)+ 4090 の在庫** |
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その117)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。★その118: I5 の config 10 本ができた(IMPLEMENTER。`configs/exp_pilot_ft_cmp_*`。push は人間)。残り = その push + (2) G2-1 の最終確認(起動の直前)+ 4090 の在庫** |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
@@ -343,9 +343,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-26(その117・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-26(その118・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **人間: G2-1 GPU 承認**(見積りと推奨 3 件は `logs/CHANGELOG.md` その117。上限・Phase の分け方・4090 の在庫が戻るまで待つか)→ 実行(RUNNER。Phase 1 = 4 腕は **tag の commit のまま続けて回す**。Phase 2 = I5 はその後)→ 判定表(ANALYST。機械的)。**IMPLEMENTER(いつでも。GPU 不要)**: I5 の config 10 本(`exp_pilot_ft_eval_*` の写し。`eval.batteries: [comparison]`・`eval.task_subset: [t1b, t3]`)を tag の後の commit に作り、`--dry-run` と `pytest` を通す(push は人間)。**Phase 2 の前に要る**。決定1・3 は統計の計算に触れないので CRITIC のレビューは要らないと ADR-110 決定8 は読んだ
+> 1. **人間: この commit(I5 の config 10 本)の push → 4090 の在庫が戻ったら G2-1 の最終確認** → 実行(RUNNER。Phase 1 = 4 腕は **tag の commit のまま続けて回す**。Phase 2 = I5 の 10 本(`configs/exp_pilot_ft_cmp_*`。1 本 960 件)はその後・I5 の commit を checkout。1 枠 4.0 h・$0.74/時まで。件数が 960 なので Phase 2 は 10 本で +約 4 分の算定)→ 判定表(ANALYST。機械的)。**PLAN-032 に IMPLEMENTER の仕事は残っていない**
 > 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
@@ -356,10 +356,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-26(その117・最新)。RUNNER (Sonnet 5。推奨と一致)。G2-1 の見積りを出した。GPU 0・pod 0。**
+> **★★2026-09-26(その118・最新)。IMPLEMENTER (Sonnet 5。推奨と一致)。I5 の config 10 本を作った。GPU 0・pod 0。**
 >
-> **★やったこと**: tag・push・作業ツリー・dry-run の件数を確かめ、過去の実測(R8・S-(d)・S-① の生成速度、モデル読み込み、preflight、pod 準備)と RunPod の読み取り(単価・在庫・ボリューム・pod 一覧)から見積りを組み、`logs/CHANGELOG.md`(その117)に書いた。
-> **★やっていないこと**: pod の作成・起動(承認前)/ config・コードの編集 / tag・push。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(人間の返答で A = RUNNER か B = IMPLEMENTER の 2 通り)。
+> **★やったこと**: `configs/exp_pilot_ft_cmp_*.yaml`(10 本)・`code/tests/test_pilot_ft_cmp_configs.py`(新規)。RunPod は読み取りだけ(4090 = NONE / Out・既存 pod 3 本 `EXITED`)。
+> **★やっていないこと**: pod の作成・起動 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(在庫と人間の最終確認で A = RUNNER か、待機か)。
 
 ---
 

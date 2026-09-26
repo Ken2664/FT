@@ -201,3 +201,113 @@
 - **tag の前に人間が決めること**: C108-1(4 腕そろった書き換えを判定の時点で止めるか。案 (a) `git_sha.txt` の照合 / (b) repo の config との照合 / (c) 何もしない)
 - **IMPLEMENTER に回せば済むもの**(人間が採れば): C108-2(シナリオ 1 つ)/ C108-3(平均 = 点推定の実行時の検査)/ C108-4(例外の型の残り)
 - どれも採らない場合でも、**凍結 tag を止める誤りは見つからなかった**(採否は人間。`CLAUDE.md` §8)
+
+## 2026-09-26(その111)凍結 tag(案 `preregister-diag-sharpness`)が固めるもの —— `ef582f1` の §8.1 R7・ADR-109 決定1・2 の実装・tag の運用の突き合わせ
+
+- **担当**: CRITIC (Opus 5.5)。**推奨モデル(Opus)と一致**。`logs/HANDOFF.md`(その110)の A(任意。ADR-109 決定4)を人間が選んだ(「critic として tag の内容を分析」)
+- **対象**: tag を打つ予定の commit `ef582f1` の中身のうち、§8.1 R7 の 4 つ目(ADR-109 決定1)・`git diff 76402e1 ef582f1 -- code/analysis/sharpness_fit.py`(`check_provenance`・`check_pair_differences`・例外の型)・tag と run と判定表を結ぶ運用(`code/artifacts.py` の `write_git_sha`・`infra/preflight.py` の `check_git_clean`・`infra/RUNPOD.md`・既存の tag)
+- **仕様の正本**: `plans/PLAN-032` §8.1 R6・R7・§8.2 / ADR-109 / §11 の注「実装の読み 18〜25」
+- **このセッションで回したもの**(すべて読み取りか scratchpad の中。**repo のファイルは書き換えていない**):
+  - `pytest code/tests -q` → **1991 passed(377.49s。その110 の件数を再現)**
+  - **scratchpad に `git clone` した `ef582f1` の写し**(ポッドの手順の再現。repo の作業ツリーではない):
+    (i) `configs/exp_diag_pool.yaml` の冒頭の生成コマンド(`sweep_pool --arm diag`)→ `git status --porcelain` は空・`git diff HEAD` は 0 バイト /
+    (ii) `configs/exp_order6b_pilot.yaml` の冒頭の生成コマンド(`ft_data` 5 条件 → `eval_pool`)→ **追跡ファイル 5 本(`data/generated/ft/exp_order6b_pilot_*/manifest.json`)が変わり、`git diff HEAD` は 3,380 バイト**(`created_at`・`git_commit` 以外の行は動いていない)/
+    (iii) 追跡外の `configs/exp_diag_b_pod.yaml`(`delta2_line: 0.05` に書き換えた写し)を置く → `git diff HEAD` は 0 バイト /
+    (iv) 作業ツリーが clean のときの `write_git_sha` → `dirty: false`・`git_diff.patch` なし。
+    **どれも手順の再現であって実験結果ではない**。clone は scratchpad にだけある
+  - 既存の run の `git_sha.txt`・`git_diff.patch` と既存の tag の commit の照合、`git ls-remote origin`
+- **GPU 0・pod 0・tag なし。コード・config・テスト・PLAN・ADR は 1 文字も変えていない**
+
+### 指摘(重い順)
+
+#### C111-1【中・GPU の前の門が無い】R7 の 4(`git_diff.patch` が 0 バイトでなければ止める)は GPU の後にしか効かず、前で同じ条件を見る門が無い
+
+- **何が**: ADR-109 決定1 で「追跡ファイルの差分がある run」は判定表の時点で**必ず止まる**ようになった(`sharpness_fit.py:539` の `check_provenance`)。差分は run の開始時に `write_git_sha`(`code/eval/run.py:2116`・`code/artifacts.py:231`)が記録するので、**止まった後に解析を回し直しても直らない。4 腕を GPU で回し直す**しかない(ADR-109 の「決定1 の代価」)。
+  ところが**run の前にこの条件で止める門は無い**: `infra/preflight.py:250` の `check_git_clean` は **WARN** で、追跡外のファイルと追跡ファイルの差分を区別しない(`git status --porcelain`)。ポッドでは追跡外のファイルが常にあるので**毎回 WARN が出る**(既存の run は全部 `dirty: true`)。`run.py` は差分を記録するだけで止めない
+- **失敗の筋書き(再現した)**: I5(R8。アダプタの固定オフセットの T1b・T3)にはパイロット用プールの `items.jsonl` が要り、`configs/exp_order6b_pilot.yaml` の冒頭の手順(`ft_data` → `eval_pool`)で作り直す。**これを診断の 4 腕より先にポッドで回すと、追跡ファイルの manifest 5 本の `created_at`・`git_commit` が動き、`git diff HEAD` が 3,380 バイトになる**(scratchpad の clone で再現。上の (ii))。
+  `git checkout -- data/generated` で戻す手順は `infra/RUNPOD.md:329` にあるが、**「順1b の手順」の節の中**であり、診断の手順ではない。戻し忘れた状態で 4 腕を回すと、preflight は普段どおり WARN を出して通り、GPU の後に判定表が 4 腕とも止まる。
+  **同じ止まり方の別の入口**: `_capture`(`code/artifacts.py:218`)は stdout と stderr を連結して `git_diff.patch` に書くので、`git diff HEAD` が警告を stderr に出す環境では、差分が空でも patch が 0 バイトにならない(既存のポッドの run では起きていない。起きれば同じく GPU の後に止まる)
+- **判定を黙って変える経路ではない**(止まる側に倒れる)。代価が GPU であることだけが問題
+- **案(エージェントの案。§8.1 は変えない)**:
+  (a) `run.py` の掃引の経路で、config に `sharpness:` 欄がある run は、**run dir を作る前・重みを読む前**に `git diff HEAD` が空でなければ止める(R7 の 4 と同じ条件を同じ関数の形で前にも置く)/
+  (b) preflight に「追跡ファイルの差分」の検査を分けて足し、診断の run では FAIL にする(追跡外は見ない)/
+  (c) 手順だけ: RUNNER は各腕の直前に `git status --porcelain --untracked-files=no` が空であることを確かめ、I5 のプールの作り直しの後は `git checkout -- data/generated` を必ず通す
+- **推奨**: (a)。§8.1 R7 は機械的に止めるので、同じ条件を GPU の前にも置くのが最も安い。**tag の前に入れる**(tag の後にコードを変えると C111-2 の比べ方がさらに難しくなる)
+- **誰が決めるか**: 人間(採れば IMPLEMENTER)
+
+#### C111-2【中・比べ方が決まっていない】「判定表の先頭の sha を tag の commit と見比べる」の基準が無く、過去の運用では sha は tag の commit と一致していない
+
+- **何が**: §8.1 R7(`plans/PLAN-032:361`)と ADR-109 決定1 は「その sha を判定表の先頭に出す。tag の commit と見比べるのは人間」で止まっており、**一致を求めるのか、tag の子孫で特定のパスに差分が無ければよいのかが書かれていない**
+- **過去の事実**: `preregister-order6b` の tag は `e714f8a`、順6b の 7 本は `b5838c0`(tag の 2 commit 後。`code/`・`configs/` の差分は無い)。`preregister-pilot-ft` の tag は `37346bf` で、1 回目の評価は同じ `37346bf`、回し直し(313)は `cbe76ce`(ADR-104。新しい tag は打っていない)。**「tag の commit と一致」を基準にすると、順6b は外れる**
+- **今回も外れる見込みが高い**: §6 罠1(`plans/PLAN-032:272`)は「I5 の config は tag の後に作ってもよい」。tag → I5 の config の commit → ポッド、の順になると、4 腕は tag より後の commit(`configs/` に差分あり)で回る。**そのとき受け入れるかを、人間が判定表を見た後に決めることになる**(結果を見た後の判断の余地。小さいが事前登録の趣旨に反する)
+- **案**:
+  (a) **4 腕は tag の commit そのもので回す**(ポッドで tag を checkout してから 4 腕を続けて回し、I5 はその後に新しい commit で回す。bundle で渡すなら `git bundle create ft.bundle main preregister-diag-sharpness` のように tag を含める)。人間の比べ方は「一致」になる /
+  (b) tag の前に基準を書く: 「tag が sha の祖先であり、`git diff <tag> <sha> -- code/ configs/ data/generated/ infra/` が空」。RUNNER の手順(と、要るなら §8.1 R7 の注)に置く /
+  (c) このまま(判定表を読むときに人間が決める)
+- **推奨**: (a)(比べ方が一致になり、判断の余地が消える)。(a) が運用で守れなかったときの予備として (b) の文面も tag の前に置く
+- **誰が決めるか**: 人間
+
+#### C111-3【中・来歴の片側】判定表の先頭の sha は「run の commit」であり、判定を当てた解析コードの commit は記録されない
+
+- **何が**: R2〜R5 の規則のうち、線・差の幅・件数は run の config の `sharpness` 欄から読むが、**Δ₂ の 4 項(`THRESHOLD_RULES`)・「3 セルすべて」・R4 の表・R5 はコードにある**(`sharpness_fit.py` と、それが読む `r8_fit`・`t3_comparison`・`gonogo`)。
+  判定表は ANALYST が手元で**後から**回す(`main`。`sharpness_fit.py:1287`)が、そのときの `git rev-parse HEAD` と作業ツリーの差分はどこにも残らない。json の `commit_sha`(`:1091`)と txt の最初の行は run 側の sha である
+- **失敗の筋書き**: tag の後に `sharpness_fit.py` を直した(または作業ツリーで書き換えた)状態で判定表を出しても、先頭の sha は tag と一致し、**「凍結したコードで判定した」と読める**。事前登録が守りたいのは「データを見る前に規則を固めた」ことで、その規則の半分はコード側にある
+- **案**:
+  (a) 判定表に解析側の来歴を 1 行足す(`analysis_commit_sha` = 解析時の `git rev-parse HEAD` と、`git diff HEAD -- code/` が空かどうか。**止めずに表示だけ** —— 段4 で同じコードを別の tag で使っても衝突しない)/
+  (b) 手順だけ: ANALYST は tag を checkout して判定表を出す /
+  (c) 人間が読むときに `git log <tag>..<判定表の commit> -- code/analysis/ code/eval/battery/` を見る
+- **推奨**: (a)(小さい変更で、読む人が 2 つの sha を並べて見られる)+ 読むときに (c)
+- **誰が決めるか**: 人間(採れば IMPLEMENTER。tag の前が安い)
+
+#### C111-4【低〜中・事前登録の証拠力】凍結 tag は手元にしか無く、外部の時刻の裏付けが無い
+
+- **何が**: `git ls-remote origin` は `refs/heads/main` = `6bcddca`(2026-09-12)だけを返し、**tag は 1 つも無い**。`preregister-order6b`・`preregister-pilot-ft` はどちらも `origin/main` から辿れない。`CLAUDE.md` §5 は tag で「予測が実験前に書かれた」ことが証明できるとするが、**手元の tag の日時と commit の日時は後から作り直せる**ので、第三者に対する証拠にはならない
+- **ADR の範囲**: ADR-073 決定3 は順5 のために main を `origin` へ push することを認めた(コードの渡し方として)。**tag の push と、その時期(GPU の前)を決めた ADR は無い**
+- **案**: (a) G2-1 の GPU の前に main と `preregister-*` の tag を `origin` へ push する(GitHub 側に時刻が残る。外部へ送る操作なので人間が打つ)/ (b) 論文の段(Phase 1 の凍結)でまとめて外部の事前登録(OSF など)に出し、段2 は手元の tag のままにする / (c) 何もしない
+- **推奨**: (a)。今回の tag は段4 まで効く線(R9)を固めるので、段4 の論拠にもなる
+- **誰が決めるか**: 人間(push はエージェントがしない)
+
+#### C111-5【低・ADR-109 の前提の穴】「同じ commit で差分なし ⇒ run dir の config はその commit の config」は、`--config` が追跡外のファイルだと成り立たない
+
+- **何が**: ADR-109 決定1 の理由(`logs/DECISIONS.md:6978`)は「4 本が同じ commit で追跡ファイルの変更なしに回ったなら、run dir の `config.yaml` の写しはその commit の config」。しかし `write_config_copy`(`code/artifacts.py:221`)は `--config` に渡されたファイルをそのまま写し、**そのパスは記録されない**。`git diff HEAD` は追跡外のファイルを見ない
+- **再現**: scratchpad の clone で、追跡外の `configs/exp_diag_b_pod.yaml`(`delta2_line: 0.05`)を置いても `git diff HEAD` は 0 バイト(上の (iii))。4 腕とも同じように書き換えた追跡外の config で回すと、R7 の 3(宣言との一致)も 4(出どころ)も通り、判定表は線 0.05 で出る
+- **重くない理由**: 判定表の txt は `線 = …`・件数・adapter・batch・上位 k の値を表示する(`report_lines`。`sharpness_fit.py:1149` 以降)ので、読む人が §8.1 の値と見比べれば気づく。RUNNER の手順は repo の config を使う
+- **案**: (a) `sharpness_fit` が各 run の `config.yaml` を `git show <commit_sha>:configs/exp_diag_<腕>.yaml` と照合する(**記録された sha の中の config と比べるので、ADR-109 が却下した (b)「動く repo の config と照合」とは違う**。段4 では config の名前が変わるので、パスは引数にする)/ (b) `run.py` が `--config` のパスと、それが追跡ファイルかを記録する / (c) 何もしない(判定表を読むときに、表示された値を §8.1 と見比べる項目を手順に 1 行置く)
+- **推奨**: (c)。値は表に出ており、(a)・(b) は段4 での使い回しの設計が要る
+- **誰が決めるか**: 人間
+
+#### C111-6【低・結果を見た後の選択の余地】同じ腕に完了した run が 2 本あるとき、どちらを使うかが §8.1 に無い
+
+- **何が**: ADR-109 のリスク欄は「コードを変えずに同じ commit で回し直すなら止まらない」とする。しかし glob(`runs/*_exp_diag_*`)は完了した run(`metrics.json` がある)を全部拾い、同じ腕が 2 本あると `runs_by_arm`(`sharpness_fit.py:436`)で止まる。**どちらを残すかは、2 本の中身を見た後に人間か RUNNER が選ぶことになる**。batch 4 の近接同点は回すたびに揺れうる(ADR-078 決定10)ので、2 本の判定が同じとは限らない。(途中で落ちた run は `metrics.json` が無いので glob に当たらない。`aggregate.expand_metrics_paths`)
+- **案**: (a) tag の前に規則を置く: 「腕ごとに最初に完了した run(`run_id` の時刻が早いほう)を使い、ほかの完了した run は判定表の注に Δ₂ を並べる」/ (b) 完了した run がすべて同じ判定を出すことを求め、割れたら止める / (c) このまま
+- **推奨**: (a)(RUNNER の手順か §8.1 R7 の注に 1 行)
+- **誰が決めるか**: 人間
+
+### 観察(指摘ではない)
+
+- **`check_pair_differences` の「平均 = 点推定」は、`build_report` の経路では恒等式で、落ちることが無い**。`check_level_counts`(`:1038`)が先に (タスク型 × 既知性 × 極性 × θ) ごとに件数 = `n_per_level` を確かめ、同じ分け方の `cell_delta2` で組の数 = `n_per_level` が通れば、各 (極性, θ) の行と組は 1 対 1 になり、組ごとの差の平均は Δ₂ と代数的に一致する。**経路の上で実際に効くのは組の数の検査のほう**(同じ被演算子の行がどの水準にも 1 つずつ重なる場合を止める)。平均の検査は `cell_delta2` を直接呼ぶ経路(読み 17)の守りである。誤りではないが、追加の守りとして数えない
+- `check_provenance` の sha は run の開始時(重みを読む前)に書かれる(`run.py:2116`)ので、生成の途中の checkout には影響されない
+
+### 問題が見つからなかったもの(反証を試みた)
+
+- **`check_provenance` の分岐**: 4 本とも sha が無い・一部が無い・sha が 2 種類以上 → どれも問題の一覧に入り、まとめて 1 つの `SharpnessError`。問題が無いときだけ `next(iter(recorded))` に届き、そのとき `recorded` はちょうど 1 要素。`build_report` の中(`check_premises` の直後)なので CLI も直接呼ぶ経路も通る
+- **sha の書式(読み 18)**: `fullmatch` で 16 進 40 桁か 64 桁。`strip()` で CR を落とす。git の失敗の文言は通らない
+- **pod の実物の形で通る**: 順6b の B0(`b5838c0`)・パイロット FT の評価(`37346bf`・`cbe76ce`)の `git_sha.txt` は 1 行目が 40 桁の 16 進・`dirty: true`・`git_diff.patch` は 0 バイト。clean な作業ツリーでの `write_git_sha` は `dirty: false`・patch なしで、こちらも通る
+- **診断のプールを作り直しても R7 の 4 には掛からない**: `ef582f1` の clone で `exp_diag_pool.yaml` の冒頭のコマンドを回すと、追跡ファイルは 1 つも変わらない(manifest は時刻・パスを持たず決定的。`items.jsonl` の sha256 は追跡している manifest の `files` が縛る)
+- **判定の値を変える経路は増えていない**: diff の中で R2〜R5 の関数(`delta2_point`・`arm_reaches`・`next_stage`・`r5_decision`)と `confidence_interval` の定義は変わっていない。`cell_delta2` の区間は、同じ `differences` を変数で使い回しただけ
+- **§8.1 は ADR-109(`c81b288`)の後で不変**: `git diff c81b288 ef582f1 -- plans/PLAN-032` の変更はヘッダ・§10・§11 だけ(§8.1 は 295〜373 行)。tag はまだ無い
+- json の最初の鍵が `commit_sha`(dict の挿入順)・txt の最初の行が `commit: …`
+
+### `AGENTS.md` の CRITIC チェックリスト(この対象に当てはまるものだけ)
+
+- [x] 事前登録した予測が実験後に書き換えられていないか → **まだ実験前**。§8.1 は `c81b288` の後で不変。ただし「凍結した」ことを外部に示す手段が無い(C111-4)と、判定の時点のコードが記録されない(C111-3)
+- [x] 結果を説明する、より退屈な仮説 → 判定表が止まったときの退屈な原因(プールの作り直しの manifest の時刻)を再現した(C111-1)
+- 数値・引用・同等性検定・シード数・4 値分解は、この対象(判定を固める tag)には当たらない(判定表は二値群の 4 値分解に入れない = PLAN-032 §8.1 R1)
+
+### まとめ(人間へ)
+
+- **tag を止める誤りは見つからなかった**。§8.1 R1〜R9 は ADR-109 の後で変わっておらず、ADR-109 決定1・2 の実装は R7 どおりで、判定の値を変える経路は増えていない
+- **tag の前に決めると安いもの**: C111-1(GPU の前の門。推奨 (a) = IMPLEMENTER)/ C111-2(tag と run の比べ方。推奨 (a) = 4 腕は tag の commit で回す)/ C111-3(解析側の sha。推奨 (a) = IMPLEMENTER)/ C111-6(完了した run が 2 本のとき。推奨 (a) = 1 行)
+- **tag の後でもよいが GPU の前に**: C111-4(tag の push。推奨 (a) = 人間が push)
+- **何もしなくてよいと考えるもの**: C111-5(推奨 (c)。表の値を読むときに見比べる)
+- C111-1・C111-3 をコードで入れるなら IMPLEMENTER のセッションがもう 1 回要り、tag はその後になる。**入れずに tag を打つなら、C111-1 は (c) の手順を RUNNER に渡すことが最低限**

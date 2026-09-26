@@ -18,6 +18,48 @@
 
 ---
 
+## ★2026-09-26(その111)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その111(CRITIC。凍結 tag が固めるものの突き合わせ)で差し替えた 5 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-09-26(その110)/ by IMPLEMENTER (Sonnet 5。推奨と一致。ADR-109 決定1・2 を `code/analysis/sharpness_fit.py` とテストに実装した。`pytest code/tests -q` = 1991 passed。**GPU 0・pod 0・tag なし**)
+(**次は凍結 tag(人間)→ G2-1 GPU 承認(人間)**。決定1 の `check_provenance` と C108-3 の `check_pair_differences` の diff は、気になれば tag の前に人間か CRITIC が見る(ADR-109 決定4)。段1 は閉じたまま(ADR-106)。
+pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
+
+### いま何をしているか
+
+> **★★2026-09-26(その110・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。ADR-109 決定1・2 を実装した。GPU 0・pod 0・tag なし。**
+> - **決定1**: `check_provenance`(`build_report` の中・`check_premises` の直後)が、4 本の run の `git_sha.txt` の 1 行目(16 進 40 桁か 64 桁の sha)の一致と `git_diff.patch` が無いか 0 バイトを判定の時点で照合し、sha を判定表の先頭(json の最初の鍵 `commit_sha`・txt の最初の行)に出す。`dirty:` の欄は見ない(pod の既存の run は全部 `dirty: true`・diff 0 バイト)
+> - **決定2**: C108-2 = シナリオ `split_t3_b_reaches`(R5 の 3 つ目の引数を `(ARM_B, T3)` に取り違えると落ちることを確かめた)/ C108-3 = `check_pair_differences`(組ごとの差の数 = `n_per_level`・平均 = 点推定を `Fraction` で。**合否・区間の計算法は不変**)/ C108-4 = 例外の型の残り(`metrics.json` の欠け・`run_id`・トークナイザ・glob 0 本・`top_k` の形)
+> - **検査**: `pytest code/tests -q` = 1991 passed(その107 は 1958。`test_sharpness_fit.py` は 97 → 130)/ config 4 本の `--dry-run` = 102,892 件(不変)/ 自己点検 17 通り(すべて対応するテストが落ちた)
+> - **実装の読み(`plans/PLAN-032` §11 の注 18〜25。人間が tag の前に覆せる)**: 18 sha の書式を見る(git の失敗の文言が 4 本そろっても一致と読まない)/ 22 0 本の glob で実際に出るのは `IndexError` でなく `AggregateError`(CRITIC の指摘の型が違っていた)/ 23 `check_premises` の上位 k の個数も `TypeError` の穴だった
+> - **★その109 のブロックは `logs/STATE-ARCHIVE.md`「その110」にある**
+
+### 人間の承認・判断を待っている事項(索引の行)
+
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その110 実装済み | **人間の操作 2 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。`plans/PLAN-032` §8.1 の R1〜R9 と実装の入った commit)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。**ADR-109 決定1・2 は実装済み(その110。`pytest` = 1991 passed・dry-run 102,892 件)。tag の前に人間が確かめること = `plans/PLAN-032` §11 の注 18〜25**。経緯の全文は `logs/OPEN-ITEMS.md` の行と `logs/STATE-ARCHIVE.md`「その110」 | **ADR-107** / **108** / **109** / `plans/PLAN-032` §8.1・§8.2・§11 | いま(その110 で実装済み) |
+
+### 次のアクション
+
+> **★★2026-09-26(その110・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **人間: 凍結 tag**(案 `preregister-diag-sharpness`。`plans/PLAN-032` §8.1 の R1〜R9 と実装の入った commit。§8.2)→ **G2-1 GPU 承認**(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。アダプタ 10 本の T1b・T3 を含む)。**tag の前に**: `plans/PLAN-032` §11 の注 18〜25(実装の読み)と、気になれば決定1 の `check_provenance`・C108-3 の `check_pair_differences` の diff(人間か CRITIC。ADR-109 決定4)→ 実行(RUNNER。**4 腕を同じ commit で続けて回す**(決定1 の代価 = 途中でコードを直すと 4 腕とも回し直し)。プールはポッドで `exp_diag_pool.yaml` から作り直す)→ 判定表(ANALYST。機械的)。**I5 とアダプタの T1b・T3 は tag の後だけ**(ADR-099 決定5・罠1)
+> 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
+> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106。印の意味づけ・`p2d` の扱いを含む)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 引き継ぎ
+
+> **★★2026-09-26(その110・最新)。IMPLEMENTER (Sonnet 5。推奨と一致)。ADR-109 決定1・2 を実装した。GPU 0・pod 0。**
+>
+> **★やったこと**: `code/analysis/sharpness_fit.py`(`check_provenance`・`check_pair_differences`・例外の型)/ `code/tests/test_sharpness_fit.py`(97 → 130 件)/ `plans/PLAN-032`(ヘッダ・§10・§11 の表と注 18〜25)/ `logs/OPEN-ITEMS.md` の行。
+> **★やっていないこと**: tag / pod / `plans/PLAN-032` §8.1 / `logs/DECISIONS.md` / `logs/CRITIQUE.md` / config・テンプレート / R2〜R5 の関数と区間の計算法。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
+---
+
 ## ★2026-09-26(その110)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その110(IMPLEMENTER。ADR-109 決定1・2 の実装)で差し替えた 5 か所を、1 文字も変えずに移した。

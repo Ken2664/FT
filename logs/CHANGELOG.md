@@ -7088,3 +7088,19 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **「結果が良すぎる」の確認(`CLAUDE.md` §7)**: ident の 313 と 625 の応答が 74〜79/80 で一致する。**2 つの回は別のアダプタを読んでいる**(p2 s0 の 313 対 625 は response が 67〜77/80 しか一致しない。評価 run の `adapter_train_run_id` はそれぞれ `_n313` 付き / 無しの訓練 run を指す)。**なぜ ident で一致が高いかは調べていない・解釈していない**
 - **書き換えたもの**: `plans/PLAN-031`(§8.4 新設・§11 に 1 行)/ `code/analysis/t2_response_profile.py`・`code/tests/test_t2_response_profile.py`(新規)/ `results/pilot_ft_t2_profile/`(新規)/ `STATE.md`(旧文は `logs/STATE-ARCHIVE.md`「その98」)/ `logs/OPEN-ITEMS.md`(★313 の行の (4) に済みの印)/ `logs/HANDOFF.md` / 本ファイル。**config・既存のコード・ADR・run dir・`results/pilot_ft/`・`results/pilot_ft_n313/` は変えていない。tag なし**
 - **未解決(すべて人間。`CLAUDE.md` §8)**: 印の意味づけ(この数え上げを材料に)/ 回数の上限に届いた後の次の手(`learning_rate` を動かすか = ADR-103 決定8・基準の見直し・別の手。新しい ADR)/ `p2d` の扱い / 3 本の pod の terminate
+
+## 2026-09-26(その99)
+
+### docs(adr): ADR-105 回数の上限に届いた後の次の手 —— GPU 0 の診断を先に入れる(人間が推奨を選んだ)。PLAN-031 §8.5 を新設した(GPU 0・pod 0・tag なし)   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その98)の 1 件。**推奨モデル(Opus)と実モデル(Opus 5.5)は一致した**(冒頭で述べた)
+- **聞く前に、既存の `metrics.json` から材料を読んだ(読み取りのみ。数値は §8.5 の出力に置き直す)** [run:20260922_121455_order6b_b0] [run:pilot_ft_train_p2_s0] [run:pilot_ft_train_p2_s1] [run:pilot_ft_train_ident_s0] [run:pilot_ft_train_ident_s1] [run:pilot_ft_train_p2d_s0] [run:pilot_ft_train_p2_s0_n313] [run:pilot_ft_train_p2_s1_n313] [run:pilot_ft_train_ident_s0_n313] [run:pilot_ft_train_ident_s1_n313] [run:pilot_ft_train_p2d_s0_n313]:
+  - 素のモデル B0 の T2(`by_batch` の `word_problem` 160・`word_problem.ans_out` 80)は、参照規則すべてで correct 1.000 / rule 0.000 / other_error 0.000 / parse_fail 0.000。`pool.items_sha256`(`c5072f488607f6e9…`)と `generation` はパイロット FT の評価 run と同じ(B0 は 1,640 項目・評価 run は 680 項目を解いた)
+  - `results/pilot_ft{,_n313}/gonogo_ft.json` の `baseline` は 2 回とも null(`--baseline` が渡されていない)
+  - 313 の訓練 run の `outcome.losses` 313 個は、625 の訓練 run の先頭 313 個と `==` で 313/313 一致(5 条件すべて。ホストは別)
+  - 損失が初めて 0.1 / 0.01 / 1e-3 を下回るステップ: `ident` s0・s1 = 3 / 3 / 4、`p2` s0 = 12 / 17 / 35、`p2` s1 = 14 / 19 / 35、`p2d` s0 = 62 / 85 / 88
+- **人間に聞いた(`AskUserQuestion` 1 回・1 問)**: 選択肢 = GPU なしの診断を先に(推奨)/ 途中のチェックポイントで掃く / `learning_rate` を下げて 1 回 / #5 の基準を見直す。**人間は推奨を選んだ**(ADR-105 のリスク欄に 9 回目と記録)
+- **聞いた後に確かめたこと(§8.5 を書くため)**: 訓練の書式(`"{a}+{b}="` → `"{target}"`・`chat_template: true`)/ `predictions/*.jsonl` の欄(`category`・`operands`・`prompt` などがある)。**欄を確かめたときに同じ項目の 2 行が見えた**(B0 は文章で式を書いてから `Answer: 139`、`ident_s0_n313` は `139` だけ)。**2 行を見ただけで数えていない・解釈していない**
+- **書いたもの**: `logs/DECISIONS.md` ADR-105(決定1 = 診断を先に・段1 の GPU は始めない / 決定2 = §8.5 の範囲(具体化)/ 決定3 = 診断の後の手は人間が新しい ADR で)/ `plans/PLAN-031` §8.5(新設。§8.1〜§8.4 は変えていない)・§11 に 1 行 / `logs/OPEN-ITEMS.md`(★313 の行に追記)/ `STATE.md`(ヘッダ・いま何をしているか・索引 1 行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その99」)/ `logs/HANDOFF.md` / 本ファイル
+- **変えていないもの**: config・コード・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`。**GPU 0・pod 0(3 本とも `EXITED` のまま。触っていない)。tag は打っていない**。`pytest` は走らせていない(コードの変更なし)
+- **未解決(すべて人間。`CLAUDE.md` §8)**: §8.5 の後の次の手 / 印の意味づけ / `p2d` の扱い / 3 本の pod の terminate

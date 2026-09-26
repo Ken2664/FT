@@ -499,6 +499,46 @@
 - **出力**: `results/pilot_ft_t2_profile/t2_profile.json` + `t2_profile.out`(新規。`results/pilot_ft/`・`results/pilot_ft_n313/` は触らない)
 - **検算**: 1 の 4 値が `results/pilot_ft{,_n313}/gonogo_ft.json` の `cells` の T2 行と一致することを確かめる(セッション内。CHANGELOG に残す)
 
+### 8.5 T2 の崩れ方の形の数え上げ —— 素のモデルとの対照(★2026-09-26 その99。ANALYST。**記述のみ・GPU 0**。回答は ADR-105)
+
+> **§8.1 B の「止めて報告」の後に、人間が次の手を選ぶ材料を出すだけの追補**(人間がその99 に「GPU なしの診断を先に」を選んだ。ADR-105 決定1)。
+> 次の手の候補は、途中のチェックポイントの掃引 / `learning_rate` / #5 の基準 / 訓練の書式 / 段1 を閉じる、など(ADR-105 決定3)。**§8.1〜§8.4 は変えない。印・§8.4 の出力は作り直さない。**
+> 解釈(「FT が○○を壊した」・原因の断定)・判定・効果量は書かない。`pool_id: pilot` の数値は主張に使わない(罠2)。
+> **範囲の細部はエージェントの具体化**(人間には別の問いとして聞いていない)。ANALYST が実装の前に変えるなら §11 に理由を書く。
+
+- **入口(案)**: `python -m code.analysis.t2_form_profile --baseline runs/20260922_121455_order6b_b0 --runs "runs/pilot_ft_eval_*" --train-runs "runs/pilot_ft_train_*" --out-dir results/pilot_ft_t2_form`
+  - 新規モジュール(読み取り専用)。**§8.4 の `t2_response_profile` の出力は変えない**(読み込み・セルの写像の関数は共有してよい)
+- **対象**:
+  - 素のモデル [run:20260922_121455_order6b_b0](adapter null・pool `c5072f48…`・1,640 項目を解いた run)。**`--baseline` はアダプタの無い run 1 本だけを受け付ける**
+  - 評価 run 10 本(§8.4 と同じ。回は訓練 run の `outcome.n_steps` から引く)
+  - 訓練 run 10 本(下の 7 のためだけ。`metrics.json` の `outcome.losses`)
+- **前提の確かめ(食い違えば止める)**:
+  - (a) 素のモデルの `pool.items_sha256` が評価 run と同じ
+  - (b) T2 の `item_id` の集合が、素のモデルと各評価 run で同じ(セルごとに 80。セルの写像は `frame.build_rows`)
+  - (c) 同じ `item_id` の `prompt` の文字列が、素のモデルと各評価 run で同じ
+  - (d) `metrics.json` の `generation` の `revision`・`max_new_tokens`・`do_sample`・`chat_template`・`batch_size` が同じ
+  - **止めずに注記すること**: 素のモデルは 1,640 項目、評価 run は 680 項目(`task_subset`)を解いたので、**バッチの組み合わせは違う**(順6 の R4 は batch の違いで応答が変わった例。`STATE.md`「順6」)
+- **(run × セル)ごとに出すもの**(セル = T2 × {`id`, `interp`, `extrap_magnitude`}。**素のモデルも 1 行として並べる**):
+  1. **応答の形**(排他的な 4 類。定義は定数としてコードに置き、テストで縛る。**下の定義が初期値。変えたら §11 に書く**):
+     - `number_only`: 前後の空白を除いた全体が数だけ(`-?[0-9][0-9,]*`)
+     - `answer_tag_only`: 空でない行が「数だけの行」か「`Answer:` + 数の行」だけで、`Answer:` の行が 1 つ以上ある
+     - `with_words`: 上の 2 つでなく、英字 2 文字以上の語を含む
+     - `other`: 上のどれでもない(空文字を含む)
+  2. **応答の長さ**: 文字数の最小・中央値・最大 / 空でない行の数の中央値
+  3. **被演算子の式を書いた件数**: 応答に `a + b` か `b + a`(`a`・`b` はその項目の `operands`。`+` の前後の空白は任意)が現れる件数
+  4. **形 × 4 値の分類の件数の表**(その run の条件自身の規則のブロック。`gonogo_ft` の `OWN_RULE`。素のモデルは `p2`)
+  5. **場面の `category`(`t2_people` など)ごとの 4 値と、最頻の `parsed` の上位 3 件**(件数つき。`TOP_CATEGORY_SHOWN = 3`。同数は値の昇順)
+- **参考行**(T1 の書式での比較。**上の 1・2 と 4 値だけ**):
+  6. T1 × `id`(`bare_sum`)と指示付き T1(`bare_sum_instructed`)。素のモデルと評価 run 10 本
+- **訓練の損失**:
+  7. 訓練 run ごとに、`outcome.losses` が `LOSS_THRESHOLDS = (1e-1, 1e-2, 1e-3)` を初めて下回るステップ(1 始まり。下回らなければ null)と、最初の 5 個の値 / 同じ (条件, シード) の 313 と 625 について、先頭 313 個の損失が `==` で一致する個数(分母つき)
+- **出力**: `results/pilot_ft_t2_form/t2_form.json` + `t2_form.out`(新規。`results/pilot_ft/`・`results/pilot_ft_n313/`・`results/pilot_ft_t2_profile/` は触らない)
+- **検算**(セッション内で確かめ、CHANGELOG に残す):
+  - 評価 run の 4 値が `results/pilot_ft{,_n313}/gonogo_ft.json` の `cells` の T2 行と一致する
+  - 素のモデルの 4 値を群ごとに足し合わせると、その run の `metrics.json` の `by_batch` の `word_problem`・`word_problem.ans_out`(参照規則 `p2`)と一致する
+  - 各セルで 4 類の合計が 80 / 4 の表の合計がセルの件数と一致する
+- **エージェントが PLANNER として既存の `metrics.json` から読んだ値**(ADR-105 の文脈 (1)〜(4))は、7 と B0 の行で `results/` のファイルに置き直される。**食い違えば出力を正とし、ADR-105 に打ち消し線で直す**
+
 ---
 
 ## 9. やらないこと(この PLAN では)
@@ -541,3 +581,4 @@
 | 2026-09-25(その93) | **G1-1・G1-2・#4b の基準を人間に聞き、ADR-103 と §8.1・§8.2 に記録した**(PLANNER。Opus 5.5)。判断材料の表(ファイルで確かめた事実 4 件 + 算定)をチャットで見せてから、`AskUserQuestion` を 3 回(4 + 4 + 2 問)使った。**10 問すべて推奨の選択肢**: G1-1 = 一括承認・上限 4 時間・`p2` s0 の訓練の後に外挿して止める / VRAM の退避規則を採る / #4b = 0.90 と読み方を確認 / G1-2 = 上限つき一括(段1 全体 9 時間)・倍か半分で各向き 1 回・衝突は止める・#4b と #5b では動かさない・lr は自動で動かさない / tag は人間が文面を読んでから打つ / 停止中ポッドの行の古い分を閉じ、`lh823acvxuo8ux` は残す。**見つけた事実**: 訓練ループは途中経過を出さない(`lora.py` は損失を最後にまとめて書く)ので、秒/ステップは run 全体の壁時計からしか出ない。そのため二段(計時の短い run)は採らなくても、最初の本番 run が同じ情報を出す。**config・コードは変えていない。GPU 0。tag は打っていない** | — | PLANNER (Opus 5.5) |
 | 2026-09-25(その96) | **回し直し(`num_steps` 313)の config 8 本を作った**(IMPLEMENTER。Sonnet 5)。人間の 4 回答(313 を進める / 上限超過は記録のみ / $0.74/時まで承認・pod は RUNNER・新しい tag は打たない / `p2d` も回し直す)を ADR-104 に記録。`infra/make_pilot_ft_configs.py` に `--num-steps`(受け付ける値は 313 だけ)・`Round`・`eval_run_dir` を足し、`configs/exp_pilot_ft_{train_*,eval_*}_n313.yaml` の 8 本を書いた(1 回目との差は `experiment.id`・`train.num_steps`・評価の `model.adapter` だけ。1 回目の 8 本は tag から 0 差分)。`test_pilot_ft_configs.py` に 31 テスト・`pytest code/tests -q` = 1747 passed。§8.3 を新設(§8.1・§8.2 は変えていない)。GPU 0・pod 0 | — | IMPLEMENTER (Sonnet 5) |
 | 2026-09-26(その98) | **§8.4 の T2 の応答の内訳を数え上げた**(ANALYST。Opus 5.5。人間がその98 の冒頭でこの仕事を選んだ)。§8.4 を新設し、`code/analysis/t2_response_profile.py`(読み取り専用)+ テスト 12 件を足した(`pytest` 1759 passed)。1 回目 5 本・回し直し 5 本の評価 run を読み、`results/pilot_ft_t2_profile/` に出した。4 値は `gonogo_ft.json` の T2 行と 60/60 ブロックで一致。**記述のみ・解釈していない**。数値は `logs/CHANGELOG.md` その98。GPU 0・pod 0 | pilot_ft_eval_*(10 本。読んだだけ) | ANALYST (Opus 5.5) |
+| 2026-09-26(その99) | **回数の上限に届いた後の次の手を人間に聞き、ADR-105 と §8.5 に記録した**(PLANNER。Opus 5.5)。判断材料(その97 の 4 値・その98 の数え上げ + **このセッションで既存の `metrics.json` から読んだ 3 件**: 素のモデル [run:20260922_121455_order6b_b0] の T2 240 項目は correct 1.000 / 313 の訓練の損失 313 個は 625 の先頭 313 個と `==` で一致(5 条件)/ 損失が 0.01 を切るのは `ident` 3・`p2` 17〜19・`p2d` 85 ステップ)をチャットで見せ、`AskUserQuestion` 1 回・1 問。**人間は推奨の「GPU なしの診断を先に」を選んだ**。§8.5 を新設(§8.1〜§8.4 は変えていない)。GPU 0・pod 0・tag なし | pilot_ft_train_*・pilot_ft_eval_*(各 10 本)・20260922_121455_order6b_b0(読んだだけ) | PLANNER (Opus 5.5) |

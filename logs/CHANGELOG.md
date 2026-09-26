@@ -7316,3 +7316,15 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの(未コミット)**: `code/artifacts.py`・`code/eval/run.py`・`code/analysis/sharpness_fit.py`・`code/tests/test_sharpness_fit.py`。**コミットしたもの(記録だけ)**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その113」へ 1 文字も変えずに移した)・`logs/HANDOFF.md`・本ファイル
 - **変えていないもの**: `plans/PLAN-032`(§8.1 を含む。§11 の注は次セッション)・`logs/DECISIONS.md`・`logs/CRITIQUE.md`・`logs/OPEN-ITEMS.md`・config・テンプレート・R2〜R5 の関数と区間の計算法・`check_provenance` の中身・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし・push なし**
 - **未解決(すべて人間。`CLAUDE.md` §8)**: 実装の読み 26〜30 の確認(IMPLEMENTER が §11 に書いた後)→ PLAN-032 の凍結 tag(案 `preregister-diag-sharpness`)→ push → G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-26(その114)
+
+### docs(plan): ADR-110 決定1・3 の実装の続き —— 新テスト(`test_sharpness_fit.py` 180 件)は**初回で全部 passed**。全体の pytest = **2041 passed**。dry-run・自己点検・PLAN-032 §11 の注 26〜30・コードのコミットは**未実施**。context-guard(約 140k トークン)で切った。**コードは未コミットのまま。GPU 0・pod 0・tag なし・push なし**
+
+- `logs/HANDOFF.md`(その113)の 1 件。**推奨モデル(Sonnet)と実モデル(Sonnet 5)は一致した**(冒頭で述べた)。`CLAUDE.md` §1 の開始手順を実行し、skill `code-style` を読んだ(並行ブランチなし・作業ツリーは 4 ファイルが ` M`・RunPod MCP は使っていない)
+- **確かめたこと**: `PYTHONIOENCODING=utf-8 python -X utf8 -m pytest code/tests/test_sharpness_fit.py -q -p no:cacheprovider` = **180 passed(75.56 秒)**。その113 は変更前の 130 件だけを通していた(新 50 件は収集だけ)。**新テストは初回で全部通り、テスト側の誤りは出なかった**(HANDOFF が疑っていた (a)〜(d) は当たらなかった)。ただし通ったことは門・表示が効いていることの証拠ではない —— 自己点検(次セッション)で外して落ちることを確かめる。3 本の `.py` とテストの CR = 0。`git diff HEAD`(`artifacts.py`・`run.py`・`sharpness_fit.py`)を HANDOFF の記述と突き合わせて読んだ(一致)。**コードは 1 文字も変えていない**
+- **全体の `pytest code/tests -q`**: **2041 passed(312.14 秒)**。期待どおり(その113 の 1991 + 新 50 件)。背景で回し、その間はリポジトリのファイルを書き換えていない(`test_repo_hygiene` が途中の状態を読まないように)
+- **やっていないこと**: config 4 本の `--dry-run`・自己点検・`plans/PLAN-032` §11 の注 26〜30・`logs/OPEN-ITEMS.md` の行 80 への追記・コードのコミット(自己点検と、その後の全体の pytest のやり直しが済むまで)。**変異の案と `-k` の式は `logs/HANDOFF.md` に書いた**(次セッションが導き直さないため)
+- **書き換えたもの(コミットするのは記録だけ)**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その114」へ 1 文字も変えずに移した)・`logs/CHANGELOG.md`(本ファイル)・`logs/HANDOFF.md`(上書き)。**未コミットで作業ツリーに残るもの**: `code/artifacts.py`・`code/eval/run.py`・`code/analysis/sharpness_fit.py`・`code/tests/test_sharpness_fit.py`
+- **変えていないもの**: `plans/PLAN-032`(§8.1 を含む)・`logs/DECISIONS.md`・`logs/CRITIQUE.md`・`logs/OPEN-ITEMS.md`・config・テンプレート・R2〜R5 の関数と区間の計算法・`check_provenance` の中身・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし・push なし**
+- **未解決(すべて人間。`CLAUDE.md` §8)**: 実装の読み 26〜30 の確認(IMPLEMENTER が §11 に書いた後)→ PLAN-032 の凍結 tag(案 `preregister-diag-sharpness`)→ push → G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)

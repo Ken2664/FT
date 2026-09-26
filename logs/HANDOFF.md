@@ -1,9 +1,9 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-26(その101)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: **PLAN の 1 区切りが完了した**(回数の上限に届いた後の次の手を人間に聞き、ADR-106 で**段1 を閉じた**)
+生成: 2026-09-26(その102)/ 直前セッションの役割: PLANNER
+直前セッションが終了した理由: **PLAN の 1 区切りが完了した**(PLAN-032 を草案まで書いた)+ コンテキストが約 10 万トークンを超えた
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: **Opus** — 次は PLANNER が段2 の PLAN-032 を起草する(設計判断)。`Documents/10_CONTEXT_POLICY.md` §7 の表の「設計判断」の行(ADR-101)。**人間が覆せる**
+**推奨モデル(次のセッション)**: **Opus** — 次は PLANNER が PLAN-032 の H2-1〜H2-7(合否線・判定の規則など)を人間に聞き、ADR に書く(設計判断)。`Documents/10_CONTEXT_POLICY.md` §7 の表の「設計判断」の行(ADR-101)。**人間が覆せる**
 
 ---
 
@@ -14,40 +14,35 @@
 
 ## このセッションでやること(1つだけ)
 
-**段2(診断 = 鋭さ)の PLAN-032 を起草し、人間のレビュー(H2-1〜H2-5)に出せる形にする**(PLAN-030 §3.1・§3.2 段2。ADR-097 決定1・4・5)。
+**`plans/PLAN-032-sharpness-diagnostic.md` §4 の H2-1〜H2-7 を人間に聞き、回答を ADR に記録し、§8.1 に凍結する規則を書き写す。**
 
-1. 先に `ls plans/` で番号を確かめる(PLAN-030 §0: 031〜033 は予定番号)
-2. 読む(全文を読まない。`grep -n` で節を当ててから `sed -n`):
-   - `plans/PLAN-030-shortest-path-to-first-ft.md` §3.2 段2・§6(罠1〜4)
-   - ADR-097(`grep -n '^## ADR-097' logs/DECISIONS.md`。決定1 = 鋭さで設計 / 決定4 = 二値群の出口 / 決定5 = ③-ii・③-iii は診断で絞る)/ ADR-096(前段 FT の前の診断)/ ADR-099 決定5(パイロットのアダプタの T1b・T3 は PLAN-032 の凍結 tag の後に測る)
-   - 順6b の判定(`STATE.md`「わかっていること」の順6b の節: T3・T1b とも「採る候補なし」)/ ADR-078 決定5(★F139)/ ADR-079 決定8(G12)/ ADR-084(上位 k の記録)
-   - `plans/TEMPLATE.md`(形)
-3. PLAN-032 を書く: 答える問い・前提と事実(ファイルで確かめたもの)・H2-1〜H2-5 の記入欄の材料(**値は書かない。案は「エージェントの案」と明記**)・罠1(パイロットの T1b・T3 を合否線の凍結より前に開かない)・実装の仕様の骨子・必要なリソース(素のモデルの評価だけの見込み。**見積りは RUNNER**)・やらないこと・完了条件
-4. `logs/OPEN-ITEMS.md` に「PLAN-032 のレビュー待ち」の行 / `STATE.md` / CHANGELOG / commit / 次の `HANDOFF.md`
-5. 余裕があれば同じ場で人間に H2-1〜H2-5 を聞いてよい(**判断材料の表を先に見せ、推奨と理由つきで**。memory「Recommend before choice」)。聞かずに終えるなら、次のセッションで聞くと HANDOFF に書く
+1. 読む: `plans/PLAN-032` §0・§2.2・§3・§4・§6(全文は約 330 行。`grep -n '^##\|^###'` で節を当ててから `sed -n`)
+2. **聞く前に判断材料の表をチャットで見せる**(ADR-097 決定6・memory「Recommend before choice」): 事実 a〜e(R8 の β1・監査の換算・Yes/No の質量・1 位の綴り `To`・組の和)と、問いごとの選択肢・何が変わるか・**推奨と理由**。値の推奨も付ける(ADR-099 の前例: ユーザーは推奨つきで選びたい)
+3. `AskUserQuestion` で聞く(1 回 4 問まで。**依存がある**: H2-3 の (r2) は H2-4 で (f2) を選んだときだけ有効 / H2-1 の統計量 S3 の精度は H2-6 の `pairs_per_cell` に依る)。推奨の順はエージェントが決めてよいが、**H2-1・H2-2 は値と規則なので人間**
+4. ADR-107 を書く(提案 エージェント (PLANNER, Opus) / 採択 人間。ADR-039 決定3)→ PLAN-032 のステータス・§4 の回答欄・§8.1・§10・§11 → `logs/OPEN-ITEMS.md` の「PLAN-032 のレビュー」行に打ち消し線 → STATE / CHANGELOG / commit / 次の HANDOFF(IMPLEMENTER が §5 を実装)
 
-## 直前セッションで確定したこと(ADR-106)
+## 直前セッションで確定したこと
 
-- **段1 は閉じた。**印は 1 回目(625)・回し直し(313)とも `no4` true / `no4b` true / `no5`・`no5b_v1`・`no5b_v2` false のまま記録。**段1 の GPU はこれ以上使わない**(枠の残り 約 3.10 h は使わない。次の GPU は承認を取り直す)
-- **新しい人間待ち「★T2 の形の変化と #5 の扱い(Phase 1 の凍結前の設計の問い)」**を `logs/OPEN-ITEMS.md` に立てた。**印の意味づけ・`p2d` の扱い(ADR-103 決定7)もここ**。PLAN-032 はこの問いに答えない(T1b・T3 の鋭さの診断)。**PLAN-032 の中で T2 の問題を解こうとしない**
-- §8.5 の実装の読み 7 点は採った(覆さない)
-- **アダプタ 10 本の重みはボリューム `r963j7swke` 側にだけある**(この機の `runs/pilot_ft_train_*/adapter/` は `adapter_config.json` と `README.md` だけ)。PLAN-032 の凍結 tag の後に T1b・T3 を測るときはボリュームを使う。**ボリュームを消す案を書かない**
+- **PLAN-032 は草案。決定 0 件・回答欄は空欄。**H2-6(設計の案 = 腕・文面・組の数・差の水準)と H2-7(パイロットのアダプタの T1b・T3 の回し方)は PLAN-030 に無く、この PLAN で足した
+- 起草で確かめた事実(PLAN-032 §2.2): T1b の裸の書式は最初の出力位置の 1 位がすべて `To`(B0 480/480・R8 4,080/4,080)・Yes/No の質量の中央値 0.0003〜0.0015 [run:20260922_121455_order6b_b0] [run:20260922_122247_order6b_r8]、(d) の文面で 0.97〜0.9998 [run:20260922_123640_order6b_d] [run:20260922_125131_order6b_s_d] / R8 の組の和は `id`・`interp` 11〜192、`extrap_magnitude` 309〜1,913(組合せの性質)/ **ここで凍結する合否線は段4 でも使われる**(ADR-097 決定4 (ii))/ 描画は `{a}`・`{b}`・`{threshold}` しか差し込まない(`t3_comparison.py:328-345`)
+- 監査 §3.1・§3.2 の数値(β1 ≥ 0.18 など)は**監査の計算の写し**で、エージェントは計算し直していない
 
 ## 触ってよいファイル / 読むべき範囲
 
-- 書く: `plans/PLAN-032-*.md`(新規)/ `logs/OPEN-ITEMS.md` / `STATE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`(人間に聞いたら `logs/DECISIONS.md` に ADR)
-- **編集しない**: `configs/`・`infra/`・`code/`・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`(段3 の対象)
+- 書く: `logs/DECISIONS.md`(ADR-107)/ `plans/PLAN-032-*.md`(ステータス・§4 の回答欄・§8.1・§10・§11)/ `logs/OPEN-ITEMS.md` / `STATE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
+- **編集しない**: `configs/`・`infra/`・`code/`・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`
 
 ## やってはいけないこと
 
-- **値を決めない・解釈しない**: H2-1(合否線の値)・H2-2(判定の規則)などの値は人間。`pool_id: pilot` の数値は主張・効果量・Δ 5 行・E1 の境界に使わない(PLAN-030 §6 罠2)
-- **パイロットのアダプタの T1b・T3 を測る設計を、合否線の凍結 tag より前に置かない**(罠1。ADR-099 決定5)
-- **tag を打たない・pod を起動しない・GPU を使わない**(起草だけ)
-- 出典を確かめていない文献を書かない(`CLAUDE.md` §3。要るなら SCOUT に委譲し、転記は原典と突き合わせるまで未検証)
-- **この機は Windows**: JSON は `python -X utf8` で開く。`python3` は無い。CLI の標準出力は `PYTHONIOENCODING=utf-8`。長い文書は Write ツールで書く。`Read` は 25,000 トークンで打ち切られる(`STATE.md` は 2 回に分けて読む)。Python で書くときは `write_bytes` か `newline='\n'`(repo は LF)。**`STATE.md` は 59 KB で上限(60 KB)に近い** —— 新しいブロックを書いたら古いブロックを `logs/STATE-ARCHIVE.md` へ移す
+- **エージェントが値・規則を決めない**(推奨を付けて聞くのはよい。決めるのは人間。`CLAUDE.md` §8)
+- **パイロットのアダプタの T1b・T3 を凍結 tag より前に測る設計にしない**(罠1。ADR-099 決定5)
+- tag を打たない・pod を起動しない・GPU を使わない。`pool_id: pilot` の数値を主張・効果量に使わない
+- PLAN-032 の中で T2 の問題(ADR-106 決定3)を解こうとしない
+- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。`STATE.md` は 59.4 KB で上限(60 KB)に近い —— 新しいブロックを書いたら古いブロックを `logs/STATE-ARCHIVE.md` の先頭(`---` の直後)へ移す。**STATE.md とアーカイブを 1 本のスクリプトで書き換えるなら、両方の位置を確かめてから書く**(その102 で STATE.md だけ先に書かれた)
 
 ## 未解決 / 人間の承認待ち
 
+- **PLAN-032 の H2-1〜H2-7**(このセッションで聞く)
 - ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前。印の意味づけ・`p2d` の扱いを含む)
-- 3 本の pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(段1 を閉じたので、いつでも。**ボリューム `r963j7swke` は残す**)
+- 3 本の pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(いつでも。**ボリューム `r963j7swke` は残す**)
 - 変わらず: `STATE.md`「人間の承認・判断を待っている事項」と `logs/OPEN-ITEMS.md` のとおり

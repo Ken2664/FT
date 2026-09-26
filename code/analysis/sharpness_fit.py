@@ -28,10 +28,14 @@ r"""段2 の診断(鋭さ)の判定表(PLAN-032 I4。§8.1 R2〜R7。ADR-107・A
 - **R7 止める**(判定表を出す前): Δ₂ の 5 水準で (腕 × セル × 極性) の件数が `sharpness.n_per_level` でない /
   A(A-d)と B(B-d)で組・閾値・極性の対がそろわない、または A(A-d)の記録の `prompt` が B(B-d)の
   `prompt` の和の部分を x の数字に置き換えたものでない(ADR-108 決定6)/ R1 の前提が 4 本の run の記録と
-  食い違う(モデル・adapter・batch・上位 k・`pool.items_sha256`。ADR-108 決定5)。ほかに、記録が
+  食い違う(モデル・adapter・batch・上位 k・`pool.items_sha256`。ADR-108 決定5)/ **4 本の run の
+  `git_sha.txt` の commit が同じでない、または `git_diff.patch` が 0 バイトでない**(ADR-109 決定1。
+  `dirty:` の欄は見ない。**その commit の sha を判定表の先頭に出す**)。ほかに、記録が
   metrics.json と食い違う(`r8_fit.check_records`)・腕の宣言が欠ける・重なる・文面の出どころが違う run・
   R6 の記述の行が出せない run(上位 k の欠けなど)も止める(記述が出せなければ判定も出さない。ADR-108 決定7)。
-  **止める経路の例外は `SharpnessError` にそろえる**(`R8FitError`・欄の欠けの `KeyError` を包む)
+  **止める経路の例外は `SharpnessError` にそろえる**(`R8FitError`・欄の欠けの `KeyError` を包む)。
+  組ごとの差の数が `n_per_level` でない・その平均が Δ₂ の点推定と有理数で一致しない(組の鍵が重なった)
+  ときも止める(ADR-109 決定2。記述の行の前提の検査で、合否・区間の計算法には触れない)
 
 **R6 の「95% 信頼区間」の計算法は §8.1 R6 に書いてある**(ADR-108 決定2。旧「実装の読み 6」): **組ごとの差**
 `d_i = ¼ Σ [y_i(極性, θ) − y_i(極性, θ − 2)]`(Δ₂ = d_i の平均と一致する)を単位にした正規近似
@@ -44,6 +48,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -53,10 +58,10 @@ from statistics import NormalDist, median, stdev
 from typing import Any
 
 from code.analysis import r8_fit
-from code.analysis.aggregate import expand_metrics_paths
+from code.analysis.aggregate import AggregateError, expand_metrics_paths
 from code.analysis.frame import CONFIG_FILENAME
 from code.analysis.gonogo import GoNoGoError, near_tie_margin_from_config
-from code.artifacts import utc_now
+from code.artifacts import DIFF_FILE, utc_now
 from code.chat_format import model_input
 from code.config import ConfigError, load_config, require
 from code.data_gen.pool import MAIN_COVERAGE_LEVELS
@@ -71,6 +76,13 @@ SHARPNESS_BLOCK = "sharpness"
 # Δ₂(と組ごとの差 d_i)の取りうる範囲。信頼区間の端はここで切る(R6。ADR-108 決定2)。
 CI_FLOOR = -1.0
 CI_CEILING = 1.0
+# 4 本の run が同じ commit の追跡ファイルで回ったことの記録(R7 の 4。ADR-109 決定1)。
+# `git_sha.txt` は `code/artifacts.py` の `write_git_sha` が書く(1 行目 = `git rev-parse HEAD`、
+# 2 行目 = `dirty: ...`)。**2 行目は見ない**(pod では追跡外のファイルで立つ)。差分は追跡ファイルだけ。
+GIT_SHA_FILE = "git_sha.txt"
+# `git rev-parse HEAD` の出力(sha-1 か sha-256)。git が失敗したとき `_capture` は失敗の文言を 1 行目に
+# 書くので、同じ文言が 4 本そろっても「同じ commit」とは読まない。
+COMMIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 # `sharpness` 欄の R1 の前提の宣言(ADR-108 決定5)の鍵。
 _ABSENT = object()  # 記録に欄そのものが無いことの目印(null の宣言と区別する)
 ADAPTER_KEY = "adapter"
@@ -140,6 +152,12 @@ SUM_PHRASES: dict[str, str] = {
     t3_comparison.T1B: "{a}+{b}",
     t3_comparison.T3: "the sum of {a} and {b}",
 }
+
+# 判定表の検査の欄に出す文(R7 の 4。ADR-109 決定1)。
+PROVENANCE_CHECK = (
+    f"4 本の run の {GIT_SHA_FILE} の commit(1 行目)が同じ / {DIFF_FILE} が無いか 0 バイト"
+    "(dirty の欄は見ない)(R7)"
+)
 
 NOTE = (
     "PLAN-032 §8.1 R2〜R5 を機械的に当てた判定表(ANALYST)。解釈ではない —— "
@@ -345,6 +363,8 @@ class DiagRun:
     def header(self) -> dict[str, Any]:
         """報告の先頭に置く来歴。**adapter を必ず並べる**(`r8_fit` と同じ理由)。"""
         pool = self.metrics.get("pool") or {}
+        if "run_id" not in self.metrics:
+            raise SharpnessError(f"{self.name}: metrics.json に run_id が無い(R7。判定表を出さない)")
         return {
             "arm": self.arm,
             "run_id": self.metrics["run_id"],
@@ -371,8 +391,13 @@ def load_diag_run(metrics_path: Path) -> DiagRun:
         raise SharpnessError(
             f"{run_dir.name}: kind が {THRESHOLD_SWEEP_KIND!r} でない({metrics.get('kind')!r})"
         )
-    sweep = metrics["threshold_sweep"]
-    task_types = tuple(sweep["task_types"])
+    try:
+        sweep = metrics["threshold_sweep"]
+        task_types = tuple(sweep["task_types"])
+    except KeyError as exc:
+        raise SharpnessError(
+            f"{run_dir.name}: metrics.json に欄 {exc.args[0]!r} が無い(R7。判定表を出さない)"
+        ) from exc
     try:
         records = r8_fit.check_records(r8_fit.read_sweep_predictions(run_dir, task_types), sweep)
     except r8_fit.R8FitError as exc:
@@ -483,7 +508,7 @@ def check_premises(by_arm: Mapping[str, DiagRun]) -> None:
         wrong_k = [
             record["item_id"]
             for record in run.records
-            if len(record.get("top_k") or []) != settings.top_k
+            if not isinstance(record.get("top_k"), list) or len(record["top_k"]) != settings.top_k
         ]
         if wrong_k:
             problems.append(
@@ -499,6 +524,53 @@ def check_premises(by_arm: Mapping[str, DiagRun]) -> None:
         raise SharpnessError(
             "R1 の前提が run の記録と食い違う(R7。判定表を出さない): " + " / ".join(problems)
         )
+
+
+def _recorded_commit(run: DiagRun) -> str | None:
+    """run dir の `git_sha.txt` の 1 行目(commit の sha)。ファイルが無い・1 行目が sha でなければ None。"""
+    path = run.run_dir / GIT_SHA_FILE
+    if not path.is_file():
+        return None
+    lines = path.read_text(encoding="utf-8").splitlines()
+    first = lines[0].strip() if lines else ""
+    return first if COMMIT_SHA_PATTERN.fullmatch(first) else None
+
+
+def check_provenance(by_arm: Mapping[str, DiagRun]) -> str:
+    """R7 の 4: 4 本の run が同じ commit の追跡ファイルで回ったこと。その commit の sha を返す(ADR-109 決定1)。
+
+    答える問い: 「4 腕は、同じコードで、commit の外に追跡ファイルの変更を持たずに回した記録か
+    (途中でコードを直して 1 腕だけ別の commit で回し直すと、腕の差にコードの差が混ざる)」
+
+    照合するのは run dir の記録である: `git_sha.txt` の 1 行目(sha)が 4 本で同じ / 各 run の `git_diff.patch`
+    が無いか 0 バイト。**`git_sha.txt` の `dirty:` は見ない**(pod では追跡外のファイルで `dirty: true` になり、
+    diff は 0 バイト。`write_git_sha` の書き方)。**tag の名前・祖先関係は照合しない**(その sha を判定表の先頭に
+    出し、tag の commit と見比べるのは人間。段4 で同じコードを別の tag で使う)。
+    `build_report` の中で呼ぶ(`check_premises` と同じ理由)。食い違いは全部まとめて 1 つの例外にする。
+    """
+    problems: list[str] = []
+    shas: dict[str, str | None] = {}
+    for arm, run in by_arm.items():
+        shas[arm] = _recorded_commit(run)
+        if shas[arm] is None:
+            problems.append(
+                f"{run.name}(腕 {arm}): {GIT_SHA_FILE} が無いか、1 行目が commit の sha(16 進 40 桁か 64 桁)でない"
+            )
+        patch = run.run_dir / DIFF_FILE
+        if patch.exists() and patch.stat().st_size > 0:
+            problems.append(
+                f"{run.name}(腕 {arm}): {DIFF_FILE} が {patch.stat().st_size} バイト"
+                "(commit の外に追跡ファイルの変更がある)"
+            )
+    recorded = {sha for sha in shas.values() if sha is not None}
+    if len(recorded) > 1:
+        problems.append(f"{GIT_SHA_FILE} の commit が腕の間で違う: {shas}")
+    if problems:
+        raise SharpnessError(
+            "4 本の run が同じ commit の追跡ファイルで回った記録でない(R7。判定表を出さない): "
+            + " / ".join(problems)
+        )
+    return next(iter(recorded))
 
 
 def check_level_counts(run: DiagRun, settings: SharpnessSettings) -> None:
@@ -716,6 +788,31 @@ def _float(value: Fraction | None) -> float | None:
     return None if value is None else float(value)
 
 
+def check_pair_differences(
+    differences: Sequence[Fraction], estimate: Fraction, settings: SharpnessSettings
+) -> None:
+    """R6 の区間の前提: 組ごとの差の数が `n_per_level` で、その平均が Δ₂ の点推定と一致すること(ADR-109 決定2)。
+
+    答える問い: 「区間の単位(組ごとの差)は、点推定と同じ項目から組まれているか」
+
+    `per_pair_differences` は組を被演算子の鍵で持つので、同じ (極性, θ) に同じ被演算子の行が 2 つあると
+    後の行で上書きする。件数の検査(R7 の 1)は水準の間で重なりがそろえば通るので、そのままでは
+    n が `n_per_level` より小さい区間が、点推定と違いうる中心で出る。**外れたら止める**(有理数で比べる)。
+    記述の行の前提の検査であって、合否(点推定と線の比較)にも区間の計算法にも触れない。
+    """
+    if len(differences) != settings.n_per_level:
+        raise SharpnessError(
+            f"組ごとの差の数が {len(differences)} で n_per_level = {settings.n_per_level} と違う"
+            "(同じ被演算子の行が重なっている。R6 の区間の前提。判定表を出さない)"
+        )
+    mean = sum(differences, Fraction(0)) / len(differences)
+    if mean != estimate:
+        raise SharpnessError(
+            f"組ごとの差の平均 {mean} が Δ₂ の点推定 {estimate} と一致しない"
+            "(R6 の区間の前提。判定表を出さない)"
+        )
+
+
 def cell_delta2(
     records: Sequence[Mapping[str, Any]],
     *,
@@ -730,6 +827,8 @@ def cell_delta2(
     estimate, terms = delta2_point(records, settings.delta2_shift)
     if estimate is None:
         raise SharpnessError("Δ₂ の水準に項目の無い (極性, θ) がある(R7。判定表を出さない)")
+    differences = per_pair_differences(records, settings.delta2_shift)
+    check_pair_differences(differences, estimate, settings)
     kept = [record for record in records if abs(gaps[record["item_id"]]) > margin]
     kept_estimate, kept_terms = delta2_point(kept, settings.delta2_shift)
     levels = set(delta2_levels(settings.delta2_shift))
@@ -750,9 +849,7 @@ def cell_delta2(
         "terms": {key: _float(value) for key, value in terms.items()},
         "reaches_line": estimate >= settings.delta2_line,
         "ci": {
-            **confidence_interval(
-                per_pair_differences(records, settings.delta2_shift), settings.ci_level
-            ),
+            **confidence_interval(differences, settings.ci_level),
             "method": CI_METHOD,
         },
         "near_tie": {
@@ -848,11 +945,12 @@ def mass_rows(records: Sequence[Mapping[str, Any]], run_name: str) -> dict[str, 
         top_texts: Counter[str] = Counter()
         for record in rows:
             top_k = record.get("top_k")
-            if not top_k or "text" not in top_k[0]:
+            first = top_k[0] if isinstance(top_k, list) and top_k else None
+            if not isinstance(first, Mapping) or "text" not in first:
                 raise SharpnessError(
                     f"{run_name}: 行 {record['item_id']!r} に top_k が無い(R6 の 1 位の綴りを数えられない)"
                 )
-            top_texts[str(top_k[0]["text"])] += 1
+            top_texts[str(first["text"])] += 1
         by_polarity[polarity] = {
             "n": len(rows),
             "mass_median": median(masses),
@@ -934,6 +1032,7 @@ def build_report(
     """
     by_arm = runs_by_arm(runs)
     check_premises(by_arm)
+    commit_sha = check_provenance(by_arm)
     settings = by_arm[ARM_B].settings
     for run in by_arm.values():
         check_level_counts(run, settings)
@@ -988,6 +1087,8 @@ def build_report(
         reaches[(ARM_B, R5_TASK_TYPE)],
     )
     return {
+        # 判定表の先頭に出す(ADR-109 決定1)。tag の commit と見比べるのは人間
+        "commit_sha": commit_sha,
         "created_at": utc_now().isoformat(),
         "note": NOTE,
         "rules": {
@@ -1003,6 +1104,7 @@ def build_report(
             "prompt_substitution": (
                 "A(A-d)の prompt = B(B-d)の prompt の和の部分を x の数字に置き換えたもの(全項目。R7)"
             ),
+            "provenance": PROVENANCE_CHECK,
             "premises": (
                 f"モデル(名前・revision)が 4 本で同じ / adapter = {settings.adapter!r} / "
                 f"eval.batch_size = {settings.batch_size} / 上位 k = {settings.top_k} / "
@@ -1048,6 +1150,8 @@ def report_lines(report: Mapping[str, Any]) -> list[str]:
     """人間が読む表。**判定の行と記述の行を分けて出す。**"""
     rules = report["rules"]
     lines = [
+        f"commit: {report['commit_sha']}(4 本の run の {GIT_SHA_FILE} が一致・{DIFF_FILE} は無いか 0 バイト。"
+        "凍結 tag の commit と見比べるのは人間)",
         report["note"],
         f"規則: Δ₂ = ¼ Σ D({', '.join(rules['delta2_terms'])})、"
         f"D = P̂(θ) − P̂(θ − {rules['delta2_shift']})。"
@@ -1063,6 +1167,7 @@ def report_lines(report: Mapping[str, Any]) -> list[str]:
     lines.append(f"検査: {report['checks']['level_counts']} / 対 {report['checks']['pairing']}")
     lines.append(f"検査: {report['checks']['prompt_substitution']}")
     lines.append(f"検査: R1 の前提 —— {report['checks']['premises']}")
+    lines.append(f"検査: 出どころ —— {report['checks']['provenance']}")
     lines.append("=== Δ₂(R2・R3。A-d は記述だけ)と 95% 信頼区間(記述)")
     for cell in report["cells"]:
         delta = cell["delta2"]
@@ -1158,10 +1263,19 @@ def tokenizer_counter(config: Mapping[str, Any]) -> Callable[[str], int]:
     """
     from transformers import AutoTokenizer  # noqa: PLC0415 — 解析の CLI でだけ要る
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        require(config, "model.name"), revision=require(config, "model.revision")
-    )
-    chat_template = bool(require(config, "data.chat_template"))
+    try:
+        name = require(config, "model.name")
+        revision = require(config, "model.revision")
+        chat_template = bool(require(config, "data.chat_template"))
+    except ConfigError as exc:
+        raise SharpnessError(f"入力のトークン数を数えられない: {exc}(R7。判定表を出さない)") from exc
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(name, revision=revision)
+    except (OSError, ValueError) as exc:
+        raise SharpnessError(
+            f"トークナイザ {name!r}(revision {revision!r})を読めない: {type(exc).__name__}: {exc}"
+            "(R6 の入力のトークン数が出せない。判定表を出さない)"
+        ) from exc
 
     def count(prompt: str) -> int:
         text = model_input(prompt, tokenizer=tokenizer, chat_template=chat_template)
@@ -1178,7 +1292,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    runs = [load_diag_run(path) for path in expand_metrics_paths(args.runs)]
+    try:
+        metrics_paths = expand_metrics_paths(args.runs)
+    except AggregateError as exc:  # 当たる run が 1 本も無いとき(0 本の判定表を出さない)
+        raise SharpnessError(f"{exc}(R7。判定表を出さない)") from exc
+    runs = [load_diag_run(path) for path in metrics_paths]
     # モデルの一致は `build_report` の `check_premises` が見る(直接呼ぶ経路も通すため。ADR-108 決定5)
     report = build_report(runs, tokenizer_counter(runs[0].config))
     lines = report_lines(report)

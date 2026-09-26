@@ -29,6 +29,8 @@ import copy
 import dataclasses
 import json
 import math
+import sys
+import types
 from collections.abc import Callable, Mapping, Sequence
 from fractions import Fraction
 from pathlib import Path
@@ -62,6 +64,25 @@ SMALL_N_PER_LEVEL = SMALL_PAIRS * 2  # carry 2
 CONFIDENT = (math.log(0.9), math.log(0.1))
 # 近接同点(差 0.1 < 0.25)
 TIED = (math.log(0.525), math.log(0.475))
+
+# 4 本の run を回した commit(ADR-109 決定1)。**pod の実物と同じ形の記録**にする: 1 行目は sha、`dirty: true`
+# (追跡外のファイル)、`git_diff.patch` は 0 バイト。実物は順6b の 7 本・パイロット FT の評価 10 本すべてがこの形。
+RUN_SHA = "0123456789abcdef0123456789abcdef01234567"
+OTHER_SHA = "fedcba9876543210fedcba9876543210fedcba98"
+
+
+def pod_like_capture(command: Sequence[str]) -> str:
+    """git だけ pod の実物と同じ答えを返す `_capture` の差し替え(ほかは `stub_capture`)。
+
+    `rev-parse` は sha、`status` は追跡外のファイルだけ(= `dirty: true`)、`diff HEAD` は追跡ファイルの差分なし。
+    """
+    if list(command[:2]) == ["git", "rev-parse"]:
+        return RUN_SHA
+    if list(command[:2]) == ["git", "status"]:
+        return "?? data/pool_rebuilt_on_the_pod.jsonl"
+    if list(command[:2]) == ["git", "diff"]:
+        return ""
+    return stub_capture(command)
 
 
 # --------------------------------------------------------------------------
@@ -213,7 +234,7 @@ def execute_arm(config: Mapping[str, Any], behavior: Behavior, run_dir: Path) ->
     # 写しの名前は run の glob(`run_*`)に当たらないようにする
     config_path = write_config(config, run_dir.parent / f"config_{run_dir.name}.yaml")
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(artifacts, "_capture", stub_capture)
+        patch.setattr(artifacts, "_capture", pod_like_capture)
         run.execute_threshold_sweep(
             config,
             config_path=config_path,
@@ -260,6 +281,15 @@ SCENARIOS: dict[str, dict[str, Behavior]] = {
         "a": _by_task(t1b=_truthful, t3=_always_no),
         "b_d": _truthful,
         "a_d": _truthful,
+    },
+    # ★T1b は A・B とも届かない(前段 FT。B-d は届く → ③-iii を残す)、T3 は A が届かず B が届く(前段 FT は要らない
+    # + 異常の印)。R5 の 3 つ目の引数を T3 の B に取り違えると、③-iii を残すはずが置かないになる
+    # (ADR-109 決定2 = C108-2)
+    "split_t3_b_reaches": {
+        "b": _by_task(t1b=_always_no, t3=_truthful),
+        "a": _always_no,
+        "b_d": _truthful,
+        "a_d": _always_no,
     },
     # ★1 つの既知性のセルだけ線を下回る(ADR-108 決定8 (b))。B の T1b の extrap_magnitude だけ常に No
     # (R3: 1 つでも下回れば「届かない」。ほかのセルは Δ₂ = 1)
@@ -607,6 +637,16 @@ SPLIT_EXPECTATIONS = [
             "t3": (False, True, sharpness_fit.NEXT_NO_PRE_FT, True),
         },
         sharpness_fit.R5_NOT_APPLICABLE,
+    ),
+    # T1b は A・B とも届かない → 前段 FT(B-d が届き B が届かない → ③-iii を残す)/ T3 は A が届かず B が届く →
+    # 前段 FT は要らない + 異常の印。**R5 は T1b の B を読む**(T3 の B を読むと B が届くので ③-iii を置かないになる)
+    (
+        "split_t3_b_reaches",
+        {
+            "t1b": (False, False, sharpness_fit.NEXT_PRE_FT, False),
+            "t3": (False, True, sharpness_fit.NEXT_NO_PRE_FT, True),
+        },
+        sharpness_fit.R5_KEEP,
     ),
     # B の T1b が 1 セルだけ線を下回る → B は届かない → T1b は分岐 (a) / T3 は A・B とも届く
     (
@@ -1218,6 +1258,296 @@ def test_the_line_is_crossed_between_56_and_57_over_640(
         assert Fraction(cell["estimate_fraction"]) == Fraction(k, 640), coverage
         assert cell["reaches_line"] is reaches, coverage
         assert cell["ci"]["n_pairs"] == PRODUCTION_N_PER_LEVEL
+        # 組ごとの差の平均 = 点推定(有理数で一致。ADR-109 決定2。`cell_delta2` も同じ検査を通っている)
+        differences = sharpness_fit.per_pair_differences(
+            [record for record in diag.records if record["coverage"] == coverage],
+            settings.delta2_shift,
+        )
+        assert sum(differences, Fraction(0)) / len(differences) == Fraction(k, 640), coverage
         assert cell["ci"]["degenerate"] is False
         assert cell["ci"]["low"] <= cell["estimate"] <= cell["ci"]["high"]
     assert sharpness_fit.arm_reaches(cells) is reaches
+
+
+# --------------------------------------------------------------------------
+# R7 の 4: 4 本の run が同じ commit の追跡ファイルで回ったこと(ADR-109 決定1)
+# --------------------------------------------------------------------------
+
+
+def write_git_record(
+    run_dir: Path, *, first_line: str = RUN_SHA, dirty_line: str = "dirty: true", patch: bytes | None = b""
+) -> None:
+    """run dir の `git_sha.txt`(と `git_diff.patch`)を書き直す。`patch=None` なら `git_diff.patch` を消す。"""
+    (run_dir / "git_sha.txt").write_text(f"{first_line}\n{dirty_line}\n", encoding="utf-8", newline="\n")
+    patch_path = run_dir / artifacts.DIFF_FILE
+    if patch is None:
+        patch_path.unlink(missing_ok=True)
+    else:
+        patch_path.write_bytes(patch)
+
+
+def test_the_fixture_runs_have_the_shape_of_the_runs_made_on_the_pod(
+    scenario_runs: dict[str, list[Path]],
+) -> None:
+    """置き物の run の記録は pod の実物と同じ形(sha・`dirty: true`・diff 0 バイト)。これで判定表が通る。"""
+    for path in scenario_runs["branch"]:
+        run_dir = path.parent
+        assert (run_dir / "git_sha.txt").read_text(encoding="utf-8") == f"{RUN_SHA}\ndirty: true\n"
+        assert (run_dir / artifacts.DIFF_FILE).stat().st_size == 0
+    assert report_of(scenario_runs["branch"])["commit_sha"] == RUN_SHA
+
+
+def test_the_commit_sha_comes_first_in_the_json_and_the_text(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★その sha を判定表の先頭に出す(json の最初の鍵・txt の最初の行)。tag の commit と見比べるのは人間。"""
+    report = report_of(scenario_runs["branch"])
+    assert next(iter(report)) == "commit_sha"
+    first_line = sharpness_fit.report_lines(report)[0]
+    assert first_line.startswith(f"commit: {RUN_SHA}")
+    assert "人間" in first_line
+    monkeypatch.setattr(sharpness_fit, "tokenizer_counter", lambda config: len)
+    run_root = scenario_runs["branch"][0].parent.parent
+    out_dir = tmp_path / "out"
+    assert sharpness_fit.main(["--runs", str(run_root / "run_*"), "--out-dir", str(out_dir)]) == 0
+    written = json.loads((out_dir / sharpness_fit.OUTPUT_JSON).read_text(encoding="utf-8"))
+    assert next(iter(written)) == "commit_sha" and written["commit_sha"] == RUN_SHA
+    text = (out_dir / sharpness_fit.OUTPUT_TEXT).read_text(encoding="utf-8")
+    assert text.splitlines()[0].startswith(f"commit: {RUN_SHA}")
+    assert sharpness_fit.PROVENANCE_CHECK in written["checks"]["provenance"]
+    assert "検査: 出どころ" in text
+
+
+# (何を書くか, 4 本を通るか)。`dirty` の欄と `git_diff.patch` の有無の組み合わせ
+PROVENANCE_PASSES = [
+    ("dirty: true・diff 0 バイト(pod の実物)", {"dirty_line": "dirty: true", "patch": b""}),
+    ("dirty: true・diff のファイルなし", {"dirty_line": "dirty: true", "patch": None}),
+    ("dirty: false・diff のファイルなし", {"dirty_line": "dirty: false", "patch": None}),
+    ("dirty: false・diff 0 バイト", {"dirty_line": "dirty: false", "patch": b""}),
+    ("dirty の欄が無い", {"dirty_line": "", "patch": b""}),
+]
+
+
+@pytest.mark.parametrize(
+    "kwargs", [row[1] for row in PROVENANCE_PASSES], ids=[row[0] for row in PROVENANCE_PASSES]
+)
+def test_the_dirty_field_is_not_read_and_an_empty_diff_passes(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path, kwargs: dict[str, Any]
+) -> None:
+    """★`dirty:` の欄は見ない。`git_diff.patch` が無いか 0 バイトなら通る(pod の実物は dirty: true・diff 0 バイト)。"""
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+    for path in paths[:2]:  # 4 本のうち 2 本だけ書き換える(欄の値は腕の間で違っていてよい)
+        write_git_record(path.parent, **kwargs)
+    assert report_of(paths)["commit_sha"] == RUN_SHA
+
+
+# (何を壊すか, 腕, 書き方, エラーに含まれる語)
+PROVENANCE_BREAKS = [
+    ("sha が 1 本だけ違う", "a", {"first_line": OTHER_SHA}, "腕の間で違う"),
+    ("sha が 1 本だけ違う(B-d)", "b_d", {"first_line": OTHER_SHA}, "腕の間で違う"),
+    ("0 バイトでない diff(1 バイト)", "b", {"patch": b"x"}, "git_diff.patch"),
+    ("0 バイトでない diff(本物の差分)", "a_d", {"patch": b"diff --git a/x b/x\n+1\n"}, "git_diff.patch"),
+    ("1 行目が git の失敗の文言", "a", {"first_line": "<取得できず: OSError: no git>"}, "commit の sha"),
+    ("1 行目が git の標準エラー", "b", {"first_line": "fatal: not a git repository"}, "commit の sha"),
+    ("1 行目が空", "b_d", {"first_line": ""}, "commit の sha"),
+    ("1 行目が短縮 sha", "a", {"first_line": RUN_SHA[:7]}, "commit の sha"),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "arm", "kwargs", "message"),
+    PROVENANCE_BREAKS,
+    ids=[row[0] for row in PROVENANCE_BREAKS],
+)
+def test_a_run_from_another_commit_or_with_a_tracked_diff_stops(
+    scenario_runs: dict[str, list[Path]],
+    tmp_path: Path,
+    label: str,
+    arm: str,
+    kwargs: dict[str, Any],
+    message: str,
+) -> None:
+    """★sha が 4 本で同じでない・0 バイトでない diff がある・1 行目が sha でない run では判定表を出さずに止まる。
+
+    RUNNER が途中でコードを直して 1 腕だけ別の commit で回し直した・追跡ファイルを直したまま回した、を捕まえる。
+    呼ぶのは `build_report`(`report_of`)の経路。
+    """
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+    write_git_record(paths[ARMS.index(arm)].parent, **kwargs)
+    with pytest.raises(SharpnessError, match=message) as caught:
+        report_of(paths)
+    assert "同じ commit の追跡ファイル" in str(caught.value) and "判定表を出さない" in str(caught.value)
+
+
+def test_a_missing_git_sha_file_stops(scenario_runs: dict[str, list[Path]], tmp_path: Path) -> None:
+    """★`git_sha.txt` が無い run(来歴が無い)では止まる。"""
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+    (paths[ARMS.index("a")].parent / "git_sha.txt").unlink()
+    with pytest.raises(SharpnessError, match="git_sha.txt が無い"):
+        report_of(paths)
+
+
+def test_the_same_failure_text_in_all_four_runs_is_not_the_same_commit(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path
+) -> None:
+    """★git が 4 本とも失敗して同じ文言が並んでも「同じ commit」とは読まない(1 行目が sha でない)。"""
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+    for path in paths:
+        write_git_record(path.parent, first_line="<取得できず: FileNotFoundError: git>")
+    with pytest.raises(SharpnessError, match="commit の sha") as caught:
+        report_of(paths)
+    assert len(str(caught.value).split(" / ")) == len(ARMS)  # 4 腕とも指摘に載る
+
+
+def test_all_provenance_problems_are_reported_at_once(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path
+) -> None:
+    """食い違いは 1 つの例外にまとめる(sha の違いと diff が同時にあれば両方が載る)。"""
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+    write_git_record(paths[ARMS.index("a")].parent, first_line=OTHER_SHA)
+    write_git_record(paths[ARMS.index("b")].parent, patch=b"x")
+    with pytest.raises(SharpnessError) as caught:
+        report_of(paths)
+    assert "腕の間で違う" in str(caught.value) and "git_diff.patch" in str(caught.value)
+
+
+# --------------------------------------------------------------------------
+# 区間の前提の検査(ADR-109 決定2 = C108-3): 組ごとの差の数 = n_per_level・平均 = Δ₂ の点推定
+# --------------------------------------------------------------------------
+
+
+def colliding_records(n: int, *, ones_at_gt_zero: int) -> list[dict[str, Any]]:
+    """(極性, θ) ごとに n 件だが、被演算子は n/2 通りしかない記録(同じ組の行が 2 つずつ。後の行が前の行を上書きする)。
+
+    y = 1 の件数は gt・θ = 0 だけ `ones_at_gt_zero`、ほかは 0。
+    """
+    ones = {level: 0 for level in ALL_LEVELS}
+    ones[("gt", 0)] = ones_at_gt_zero
+    records = synthetic_records(ones, n)
+    for record in records:
+        i = int(record["item_id"].rsplit("_", 1)[1])
+        record["operands"] = [i % (n // 2), 1000 + i % (n // 2)]
+    return records
+
+
+def test_a_number_of_pairs_other_than_n_per_level_stops() -> None:
+    """★同じ被演算子の行が重なって組の数が減ると、n が n_per_level より小さい区間が出てしまう → 止める。"""
+    records = colliding_records(8, ones_at_gt_zero=4)
+    gaps = {record["item_id"]: 3.0 for record in records}
+    assert len(sharpness_fit.per_pair_differences(records, 2)) == 4  # 8 件/水準 → 4 組に潰れる
+    with pytest.raises(SharpnessError, match="n_per_level"):
+        sharpness_fit.cell_delta2(records, settings=_settings(n_per_level=8), gaps=gaps, margin=0.25)
+
+
+def test_a_mean_of_pair_differences_that_is_not_the_point_estimate_stops() -> None:
+    """★組の数が n_per_level に合っていても、組ごとの差の平均が点推定と違えば(有理数で)止める。
+
+    gt・θ = 0 で先頭 4 件だけ y = 1 → 点推定の P̂ = 1/2。だが同じ組の後の 4 行(y = 0)が上書きするので、
+    組ごとの差の平均は 0 で、点推定 1/8(= ¼ × 1/2)とずれる(n = 4 は n_per_level = 4 に合わせてある)。
+    """
+    records = colliding_records(8, ones_at_gt_zero=4)
+    gaps = {record["item_id"]: 3.0 for record in records}
+    estimate, _ = sharpness_fit.delta2_point(records, 2)
+    assert estimate == Fraction(1, 8)
+    differences = sharpness_fit.per_pair_differences(records, 2)
+    assert len(differences) == 4 and sum(differences, Fraction(0)) / 4 == 0
+    with pytest.raises(SharpnessError, match="一致しない"):
+        sharpness_fit.cell_delta2(records, settings=_settings(n_per_level=4), gaps=gaps, margin=0.25)
+
+
+# --------------------------------------------------------------------------
+# 例外の型の残り(ADR-109 決定2 = C108-4): 止める経路は `SharpnessError`
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("key", ["threshold_sweep", "task_types"])
+def test_a_metrics_json_without_the_sweep_block_is_a_sharpness_error(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path, key: str
+) -> None:
+    """★`metrics.json` に `threshold_sweep`(と `task_types`)が無い run は、素の `KeyError` でなく `SharpnessError`。"""
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+
+    def drop(data: dict[str, Any]) -> None:
+        if key == "threshold_sweep":
+            del data["threshold_sweep"]
+        else:
+            del data["threshold_sweep"]["task_types"]
+
+    edit_metrics(paths[0], drop)
+    with pytest.raises(SharpnessError, match=key) as caught:
+        sharpness_fit.load_diag_run(paths[0])
+    assert not isinstance(caught.value, KeyError)
+
+
+def test_a_metrics_json_without_a_run_id_stops_before_the_table(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path
+) -> None:
+    """★`run_id` の無い run は判定表の来歴の行が組めない → `SharpnessError`(`KeyError` で判定表の途中で落とさない)。"""
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+    edit_metrics(paths[ARMS.index("a")], lambda data: data.pop("run_id"))
+    with pytest.raises(SharpnessError, match="run_id"):
+        report_of(paths)
+
+
+@pytest.mark.parametrize(
+    ("top_k", "message"),
+    [
+        pytest.param([1] * 20, "top_k が無い", id="20 個だが dict でない"),
+        pytest.param(["text"] * 20, "top_k が無い", id="20 個の文字列"),
+        pytest.param([{"logprob": -1.0}] * 20, "top_k が無い", id="text の欄が無い"),
+        pytest.param(5, "top_k の個数", id="list でない(整数)"),
+        pytest.param({"text": "x"}, "top_k の個数", id="list でない(dict)"),
+    ],
+)
+def test_a_malformed_top_k_row_is_a_sharpness_error_not_a_type_error(
+    scenario_runs: dict[str, list[Path]], tmp_path: Path, top_k: Any, message: str
+) -> None:
+    """★行の `top_k` が list の dict でなくても、`TypeError` にならず `SharpnessError` で止まる(判定表は出さない)。"""
+    paths = copy_runs(scenario_runs["branch"], tmp_path)
+
+    def damage(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [{**row, "top_k": top_k} if i == 0 else row for i, row in enumerate(rows)]
+
+    rewrite_rows(paths[ARMS.index("b")], damage)
+    with pytest.raises(SharpnessError, match=message):
+        report_of(paths)
+
+
+def fake_transformers(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
+    """`AutoTokenizer.from_pretrained` が `error` を上げる `transformers` の差し替え(ネットワークにも本物にも触れない)。"""
+
+    class FailingTokenizer:
+        @staticmethod
+        def from_pretrained(*args: Any, **kwargs: Any) -> Any:
+            raise error
+
+    module = types.ModuleType("transformers")
+    module.AutoTokenizer = FailingTokenizer  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "transformers", module)
+
+
+@pytest.mark.parametrize("error", [OSError("offline"), ValueError("unknown tokenizer class")])
+def test_an_unreadable_tokenizer_is_a_sharpness_error(
+    monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    """★トークナイザが読めないとき(R7 の止める条件)は、HF の例外でなく `SharpnessError`。"""
+    fake_transformers(monkeypatch, error)
+    config = load_config(CONFIG_DIR / "exp_diag_b.yaml")
+    with pytest.raises(SharpnessError, match="トークナイザ") as caught:
+        sharpness_fit.tokenizer_counter(config)
+    assert type(error).__name__ in str(caught.value)
+
+
+def test_a_config_without_the_model_name_is_a_sharpness_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """★`tokenizer_counter` の config の欠け(`ConfigError`)も `SharpnessError`。"""
+    fake_transformers(monkeypatch, OSError("読まれない"))
+    config = load_config(CONFIG_DIR / "exp_diag_b.yaml")
+    config["model"].pop("name")
+    with pytest.raises(SharpnessError, match="model.name"):
+        sharpness_fit.tokenizer_counter(config)
+
+
+def test_a_glob_that_matches_no_run_is_a_sharpness_error(tmp_path: Path) -> None:
+    """★`--runs` の glob が 1 本も当たらないとき(0 本の判定表を出さない)は `SharpnessError`。"""
+    with pytest.raises(SharpnessError, match="判定表を出さない"):
+        sharpness_fit.main(["--runs", str(tmp_path / "no_such_run_*")])

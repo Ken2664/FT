@@ -9,8 +9,8 @@
 > TEMPLATE の §3〜§5(条件・データ・評価)は本 PLAN の §3・§5 に、§6(統計)は §3.5・§4 に、§7(交絡)は §6 に置いた。
 
 - 作成日: 2026-09-26(その102)
-- 最終更新: 2026-09-26(その109)
-- ステータス: ~~`草案`(**人間のレビュー待ち。決定 0 件・実装 0・GPU 0**)~~ → ~~**`レビュー済み・実装待ち`**(★その103 ADR-107。§4 の回答と §8.1 の規則が凍結 tag の対象。**実装 0・GPU 0・tag なし**)~~ → ~~**`実装済み・凍結 tag 待ち`**(★その104。I1〜I4・I6 と dry-run が済んだ。実装の読みは §11 の下の注。**GPU 0・tag なし**)~~ → ~~**`ADR-108 の実装待ち`**(★その106。CRITIC の指摘 C105-1〜8 と読み 1〜11 に人間が答え、§8.1 の R1 の表・R6・R7 を直した。**次は IMPLEMENTER(ADR-108 決定2・3・5〜8)→ 凍結 tag**。GPU 0・tag なし)~~ → ~~**`ADR-108 の実装済み・凍結 tag 待ち`**(★その107。決定2・3・5〜8 を実装した。実装の読みは §11 の下の注 12〜17。**決定2(区間)の diff は人間か CRITIC が見る**(ADR-101 決定5)。**次は diff のレビュー → 凍結 tag**。GPU 0・tag なし)~~ → **`ADR-109 の実装待ち`**(★その108 CRITIC の C108-1〜4 に人間が答えた(ADR-109。3 問とも推奨)。§8.1 R7 に 4 本の run の出どころ(`git_sha.txt` の一致・`git_diff.patch` が空)の照合を 1 行足した。**次は IMPLEMENTER(ADR-109 決定1・2)→ 凍結 tag**。GPU 0・tag なし)
+- 最終更新: 2026-09-26(その110)
+- ステータス: ~~`草案`(**人間のレビュー待ち。決定 0 件・実装 0・GPU 0**)~~ → ~~**`レビュー済み・実装待ち`**(★その103 ADR-107。§4 の回答と §8.1 の規則が凍結 tag の対象。**実装 0・GPU 0・tag なし**)~~ → ~~**`実装済み・凍結 tag 待ち`**(★その104。I1〜I4・I6 と dry-run が済んだ。実装の読みは §11 の下の注。**GPU 0・tag なし**)~~ → ~~**`ADR-108 の実装待ち`**(★その106。CRITIC の指摘 C105-1〜8 と読み 1〜11 に人間が答え、§8.1 の R1 の表・R6・R7 を直した。**次は IMPLEMENTER(ADR-108 決定2・3・5〜8)→ 凍結 tag**。GPU 0・tag なし)~~ → ~~**`ADR-108 の実装済み・凍結 tag 待ち`**(★その107。決定2・3・5〜8 を実装した。実装の読みは §11 の下の注 12〜17。**決定2(区間)の diff は人間か CRITIC が見る**(ADR-101 決定5)。**次は diff のレビュー → 凍結 tag**。GPU 0・tag なし)~~ → ~~**`ADR-109 の実装待ち`**(★その108 CRITIC の C108-1〜4 に人間が答えた(ADR-109。3 問とも推奨)。§8.1 R7 に 4 本の run の出どころ(`git_sha.txt` の一致・`git_diff.patch` が空)の照合を 1 行足した。**次は IMPLEMENTER(ADR-109 決定1・2)→ 凍結 tag**。GPU 0・tag なし)~~ → **`ADR-109 の実装済み・凍結 tag 待ち`**(★その110。決定1・2 を実装した。実装の読みは §11 の下の注 18〜25。**決定1 の `check_provenance` と決定2 の C108-3(`check_pair_differences`)の diff は、気になれば tag の前に人間か CRITIC が見る**(ADR-109 決定4)。**次は凍結 tag(人間)→ G2-1 GPU 承認(人間)**。GPU 0・tag なし)
 - 担当: PLANNER (Opus 5.5)(起草)→ IMPLEMENTER (Sonnet)(§5)→ RUNNER(§8)→ ANALYST(判定表を当てるだけ)
 - 関連する問い: 前段 FT(③-ii / ③-iii)に意味があるか(ADR-096 決定1 の人間の言葉)/ 二値群(T1b・T3)は +2 病変を読めるか(監査 §3。`logs/REVIEW-2026-09-24-direction.md`)
 - 関連する仮説: なし(H0 / H1 / H2 を判別する実験ではない。主要検定の**前提**を確かめる診断)
@@ -401,7 +401,7 @@ R8 の 1 件の例(`56+83>136?`)の上位は `To` −0.20 / `Let` −2.08 / `Fir
 - [x] I4 の diff のレビュー(★その105 CRITIC。`logs/CRITIQUE.md` の C105-1〜8)と、指摘・実装の読み 1〜11 への人間の回答(★その106 ADR-108。§8.1 の R1 の表・R6・R7 を直した)
 - [x] ADR-108 決定2・3・5〜8 の実装・`pytest code/tests -q`・`--dry-run`(★その107 IMPLEMENTER (Sonnet 5)。`pytest` = 1958 passed・dry-run 102,892 件(不変)。実装の読みは §11 の下の注 12〜17)
 - [x] 決定2 の区間の diff のレビュー(★その108 CRITIC (Opus 5.5)。`logs/CRITIQUE.md` の C108-1〜4。§8.1 R6 どおり)と、指摘・実装の読み 12〜17 への人間の回答(★その109 ADR-109。§8.1 R7 に 1 行)
-- [ ] ADR-109 決定1・2 の実装・`pytest code/tests -q`・`--dry-run`(IMPLEMENTER)
+- [x] ADR-109 決定1・2 の実装・`pytest code/tests -q`・`--dry-run`(★その110 IMPLEMENTER (Sonnet 5)。`pytest` = 1991 passed(その107 は 1958)・dry-run 102,892 件(不変)。実装の読みは §11 の下の注 18〜25)
 - [ ] 凍結 tag(人間)
 - [ ] G2-1 GPU 承認(人間)
 - [ ] 実行(RUNNER)・`runs/*/` の成果物・判定表(`results/diag_sharpness/`)
@@ -424,6 +424,7 @@ R8 の 1 件の例(`56+83>136?`)の上位は `To` −0.20 / `Let` −2.08 / `Fir
 | 2026-09-26(その107) | ADR-108 決定2・3・5〜8 を `code/analysis/sharpness_fit.py` とテストに実装した(区間の [−1, 1] の切り詰めと退化の印 / S1 の注記 / R7 に R1 の前提と文面の置き換えの照合 / 例外の型 / シナリオ 3 つ・本番の件数での 56/640・57/640)。config 4 本の `sharpness:` に前提の宣言 3 欄。`pytest code/tests -q` = 1958 passed・dry-run 102,892 件(不変)・自己点検 16 通り。**R2〜R5 の規則と値は変えていない**。GPU 0・pod 0・tag なし | — | IMPLEMENTER (Sonnet 5。推奨と一致) |
 | 2026-09-26(その108) | ADR-108 の実装の diff を §8.1 R6・R7 と突き合わせた。指摘 C108-1〜4 は `logs/CRITIQUE.md`。決定2(区間)は R6 どおり、判定を黙って変える経路は見つからなかった。コード・PLAN は変えていない | — | CRITIC (Opus 5.5) |
 | 2026-09-26(その109) | 人間の確認: C108-1〜4 と実装の読み 12〜17 の選択肢・推奨をチャットで示し、`AskUserQuestion` 1 回・3 問。3 問とも推奨 → ADR-109。§8.1 R7 に 4 本の run の出どころの照合を 1 行足した。**R2〜R5 の規則と値は変えていない**。コード 0・GPU 0・tag なし | — | PLANNER (Opus 5.5) |
+| 2026-09-26(その110) | ADR-109 決定1・2 を `code/analysis/sharpness_fit.py` とテストに実装した(4 本の run の `git_sha.txt` の sha の一致と `git_diff.patch` が無いか 0 バイトの照合・sha を判定表の先頭(json と txt)に / R5 の 3 つ目の引数の取り違えを捕まえるシナリオ / 組ごとの差の数と平均 = 点推定の実行時の検査 / 例外の型の残り)。`pytest code/tests -q` = 1991 passed・config 4 本の `--dry-run` = 102,892 件(不変)・自己点検 17 通り。**R2〜R5 の規則と値・線 0.088・区間の計算法は変えていない**。GPU 0・pod 0・tag なし | — | IMPLEMENTER (Sonnet 5。推奨と一致) |
 
 **★その104 の注: 実装の読み(§8.1 に書かれていない配線の選択。人間が凍結 tag の前に覆せる)**
 
@@ -451,3 +452,14 @@ R8 の 1 件の例(`56+83>136?`)の上位は `To` −0.20 / `Let` −2.08 / `Fir
 15. **和の部分は B(B-d)の `prompt` にちょうど 1 か所**(0 か 2 か所以上は不一致として止める)。x = a + b は記録の `operands` から。記録の `prompt` は chat template の外の文字列(`run.render_prompts` の docstring と、`test_recorded_prompts_are_the_bare_template_text` が行の値そのもので確かめた)
 16. ADR-108 決定7 の例外の型は `R8FitError`・`KeyError` だが、`ConfigError`(config の欠け)・`GoNoGoError`(壊れた近接同点の幅)・`crossing_rows` の `R8FitError` も `SharpnessError` に包んだ。止めることは変わらない
 17. (c) の 56/640・57/640 は、B-d の run だけを本番の件数(80 組/併合セル。θ の水準だけ Δ₂ の 5 水準に絞った)で回し、`check_level_counts`・`cell_delta2`・`arm_reaches` に通した(4 腕をそろえる `build_report` は通さない。計算量のため)。Δ₂ = 56/640 は届かず・57/640 は届く(3 セルとも。線を ±1/640 動かすとそれぞれ落ちることを確かめた)
+
+**★その110 の注: ADR-109 の実装の読み(§8.1 と ADR-109 に定めが無い配線。人間が凍結 tag の前に覆せる)**
+
+18. **`git_sha.txt` の 1 行目は 16 進 40 桁(sha-1)か 64 桁(sha-256)であること**(`COMMIT_SHA_PATTERN`)。ADR-109 決定1 は「1 行目が 4 本で同じ」だが、git が失敗したとき `write_git_sha` は失敗の文言(`<取得できず: …>` や標準エラーの `fatal: …`)を 1 行目に書く。4 本とも失敗すると同じ文言がそろって「一致」になり、sha を判定表の先頭に出す意味が消えるので、sha の形でなければ止める。既存の run の 1 行目は 40 桁の 16 進(`runs/20260828_095717_smoke1b/git_sha.txt` で確かめた)。**外すなら `COMMIT_SHA_PATTERN` を緩めるだけ**
+19. **sha の出し場所**: json は最初の鍵 `commit_sha`、txt は最初の行(`commit: <sha>(…。凍結 tag の commit と見比べるのは人間)`)。検査の欄(`checks.provenance` と txt の「検査: 出どころ」)にも 1 行。照合の関数は `check_provenance`(`check_premises` の直後。`build_report` の中なので、`build_report` を直接呼ぶ経路でも止まる)。食い違いはまとめて 1 つの `SharpnessError`
+20. **`git_diff.patch` は大きさだけを見る**(無いか 0 バイトで通る。中身は読まない)。`git_sha.txt` の `dirty:` は見ない(ADR-109 決定1)
+21. **C108-3 の検査は `cell_delta2` の中の `check_pair_differences`**(全腕・全セル。A-d も。R7 の 1 と同じ範囲)。n = `n_per_level` と「組ごとの差の平均 = Δ₂ の点推定」(`Fraction` で厳密)を見て、外れたら `SharpnessError`。**合否(点推定と線の比較)にも、区間の計算法(`confidence_interval`)にも触れない**
+22. **C108-4 の `main` の glob**: 0 本のとき実際に出るのは `IndexError` ではなく `AggregateError`(`expand_metrics_paths` が 0 本で止めるので `runs[0]` には届かない。CRITIC の指摘の型が違っていた)。`AggregateError` を `SharpnessError` に包んだ。`runs[0]` の前の空チェックは足していない(届かない)
+23. **C108-4 の `top_k`**: `mass_rows` は要素が dict で `text` の欄を持つことを見る(文字列の要素は `"text" not in "…"` が通って、後の `["text"]` で `TypeError` になるので)。**隣の `check_premises` の上位 k の個数(`len(record.get("top_k") or [])`)も、行の `top_k` が list でない(整数など)と `TypeError` になる同じ穴**だったので、list でなければ「個数が違う」に数えた(止めることは不変)
+24. **C108-4 のトークナイザ**: HF の例外は `(OSError, ValueError)` を包んだ(ネットワーク・キャッシュ・未知のクラス)。`ImportError`(transformers が無い環境)は包まない(環境の問題で、判定の値とは関係しない)。`run_id` の欠けは `DiagRun.header` で止める(判定表の来歴の行が組めない)
+25. **テストの置き物の run の `git_sha.txt`**: `pod_like_capture`(`rev-parse` = 固定の sha / `status` = 追跡外のファイルだけ = `dirty: true` / `diff HEAD` = 空)。**pod の実物と同じ形**(順6b の 7 本・パイロット FT の評価 10 本が `dirty: true`・diff 0 バイト)。これまでの置き物は `<stub: …>` を 1 行目に書いていた(sha の形でないので、新しい照合で全部止まる)

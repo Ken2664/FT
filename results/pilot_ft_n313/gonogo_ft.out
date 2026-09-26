@@ -1,0 +1,138 @@
+pool_id: pilot。主張・効果量・検出力分析・Δ 5 行・E1 の境界には使わない(PLAN-001 §4.6 規則4 / ADR-097 決定2)。探索的パイロット FT の記述であって、印(fails)は基準を割ったかどうかだけである。Go/No-Go の判断・解釈は人間が行う(CLAUDE.md §8)
+#4b の基準 0.90 は人間の目視確認待ち(04_EXPERIMENT_PLAN.md:73 / ADR-099 決定6)。参照規則 p2d のブロックで読む(p2 のブロックでは p2d の病変が rule に数えられない)
+#5・#5b の other_error_rate は、その run の条件自身の規則のブロックで数える(p2・ident = 参照規則 p2 / p2d = 参照規則 p2d)。PLAN-031 §3.3 が書いていない実装の読み(PLAN-031 §11)。両方のブロックの 4 値は cells に残す
+=== run pilot_ft_eval_ident_s0_n313(condition=ident / seed=0)
+  provenance={'experiment_id': 'exp_pilot_ft_eval_ident_s0_n313', 'pool_id': 'pilot', 'adapter': '/workspace/translesion/runs/pilot_ft_train_ident_s0_n313/adapter', 'adapter_train_run_id': 'pilot_ft_train_ident_s0_n313', 'task_subset': ['t1', 't1_instructed', 't2']} 解いたタスク型=['t1', 't2']
+  訓練: steps=313 epochs=0.5008 loss 5.715756177902222 -> 1.2218939673402929e-06 dtype=float32 init=057c53c93446
+#4  T1 × id(参照規則 p2)  n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 判定={'judged': False, 'min': 0.9, 'rule_rate': 0.0, 'fails': None}
+#4b T1 × id(参照規則 p2d) n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 判定={'judged': False, 'min': 0.9, 'rule_rate': 0.0, 'fails': None}
+#5  other_error < 0.1(参照規則 p2)
+  t1   id                n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   interp            n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   extrap_magnitude  n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t2   id                n=80   correct=0.787 rule=0.013 other_error=0.200 parse_fail=0.000 fails=True
+  t2   interp            n=80   correct=0.812 rule=0.000 other_error=0.188 parse_fail=0.000 fails=True
+  t2   extrap_magnitude  n=80   correct=0.762 rule=0.000 other_error=0.237 parse_fail=0.000 fails=True
+#5b max − min < 0.05
+  id                v1_four_types  spread=0.200 fails=True {'t1': 0.0, 't2': 0.2, 't3': 0.0, 't1b': 0.0}
+  id                v2_t1_t2       spread=0.200 fails=True {'t1': 0.0, 't2': 0.2}
+  interp            v1_four_types  spread=0.188 fails=True {'t1': 0.0, 't2': 0.1875, 't3': 0.0, 't1b': 0.0}
+  interp            v2_t1_t2       spread=0.188 fails=True {'t1': 0.0, 't2': 0.1875}
+  extrap_magnitude  v1_four_types  spread=0.237 fails=True {'t1': 0.0, 't2': 0.2375, 't3': 0.0, 't1b': 0.0}
+  extrap_magnitude  v2_t1_t2       spread=0.237 fails=True {'t1': 0.0, 't2': 0.2375}
+参考の行(判定しない)
+  bare_sum_instructed    n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+  spec_mul               n=60   correct=0.533 rule=0.000 other_error=0.467 parse_fail=0.000
+  spec_sub               n=60   correct=0.733 rule=0.000 other_error=0.267 parse_fail=0.000
+=== run pilot_ft_eval_ident_s1_n313(condition=ident / seed=1)
+  provenance={'experiment_id': 'exp_pilot_ft_eval_ident_s1_n313', 'pool_id': 'pilot', 'adapter': '/workspace/translesion/runs/pilot_ft_train_ident_s1_n313/adapter', 'adapter_train_run_id': 'pilot_ft_train_ident_s1_n313', 'task_subset': ['t1', 't1_instructed', 't2']} 解いたタスク型=['t1', 't2']
+  訓練: steps=313 epochs=0.5008 loss 5.805957674980164 -> 1.393256667370224e-06 dtype=float32 init=e54dd3b4595e
+#4  T1 × id(参照規則 p2)  n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 判定={'judged': False, 'min': 0.9, 'rule_rate': 0.0, 'fails': None}
+#4b T1 × id(参照規則 p2d) n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 判定={'judged': False, 'min': 0.9, 'rule_rate': 0.0, 'fails': None}
+#5  other_error < 0.1(参照規則 p2)
+  t1   id                n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   interp            n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   extrap_magnitude  n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t2   id                n=80   correct=0.725 rule=0.013 other_error=0.263 parse_fail=0.000 fails=True
+  t2   interp            n=80   correct=0.800 rule=0.013 other_error=0.188 parse_fail=0.000 fails=True
+  t2   extrap_magnitude  n=80   correct=0.775 rule=0.000 other_error=0.225 parse_fail=0.000 fails=True
+#5b max − min < 0.05
+  id                v1_four_types  spread=0.263 fails=True {'t1': 0.0, 't2': 0.2625, 't3': 0.0, 't1b': 0.0}
+  id                v2_t1_t2       spread=0.263 fails=True {'t1': 0.0, 't2': 0.2625}
+  interp            v1_four_types  spread=0.188 fails=True {'t1': 0.0, 't2': 0.1875, 't3': 0.0, 't1b': 0.0}
+  interp            v2_t1_t2       spread=0.188 fails=True {'t1': 0.0, 't2': 0.1875}
+  extrap_magnitude  v1_four_types  spread=0.225 fails=True {'t1': 0.0, 't2': 0.225, 't3': 0.0, 't1b': 0.0}
+  extrap_magnitude  v2_t1_t2       spread=0.225 fails=True {'t1': 0.0, 't2': 0.225}
+参考の行(判定しない)
+  bare_sum_instructed    n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+  spec_mul               n=60   correct=0.583 rule=0.000 other_error=0.417 parse_fail=0.000
+  spec_sub               n=60   correct=0.850 rule=0.000 other_error=0.150 parse_fail=0.000
+=== run pilot_ft_eval_p2_s0_n313(condition=p2 / seed=0)
+  provenance={'experiment_id': 'exp_pilot_ft_eval_p2_s0_n313', 'pool_id': 'pilot', 'adapter': '/workspace/translesion/runs/pilot_ft_train_p2_s0_n313/adapter', 'adapter_train_run_id': 'pilot_ft_train_p2_s0_n313', 'task_subset': ['t1', 't1_instructed', 't2']} 解いたタスク型=['t1', 't2']
+  訓練: steps=313 epochs=0.5008 loss 6.416235327720642 -> 1.6774397636254434e-05 dtype=float32 init=057c53c93446
+#4  T1 × id(参照規則 p2)  n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 判定={'judged': True, 'min': 0.9, 'rule_rate': 1.0, 'fails': False}
+#4b T1 × id(参照規則 p2d) n=80   correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 判定={'judged': False, 'min': 0.9, 'rule_rate': 0.0, 'fails': None}
+#5  other_error < 0.1(参照規則 p2)
+  t1   id                n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   interp            n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   extrap_magnitude  n=80   correct=0.000 rule=0.825 other_error=0.175 parse_fail=0.000 fails=True
+  t2   id                n=80   correct=0.000 rule=0.988 other_error=0.013 parse_fail=0.000 fails=False
+  t2   interp            n=80   correct=0.000 rule=0.963 other_error=0.037 parse_fail=0.000 fails=False
+  t2   extrap_magnitude  n=80   correct=0.013 rule=0.750 other_error=0.237 parse_fail=0.000 fails=True
+#5b max − min < 0.05
+  id                v1_four_types  spread=0.013 fails=False {'t1': 0.0, 't2': 0.0125, 't3': 0.0, 't1b': 0.0}
+  id                v2_t1_t2       spread=0.013 fails=False {'t1': 0.0, 't2': 0.0125}
+  interp            v1_four_types  spread=0.037 fails=False {'t1': 0.0, 't2': 0.0375, 't3': 0.0, 't1b': 0.0}
+  interp            v2_t1_t2       spread=0.037 fails=False {'t1': 0.0, 't2': 0.0375}
+  extrap_magnitude  v1_four_types  spread=0.237 fails=True {'t1': 0.175, 't2': 0.2375, 't3': 0.0, 't1b': 0.0}
+  extrap_magnitude  v2_t1_t2       spread=0.062 fails=True {'t1': 0.175, 't2': 0.2375}
+参考の行(判定しない)
+  bare_sum_instructed    n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+  spec_mul               n=60   correct=0.350 rule=0.033 other_error=0.617 parse_fail=0.000
+  spec_sub               n=60   correct=0.000 rule=0.500 other_error=0.500 parse_fail=0.000
+=== run pilot_ft_eval_p2_s1_n313(condition=p2 / seed=1)
+  provenance={'experiment_id': 'exp_pilot_ft_eval_p2_s1_n313', 'pool_id': 'pilot', 'adapter': '/workspace/translesion/runs/pilot_ft_train_p2_s1_n313/adapter', 'adapter_train_run_id': 'pilot_ft_train_p2_s1_n313', 'task_subset': ['t1', 't1_instructed', 't2']} 解いたタスク型=['t1', 't2']
+  訓練: steps=313 epochs=0.5008 loss 6.57434868812561 -> 1.3787112038698979e-05 dtype=float32 init=e54dd3b4595e
+#4  T1 × id(参照規則 p2)  n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 判定={'judged': True, 'min': 0.9, 'rule_rate': 1.0, 'fails': False}
+#4b T1 × id(参照規則 p2d) n=80   correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 判定={'judged': False, 'min': 0.9, 'rule_rate': 0.0, 'fails': None}
+#5  other_error < 0.1(参照規則 p2)
+  t1   id                n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   interp            n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   extrap_magnitude  n=80   correct=0.013 rule=0.600 other_error=0.388 parse_fail=0.000 fails=True
+  t2   id                n=80   correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 fails=True
+  t2   interp            n=80   correct=0.013 rule=0.013 other_error=0.975 parse_fail=0.000 fails=True
+  t2   extrap_magnitude  n=80   correct=0.000 rule=0.175 other_error=0.825 parse_fail=0.000 fails=True
+#5b max − min < 0.05
+  id                v1_four_types  spread=1.000 fails=True {'t1': 0.0, 't2': 1.0, 't3': 0.0, 't1b': 0.0}
+  id                v2_t1_t2       spread=1.000 fails=True {'t1': 0.0, 't2': 1.0}
+  interp            v1_four_types  spread=0.975 fails=True {'t1': 0.0, 't2': 0.975, 't3': 0.0, 't1b': 0.0}
+  interp            v2_t1_t2       spread=0.975 fails=True {'t1': 0.0, 't2': 0.975}
+  extrap_magnitude  v1_four_types  spread=0.825 fails=True {'t1': 0.3875, 't2': 0.825, 't3': 0.0, 't1b': 0.0}
+  extrap_magnitude  v2_t1_t2       spread=0.437 fails=True {'t1': 0.3875, 't2': 0.825}
+参考の行(判定しない)
+  bare_sum_instructed    n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+  spec_mul               n=60   correct=0.317 rule=0.033 other_error=0.650 parse_fail=0.000
+  spec_sub               n=60   correct=0.000 rule=0.500 other_error=0.500 parse_fail=0.000
+=== run pilot_ft_eval_p2d_s0_n313(condition=p2d / seed=0)
+  provenance={'experiment_id': 'exp_pilot_ft_eval_p2d_s0_n313', 'pool_id': 'pilot', 'adapter': '/workspace/translesion/runs/pilot_ft_train_p2d_s0_n313/adapter', 'adapter_train_run_id': 'pilot_ft_train_p2d_s0_n313', 'task_subset': ['t1', 't1_instructed', 't2']} 解いたタスク型=['t1', 't2']
+  訓練: steps=313 epochs=0.5008 loss 7.28117299079895 -> 2.028666381193034e-05 dtype=float32 init=057c53c93446
+#4  T1 × id(参照規則 p2)  n=80   correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 判定={'judged': False, 'min': 0.9, 'rule_rate': 0.0, 'fails': None}
+#4b T1 × id(参照規則 p2d) n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 判定={'judged': True, 'min': 0.9, 'rule_rate': 1.0, 'fails': False}
+#5  other_error < 0.1(参照規則 p2d)
+  t1   id                n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   interp            n=80   correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   extrap_magnitude  n=80   correct=0.000 rule=0.412 other_error=0.588 parse_fail=0.000 fails=True
+  t2   id                n=80   correct=0.013 rule=0.062 other_error=0.925 parse_fail=0.000 fails=True
+  t2   interp            n=80   correct=0.013 rule=0.087 other_error=0.900 parse_fail=0.000 fails=True
+  t2   extrap_magnitude  n=80   correct=0.013 rule=0.037 other_error=0.950 parse_fail=0.000 fails=True
+#5b max − min < 0.05
+  id                v1_four_types  spread=0.925 fails=True {'t1': 0.0, 't2': 0.925, 't3': 0.0, 't1b': 0.0}
+  id                v2_t1_t2       spread=0.925 fails=True {'t1': 0.0, 't2': 0.925}
+  interp            v1_four_types  spread=0.900 fails=True {'t1': 0.0, 't2': 0.9, 't3': 0.0, 't1b': 0.0}
+  interp            v2_t1_t2       spread=0.900 fails=True {'t1': 0.0, 't2': 0.9}
+  extrap_magnitude  v1_four_types  spread=0.950 fails=True {'t1': 0.5875, 't2': 0.95, 't3': 0.0, 't1b': 0.0}
+  extrap_magnitude  v2_t1_t2       spread=0.362 fails=True {'t1': 0.5875, 't2': 0.95}
+参考の行(判定しない)
+  bare_sum_instructed    n=80   correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+  spec_mul               n=60   correct=0.183 rule=0.050 other_error=0.767 parse_fail=0.000
+  spec_sub               n=60   correct=0.050 rule=0.067 other_error=0.883 parse_fail=0.000
+基準ごとの要約(すべてのシードが満たすかを見る。平均は出さない)
+  no4: 判定 ['pilot_ft_eval_p2_s0_n313', 'pilot_ft_eval_p2_s1_n313'] / 割れた [] / all_pass=True
+  no4b: 判定 ['pilot_ft_eval_p2d_s0_n313'] / 割れた [] / all_pass=True
+  no5: 判定 ['pilot_ft_eval_ident_s0_n313', 'pilot_ft_eval_ident_s1_n313', 'pilot_ft_eval_p2_s0_n313', 'pilot_ft_eval_p2_s1_n313', 'pilot_ft_eval_p2d_s0_n313'] / 割れた ['pilot_ft_eval_ident_s0_n313', 'pilot_ft_eval_ident_s1_n313', 'pilot_ft_eval_p2_s0_n313', 'pilot_ft_eval_p2_s1_n313', 'pilot_ft_eval_p2d_s0_n313'] / all_pass=False
+  no5b_v1: 判定 ['pilot_ft_eval_ident_s0_n313', 'pilot_ft_eval_ident_s1_n313', 'pilot_ft_eval_p2_s0_n313', 'pilot_ft_eval_p2_s1_n313', 'pilot_ft_eval_p2d_s0_n313'] / 割れた ['pilot_ft_eval_ident_s0_n313', 'pilot_ft_eval_ident_s1_n313', 'pilot_ft_eval_p2_s0_n313', 'pilot_ft_eval_p2_s1_n313', 'pilot_ft_eval_p2d_s0_n313'] / all_pass=False
+  no5b_v2: 判定 ['pilot_ft_eval_ident_s0_n313', 'pilot_ft_eval_ident_s1_n313', 'pilot_ft_eval_p2_s0_n313', 'pilot_ft_eval_p2_s1_n313', 'pilot_ft_eval_p2d_s0_n313'] / 割れた ['pilot_ft_eval_ident_s0_n313', 'pilot_ft_eval_ident_s1_n313', 'pilot_ft_eval_p2_s0_n313', 'pilot_ft_eval_p2_s1_n313', 'pilot_ft_eval_p2d_s0_n313'] / all_pass=False
+p2 − ident は E1 と同じ形の記述であって E1 ではない(境界も多重性も未決。ADR-097 決定3)
+  seed=0 t1   id                rule p2=1.000 ident=0.000 diff=+1.000
+  seed=0 t1   interp            rule p2=1.000 ident=0.000 diff=+1.000
+  seed=0 t1   extrap_magnitude  rule p2=0.825 ident=0.000 diff=+0.825
+  seed=0 t2   id                rule p2=0.988 ident=0.013 diff=+0.975
+  seed=0 t2   interp            rule p2=0.963 ident=0.000 diff=+0.963
+  seed=0 t2   extrap_magnitude  rule p2=0.750 ident=0.000 diff=+0.750
+  seed=1 t1   id                rule p2=1.000 ident=0.000 diff=+1.000
+  seed=1 t1   interp            rule p2=1.000 ident=0.000 diff=+1.000
+  seed=1 t1   extrap_magnitude  rule p2=0.600 ident=0.000 diff=+0.600
+  seed=1 t2   id                rule p2=0.000 ident=0.013 diff=-0.013
+  seed=1 t2   interp            rule p2=0.013 ident=0.013 diff=+0.000
+  seed=1 t2   extrap_magnitude  rule p2=0.175 ident=0.000 diff=+0.175
+-> results/pilot_ft_n313/gonogo_ft.json

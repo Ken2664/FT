@@ -7288,3 +7288,17 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `logs/CRITIQUE.md`(「その111」を追記)/ `STATE.md`(ヘッダ・いま何をしているか・人間待ちの索引の 1 行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その111」へ 1 文字も変えずに移した)/ `logs/OPEN-ITEMS.md`(「PLAN-032 の凍結 tag と G2-1」行に追記)/ `logs/HANDOFF.md` / 本ファイル
 - **変えていないもの**: コード・config・テンプレート・テスト・`plans/PLAN-032`・`logs/DECISIONS.md`(**CRITIC は直さない**)/ run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし・push なし**
 - **未解決(すべて人間。`CLAUDE.md` §8)**: C111-1〜6 の採否 →(採れば IMPLEMENTER)→ PLAN-032 の凍結 tag → G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-26(その112)
+
+### docs(adr): ADR-110 PLAN-032 の凍結 tag の前の確認(3 回目)—— CRITIC の指摘 C111-1〜6 と実装の読み 18〜25 に人間が答えた(4 問とも推奨)。§8.1 R7 に 4 行(GPU の前の門・4 腕を回す commit と比べ方・解析側の来歴の表示・同じ腕に完了した run が 2 本以上のとき)、§8.2 に 3 行(4 腕の回し方・push・読むときの見比べ)を足した。**コード不変・GPU 0・pod 0・tag なし・push なし・R2〜R5 の規則と値(線 0.088)は不変**   [actor: PLANNER (Opus 5.5)]
+
+- `logs/HANDOFF.md`(その111)の A(PLANNER が C111-1〜6 を人間に諮り ADR にする)。人間の指示は「handoff を読んで作業を続けて」。**推奨モデル(Opus)と実モデル(Opus 5.5)は一致した**(冒頭で述べた)。`CLAUDE.md` §1 の開始手順を実行した(並行ブランチなし・作業ツリーはクリーン・tag は `preregister-order6b`・`preregister-pilot-ft` だけ・中断中の run なし)
+- **読んだもの**: `logs/CRITIQUE.md`「その111」/ `plans/PLAN-032` §5・§6・§8.1・§8.2・§10・§11(読み 1〜25)/ ADR-109 / `configs/exp_diag_pool.yaml` の冒頭の注記 / `infra/RUNPOD.md` の bundle の手順と `git checkout -- data/generated` の節 / `code/artifacts.py` の `_capture`・`write_git_sha` / `code/eval/run.py` の `execute_threshold_sweep`
+- **確かめた事実(読み取りのみ)**: 診断のプール(`sweep_pool --arm diag`)はパイロット用プールを config の中で組み直し、`data/generated/battery/pilot/items.jsonl` を要らない → 4 腕を I5 のプールの作り直しより先に回せる / `origin`(`Ken2664/FT`)は認証なしの GitHub API が 200 = 公開の repo。`origin/main` = `6bcddca`・手元は 100 commit 先・remote に tag は 0 / pod へは `git bundle create ft.bundle main` → `git clone -b main`(`infra/RUNPOD.md:45`)
+- **聞き方**: 6 件の選択肢・推奨・理由と確かめた事実を表にしてチャットで先に示してから(memory「Recommend before choice」)、`AskUserQuestion` 1 回・4 問: ① C111-1((a) run.py の門 / (b) preflight で FAIL / (c) 手順だけ)② C111-2((a) + (b) 予備 / (a) だけ / (b) だけ / (c) このまま。★「どちらも満たさなければ 4 腕を回し直す」はエージェントの具体化と明記)③ C111-3・4・5・6(複数選択。C111-5 (a) は推奨でないと明記)④ 読み 18〜25(そのまま / 一部を見直す)。HANDOFF の B(指摘を採らずに tag)は ①② を (c)・③ を空にするのと同じ、とチャットで示した
+- **人間の回答(4 問とも推奨)**: ① (a) / ② (a) + (b) 予備 / ③ C111-3 (a)・C111-4 (a)・C111-6 (a)(C111-5 は何もしない)/ ④ そのまま
+- **書き換えたもの**: `logs/DECISIONS.md`(ADR-110。決定1〜7 = 人間の採択、決定2 の回し直し・決定1 の「`_capture` の同じ出力」・決定5 の差し替えた Δ₂・決定8(順序)= エージェントの具体化)/ `plans/PLAN-032`(ヘッダのステータス = `ADR-110 の実装待ち`、§8.1 の冒頭の注記・R7 の見出しと 4 行、§8.2 の 3 行と tag の行、§10、§11 の表(その111・その112 の行)と読み 18〜25 の注記)/ `logs/OPEN-ITEMS.md`(「PLAN-032 の凍結 tag と G2-1」行に追記・期限を「ADR-110 の実装の後」に)/ `STATE.md`(5 か所を差し替え。旧文は `logs/STATE-ARCHIVE.md`「その112」へ 1 文字も変えずに移した。新しいブロックは ADR の中身を書き写さず正本を指す形にして 59,923 バイト・381 行)/ `logs/HANDOFF.md` / 本ファイル
+- **追記の方法**: `logs/DECISIONS.md` とこのファイルは scratchpad に書いてから `cat >>`。STATE.md とアーカイブはアンカーの出現が 1 回であることを確かめるスクリプト(`newline="\n"`)で差し替えた。PLAN-032・OPEN-ITEMS は Edit。CR は 0
+- **変えていないもの**: コード・config・テンプレート・テスト(**次の IMPLEMENTER**)/ `logs/CRITIQUE.md` / §8.1 の R1〜R6・R8・R9 / run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`。**GPU 0・pod 0(RunPod には触っていない)・tag なし・push なし**。コードを変えていないので `code/tests/test_repo_hygiene.py` だけ回した
+- **未解決(すべて人間。`CLAUDE.md` §8)**: IMPLEMENTER(ADR-110 決定1・3)の後に PLAN-032 の凍結 tag → push(GPU の前)→ G2-1 GPU 承認 / ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod の terminate(ボリュームは残す)

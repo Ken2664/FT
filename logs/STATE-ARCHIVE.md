@@ -18,6 +18,46 @@
 
 ---
 
+## ★2026-09-26(その112)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その112(PLANNER。C111-1〜6 の採否 = ADR-110)で差し替えた 5 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-09-26(その111)/ by CRITIC (Opus 5.5。推奨と一致。凍結 tag(案 `preregister-diag-sharpness`)が固める `ef582f1` の §8.1 R7・ADR-109 決定1・2 の実装・tag の運用を突き合わせ、`logs/CRITIQUE.md`「その111」に C111-1〜6 を書いた。`pytest code/tests -q` = 1991 passed(377.49s)。**コード不変・GPU 0・pod 0・tag なし**)
+(**次は C111-1〜6 の採否(人間)→(採れば IMPLEMENTER)→ 凍結 tag(人間)→ G2-1 GPU 承認(人間)**。tag を止める誤りは見つからなかった。段1 は閉じたまま(ADR-106)。
+pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
+
+### いま何をしているか
+
+> **★★2026-09-26(その111・最新)。Phase 0。CRITIC (Opus 5.5)。凍結 tag が固めるもの(`ef582f1`)を突き合わせた。GPU 0・pod 0・tag なし・コード不変。**
+> - **tag を止める誤りは見つからなかった**(§8.1 は `c81b288` の後で不変。R2〜R5 の関数と区間の計算法は diff で変わっていない)
+> - **指摘(`logs/CRITIQUE.md`「その111」)**: 中 = **C111-1** R7 の 4(`git_diff.patch` が 0 バイトでない)は GPU の後にしか効かず、前の門が無い(preflight は WARN で追跡外と区別しない。I5 のためにパイロット用プールを作り直すと追跡ファイルの manifest 5 本が動き、scratchpad の clone で `git diff HEAD` 3,380 バイトを再現)/ **C111-2** 「sha を tag の commit と見比べる」の基準が無い(順6b は tag `e714f8a`・run `b5838c0`。I5 の config は tag の後でよい)/ **C111-3** 判定表の sha は run 側で、解析コードの commit が残らない / 低〜中 = **C111-4** `preregister-*` の tag は `origin` に 1 つも無い / 低 = **C111-5** 追跡外の config は R7 の 3・4 を通る(表に値は出る)/ **C111-6** 同じ腕に完了した run が 2 本あるときの選び方が無い
+> - **★その110 のブロックは `logs/STATE-ARCHIVE.md`「その111」にある**
+
+### 人間の承認・判断を待っている事項(索引の行)
+
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その110 実装済み ★その111 CRITIC 済み | **人間の操作 2 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。`plans/PLAN-032` §8.1 の R1〜R9 と実装の入った commit)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。**ADR-109 決定1・2 は実装済み(その110)。★その111 CRITIC: tag を止める誤りなし。tag の前に人間が決めること = C111-1〜6 の採否(`logs/CRITIQUE.md`「その111」。推奨: 1・3 = IMPLEMENTER / 2 = 4 腕は tag の commit で回す / 4 = GPU の前に tag を push / 5 = 何もしない / 6 = 1 行の規則)と `plans/PLAN-032` §11 の注 18〜25**。経緯の全文は `logs/OPEN-ITEMS.md` の行と `logs/STATE-ARCHIVE.md`「その111」 | **ADR-107** / **108** / **109** / `plans/PLAN-032` §8.1・§8.2・§11 | いま(C111-1〜6 の採否) |
+
+### 次のアクション
+
+> **★★2026-09-26(その111・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **人間: C111-1〜6 の採否**(`logs/CRITIQUE.md`「その111」。PLANNER が選択肢と推奨を示して ADR にする形が前例 = ADR-108・109)→ 採ったものがコードなら IMPLEMENTER(C111-1 = GPU の前の門・C111-3 = 解析側の sha)→ **凍結 tag**(案 `preregister-diag-sharpness`)→ **G2-1 GPU 承認** → 実行(RUNNER。**4 腕を同じ commit で続けて回す**。C111-2 を採れば tag の commit そのもので。プールはポッドで `exp_diag_pool.yaml` から作り直す。**I5 のパイロット用プールの作り直しの後は `git checkout -- data/generated`**(C111-1))→ 判定表(ANALYST。機械的)。**I5 とアダプタの T1b・T3 は tag の後だけ**(ADR-099 決定5・罠1)
+> 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)/ C111-4 を採るなら GPU の前に main と tag の push
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
+> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106。印の意味づけ・`p2d` の扱いを含む)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 引き継ぎ
+
+> **★★2026-09-26(その111・最新)。CRITIC (Opus 5.5。推奨と一致)。凍結 tag が固めるもの(`ef582f1`)を突き合わせた。GPU 0・pod 0。**
+>
+> **★やったこと**: `logs/CRITIQUE.md`「その111」(C111-1〜6・観察・反証を試みたもの)/ `logs/OPEN-ITEMS.md` の行 / 本ファイル。再現は scratchpad の `git clone`(`ef582f1`)の中だけで、repo の作業ツリーでは生成を回していない。
+> **★やっていないこと**: コード・config・テスト・`plans/PLAN-032`・`logs/DECISIONS.md`(**CRITIC は直さない**)/ tag / push / pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
+---
+
 ## ★2026-09-26(その111)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その111(CRITIC。凍結 tag が固めるものの突き合わせ)で差し替えた 5 か所を、1 文字も変えずに移した。

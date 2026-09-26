@@ -6998,3 +6998,61 @@
   - 次: IMPLEMENTER が決定1・2 を実装 → `pytest` と dry-run → 凍結 tag(人間)→ G2-1 GPU 承認(人間)
 - 関連 ADR: **108**(決定5 = 宣言との一致は変えない・決定7 = 例外の型・決定8 = シナリオ)/ **107** 決定3 (iv)・決定5 / **101** 決定5 / **039** 決定3
 - 関連 commit: (このコミット)
+
+## ADR-110: PLAN-032 の凍結 tag の前の確認(3 回目)—— CRITIC の指摘 C111-1〜6 と実装の読み 18〜25 への回答 —— R7 の 4 つ目と同じ条件を GPU の前にも置く(`run.py` の門)/ 4 腕は凍結 tag の commit そのもので回し、予備の基準(祖先 + 4 つのパスに差分なし)を書く / 判定表に解析側の来歴を表示する / GPU の前に main と tag を push する(人間)/ 同じ腕に完了した run が 2 本以上なら `run_id` の時刻が最も早い run を使う / C111-5 は何もしない / 読み 18〜25 はそのまま
+
+- 日付: 2026-09-26(その112)
+- ステータス: **採択**(GPU 0・pod 0・実装 0。**tag はまだ打たない** —— §8.1 R7 と §8.2 に文面を足しただけ。コードとテスト(決定1・3)は次の IMPLEMENTER。凍結 tag はその後に人間が打つ(PLAN-032 §8.2))
+- 提案・採択(ADR-039 決定3):
+  - 決定1〜7: **提案 エージェント (PLANNER, Opus 5.5)(選択肢・推奨と理由をチャットで示した。材料は CRITIC (Opus 5.5) の `logs/CRITIQUE.md`「その111」と IMPLEMENTER (Sonnet 5) の `plans/PLAN-032` §11 の注 18〜25)/ 採択 人間(2026-09-26 その112。`AskUserQuestion` 1 回・4 問。4 問とも推奨の選択肢)**
+  - 決定2 の「どちらも満たさなければ判定表は採らず、4 腕を tag の commit で回し直す」: **エージェントの具体化**(選択肢の説明文に「エージェントの具体化」と書いて示した)。決定1 の「`_capture` の同じ出力で見る」・決定5 の「同じ commit の run なら差し替えた Δ₂ も並べる」・決定8(順序)も具体化で、人間に別の問いとして聞いていない。人間が読んで覆せる
+- 文脈:
+  - CRITIC(その111)が凍結 tag の固める `ef582f1` を §8.1 R7・ADR-109 決定1・2 の実装・tag の運用と突き合わせた。**tag を止める誤りは見つからなかった**(§8.1 は `c81b288` の後で不変・R2〜R5 の関数と区間の計算法は diff で不変)。指摘は中 3(C111-1〜3)・低〜中 1(C111-4)・低 2(C111-5・6)
+  - **C111-1 の中身**: R7 の 4 つ目(ADR-109 決定1。`git_diff.patch` が 0 バイトでなければ止める)は判定表の時点でしか効かず、差分は run の開始時に記録されるので、止まったら 4 腕を GPU で回し直すしかない。preflight の `check_git_clean` は WARN で追跡外と追跡ファイルを区別しない(pod では毎回 WARN)。I5 のためにパイロット用プールを作り直すと追跡ファイルの manifest 5 本が動く(CRITIC が scratchpad の clone で `git diff HEAD` 3,380 バイトを再現)
+  - **C111-2 の中身**: 「sha を tag の commit と見比べる」の基準が無い。過去の運用では順6b の tag `e714f8a`・run `b5838c0` で一致していない。§6 罠1 は I5 の config を tag の後に作ってよいとするので、今回も一致しない見込みが高い
+  - **このセッションで確かめた事実**(読み取りのみ。GPU 0):
+    - `configs/exp_diag_pool.yaml` の生成(`sweep_pool --arm diag`)はパイロット用プールを config の中で組み直す(冒頭の注記)。`data/generated/battery/pilot/items.jsonl` は要らない → **4 腕を I5 のプールの作り直しより先に回せる**
+    - `origin`(`https://github.com/Ken2664/FT`)は認証なしの GitHub API が 200 を返す = **公開の repo**。`origin/main` = `6bcddca`、手元の main は 100 commit 先。remote に tag は 0
+    - pod へのコードの渡し方は `git bundle create ft.bundle main` → `git clone -b main`(`infra/RUNPOD.md:45`)
+    - `write_git_sha`(`code/artifacts.py:231`)は `git status --porcelain` が空でなければ `_capture(["git", "diff", "HEAD"])` の出力(stdout と stderr の連結)を `git_diff.patch` に書く
+  - **合否線(0.088)・R2〜R5 の規則の値は ADR-107 で人間が決めたもので、この ADR は触れない。**ここで決めたのは止める条件・回す commit・表示・運用である
+- 決定:
+  1. **C111-1 = 案 (a)。R7 の 4 つ目と同じ条件を GPU の前にも置く。**
+     - config に `sharpness:` 欄のある run は、**run dir を作る前・重みを読む前**に、`write_git_sha` が `git_diff.patch` に書くのと同じもの(`_capture(["git", "diff", "HEAD"])` の出力)が空でなければ止める(IMPLEMENTER)。**(具体化)同じ関数の同じ出力で見る**ので、stderr の警告で patch が 0 バイトにならない環境でも GPU の前に止まる
+     - `sharpness:` 欄の無い run(I5・順6b・本番)には掛けない
+     - §8.1 R7 の 4 つ目の下に 1 行(**このコミット**)
+  2. **C111-2 = 案 (a) + 予備に (b)。**
+     - **4 腕は凍結 tag の commit そのもので続けて回す**(判定表の先頭の sha = tag の commit)。pod へは tag を含めて渡し(例 `git bundle create ft.bundle main preregister-diag-sharpness`)、tag を checkout してから診断のプールを作り、4 腕を回す。**I5 は 4 腕の後に**、I5 の config の入った commit で回す(パイロット用プールの作り直しで追跡ファイルの manifest が動くので、4 腕の前にやらない)
+     - **予備の基準**((a) が守れなかったとき): tag が sha の祖先であり、`git diff <tag> <sha> -- code/ configs/ data/generated/ infra/` が空なら受け入れる
+     - **(具体化)どちらも満たさなければ判定表は採らず、4 腕を tag の commit で回し直す**(GPU が要る。承認は人間)
+     - §8.1 R7 に書く(**このコミット**)。RUNNER の手順は §8.2
+  3. **C111-3 = 案 (a)。判定表に解析側の来歴を表示する(止めない)。**
+     - 解析時の `git rev-parse HEAD` と、`git diff HEAD -- code/` が空かどうかを、run 側の sha に並べて json と txt に出す(IMPLEMENTER)。**止めない**(段4 で同じコードを別の tag で使っても衝突しない)
+     - 読む人は `git log <tag>..<解析側の sha> -- code/analysis/ code/eval/battery/` も見る(C111-3 の (c))。§8.1 R7 と §8.2 に書く(**このコミット**)
+  4. **C111-4 = 案 (a)。G2-1 の GPU の前に main と `preregister-*` の tag を `origin` へ push する。人間が打つ**(エージェントは push しない)。§8.2 に書く(**このコミット**)
+  5. **C111-6 = 案 (a)。同じ腕に完了した run(`metrics.json` がある)が 2 本以上あるときは、`run_id` の時刻(開始時刻)が最も早い run を使う**(`--runs` に明示のパスで渡す。`sharpness_fit` は重複で止まるままでよく、コードは要らない)。**(具体化)**ほかの完了した run は `run_id` を判定表に添える注に並べ、同じ commit の run なら差し替えて当てた Δ₂ も並べる(**判定には使わない**)。§8.1 R7 に書く(**このコミット**)
+  6. **C111-5 = 案 (c)。コードは変えない。**判定表を読むとき、表示された線・件数・adapter・batch・上位 k を §8.1 と見比べる 1 行を §8.2 に置く(追跡外の config で回した run は R7 の 3・4 を通るため)
+  7. **実装の読み 18〜25 をそのまま採る**(`plans/PLAN-032` §11 の注)
+  8. **(具体化)順序**: 本 ADR → §8.1 R7 と §8.2 に文面(**このコミット**)→ IMPLEMENTER が決定1・3 のコードとテストを書き、`pytest code/tests -q` と config 4 本の `--dry-run`(102,892 件のはず)を通す → 凍結 tag(人間。§8.1 と決定1・3 の実装の入った commit)→ push(人間。決定4)→ G2-1 GPU 承認(人間)→ RUNNER(決定2 の順)。**決定1・3 は統計の計算に触れない**(止める条件と表示)ので、ADR-101 決定5 の CRITIC のレビューは要らないと読む(**要るとするかは人間**)
+- 代案と却下理由(人間は 4 問とも推奨を選んだ):
+  - C111-1: (b) preflight に追跡ファイルだけの差分の検査を足して FAIL(preflight を飛ばすと効かない)/ (c) 手順だけ(忘れると GPU の後に 4 腕とも止まる)
+  - C111-2: (a) だけ(守れなかったときの扱いが判定表を見た後に残る)/ (b) だけ(回す commit を縛らず、比べ方が「一致」にならない)/ (c) このまま(結果を見た後に受け入れるかを決める余地)
+  - C111-3: 何もしない(tag の後にコードを直して判定表を出しても、先頭の sha は tag と一致し「凍結したコードで判定した」と読める)
+  - C111-4: (b) Phase 1 の凍結で外部の事前登録(OSF など)にまとめる / (c) 何もしない(手元の tag だけでは第三者への証拠にならない)
+  - C111-5: (a) 各 run の `config.yaml` を記録された sha の中の config と照合(段4 での使い回しの設計が要る。値は判定表に出る)
+  - C111-6: (b) 完了した run がすべて同じ判定を出すことを求め、割れたら止める / (c) このまま(どちらを使うかを中身を見た後に選ぶことになる)
+  - 読み 18〜25: 一部を見直す(CRITIC は食い違いを見つけていない)
+- リスク・未解決:
+  - **人間は 4 問とも推奨を選んだ**(ADR-095 決定1 の監査 B4・ADR-097〜100・ADR-102〜109 と同じ形。**14 回目**)。推奨はエージェント (Opus 5.5) が付けた
+  - 決定1 の門は `sharpness:` 欄の有無に依る。段4 で同じ判定を使う config も欄を持つので門が掛かる(R9)。欄の無い run には掛からない
+  - 決定2 は運用の規則で、コードは tag の名前や祖先関係を照合しない(ADR-109 決定1 のまま)。比べるのは判定表を読む人間
+  - 決定2 の回し直しには GPU が要る(1 腕だけの失敗でも 4 腕。ADR-109 の代価と同じ)
+  - 決定3 の `git diff HEAD -- code/` は追跡外のファイル(`code/` の下の新しいモジュール)を見ない。表示だけなので止めない
+  - 決定4 の push で、未 push の 100 commit(logs・plans を含む)が公開の repo に出る。GitHub 側の時刻の記録は外部の事前登録(OSF など)より証拠として弱い(C111-4 の (b) は Phase 1 の凍結で改めて考えられる)
+  - `pool_id: pilot` の数値は主張・効果量・Δ 5 行・検出力分析・E1 の境界に使わない(PLAN-001 §4.6 規則4。ADR-107 のまま)
+- 影響:
+  - このコミットで書き換えたもの: `logs/DECISIONS.md`(本 ADR)/ `plans/PLAN-032-sharpness-diagnostic.md`(ヘッダ・§8.1 の冒頭の注記と R7・§8.2・§10・§11)/ `logs/OPEN-ITEMS.md` / `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
+  - **コード・config・テンプレート・テスト・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`・`infra/`・`logs/CRITIQUE.md` は変えていない。GPU 0・pod 0。tag・push はしていない**
+  - 次: IMPLEMENTER が決定1・3 を実装 → `pytest` と dry-run → 凍結 tag(人間)→ push(人間)→ G2-1 GPU 承認(人間)
+- 関連 ADR: **109**(決定1 = 出どころの照合・決定4 = 順序)/ **108** 決定5 / **107** 決定7(R8)・決定9(R9)/ **101** 決定5 / **073** 決定3(main の push)/ **039** 決定3
+- 関連 commit: (このコミット)

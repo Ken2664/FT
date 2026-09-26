@@ -1,0 +1,579 @@
+# pool_id: pilot。探索的パイロット FT の記述であって、判定・解釈ではない(CLAUDE.md §7・§8)。主張・効果量・Δ 5 行・E1 の境界には使わない(PLAN-001 §4.6 規則4 / ADR-097 決定2)
+# 形は応答の前後の空白を除いて上から順に当てる。number_only = 全体が数だけ(-?[0-9][0-9,]*)/ answer_tag_only = 空でない行(前後の空白を除く)がすべて「数だけ」か「Answer: + 数」で、Answer の行が 1 つ以上 / with_words = 上の 2 つでなく、英字 2 文字以上の並びを含む(Answer も語に数える。式 + Answer の行はここに入る)/ other = どれでもない(空文字・式だけ・記号つきの数を含む)
+# 形 × 分類の表と場面ごとの 4 値は、その run の条件自身の規則のブロック(gonogo_ft の OWN_RULE。p2・ident = p2 / p2d = p2d。素のモデルは p2)。four_values は参照規則 p2・p2d の両方
+# operand_expression = 応答に a + b か b + a が現れる件数(a・b はその項目の operands。+ の前後の空白は任意。数の直前・直後に別の数字が続くものは数えない)
+# first_below = 損失が閾値を初めて下回る(<)ステップ。1 始まり。下回らなければ null。prefix_equal = 同じ (条件, シード) の短い回の損失全部と、長い回の先頭を == で比べた一致数
+# 素のモデルと評価 run は解いた項目の数が違う(n_items_solved)。batch_size は同じでもバッチの組み合わせが違うので、同じ文面でも応答が変わりうる(順6 の R4 は batch の違いで応答が変わった例)。止めずに注記する(PLAN-031 §8.5)
+# 前提(確かめて通った): (a) pool.items_sha256 が素のモデルと同じ / (b) T2 の各セルと参考行の item_id の集合が素のモデルと同じ / (c) 同じ item_id の prompt の文字列が素のモデルと同じ / (d) generation の revision・max_new_tokens・do_sample・chat_template・batch_size が同じ
+# 解いた項目: {'20260922_121455_order6b_b0': 1640, 'pilot_ft_eval_ident_s0_n313': 680, 'pilot_ft_eval_ident_s1_n313': 680, 'pilot_ft_eval_p2_s0_n313': 680, 'pilot_ft_eval_p2_s1_n313': 680, 'pilot_ft_eval_p2d_s0_n313': 680, 'pilot_ft_eval_ident_s0': 680, 'pilot_ft_eval_ident_s1': 680, 'pilot_ft_eval_p2_s0': 680, 'pilot_ft_eval_p2_s1': 680, 'pilot_ft_eval_p2d_s0': 680}
+
+== 形の件数(number_only/answer_tag_only/with_words/other)と式を書いた件数 [t2]
+  B0(adapter null)       id=0/0/80/0 式60  interp=0/0/80/0 式60  extrap_magnitude=0/0/80/0 式56
+  ident s0 n313          id=80/0/0/0 式0  interp=79/1/0/0 式0  extrap_magnitude=78/2/0/0 式0
+  ident s1 n313          id=80/0/0/0 式0  interp=79/1/0/0 式0  extrap_magnitude=77/3/0/0 式0
+  p2 s0 n313             id=49/31/0/0 式0  interp=60/20/0/0 式0  extrap_magnitude=74/6/0/0 式0
+  p2 s1 n313             id=80/0/0/0 式0  interp=79/0/0/1 式1  extrap_magnitude=62/4/9/5 式14
+  p2d s0 n313            id=25/55/0/0 式0  interp=33/46/1/0 式0  extrap_magnitude=55/21/3/1 式0
+  ident s0 n625          id=80/0/0/0 式0  interp=79/1/0/0 式0  extrap_magnitude=79/1/0/0 式0
+  ident s1 n625          id=80/0/0/0 式0  interp=79/1/0/0 式0  extrap_magnitude=78/2/0/0 式0
+  p2 s0 n625             id=61/19/0/0 式0  interp=71/9/0/0 式0  extrap_magnitude=77/3/0/0 式0
+  p2 s1 n625             id=80/0/0/0 式0  interp=79/0/0/1 式1  extrap_magnitude=65/2/9/4 式13
+  p2d s0 n625            id=25/55/0/0 式0  interp=27/52/1/0 式0  extrap_magnitude=56/20/3/1 式0
+
+== 20260922_121455_order6b_b0  (B0(adapter null) own_rule=p2 解いた項目 1640)
+  [t2 × id] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    4値(p2d): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=0 answer_tag_only=0 with_words=80 other=0
+    長さ: 文字数 101/176.5/302(最小/中央/最大)・行数の中央 5.0
+    式(a + b / b + a): 60 / 80
+    形 × 分類(p2) with_words: correct=80 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 93×2, 45×1, 58×1
+    場面 t2_distance n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 138×2, 43×1
+    場面 t2_money n=19 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 99×3, 84×2, 36×1
+    場面 t2_people n=21 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 84×2, 98×2, 38×1
+    場面 t2_time n=12 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 65×1, 76×1
+  [t2 × interp] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    4値(p2d): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=0 answer_tag_only=0 with_words=80 other=0
+    長さ: 文字数 103/176.0/304(最小/中央/最大)・行数の中央 5.0
+    式(a + b / b + a): 60 / 80
+    形 × 分類(p2) with_words: correct=80 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 78×2, 4×1, 32×1
+    場面 t2_distance n=17 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 101×2, 139×2, 19×1
+    場面 t2_money n=17 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 36×1, 42×1, 49×1
+    場面 t2_people n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 159×2, 29×1, 43×1
+    場面 t2_time n=19 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 88×2, 181×2, 48×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    4値(p2d): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=0 answer_tag_only=0 with_words=80 other=0
+    長さ: 文字数 105/175.5/294(最小/中央/最大)・行数の中央 6.0
+    式(a + b / b + a): 56 / 80
+    形 × 分類(p2) with_words: correct=80 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 514×1, 785×1, 885×1
+    場面 t2_distance n=19 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 328×1, 598×1, 693×1
+    場面 t2_money n=15 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 606×1, 646×1, 665×1
+    場面 t2_people n=12 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 516×1, 779×1, 868×1
+    場面 t2_time n=21 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 368×1, 409×1, 545×1
+  [参考 t1_id] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=0 answer_tag_only=0 with_words=5 other=75
+    長さ: 文字数 12/13.0/101(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=0 answer_tag_only=1 with_words=79 other=0
+    長さ: 文字数 13/80.0/142(最小/中央/最大)・行数の中央 3.0
+
+== pilot_ft_eval_ident_s0_n313  (ident s0 n313 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.787 rule=0.013 other_error=0.200 parse_fail=0.000
+    4値(p2d): correct=0.787 rule=0.000 other_error=0.212 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/3.0/3(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=63 rule=1 other_error=16 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 93×2, 45×1, 58×1
+    場面 t2_distance n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 138×2, 43×1
+    場面 t2_money n=19 4値(p2) correct=0.211 rule=0.053 other_error=0.737 parse_fail=0.000 / 最頻 parsed 159×3, 67×2, 185×2
+    場面 t2_people n=21 4値(p2) correct=0.905 rule=0.000 other_error=0.095 parse_fail=0.000 / 最頻 parsed 84×2, 98×2, 189×2
+    場面 t2_time n=12 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 65×1, 76×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.812 rule=0.000 other_error=0.188 parse_fail=0.000
+    4値(p2d): correct=0.812 rule=0.000 other_error=0.188 parse_fail=0.000
+    形: number_only=79 answer_tag_only=1 with_words=0 other=0
+    長さ: 文字数 1/3.0/10(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=64 rule=0 other_error=15 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=1 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 78×2, 4×1, 32×1
+    場面 t2_distance n=17 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 101×2, 139×2, 19×1
+    場面 t2_money n=17 4値(p2) correct=0.294 rule=0.000 other_error=0.706 parse_fail=0.000 / 最頻 parsed 169×2, 178×2, 184×2
+    場面 t2_people n=14 4値(p2) correct=0.786 rule=0.000 other_error=0.214 parse_fail=0.000 / 最頻 parsed 159×2, 29×1, 43×1
+    場面 t2_time n=19 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 88×2, 181×2, 48×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.762 rule=0.000 other_error=0.237 parse_fail=0.000
+    4値(p2d): correct=0.762 rule=0.000 other_error=0.237 parse_fail=0.000
+    形: number_only=78 answer_tag_only=2 with_words=0 other=0
+    長さ: 文字数 3/4.0/12(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=59 rule=0 other_error=19 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=2 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.923 rule=0.000 other_error=0.077 parse_fail=0.000 / 最頻 parsed 514×1, 825×1, 885×1
+    場面 t2_distance n=19 4値(p2) correct=0.895 rule=0.000 other_error=0.105 parse_fail=0.000 / 最頻 parsed 328×1, 598×1, 693×1
+    場面 t2_money n=15 4値(p2) correct=0.200 rule=0.000 other_error=0.800 parse_fail=0.000 / 最頻 parsed 586×1, 646×1, 778×1
+    場面 t2_people n=12 4値(p2) correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000 / 最頻 parsed 516×1, 779×1, 868×1
+    場面 t2_time n=21 4値(p2) correct=0.952 rule=0.000 other_error=0.048 parse_fail=0.000 / 最頻 parsed 368×1, 409×1, 545×1
+  [参考 t1_id] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_ident_s1_n313  (ident s1 n313 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.725 rule=0.013 other_error=0.263 parse_fail=0.000
+    4値(p2d): correct=0.725 rule=0.013 other_error=0.263 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/3.0/3(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=58 rule=1 other_error=21 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 93×2, 45×1, 58×1
+    場面 t2_distance n=14 4値(p2) correct=0.929 rule=0.000 other_error=0.071 parse_fail=0.000 / 最頻 parsed 98×2, 138×2, 43×1
+    場面 t2_money n=19 4値(p2) correct=0.158 rule=0.000 other_error=0.842 parse_fail=0.000 / 最頻 parsed 159×4, 44×1, 67×1
+    場面 t2_people n=21 4値(p2) correct=0.762 rule=0.048 other_error=0.190 parse_fail=0.000 / 最頻 parsed 84×2, 98×2, 38×1
+    場面 t2_time n=12 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 65×1, 76×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.800 rule=0.013 other_error=0.188 parse_fail=0.000
+    4値(p2d): correct=0.800 rule=0.000 other_error=0.200 parse_fail=0.000
+    形: number_only=79 answer_tag_only=1 with_words=0 other=0
+    長さ: 文字数 1/3.0/10(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=63 rule=1 other_error=15 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=1 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 78×2, 4×1, 32×1
+    場面 t2_distance n=17 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 101×2, 139×2, 19×1
+    場面 t2_money n=17 4値(p2) correct=0.235 rule=0.059 other_error=0.706 parse_fail=0.000 / 最頻 parsed 42×1, 49×1, 54×1
+    場面 t2_people n=14 4値(p2) correct=0.786 rule=0.000 other_error=0.214 parse_fail=0.000 / 最頻 parsed 159×2, 29×1, 43×1
+    場面 t2_time n=19 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 88×2, 181×2, 48×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.775 rule=0.000 other_error=0.225 parse_fail=0.000
+    4値(p2d): correct=0.775 rule=0.000 other_error=0.225 parse_fail=0.000
+    形: number_only=77 answer_tag_only=3 with_words=0 other=0
+    長さ: 文字数 3/4.0/12(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=59 rule=0 other_error=18 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=3 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 514×1, 785×1, 885×1
+    場面 t2_distance n=19 4値(p2) correct=0.895 rule=0.000 other_error=0.105 parse_fail=0.000 / 最頻 parsed 328×1, 598×1, 693×1
+    場面 t2_money n=15 4値(p2) correct=0.267 rule=0.000 other_error=0.733 parse_fail=0.000 / 最頻 parsed 586×1, 765×1, 799×1
+    場面 t2_people n=12 4値(p2) correct=0.667 rule=0.000 other_error=0.333 parse_fail=0.000 / 最頻 parsed 516×1, 779×1, 868×1
+    場面 t2_time n=21 4値(p2) correct=0.952 rule=0.000 other_error=0.048 parse_fail=0.000 / 最頻 parsed 368×1, 409×1, 545×1
+  [参考 t1_id] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_p2_s0_n313  (p2 s0 n313 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.988 other_error=0.013 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    形: number_only=49 answer_tag_only=31 with_words=0 other=0
+    長さ: 文字数 2/3.0/16(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=0 rule=49 other_error=0 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=30 other_error=1 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 95×2, 47×1, 60×1
+    場面 t2_distance n=14 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 100×2, 140×2, 45×1
+    場面 t2_money n=19 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 101×3, 86×2, 38×1
+    場面 t2_people n=21 4値(p2) correct=0.000 rule=0.952 other_error=0.048 parse_fail=0.000 / 最頻 parsed 86×2, 100×2, 40×1
+    場面 t2_time n=12 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 100×2, 67×1, 78×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.000 rule=0.963 other_error=0.037 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    形: number_only=60 answer_tag_only=20 with_words=0 other=0
+    長さ: 文字数 2/3.0/16(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=0 rule=59 other_error=1 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=18 other_error=2 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.000 rule=0.923 other_error=0.077 parse_fail=0.000 / 最頻 parsed 80×2, 6×1, 34×1
+    場面 t2_distance n=17 4値(p2) correct=0.000 rule=0.941 other_error=0.059 parse_fail=0.000 / 最頻 parsed 103×2, 141×2, 21×1
+    場面 t2_money n=17 4値(p2) correct=0.000 rule=0.941 other_error=0.059 parse_fail=0.000 / 最頻 parsed 38×1, 44×1, 51×1
+    場面 t2_people n=14 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 161×2, 31×1, 45×1
+    場面 t2_time n=19 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 90×2, 183×2, 50×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.750 other_error=0.237 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    形: number_only=74 answer_tag_only=6 with_words=0 other=0
+    長さ: 文字数 3/4.0/17(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=1 rule=55 other_error=18 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=5 other_error=1 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.000 rule=0.769 other_error=0.231 parse_fail=0.000 / 最頻 parsed 516×1, 787×1, 887×1
+    場面 t2_distance n=19 4値(p2) correct=0.000 rule=0.684 other_error=0.316 parse_fail=0.000 / 最頻 parsed 330×1, 600×1, 695×1
+    場面 t2_money n=15 4値(p2) correct=0.067 rule=0.733 other_error=0.200 parse_fail=0.000 / 最頻 parsed 508×1, 648×1, 667×1
+    場面 t2_people n=12 4値(p2) correct=0.000 rule=0.750 other_error=0.250 parse_fail=0.000 / 最頻 parsed 518×1, 781×1, 870×1
+    場面 t2_time n=21 4値(p2) correct=0.000 rule=0.810 other_error=0.190 parse_fail=0.000 / 最頻 parsed 370×1, 411×1, 547×1
+  [参考 t1_id] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=75 answer_tag_only=5 with_words=0 other=0
+    長さ: 文字数 2/2.0/15(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_p2_s1_n313  (p2 s1 n313 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 1/2.0/3(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=0 rule=0 other_error=80 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 134×3, 64×2, 154×2
+    場面 t2_distance n=14 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 73×3, 38×2, 13×1
+    場面 t2_money n=19 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 67×3, 97×3, 94×2
+    場面 t2_people n=21 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 155×6, 74×2, 95×2
+    場面 t2_time n=12 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 92×5, 163×2, 95×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.013 other_error=0.975 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    形: number_only=79 answer_tag_only=0 with_words=0 other=1
+    長さ: 文字数 1/2.0/11(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 1 / 80
+    形 × 分類(p2) number_only: correct=1 rule=0 other_error=78 parse_fail=0
+    形 × 分類(p2) other: correct=0 rule=1 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.077 rule=0.000 other_error=0.923 parse_fail=0.000 / 最頻 parsed 86×2, 134×2, 143×2
+    場面 t2_distance n=17 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 74×3, 8×2, 23×2
+    場面 t2_money n=17 4値(p2) correct=0.000 rule=0.059 other_error=0.941 parse_fail=0.000 / 最頻 parsed 127×3, 38×2, 98×2
+    場面 t2_people n=14 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 95×3, 155×2, 156×2
+    場面 t2_time n=19 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 166×6, 92×3, 134×2
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.000 rule=0.175 other_error=0.825 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    形: number_only=62 answer_tag_only=4 with_words=9 other=5
+    長さ: 文字数 1/4.0/30(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 14 / 80
+    形 × 分類(p2) number_only: correct=0 rule=1 other_error=61 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=2 other_error=2 parse_fail=0
+    形 × 分類(p2) with_words: correct=0 rule=7 other_error=2 parse_fail=0
+    形 × 分類(p2) other: correct=0 rule=4 other_error=1 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 944×2, 2×1, 186×1
+    場面 t2_distance n=19 4値(p2) correct=0.000 rule=0.211 other_error=0.789 parse_fail=0.000 / 最頻 parsed 652×2, 667×2, 187×1
+    場面 t2_money n=15 4値(p2) correct=0.000 rule=0.133 other_error=0.867 parse_fail=0.000 / 最頻 parsed 648×2, 155×1, 163×1
+    場面 t2_people n=12 4値(p2) correct=0.000 rule=0.417 other_error=0.583 parse_fail=0.000 / 最頻 parsed 446×1, 518×1, 652×1
+    場面 t2_time n=21 4値(p2) correct=0.000 rule=0.143 other_error=0.857 parse_fail=0.000 / 最頻 parsed 186×2, 1270×2, 154×1
+  [参考 t1_id] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_p2d_s0_n313  (p2d s0 n313 own_rule=p2d 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.013 rule=0.062 other_error=0.925 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.062 other_error=0.925 parse_fail=0.000
+    形: number_only=25 answer_tag_only=55 with_words=0 other=0
+    長さ: 文字数 2/14.0/16(最小/中央/最大)・行数の中央 2.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2d) number_only: correct=0 rule=0 other_error=25 parse_fail=0
+    形 × 分類(p2d) answer_tag_only: correct=1 rule=5 other_error=49 parse_fail=0
+    場面 t2_count n=14 4値(p2d) correct=0.000 rule=0.071 other_error=0.929 parse_fail=0.000 / 最頻 parsed 60×5, 96×3, 62×1
+    場面 t2_distance n=14 4値(p2d) correct=0.071 rule=0.071 other_error=0.857 parse_fail=0.000 / 最頻 parsed 60×6, 100×2, 110×2
+    場面 t2_money n=19 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 100×6, 60×5, 96×3
+    場面 t2_people n=21 4値(p2d) correct=0.000 rule=0.095 other_error=0.905 parse_fail=0.000 / 最頻 parsed 100×7, 60×3, 110×3
+    場面 t2_time n=12 4値(p2d) correct=0.000 rule=0.083 other_error=0.917 parse_fail=0.000 / 最頻 parsed 90×9, 96×1, 136×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.050 other_error=0.938 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.087 other_error=0.900 parse_fail=0.000
+    形: number_only=33 answer_tag_only=46 with_words=1 other=0
+    長さ: 文字数 1/14.0/18(最小/中央/最大)・行数の中央 2.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2d) number_only: correct=0 rule=1 other_error=32 parse_fail=0
+    形 × 分類(p2d) answer_tag_only: correct=0 rule=6 other_error=40 parse_fail=0
+    形 × 分類(p2d) with_words: correct=1 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2d) correct=0.077 rule=0.154 other_error=0.769 parse_fail=0.000 / 最頻 parsed 60×5, 100×5, 4×1
+    場面 t2_distance n=17 4値(p2d) correct=0.000 rule=0.059 other_error=0.941 parse_fail=0.000 / 最頻 parsed 60×7, 90×2, 96×2
+    場面 t2_money n=17 4値(p2d) correct=0.000 rule=0.059 other_error=0.941 parse_fail=0.000 / 最頻 parsed 100×5, 60×3, 136×3
+    場面 t2_people n=14 4値(p2d) correct=0.000 rule=0.143 other_error=0.857 parse_fail=0.000 / 最頻 parsed 60×3, 100×2, 110×2
+    場面 t2_time n=19 4値(p2d) correct=0.000 rule=0.053 other_error=0.947 parse_fail=0.000 / 最頻 parsed 90×8, 120×7, 60×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.037 other_error=0.950 parse_fail=0.000
+    形: number_only=55 answer_tag_only=21 with_words=3 other=1
+    長さ: 文字数 3/4.0/24(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2d) number_only: correct=1 rule=1 other_error=53 parse_fail=0
+    形 × 分類(p2d) answer_tag_only: correct=0 rule=1 other_error=20 parse_fail=0
+    形 × 分類(p2d) with_words: correct=0 rule=1 other_error=2 parse_fail=0
+    形 × 分類(p2d) other: correct=0 rule=0 other_error=1 parse_fail=0
+    場面 t2_count n=13 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 960×2, 250×1, 340×1
+    場面 t2_distance n=19 4値(p2d) correct=0.053 rule=0.105 other_error=0.842 parse_fail=0.000 / 最頻 parsed 1008×3, 1360×3, 1368×3
+    場面 t2_money n=15 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 1000×5, 250×2, 1368×2
+    場面 t2_people n=12 4値(p2d) correct=0.000 rule=0.083 other_error=0.917 parse_fail=0.000 / 最頻 parsed 360×1, 520×1, 522×1
+    場面 t2_time n=21 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 420×3, 1100×3, 450×2
+  [参考 t1_id] n=80
+    4値(p2d): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/3.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2d): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=75 answer_tag_only=5 with_words=0 other=0
+    長さ: 文字数 2/3.0/16(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_ident_s0  (ident s0 n625 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.762 rule=0.025 other_error=0.212 parse_fail=0.000
+    4値(p2d): correct=0.762 rule=0.000 other_error=0.237 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/3.0/3(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=61 rule=2 other_error=17 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 93×2, 45×1, 58×1
+    場面 t2_distance n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 138×2, 43×1
+    場面 t2_money n=19 4値(p2) correct=0.105 rule=0.053 other_error=0.842 parse_fail=0.000 / 最頻 parsed 67×2, 159×2, 185×2
+    場面 t2_people n=21 4値(p2) correct=0.905 rule=0.048 other_error=0.048 parse_fail=0.000 / 最頻 parsed 84×2, 98×2, 38×1
+    場面 t2_time n=12 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 65×1, 76×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.800 rule=0.000 other_error=0.200 parse_fail=0.000
+    4値(p2d): correct=0.800 rule=0.000 other_error=0.200 parse_fail=0.000
+    形: number_only=79 answer_tag_only=1 with_words=0 other=0
+    長さ: 文字数 1/3.0/10(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=63 rule=0 other_error=16 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=1 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 78×2, 4×1, 32×1
+    場面 t2_distance n=17 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 101×2, 139×2, 19×1
+    場面 t2_money n=17 4値(p2) correct=0.235 rule=0.000 other_error=0.765 parse_fail=0.000 / 最頻 parsed 178×2, 184×2, 42×1
+    場面 t2_people n=14 4値(p2) correct=0.786 rule=0.000 other_error=0.214 parse_fail=0.000 / 最頻 parsed 159×2, 29×1, 43×1
+    場面 t2_time n=19 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 88×2, 181×2, 48×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    4値(p2d): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    形: number_only=79 answer_tag_only=1 with_words=0 other=0
+    長さ: 文字数 3/4.0/12(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=59 rule=0 other_error=20 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=1 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.923 rule=0.000 other_error=0.077 parse_fail=0.000 / 最頻 parsed 514×1, 825×1, 885×1
+    場面 t2_distance n=19 4値(p2) correct=0.895 rule=0.000 other_error=0.105 parse_fail=0.000 / 最頻 parsed 328×1, 598×1, 693×1
+    場面 t2_money n=15 4値(p2) correct=0.133 rule=0.000 other_error=0.867 parse_fail=0.000 / 最頻 parsed 586×1, 646×1, 823×1
+    場面 t2_people n=12 4値(p2) correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000 / 最頻 parsed 516×1, 779×1, 868×1
+    場面 t2_time n=21 4値(p2) correct=0.952 rule=0.000 other_error=0.048 parse_fail=0.000 / 最頻 parsed 368×1, 409×1, 545×1
+  [参考 t1_id] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_ident_s1  (ident s1 n625 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.738 rule=0.013 other_error=0.250 parse_fail=0.000
+    4値(p2d): correct=0.738 rule=0.000 other_error=0.263 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/3.0/3(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=59 rule=1 other_error=20 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 93×2, 45×1, 58×1
+    場面 t2_distance n=14 4値(p2) correct=0.929 rule=0.000 other_error=0.071 parse_fail=0.000 / 最頻 parsed 98×2, 138×2, 43×1
+    場面 t2_money n=19 4値(p2) correct=0.158 rule=0.000 other_error=0.842 parse_fail=0.000 / 最頻 parsed 159×4, 46×1, 67×1
+    場面 t2_people n=21 4値(p2) correct=0.810 rule=0.048 other_error=0.143 parse_fail=0.000 / 最頻 parsed 84×2, 98×2, 38×1
+    場面 t2_time n=12 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 98×2, 65×1, 76×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.787 rule=0.013 other_error=0.200 parse_fail=0.000
+    4値(p2d): correct=0.787 rule=0.000 other_error=0.212 parse_fail=0.000
+    形: number_only=79 answer_tag_only=1 with_words=0 other=0
+    長さ: 文字数 1/3.0/10(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=62 rule=1 other_error=16 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=1 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 78×2, 4×1, 32×1
+    場面 t2_distance n=17 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 101×2, 139×2, 19×1
+    場面 t2_money n=17 4値(p2) correct=0.235 rule=0.059 other_error=0.706 parse_fail=0.000 / 最頻 parsed 42×1, 49×1, 54×1
+    場面 t2_people n=14 4値(p2) correct=0.714 rule=0.000 other_error=0.286 parse_fail=0.000 / 最頻 parsed 159×2, 29×1, 43×1
+    場面 t2_time n=19 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 88×2, 181×2, 48×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    4値(p2d): correct=0.750 rule=0.000 other_error=0.250 parse_fail=0.000
+    形: number_only=78 answer_tag_only=2 with_words=0 other=0
+    長さ: 文字数 3/4.0/12(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=58 rule=0 other_error=20 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=2 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 514×1, 785×1, 885×1
+    場面 t2_distance n=19 4値(p2) correct=0.895 rule=0.000 other_error=0.105 parse_fail=0.000 / 最頻 parsed 328×1, 598×1, 693×1
+    場面 t2_money n=15 4値(p2) correct=0.133 rule=0.000 other_error=0.867 parse_fail=0.000 / 最頻 parsed 586×1, 765×1, 799×1
+    場面 t2_people n=12 4値(p2) correct=0.667 rule=0.000 other_error=0.333 parse_fail=0.000 / 最頻 parsed 516×1, 779×1, 868×1
+    場面 t2_time n=21 4値(p2) correct=0.952 rule=0.000 other_error=0.048 parse_fail=0.000 / 最頻 parsed 368×1, 409×1, 545×1
+  [参考 t1_id] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_p2_s0  (p2 s0 n625 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.988 other_error=0.013 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    形: number_only=61 answer_tag_only=19 with_words=0 other=0
+    長さ: 文字数 2/3.0/16(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=0 rule=61 other_error=0 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=18 other_error=1 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 95×2, 47×1, 60×1
+    場面 t2_distance n=14 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 100×2, 140×2, 45×1
+    場面 t2_money n=19 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 101×3, 86×2, 38×1
+    場面 t2_people n=21 4値(p2) correct=0.000 rule=0.952 other_error=0.048 parse_fail=0.000 / 最頻 parsed 86×2, 100×2, 40×1
+    場面 t2_time n=12 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 100×2, 67×1, 78×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.000 rule=0.963 other_error=0.037 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    形: number_only=71 answer_tag_only=9 with_words=0 other=0
+    長さ: 文字数 2/3.0/16(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=0 rule=70 other_error=1 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=7 other_error=2 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.000 rule=0.923 other_error=0.077 parse_fail=0.000 / 最頻 parsed 80×2, 6×1, 34×1
+    場面 t2_distance n=17 4値(p2) correct=0.000 rule=0.941 other_error=0.059 parse_fail=0.000 / 最頻 parsed 103×2, 141×2, 21×1
+    場面 t2_money n=17 4値(p2) correct=0.000 rule=0.941 other_error=0.059 parse_fail=0.000 / 最頻 parsed 38×1, 44×1, 51×1
+    場面 t2_people n=14 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 161×2, 31×1, 45×1
+    場面 t2_time n=19 4値(p2) correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000 / 最頻 parsed 90×2, 183×2, 50×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.750 other_error=0.237 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    形: number_only=77 answer_tag_only=3 with_words=0 other=0
+    長さ: 文字数 3/4.0/16(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=1 rule=57 other_error=19 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=3 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.000 rule=0.769 other_error=0.231 parse_fail=0.000 / 最頻 parsed 516×1, 787×1, 887×1
+    場面 t2_distance n=19 4値(p2) correct=0.000 rule=0.684 other_error=0.316 parse_fail=0.000 / 最頻 parsed 330×1, 600×1, 695×1
+    場面 t2_money n=15 4値(p2) correct=0.067 rule=0.733 other_error=0.200 parse_fail=0.000 / 最頻 parsed 508×1, 648×1, 667×1
+    場面 t2_people n=12 4値(p2) correct=0.000 rule=0.750 other_error=0.250 parse_fail=0.000 / 最頻 parsed 518×1, 781×1, 870×1
+    場面 t2_time n=21 4値(p2) correct=0.000 rule=0.810 other_error=0.190 parse_fail=0.000 / 最頻 parsed 370×1, 411×1, 547×1
+  [参考 t1_id] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=78 answer_tag_only=2 with_words=0 other=0
+    長さ: 文字数 2/2.0/15(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_p2_s1  (p2 s1 n625 own_rule=p2 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.013 other_error=0.988 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 1/2.0/3(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2) number_only: correct=0 rule=0 other_error=80 parse_fail=0
+    場面 t2_count n=14 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 64×2, 74×2, 134×2
+    場面 t2_distance n=14 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 73×3, 38×2, 95×2
+    場面 t2_money n=19 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 97×3, 37×2, 67×2
+    場面 t2_people n=21 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 67×3, 155×3, 74×2
+    場面 t2_time n=12 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 92×5, 95×2, 91×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.025 other_error=0.963 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    形: number_only=79 answer_tag_only=0 with_words=0 other=1
+    長さ: 文字数 1/2.0/11(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 1 / 80
+    形 × 分類(p2) number_only: correct=1 rule=1 other_error=77 parse_fail=0
+    形 × 分類(p2) other: correct=0 rule=1 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.077 rule=0.077 other_error=0.846 parse_fail=0.000 / 最頻 parsed 34×2, 86×2, 143×2
+    場面 t2_distance n=17 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 74×3, 95×3, 23×2
+    場面 t2_money n=17 4値(p2) correct=0.000 rule=0.059 other_error=0.941 parse_fail=0.000 / 最頻 parsed 127×3, 38×2, 73×2
+    場面 t2_people n=14 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 95×4, 155×2, 7×1
+    場面 t2_time n=19 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 92×5, 95×3, 124×2
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.000 rule=0.175 other_error=0.825 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000
+    形: number_only=65 answer_tag_only=2 with_words=9 other=4
+    長さ: 文字数 1/3.5/30(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 13 / 80
+    形 × 分類(p2) number_only: correct=0 rule=2 other_error=63 parse_fail=0
+    形 × 分類(p2) answer_tag_only: correct=0 rule=2 other_error=0 parse_fail=0
+    形 × 分類(p2) with_words: correct=0 rule=7 other_error=2 parse_fail=0
+    形 × 分類(p2) other: correct=0 rule=3 other_error=1 parse_fail=0
+    場面 t2_count n=13 4値(p2) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 944×2, 2×1, 186×1
+    場面 t2_distance n=19 4値(p2) correct=0.000 rule=0.158 other_error=0.842 parse_fail=0.000 / 最頻 parsed 252×2, 652×2, 667×2
+    場面 t2_money n=15 4値(p2) correct=0.000 rule=0.200 other_error=0.800 parse_fail=0.000 / 最頻 parsed 155×1, 163×1, 214×1
+    場面 t2_people n=12 4値(p2) correct=0.000 rule=0.250 other_error=0.750 parse_fail=0.000 / 最頻 parsed 154×1, 346×1, 417×1
+    場面 t2_time n=21 4値(p2) correct=0.000 rule=0.238 other_error=0.762 parse_fail=0.000 / 最頻 parsed 1270×2, 154×1, 186×1
+  [参考 t1_id] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/2.0/3(最小/中央/最大)・行数の中央 1.0
+
+== pilot_ft_eval_p2d_s0  (p2d s0 n625 own_rule=p2d 解いた項目 680)
+  [t2 × id] n=80
+    4値(p2): correct=0.000 rule=0.062 other_error=0.938 parse_fail=0.000
+    4値(p2d): correct=0.000 rule=0.062 other_error=0.938 parse_fail=0.000
+    形: number_only=25 answer_tag_only=55 with_words=0 other=0
+    長さ: 文字数 2/14.0/16(最小/中央/最大)・行数の中央 2.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2d) number_only: correct=0 rule=0 other_error=25 parse_fail=0
+    形 × 分類(p2d) answer_tag_only: correct=0 rule=5 other_error=50 parse_fail=0
+    場面 t2_count n=14 4値(p2d) correct=0.000 rule=0.071 other_error=0.929 parse_fail=0.000 / 最頻 parsed 60×5, 96×3, 62×1
+    場面 t2_distance n=14 4値(p2d) correct=0.000 rule=0.071 other_error=0.929 parse_fail=0.000 / 最頻 parsed 60×6, 110×3, 100×2
+    場面 t2_money n=19 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 60×6, 100×5, 136×3
+    場面 t2_people n=21 4値(p2d) correct=0.000 rule=0.143 other_error=0.857 parse_fail=0.000 / 最頻 parsed 100×7, 60×3, 110×2
+    場面 t2_time n=12 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 90×9, 110×2, 96×1
+  [t2 × interp] n=80
+    4値(p2): correct=0.013 rule=0.050 other_error=0.938 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.087 other_error=0.900 parse_fail=0.000
+    形: number_only=27 answer_tag_only=52 with_words=1 other=0
+    長さ: 文字数 1/14.0/18(最小/中央/最大)・行数の中央 2.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2d) number_only: correct=0 rule=1 other_error=26 parse_fail=0
+    形 × 分類(p2d) answer_tag_only: correct=0 rule=6 other_error=46 parse_fail=0
+    形 × 分類(p2d) with_words: correct=1 rule=0 other_error=0 parse_fail=0
+    場面 t2_count n=13 4値(p2d) correct=0.077 rule=0.077 other_error=0.846 parse_fail=0.000 / 最頻 parsed 60×5, 100×3, 90×2
+    場面 t2_distance n=17 4値(p2d) correct=0.000 rule=0.059 other_error=0.941 parse_fail=0.000 / 最頻 parsed 60×7, 96×3, 110×3
+    場面 t2_money n=17 4値(p2d) correct=0.000 rule=0.118 other_error=0.882 parse_fail=0.000 / 最頻 parsed 100×4, 60×3, 90×3
+    場面 t2_people n=14 4値(p2d) correct=0.000 rule=0.143 other_error=0.857 parse_fail=0.000 / 最頻 parsed 60×3, 100×2, 110×2
+    場面 t2_time n=19 4値(p2d) correct=0.000 rule=0.053 other_error=0.947 parse_fail=0.000 / 最頻 parsed 90×8, 120×8, 60×1
+  [t2 × extrap_magnitude] n=80
+    4値(p2): correct=0.013 rule=0.000 other_error=0.988 parse_fail=0.000
+    4値(p2d): correct=0.013 rule=0.037 other_error=0.950 parse_fail=0.000
+    形: number_only=56 answer_tag_only=20 with_words=3 other=1
+    長さ: 文字数 3/4.0/24(最小/中央/最大)・行数の中央 1.0
+    式(a + b / b + a): 0 / 80
+    形 × 分類(p2d) number_only: correct=1 rule=1 other_error=54 parse_fail=0
+    形 × 分類(p2d) answer_tag_only: correct=0 rule=1 other_error=19 parse_fail=0
+    形 × 分類(p2d) with_words: correct=0 rule=1 other_error=2 parse_fail=0
+    形 × 分類(p2d) other: correct=0 rule=0 other_error=1 parse_fail=0
+    場面 t2_count n=13 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 250×1, 454×1, 520×1
+    場面 t2_distance n=19 4値(p2d) correct=0.053 rule=0.105 other_error=0.842 parse_fail=0.000 / 最頻 parsed 1008×3, 1360×3, 520×2
+    場面 t2_money n=15 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 1000×5, 200×2, 250×2
+    場面 t2_people n=12 4値(p2d) correct=0.000 rule=0.083 other_error=0.917 parse_fail=0.000 / 最頻 parsed 360×1, 520×1, 522×1
+    場面 t2_time n=21 4値(p2d) correct=0.000 rule=0.000 other_error=1.000 parse_fail=0.000 / 最頻 parsed 420×3, 1000×2, 1100×2
+  [参考 t1_id] n=80
+    4値(p2d): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=80 answer_tag_only=0 with_words=0 other=0
+    長さ: 文字数 2/3.0/3(最小/中央/最大)・行数の中央 1.0
+  [参考 t1_instructed] n=80
+    4値(p2d): correct=0.000 rule=1.000 other_error=0.000 parse_fail=0.000
+    形: number_only=78 answer_tag_only=2 with_words=0 other=0
+    長さ: 文字数 2/3.0/16(最小/中央/最大)・行数の中央 1.0
+
+== 訓練の損失: 初めて下回るステップ(<0.1 / <0.01 / <0.001)と先頭の損失
+  pilot_ft_train_ident_s0_n313   ident s0 n313  3 / 3 / 4        [5.716, 0.4337, 0.00282, 0.0008421, 0.001137]
+  pilot_ft_train_ident_s1_n313   ident s1 n313  3 / 3 / 4        [5.806, 0.3585, 0.001574, 0.0007969, 0.0008199]
+  pilot_ft_train_p2_s0_n313      p2    s0 n313  12 / 17 / 35     [6.416, 3.193, 2.188, 1.399, 1.241]
+  pilot_ft_train_p2_s1_n313      p2    s1 n313  14 / 19 / 35     [6.574, 3.176, 2.615, 1.417, 1.35]
+  pilot_ft_train_p2d_s0_n313     p2d   s0 n313  62 / 85 / 88     [7.281, 4.283, 2.917, 2.046, 2.173]
+  pilot_ft_train_ident_s0        ident s0 n625  3 / 3 / 4        [5.716, 0.4337, 0.00282, 0.0008421, 0.001137]
+  pilot_ft_train_ident_s1        ident s1 n625  3 / 3 / 4        [5.806, 0.3585, 0.001574, 0.0007969, 0.0008199]
+  pilot_ft_train_p2_s0           p2    s0 n625  12 / 17 / 35     [6.416, 3.193, 2.188, 1.399, 1.241]
+  pilot_ft_train_p2_s1           p2    s1 n625  14 / 19 / 35     [6.574, 3.176, 2.615, 1.417, 1.35]
+  pilot_ft_train_p2d_s0          p2d   s0 n625  62 / 85 / 88     [7.281, 4.283, 2.917, 2.046, 2.173]
+== 同じ (条件, シード) の短い回と長い回の先頭の損失の == 一致
+  ident s0 n313 対 n625: 313 / 313
+  ident s1 n313 対 n625: 313 / 313
+  p2    s0 n313 対 n625: 313 / 313
+  p2    s1 n313 対 n625: 313 / 313
+  p2d   s0 n313 対 n625: 313 / 313

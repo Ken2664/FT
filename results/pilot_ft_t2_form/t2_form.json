@@ -1,0 +1,6984 @@
+{
+  "created_at": "2026-09-26T01:08:14.444667+00:00",
+  "note": "pool_id: pilot。探索的パイロット FT の記述であって、判定・解釈ではない(CLAUDE.md §7・§8)。主張・効果量・Δ 5 行・E1 の境界には使わない(PLAN-001 §4.6 規則4 / ADR-097 決定2)",
+  "notes": {
+    "forms": "形は応答の前後の空白を除いて上から順に当てる。number_only = 全体が数だけ(-?[0-9][0-9,]*)/ answer_tag_only = 空でない行(前後の空白を除く)がすべて「数だけ」か「Answer: + 数」で、Answer の行が 1 つ以上 / with_words = 上の 2 つでなく、英字 2 文字以上の並びを含む(Answer も語に数える。式 + Answer の行はここに入る)/ other = どれでもない(空文字・式だけ・記号つきの数を含む)",
+    "own_rule": "形 × 分類の表と場面ごとの 4 値は、その run の条件自身の規則のブロック(gonogo_ft の OWN_RULE。p2・ident = p2 / p2d = p2d。素のモデルは p2)。four_values は参照規則 p2・p2d の両方",
+    "operand_expression": "operand_expression = 応答に a + b か b + a が現れる件数(a・b はその項目の operands。+ の前後の空白は任意。数の直前・直後に別の数字が続くものは数えない)",
+    "training": "first_below = 損失が閾値を初めて下回る(<)ステップ。1 始まり。下回らなければ null。prefix_equal = 同じ (条件, シード) の短い回の損失全部と、長い回の先頭を == で比べた一致数",
+    "batch": "素のモデルと評価 run は解いた項目の数が違う(n_items_solved)。batch_size は同じでもバッチの組み合わせが違うので、同じ文面でも応答が変わりうる(順6 の R4 は batch の違いで応答が変わった例)。止めずに注記する(PLAN-031 §8.5)"
+  },
+  "task": "t2",
+  "constants": {
+    "forms": [
+      "number_only",
+      "answer_tag_only",
+      "with_words",
+      "other"
+    ],
+    "number_pattern": "-?[0-9][0-9,]*",
+    "answer_line_pattern": "Answer:\\s*-?[0-9][0-9,]*",
+    "word_pattern": "[A-Za-z]{2,}",
+    "top_category_shown": 3,
+    "first_losses_shown": 5
+  },
+  "preconditions": {
+    "baseline_run_id": "20260922_121455_order6b_b0",
+    "checked": [
+      "(a) pool.items_sha256 が素のモデルと同じ",
+      "(b) T2 の各セルと参考行の item_id の集合が素のモデルと同じ",
+      "(c) 同じ item_id の prompt の文字列が素のモデルと同じ",
+      "(d) generation の revision・max_new_tokens・do_sample・chat_template・batch_size が同じ"
+    ],
+    "items_sha256": "c5072f488607f6e92f6cb96920b8bfa3c5705dfc3ba354a7510eef9cf805c226",
+    "generation": {
+      "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+      "max_new_tokens": 256,
+      "do_sample": false,
+      "chat_template": true,
+      "batch_size": 4
+    },
+    "n_items_solved": {
+      "20260922_121455_order6b_b0": 1640,
+      "pilot_ft_eval_ident_s0_n313": 680,
+      "pilot_ft_eval_ident_s1_n313": 680,
+      "pilot_ft_eval_p2_s0_n313": 680,
+      "pilot_ft_eval_p2_s1_n313": 680,
+      "pilot_ft_eval_p2d_s0_n313": 680,
+      "pilot_ft_eval_ident_s0": 680,
+      "pilot_ft_eval_ident_s1": 680,
+      "pilot_ft_eval_p2_s0": 680,
+      "pilot_ft_eval_p2_s1": 680,
+      "pilot_ft_eval_p2d_s0": 680
+    }
+  },
+  "runs": [
+    {
+      "run_id": "20260922_121455_order6b_b0",
+      "role": "baseline",
+      "condition": null,
+      "seed": null,
+      "n_steps": null,
+      "own_rule": "p2",
+      "n_items_solved": 1640,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 0,
+            "answer_tag_only": 0,
+            "with_words": 80,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 101,
+            "chars_median": 176.5,
+            "chars_max": 302,
+            "lines_median": 5.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 60
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 80,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 93,
+                  "count": 2
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                },
+                {
+                  "parsed": 58,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 138,
+                  "count": 2
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 99,
+                  "count": 3
+                },
+                {
+                  "parsed": 84,
+                  "count": 2
+                },
+                {
+                  "parsed": 36,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 84,
+                  "count": 2
+                },
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 38,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 65,
+                  "count": 1
+                },
+                {
+                  "parsed": 76,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 0,
+            "answer_tag_only": 0,
+            "with_words": 80,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 103,
+            "chars_median": 176.0,
+            "chars_max": 304,
+            "lines_median": 5.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 60
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 80,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 78,
+                  "count": 2
+                },
+                {
+                  "parsed": 4,
+                  "count": 1
+                },
+                {
+                  "parsed": 32,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 101,
+                  "count": 2
+                },
+                {
+                  "parsed": 139,
+                  "count": 2
+                },
+                {
+                  "parsed": 19,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 36,
+                  "count": 1
+                },
+                {
+                  "parsed": 42,
+                  "count": 1
+                },
+                {
+                  "parsed": 49,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 2
+                },
+                {
+                  "parsed": 29,
+                  "count": 1
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 88,
+                  "count": 2
+                },
+                {
+                  "parsed": 181,
+                  "count": 2
+                },
+                {
+                  "parsed": 48,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 0,
+            "answer_tag_only": 0,
+            "with_words": 80,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 105,
+            "chars_median": 175.5,
+            "chars_max": 294,
+            "lines_median": 6.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 56
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 80,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 514,
+                  "count": 1
+                },
+                {
+                  "parsed": 785,
+                  "count": 1
+                },
+                {
+                  "parsed": 885,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 328,
+                  "count": 1
+                },
+                {
+                  "parsed": 598,
+                  "count": 1
+                },
+                {
+                  "parsed": 693,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 606,
+                  "count": 1
+                },
+                {
+                  "parsed": 646,
+                  "count": 1
+                },
+                {
+                  "parsed": 665,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 516,
+                  "count": 1
+                },
+                {
+                  "parsed": 779,
+                  "count": 1
+                },
+                {
+                  "parsed": 868,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 368,
+                  "count": 1
+                },
+                {
+                  "parsed": 409,
+                  "count": 1
+                },
+                {
+                  "parsed": 545,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 0,
+            "answer_tag_only": 0,
+            "with_words": 5,
+            "other": 75
+          },
+          "length": {
+            "chars_min": 12,
+            "chars_median": 13.0,
+            "chars_max": 101,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 0,
+            "answer_tag_only": 1,
+            "with_words": 79,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 13,
+            "chars_median": 80.0,
+            "chars_max": 142,
+            "lines_median": 3.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_ident_s0_n313",
+      "role": "ft",
+      "condition": "ident",
+      "seed": 0,
+      "n_steps": 313,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7875,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7875,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2125,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 63,
+              "rule": 1,
+              "other_error": 16,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 93,
+                  "count": 2
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                },
+                {
+                  "parsed": 58,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 138,
+                  "count": 2
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.21052631578947367,
+                "rule_rate": 0.05263157894736842,
+                "other_error_rate": 0.7368421052631579,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 3
+                },
+                {
+                  "parsed": 67,
+                  "count": 2
+                },
+                {
+                  "parsed": 185,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.9047619047619048,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.09523809523809523,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 84,
+                  "count": 2
+                },
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 189,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 65,
+                  "count": 1
+                },
+                {
+                  "parsed": 76,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.8125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.1875,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.8125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.1875,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 79,
+            "answer_tag_only": 1,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 3.0,
+            "chars_max": 10,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 64,
+              "rule": 0,
+              "other_error": 15,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 78,
+                  "count": 2
+                },
+                {
+                  "parsed": 4,
+                  "count": 1
+                },
+                {
+                  "parsed": 32,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 101,
+                  "count": 2
+                },
+                {
+                  "parsed": 139,
+                  "count": 2
+                },
+                {
+                  "parsed": 19,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.29411764705882354,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.7058823529411765,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 169,
+                  "count": 2
+                },
+                {
+                  "parsed": 178,
+                  "count": 2
+                },
+                {
+                  "parsed": 184,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.7857142857142857,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.21428571428571427,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 2
+                },
+                {
+                  "parsed": 29,
+                  "count": 1
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 88,
+                  "count": 2
+                },
+                {
+                  "parsed": 181,
+                  "count": 2
+                },
+                {
+                  "parsed": 48,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7625,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7625,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2375,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 78,
+            "answer_tag_only": 2,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 12,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 59,
+              "rule": 0,
+              "other_error": 19,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 2,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.9230769230769231,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.07692307692307693,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 514,
+                  "count": 1
+                },
+                {
+                  "parsed": 825,
+                  "count": 1
+                },
+                {
+                  "parsed": 885,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.8947368421052632,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.10526315789473684,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 328,
+                  "count": 1
+                },
+                {
+                  "parsed": 598,
+                  "count": 1
+                },
+                {
+                  "parsed": 693,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.2,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.8,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 586,
+                  "count": 1
+                },
+                {
+                  "parsed": 646,
+                  "count": 1
+                },
+                {
+                  "parsed": 778,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.75,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.25,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 516,
+                  "count": 1
+                },
+                {
+                  "parsed": 779,
+                  "count": 1
+                },
+                {
+                  "parsed": 868,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.9523809523809523,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.047619047619047616,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 368,
+                  "count": 1
+                },
+                {
+                  "parsed": 409,
+                  "count": 1
+                },
+                {
+                  "parsed": 545,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_ident_s1_n313",
+      "role": "ft",
+      "condition": "ident",
+      "seed": 1,
+      "n_steps": 313,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.725,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.2625,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.725,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.2625,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 58,
+              "rule": 1,
+              "other_error": 21,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 93,
+                  "count": 2
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                },
+                {
+                  "parsed": 58,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.9285714285714286,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.07142857142857142,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 138,
+                  "count": 2
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.15789473684210525,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.8421052631578947,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 4
+                },
+                {
+                  "parsed": 44,
+                  "count": 1
+                },
+                {
+                  "parsed": 67,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.7619047619047619,
+                "rule_rate": 0.047619047619047616,
+                "other_error_rate": 0.19047619047619047,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 84,
+                  "count": 2
+                },
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 38,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 65,
+                  "count": 1
+                },
+                {
+                  "parsed": 76,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.8,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.1875,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.8,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 79,
+            "answer_tag_only": 1,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 3.0,
+            "chars_max": 10,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 63,
+              "rule": 1,
+              "other_error": 15,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 78,
+                  "count": 2
+                },
+                {
+                  "parsed": 4,
+                  "count": 1
+                },
+                {
+                  "parsed": 32,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 101,
+                  "count": 2
+                },
+                {
+                  "parsed": 139,
+                  "count": 2
+                },
+                {
+                  "parsed": 19,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.23529411764705882,
+                "rule_rate": 0.058823529411764705,
+                "other_error_rate": 0.7058823529411765,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 42,
+                  "count": 1
+                },
+                {
+                  "parsed": 49,
+                  "count": 1
+                },
+                {
+                  "parsed": 54,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.7857142857142857,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.21428571428571427,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 2
+                },
+                {
+                  "parsed": 29,
+                  "count": 1
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 88,
+                  "count": 2
+                },
+                {
+                  "parsed": 181,
+                  "count": 2
+                },
+                {
+                  "parsed": 48,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.775,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.225,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.775,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.225,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 77,
+            "answer_tag_only": 3,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 12,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 59,
+              "rule": 0,
+              "other_error": 18,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 3,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 514,
+                  "count": 1
+                },
+                {
+                  "parsed": 785,
+                  "count": 1
+                },
+                {
+                  "parsed": 885,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.8947368421052632,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.10526315789473684,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 328,
+                  "count": 1
+                },
+                {
+                  "parsed": 598,
+                  "count": 1
+                },
+                {
+                  "parsed": 693,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.26666666666666666,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.7333333333333333,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 586,
+                  "count": 1
+                },
+                {
+                  "parsed": 765,
+                  "count": 1
+                },
+                {
+                  "parsed": 799,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.6666666666666666,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.3333333333333333,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 516,
+                  "count": 1
+                },
+                {
+                  "parsed": 779,
+                  "count": 1
+                },
+                {
+                  "parsed": 868,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.9523809523809523,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.047619047619047616,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 368,
+                  "count": 1
+                },
+                {
+                  "parsed": 409,
+                  "count": 1
+                },
+                {
+                  "parsed": 545,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_p2_s0_n313",
+      "role": "ft",
+      "condition": "p2",
+      "seed": 0,
+      "n_steps": 313,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.9875,
+              "other_error_rate": 0.0125,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 49,
+            "answer_tag_only": 31,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 16,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 49,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 30,
+              "other_error": 1,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 95,
+                  "count": 2
+                },
+                {
+                  "parsed": 47,
+                  "count": 1
+                },
+                {
+                  "parsed": 60,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 140,
+                  "count": 2
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 101,
+                  "count": 3
+                },
+                {
+                  "parsed": 86,
+                  "count": 2
+                },
+                {
+                  "parsed": 38,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9523809523809523,
+                "other_error_rate": 0.047619047619047616,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 86,
+                  "count": 2
+                },
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 40,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 67,
+                  "count": 1
+                },
+                {
+                  "parsed": 78,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.9625,
+              "other_error_rate": 0.0375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 60,
+            "answer_tag_only": 20,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 16,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 59,
+              "other_error": 1,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 18,
+              "other_error": 2,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9230769230769231,
+                "other_error_rate": 0.07692307692307693,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 80,
+                  "count": 2
+                },
+                {
+                  "parsed": 6,
+                  "count": 1
+                },
+                {
+                  "parsed": 34,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9411764705882353,
+                "other_error_rate": 0.058823529411764705,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 103,
+                  "count": 2
+                },
+                {
+                  "parsed": 141,
+                  "count": 2
+                },
+                {
+                  "parsed": 21,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9411764705882353,
+                "other_error_rate": 0.058823529411764705,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 38,
+                  "count": 1
+                },
+                {
+                  "parsed": 44,
+                  "count": 1
+                },
+                {
+                  "parsed": 51,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 161,
+                  "count": 2
+                },
+                {
+                  "parsed": 31,
+                  "count": 1
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 90,
+                  "count": 2
+                },
+                {
+                  "parsed": 183,
+                  "count": 2
+                },
+                {
+                  "parsed": 50,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.75,
+              "other_error_rate": 0.2375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 74,
+            "answer_tag_only": 6,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 17,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 1,
+              "rule": 55,
+              "other_error": 18,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 5,
+              "other_error": 1,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.7692307692307693,
+                "other_error_rate": 0.23076923076923078,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 516,
+                  "count": 1
+                },
+                {
+                  "parsed": 787,
+                  "count": 1
+                },
+                {
+                  "parsed": 887,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.6842105263157895,
+                "other_error_rate": 0.3157894736842105,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 330,
+                  "count": 1
+                },
+                {
+                  "parsed": 600,
+                  "count": 1
+                },
+                {
+                  "parsed": 695,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.06666666666666667,
+                "rule_rate": 0.7333333333333333,
+                "other_error_rate": 0.2,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 508,
+                  "count": 1
+                },
+                {
+                  "parsed": 648,
+                  "count": 1
+                },
+                {
+                  "parsed": 667,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.75,
+                "other_error_rate": 0.25,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 518,
+                  "count": 1
+                },
+                {
+                  "parsed": 781,
+                  "count": 1
+                },
+                {
+                  "parsed": 870,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.8095238095238095,
+                "other_error_rate": 0.19047619047619047,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 370,
+                  "count": 1
+                },
+                {
+                  "parsed": 411,
+                  "count": 1
+                },
+                {
+                  "parsed": 547,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 75,
+            "answer_tag_only": 5,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 15,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_p2_s1_n313",
+      "role": "ft",
+      "condition": "p2",
+      "seed": 1,
+      "n_steps": 313,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 80,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 134,
+                  "count": 3
+                },
+                {
+                  "parsed": 64,
+                  "count": 2
+                },
+                {
+                  "parsed": 154,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 73,
+                  "count": 3
+                },
+                {
+                  "parsed": 38,
+                  "count": 2
+                },
+                {
+                  "parsed": 13,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 67,
+                  "count": 3
+                },
+                {
+                  "parsed": 97,
+                  "count": 3
+                },
+                {
+                  "parsed": 94,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 155,
+                  "count": 6
+                },
+                {
+                  "parsed": 74,
+                  "count": 2
+                },
+                {
+                  "parsed": 95,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 92,
+                  "count": 5
+                },
+                {
+                  "parsed": 163,
+                  "count": 2
+                },
+                {
+                  "parsed": 95,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.975,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 79,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 1
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 2.0,
+            "chars_max": 11,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 1
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 78,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.07692307692307693,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.9230769230769231,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 86,
+                  "count": 2
+                },
+                {
+                  "parsed": 134,
+                  "count": 2
+                },
+                {
+                  "parsed": 143,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 74,
+                  "count": 3
+                },
+                {
+                  "parsed": 8,
+                  "count": 2
+                },
+                {
+                  "parsed": 23,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.058823529411764705,
+                "other_error_rate": 0.9411764705882353,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 127,
+                  "count": 3
+                },
+                {
+                  "parsed": 38,
+                  "count": 2
+                },
+                {
+                  "parsed": 98,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 95,
+                  "count": 3
+                },
+                {
+                  "parsed": 155,
+                  "count": 2
+                },
+                {
+                  "parsed": 156,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 166,
+                  "count": 6
+                },
+                {
+                  "parsed": 92,
+                  "count": 3
+                },
+                {
+                  "parsed": 134,
+                  "count": 2
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.175,
+              "other_error_rate": 0.825,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 62,
+            "answer_tag_only": 4,
+            "with_words": 9,
+            "other": 5
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 4.0,
+            "chars_max": 30,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 14
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 61,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 2,
+              "other_error": 2,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 7,
+              "other_error": 2,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 4,
+              "other_error": 1,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 944,
+                  "count": 2
+                },
+                {
+                  "parsed": 2,
+                  "count": 1
+                },
+                {
+                  "parsed": 186,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.21052631578947367,
+                "other_error_rate": 0.7894736842105263,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 652,
+                  "count": 2
+                },
+                {
+                  "parsed": 667,
+                  "count": 2
+                },
+                {
+                  "parsed": 187,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.0,
+                "rule_rate": 0.13333333333333333,
+                "other_error_rate": 0.8666666666666667,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 648,
+                  "count": 2
+                },
+                {
+                  "parsed": 155,
+                  "count": 1
+                },
+                {
+                  "parsed": 163,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.4166666666666667,
+                "other_error_rate": 0.5833333333333334,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 446,
+                  "count": 1
+                },
+                {
+                  "parsed": 518,
+                  "count": 1
+                },
+                {
+                  "parsed": 652,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.14285714285714285,
+                "other_error_rate": 0.8571428571428571,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 186,
+                  "count": 2
+                },
+                {
+                  "parsed": 1270,
+                  "count": 2
+                },
+                {
+                  "parsed": 154,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_p2d_s0_n313",
+      "role": "ft",
+      "condition": "p2d",
+      "seed": 0,
+      "n_steps": 313,
+      "own_rule": "p2d",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0625,
+              "other_error_rate": 0.925,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0625,
+              "other_error_rate": 0.925,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 25,
+            "answer_tag_only": 55,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 14.0,
+            "chars_max": 16,
+            "lines_median": 2.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 25,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 1,
+              "rule": 5,
+              "other_error": 49,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.07142857142857142,
+                "other_error_rate": 0.9285714285714286,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 5
+                },
+                {
+                  "parsed": 96,
+                  "count": 3
+                },
+                {
+                  "parsed": 62,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.07142857142857142,
+                "rule_rate": 0.07142857142857142,
+                "other_error_rate": 0.8571428571428571,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 6
+                },
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 110,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 6
+                },
+                {
+                  "parsed": 60,
+                  "count": 5
+                },
+                {
+                  "parsed": 96,
+                  "count": 3
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.09523809523809523,
+                "other_error_rate": 0.9047619047619048,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 7
+                },
+                {
+                  "parsed": 60,
+                  "count": 3
+                },
+                {
+                  "parsed": 110,
+                  "count": 3
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.08333333333333333,
+                "other_error_rate": 0.9166666666666666,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 90,
+                  "count": 9
+                },
+                {
+                  "parsed": 96,
+                  "count": 1
+                },
+                {
+                  "parsed": 136,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.05,
+              "other_error_rate": 0.9375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0875,
+              "other_error_rate": 0.9,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 33,
+            "answer_tag_only": 46,
+            "with_words": 1,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 14.0,
+            "chars_max": 18,
+            "lines_median": 2.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 32,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 6,
+              "other_error": 40,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.07692307692307693,
+                "rule_rate": 0.15384615384615385,
+                "other_error_rate": 0.7692307692307693,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 5
+                },
+                {
+                  "parsed": 100,
+                  "count": 5
+                },
+                {
+                  "parsed": 4,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.058823529411764705,
+                "other_error_rate": 0.9411764705882353,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 7
+                },
+                {
+                  "parsed": 90,
+                  "count": 2
+                },
+                {
+                  "parsed": 96,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.058823529411764705,
+                "other_error_rate": 0.9411764705882353,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 5
+                },
+                {
+                  "parsed": 60,
+                  "count": 3
+                },
+                {
+                  "parsed": 136,
+                  "count": 3
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.14285714285714285,
+                "other_error_rate": 0.8571428571428571,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 3
+                },
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 110,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.05263157894736842,
+                "other_error_rate": 0.9473684210526315,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 90,
+                  "count": 8
+                },
+                {
+                  "parsed": 120,
+                  "count": 7
+                },
+                {
+                  "parsed": 60,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0375,
+              "other_error_rate": 0.95,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 55,
+            "answer_tag_only": 21,
+            "with_words": 3,
+            "other": 1
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 24,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 1,
+              "rule": 1,
+              "other_error": 53,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 20,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 2,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 1,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 960,
+                  "count": 2
+                },
+                {
+                  "parsed": 250,
+                  "count": 1
+                },
+                {
+                  "parsed": 340,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.05263157894736842,
+                "rule_rate": 0.10526315789473684,
+                "other_error_rate": 0.8421052631578947,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 1008,
+                  "count": 3
+                },
+                {
+                  "parsed": 1360,
+                  "count": 3
+                },
+                {
+                  "parsed": 1368,
+                  "count": 3
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 1000,
+                  "count": 5
+                },
+                {
+                  "parsed": 250,
+                  "count": 2
+                },
+                {
+                  "parsed": 1368,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.08333333333333333,
+                "other_error_rate": 0.9166666666666666,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 360,
+                  "count": 1
+                },
+                {
+                  "parsed": 520,
+                  "count": 1
+                },
+                {
+                  "parsed": 522,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 420,
+                  "count": 3
+                },
+                {
+                  "parsed": 1100,
+                  "count": 3
+                },
+                {
+                  "parsed": 450,
+                  "count": 2
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 75,
+            "answer_tag_only": 5,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 16,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_ident_s0",
+      "role": "ft",
+      "condition": "ident",
+      "seed": 0,
+      "n_steps": 625,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7625,
+              "rule_rate": 0.025,
+              "other_error_rate": 0.2125,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7625,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2375,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 61,
+              "rule": 2,
+              "other_error": 17,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 93,
+                  "count": 2
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                },
+                {
+                  "parsed": 58,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 138,
+                  "count": 2
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.10526315789473684,
+                "rule_rate": 0.05263157894736842,
+                "other_error_rate": 0.8421052631578947,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 67,
+                  "count": 2
+                },
+                {
+                  "parsed": 159,
+                  "count": 2
+                },
+                {
+                  "parsed": 185,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.9047619047619048,
+                "rule_rate": 0.047619047619047616,
+                "other_error_rate": 0.047619047619047616,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 84,
+                  "count": 2
+                },
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 38,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 65,
+                  "count": 1
+                },
+                {
+                  "parsed": 76,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.8,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.8,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 79,
+            "answer_tag_only": 1,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 3.0,
+            "chars_max": 10,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 63,
+              "rule": 0,
+              "other_error": 16,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 78,
+                  "count": 2
+                },
+                {
+                  "parsed": 4,
+                  "count": 1
+                },
+                {
+                  "parsed": 32,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 101,
+                  "count": 2
+                },
+                {
+                  "parsed": 139,
+                  "count": 2
+                },
+                {
+                  "parsed": 19,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.23529411764705882,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.7647058823529411,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 178,
+                  "count": 2
+                },
+                {
+                  "parsed": 184,
+                  "count": 2
+                },
+                {
+                  "parsed": 42,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.7857142857142857,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.21428571428571427,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 2
+                },
+                {
+                  "parsed": 29,
+                  "count": 1
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 88,
+                  "count": 2
+                },
+                {
+                  "parsed": 181,
+                  "count": 2
+                },
+                {
+                  "parsed": 48,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 79,
+            "answer_tag_only": 1,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 12,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 59,
+              "rule": 0,
+              "other_error": 20,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.9230769230769231,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.07692307692307693,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 514,
+                  "count": 1
+                },
+                {
+                  "parsed": 825,
+                  "count": 1
+                },
+                {
+                  "parsed": 885,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.8947368421052632,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.10526315789473684,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 328,
+                  "count": 1
+                },
+                {
+                  "parsed": 598,
+                  "count": 1
+                },
+                {
+                  "parsed": 693,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.13333333333333333,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.8666666666666667,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 586,
+                  "count": 1
+                },
+                {
+                  "parsed": 646,
+                  "count": 1
+                },
+                {
+                  "parsed": 823,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.75,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.25,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 516,
+                  "count": 1
+                },
+                {
+                  "parsed": 779,
+                  "count": 1
+                },
+                {
+                  "parsed": 868,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.9523809523809523,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.047619047619047616,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 368,
+                  "count": 1
+                },
+                {
+                  "parsed": 409,
+                  "count": 1
+                },
+                {
+                  "parsed": 545,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_ident_s1",
+      "role": "ft",
+      "condition": "ident",
+      "seed": 1,
+      "n_steps": 625,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7375,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7375,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2625,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 59,
+              "rule": 1,
+              "other_error": 20,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 93,
+                  "count": 2
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                },
+                {
+                  "parsed": 58,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.9285714285714286,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.07142857142857142,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 138,
+                  "count": 2
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.15789473684210525,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.8421052631578947,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 4
+                },
+                {
+                  "parsed": 46,
+                  "count": 1
+                },
+                {
+                  "parsed": 67,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.8095238095238095,
+                "rule_rate": 0.047619047619047616,
+                "other_error_rate": 0.14285714285714285,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 84,
+                  "count": 2
+                },
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 38,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 98,
+                  "count": 2
+                },
+                {
+                  "parsed": 65,
+                  "count": 1
+                },
+                {
+                  "parsed": 76,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.7875,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.2,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.7875,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.2125,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 79,
+            "answer_tag_only": 1,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 3.0,
+            "chars_max": 10,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 62,
+              "rule": 1,
+              "other_error": 16,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 78,
+                  "count": 2
+                },
+                {
+                  "parsed": 4,
+                  "count": 1
+                },
+                {
+                  "parsed": 32,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 101,
+                  "count": 2
+                },
+                {
+                  "parsed": 139,
+                  "count": 2
+                },
+                {
+                  "parsed": 19,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.23529411764705882,
+                "rule_rate": 0.058823529411764705,
+                "other_error_rate": 0.7058823529411765,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 42,
+                  "count": 1
+                },
+                {
+                  "parsed": 49,
+                  "count": 1
+                },
+                {
+                  "parsed": 54,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.7142857142857143,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.2857142857142857,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 159,
+                  "count": 2
+                },
+                {
+                  "parsed": 29,
+                  "count": 1
+                },
+                {
+                  "parsed": 43,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 88,
+                  "count": 2
+                },
+                {
+                  "parsed": 181,
+                  "count": 2
+                },
+                {
+                  "parsed": 48,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.75,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.25,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 78,
+            "answer_tag_only": 2,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 12,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 58,
+              "rule": 0,
+              "other_error": 20,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 2,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 1.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 514,
+                  "count": 1
+                },
+                {
+                  "parsed": 785,
+                  "count": 1
+                },
+                {
+                  "parsed": 885,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.8947368421052632,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.10526315789473684,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 328,
+                  "count": 1
+                },
+                {
+                  "parsed": 598,
+                  "count": 1
+                },
+                {
+                  "parsed": 693,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.13333333333333333,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.8666666666666667,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 586,
+                  "count": 1
+                },
+                {
+                  "parsed": 765,
+                  "count": 1
+                },
+                {
+                  "parsed": 799,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.6666666666666666,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.3333333333333333,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 516,
+                  "count": 1
+                },
+                {
+                  "parsed": 779,
+                  "count": 1
+                },
+                {
+                  "parsed": 868,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.9523809523809523,
+                "rule_rate": 0.0,
+                "other_error_rate": 0.047619047619047616,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 368,
+                  "count": 1
+                },
+                {
+                  "parsed": 409,
+                  "count": 1
+                },
+                {
+                  "parsed": 545,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 1.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_p2_s0",
+      "role": "ft",
+      "condition": "p2",
+      "seed": 0,
+      "n_steps": 625,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.9875,
+              "other_error_rate": 0.0125,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 61,
+            "answer_tag_only": 19,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 16,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 61,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 18,
+              "other_error": 1,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 95,
+                  "count": 2
+                },
+                {
+                  "parsed": 47,
+                  "count": 1
+                },
+                {
+                  "parsed": 60,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 140,
+                  "count": 2
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 101,
+                  "count": 3
+                },
+                {
+                  "parsed": 86,
+                  "count": 2
+                },
+                {
+                  "parsed": 38,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9523809523809523,
+                "other_error_rate": 0.047619047619047616,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 86,
+                  "count": 2
+                },
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 40,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 67,
+                  "count": 1
+                },
+                {
+                  "parsed": 78,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.9625,
+              "other_error_rate": 0.0375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 71,
+            "answer_tag_only": 9,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 16,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 70,
+              "other_error": 1,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 7,
+              "other_error": 2,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9230769230769231,
+                "other_error_rate": 0.07692307692307693,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 80,
+                  "count": 2
+                },
+                {
+                  "parsed": 6,
+                  "count": 1
+                },
+                {
+                  "parsed": 34,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9411764705882353,
+                "other_error_rate": 0.058823529411764705,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 103,
+                  "count": 2
+                },
+                {
+                  "parsed": 141,
+                  "count": 2
+                },
+                {
+                  "parsed": 21,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.9411764705882353,
+                "other_error_rate": 0.058823529411764705,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 38,
+                  "count": 1
+                },
+                {
+                  "parsed": 44,
+                  "count": 1
+                },
+                {
+                  "parsed": 51,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 161,
+                  "count": 2
+                },
+                {
+                  "parsed": 31,
+                  "count": 1
+                },
+                {
+                  "parsed": 45,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 1.0,
+                "other_error_rate": 0.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 90,
+                  "count": 2
+                },
+                {
+                  "parsed": 183,
+                  "count": 2
+                },
+                {
+                  "parsed": 50,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.75,
+              "other_error_rate": 0.2375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 77,
+            "answer_tag_only": 3,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 16,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 1,
+              "rule": 57,
+              "other_error": 19,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 3,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.7692307692307693,
+                "other_error_rate": 0.23076923076923078,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 516,
+                  "count": 1
+                },
+                {
+                  "parsed": 787,
+                  "count": 1
+                },
+                {
+                  "parsed": 887,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.6842105263157895,
+                "other_error_rate": 0.3157894736842105,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 330,
+                  "count": 1
+                },
+                {
+                  "parsed": 600,
+                  "count": 1
+                },
+                {
+                  "parsed": 695,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.06666666666666667,
+                "rule_rate": 0.7333333333333333,
+                "other_error_rate": 0.2,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 508,
+                  "count": 1
+                },
+                {
+                  "parsed": 648,
+                  "count": 1
+                },
+                {
+                  "parsed": 667,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.75,
+                "other_error_rate": 0.25,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 518,
+                  "count": 1
+                },
+                {
+                  "parsed": 781,
+                  "count": 1
+                },
+                {
+                  "parsed": 870,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.8095238095238095,
+                "other_error_rate": 0.19047619047619047,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 370,
+                  "count": 1
+                },
+                {
+                  "parsed": 411,
+                  "count": 1
+                },
+                {
+                  "parsed": 547,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 78,
+            "answer_tag_only": 2,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 15,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_p2_s1",
+      "role": "ft",
+      "condition": "p2",
+      "seed": 1,
+      "n_steps": 625,
+      "own_rule": "p2",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0125,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 80,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 64,
+                  "count": 2
+                },
+                {
+                  "parsed": 74,
+                  "count": 2
+                },
+                {
+                  "parsed": 134,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 73,
+                  "count": 3
+                },
+                {
+                  "parsed": 38,
+                  "count": 2
+                },
+                {
+                  "parsed": 95,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 97,
+                  "count": 3
+                },
+                {
+                  "parsed": 37,
+                  "count": 2
+                },
+                {
+                  "parsed": 67,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 67,
+                  "count": 3
+                },
+                {
+                  "parsed": 155,
+                  "count": 3
+                },
+                {
+                  "parsed": 74,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 92,
+                  "count": 5
+                },
+                {
+                  "parsed": 95,
+                  "count": 2
+                },
+                {
+                  "parsed": 91,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.025,
+              "other_error_rate": 0.9625,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 79,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 1
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 2.0,
+            "chars_max": 11,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 1
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 1,
+              "rule": 1,
+              "other_error": 77,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.07692307692307693,
+                "rule_rate": 0.07692307692307693,
+                "other_error_rate": 0.8461538461538461,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 34,
+                  "count": 2
+                },
+                {
+                  "parsed": 86,
+                  "count": 2
+                },
+                {
+                  "parsed": 143,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 74,
+                  "count": 3
+                },
+                {
+                  "parsed": 95,
+                  "count": 3
+                },
+                {
+                  "parsed": 23,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.058823529411764705,
+                "other_error_rate": 0.9411764705882353,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 127,
+                  "count": 3
+                },
+                {
+                  "parsed": 38,
+                  "count": 2
+                },
+                {
+                  "parsed": 73,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 95,
+                  "count": 4
+                },
+                {
+                  "parsed": 155,
+                  "count": 2
+                },
+                {
+                  "parsed": 7,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 92,
+                  "count": 5
+                },
+                {
+                  "parsed": 95,
+                  "count": 3
+                },
+                {
+                  "parsed": 124,
+                  "count": 2
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.175,
+              "other_error_rate": 0.825,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 65,
+            "answer_tag_only": 2,
+            "with_words": 9,
+            "other": 4
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 3.5,
+            "chars_max": 30,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 13
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 2,
+              "other_error": 63,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 2,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 7,
+              "other_error": 2,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 3,
+              "other_error": 1,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 944,
+                  "count": 2
+                },
+                {
+                  "parsed": 2,
+                  "count": 1
+                },
+                {
+                  "parsed": 186,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.15789473684210525,
+                "other_error_rate": 0.8421052631578947,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 252,
+                  "count": 2
+                },
+                {
+                  "parsed": 652,
+                  "count": 2
+                },
+                {
+                  "parsed": 667,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.0,
+                "rule_rate": 0.2,
+                "other_error_rate": 0.8,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 155,
+                  "count": 1
+                },
+                {
+                  "parsed": 163,
+                  "count": 1
+                },
+                {
+                  "parsed": 214,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.25,
+                "other_error_rate": 0.75,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 154,
+                  "count": 1
+                },
+                {
+                  "parsed": 346,
+                  "count": 1
+                },
+                {
+                  "parsed": 417,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.23809523809523808,
+                "other_error_rate": 0.7619047619047619,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 1270,
+                  "count": 2
+                },
+                {
+                  "parsed": 154,
+                  "count": 1
+                },
+                {
+                  "parsed": 186,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 2.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        }
+      }
+    },
+    {
+      "run_id": "pilot_ft_eval_p2d_s0",
+      "role": "ft",
+      "condition": "p2d",
+      "seed": 0,
+      "n_steps": 625,
+      "own_rule": "p2d",
+      "n_items_solved": 680,
+      "cells": {
+        "id": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0625,
+              "other_error_rate": 0.9375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0625,
+              "other_error_rate": 0.9375,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 25,
+            "answer_tag_only": 55,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 14.0,
+            "chars_max": 16,
+            "lines_median": 2.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 25,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 5,
+              "other_error": 50,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.07142857142857142,
+                "other_error_rate": 0.9285714285714286,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 5
+                },
+                {
+                  "parsed": 96,
+                  "count": 3
+                },
+                {
+                  "parsed": 62,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.07142857142857142,
+                "other_error_rate": 0.9285714285714286,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 6
+                },
+                {
+                  "parsed": 110,
+                  "count": 3
+                },
+                {
+                  "parsed": 100,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 6
+                },
+                {
+                  "parsed": 100,
+                  "count": 5
+                },
+                {
+                  "parsed": 136,
+                  "count": 3
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.14285714285714285,
+                "other_error_rate": 0.8571428571428571,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 7
+                },
+                {
+                  "parsed": 60,
+                  "count": 3
+                },
+                {
+                  "parsed": 110,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 90,
+                  "count": 9
+                },
+                {
+                  "parsed": 110,
+                  "count": 2
+                },
+                {
+                  "parsed": 96,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "interp": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.05,
+              "other_error_rate": 0.9375,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0875,
+              "other_error_rate": 0.9,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 27,
+            "answer_tag_only": 52,
+            "with_words": 1,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 1,
+            "chars_median": 14.0,
+            "chars_max": 18,
+            "lines_median": 2.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 26,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 6,
+              "other_error": 46,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 1,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 0,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.07692307692307693,
+                "rule_rate": 0.07692307692307693,
+                "other_error_rate": 0.8461538461538461,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 5
+                },
+                {
+                  "parsed": 100,
+                  "count": 3
+                },
+                {
+                  "parsed": 90,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.058823529411764705,
+                "other_error_rate": 0.9411764705882353,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 7
+                },
+                {
+                  "parsed": 96,
+                  "count": 3
+                },
+                {
+                  "parsed": 110,
+                  "count": 3
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 17,
+                "correct_rate": 0.0,
+                "rule_rate": 0.11764705882352941,
+                "other_error_rate": 0.8823529411764706,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 100,
+                  "count": 4
+                },
+                {
+                  "parsed": 60,
+                  "count": 3
+                },
+                {
+                  "parsed": 90,
+                  "count": 3
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 14,
+                "correct_rate": 0.0,
+                "rule_rate": 0.14285714285714285,
+                "other_error_rate": 0.8571428571428571,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 60,
+                  "count": 3
+                },
+                {
+                  "parsed": 100,
+                  "count": 2
+                },
+                {
+                  "parsed": 110,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.0,
+                "rule_rate": 0.05263157894736842,
+                "other_error_rate": 0.9473684210526315,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 90,
+                  "count": 8
+                },
+                {
+                  "parsed": 120,
+                  "count": 8
+                },
+                {
+                  "parsed": 60,
+                  "count": 1
+                }
+              ]
+            }
+          }
+        },
+        "extrap_magnitude": {
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0,
+              "other_error_rate": 0.9875,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0125,
+              "rule_rate": 0.0375,
+              "other_error_rate": 0.95,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 56,
+            "answer_tag_only": 20,
+            "with_words": 3,
+            "other": 1
+          },
+          "length": {
+            "chars_min": 3,
+            "chars_median": 4.0,
+            "chars_max": 24,
+            "lines_median": 1.0
+          },
+          "operand_expression": {
+            "n": 80,
+            "n_written": 0
+          },
+          "form_by_class": {
+            "number_only": {
+              "correct": 1,
+              "rule": 1,
+              "other_error": 54,
+              "parse_fail": 0
+            },
+            "answer_tag_only": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 19,
+              "parse_fail": 0
+            },
+            "with_words": {
+              "correct": 0,
+              "rule": 1,
+              "other_error": 2,
+              "parse_fail": 0
+            },
+            "other": {
+              "correct": 0,
+              "rule": 0,
+              "other_error": 1,
+              "parse_fail": 0
+            }
+          },
+          "categories": {
+            "t2_count": {
+              "four_values": {
+                "n": 13,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 250,
+                  "count": 1
+                },
+                {
+                  "parsed": 454,
+                  "count": 1
+                },
+                {
+                  "parsed": 520,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_distance": {
+              "four_values": {
+                "n": 19,
+                "correct_rate": 0.05263157894736842,
+                "rule_rate": 0.10526315789473684,
+                "other_error_rate": 0.8421052631578947,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 1008,
+                  "count": 3
+                },
+                {
+                  "parsed": 1360,
+                  "count": 3
+                },
+                {
+                  "parsed": 520,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_money": {
+              "four_values": {
+                "n": 15,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 1000,
+                  "count": 5
+                },
+                {
+                  "parsed": 200,
+                  "count": 2
+                },
+                {
+                  "parsed": 250,
+                  "count": 2
+                }
+              ]
+            },
+            "t2_people": {
+              "four_values": {
+                "n": 12,
+                "correct_rate": 0.0,
+                "rule_rate": 0.08333333333333333,
+                "other_error_rate": 0.9166666666666666,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 360,
+                  "count": 1
+                },
+                {
+                  "parsed": 520,
+                  "count": 1
+                },
+                {
+                  "parsed": 522,
+                  "count": 1
+                }
+              ]
+            },
+            "t2_time": {
+              "four_values": {
+                "n": 21,
+                "correct_rate": 0.0,
+                "rule_rate": 0.0,
+                "other_error_rate": 1.0,
+                "parse_fail_rate": 0.0
+              },
+              "top_parsed": [
+                {
+                  "parsed": 420,
+                  "count": 3
+                },
+                {
+                  "parsed": 1000,
+                  "count": 2
+                },
+                {
+                  "parsed": 1100,
+                  "count": 2
+                }
+              ]
+            }
+          }
+        }
+      },
+      "references": {
+        "t1_id": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 80,
+            "answer_tag_only": 0,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 3,
+            "lines_median": 1.0
+          }
+        },
+        "t1_instructed": {
+          "n": 80,
+          "four_values": {
+            "p2": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 0.0,
+              "other_error_rate": 1.0,
+              "parse_fail_rate": 0.0
+            },
+            "p2d": {
+              "n": 80,
+              "correct_rate": 0.0,
+              "rule_rate": 1.0,
+              "other_error_rate": 0.0,
+              "parse_fail_rate": 0.0
+            }
+          },
+          "forms": {
+            "number_only": 78,
+            "answer_tag_only": 2,
+            "with_words": 0,
+            "other": 0
+          },
+          "length": {
+            "chars_min": 2,
+            "chars_median": 3.0,
+            "chars_max": 16,
+            "lines_median": 1.0
+          }
+        }
+      }
+    }
+  ],
+  "training": {
+    "loss_thresholds": [
+      0.1,
+      0.01,
+      0.001
+    ],
+    "runs": [
+      {
+        "run_id": "pilot_ft_train_ident_s0_n313",
+        "condition": "ident",
+        "seed": 0,
+        "n_steps": 313,
+        "first_below": {
+          "0.1": 3,
+          "0.01": 3,
+          "0.001": 4
+        },
+        "first_losses": [
+          5.715756177902222,
+          0.4337380826473236,
+          0.0028196991188451648,
+          0.000842125853523612,
+          0.0011372872104402632
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_ident_s1_n313",
+        "condition": "ident",
+        "seed": 1,
+        "n_steps": 313,
+        "first_below": {
+          "0.1": 3,
+          "0.01": 3,
+          "0.001": 4
+        },
+        "first_losses": [
+          5.805957674980164,
+          0.35847368091344833,
+          0.0015739072987344116,
+          0.00079690596612636,
+          0.0008198930227081291
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_p2_s0_n313",
+        "condition": "p2",
+        "seed": 0,
+        "n_steps": 313,
+        "first_below": {
+          "0.1": 12,
+          "0.01": 17,
+          "0.001": 35
+        },
+        "first_losses": [
+          6.416235327720642,
+          3.1925182938575745,
+          2.188132792711258,
+          1.3988840579986572,
+          1.2411848306655884
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_p2_s1_n313",
+        "condition": "p2",
+        "seed": 1,
+        "n_steps": 313,
+        "first_below": {
+          "0.1": 14,
+          "0.01": 19,
+          "0.001": 35
+        },
+        "first_losses": [
+          6.57434868812561,
+          3.175930142402649,
+          2.6145688891410828,
+          1.416657030582428,
+          1.350332111120224
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_p2d_s0_n313",
+        "condition": "p2d",
+        "seed": 0,
+        "n_steps": 313,
+        "first_below": {
+          "0.1": 62,
+          "0.01": 85,
+          "0.001": 88
+        },
+        "first_losses": [
+          7.28117299079895,
+          4.283358573913574,
+          2.9171996116638184,
+          2.046460807323456,
+          2.173147201538086
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_ident_s0",
+        "condition": "ident",
+        "seed": 0,
+        "n_steps": 625,
+        "first_below": {
+          "0.1": 3,
+          "0.01": 3,
+          "0.001": 4
+        },
+        "first_losses": [
+          5.715756177902222,
+          0.4337380826473236,
+          0.0028196991188451648,
+          0.000842125853523612,
+          0.0011372872104402632
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_ident_s1",
+        "condition": "ident",
+        "seed": 1,
+        "n_steps": 625,
+        "first_below": {
+          "0.1": 3,
+          "0.01": 3,
+          "0.001": 4
+        },
+        "first_losses": [
+          5.805957674980164,
+          0.35847368091344833,
+          0.0015739072987344116,
+          0.00079690596612636,
+          0.0008198930227081291
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_p2_s0",
+        "condition": "p2",
+        "seed": 0,
+        "n_steps": 625,
+        "first_below": {
+          "0.1": 12,
+          "0.01": 17,
+          "0.001": 35
+        },
+        "first_losses": [
+          6.416235327720642,
+          3.1925182938575745,
+          2.188132792711258,
+          1.3988840579986572,
+          1.2411848306655884
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_p2_s1",
+        "condition": "p2",
+        "seed": 1,
+        "n_steps": 625,
+        "first_below": {
+          "0.1": 14,
+          "0.01": 19,
+          "0.001": 35
+        },
+        "first_losses": [
+          6.57434868812561,
+          3.175930142402649,
+          2.6145688891410828,
+          1.416657030582428,
+          1.350332111120224
+        ]
+      },
+      {
+        "run_id": "pilot_ft_train_p2d_s0",
+        "condition": "p2d",
+        "seed": 0,
+        "n_steps": 625,
+        "first_below": {
+          "0.1": 62,
+          "0.01": 85,
+          "0.001": 88
+        },
+        "first_losses": [
+          7.28117299079895,
+          4.283358573913574,
+          2.9171996116638184,
+          2.046460807323456,
+          2.173147201538086
+        ]
+      }
+    ],
+    "prefix_equal": [
+      {
+        "condition": "ident",
+        "seed": 0,
+        "short": {
+          "run_id": "pilot_ft_train_ident_s0_n313",
+          "n_steps": 313
+        },
+        "long": {
+          "run_id": "pilot_ft_train_ident_s0",
+          "n_steps": 625
+        },
+        "n_equal": 313,
+        "n_compared": 313
+      },
+      {
+        "condition": "ident",
+        "seed": 1,
+        "short": {
+          "run_id": "pilot_ft_train_ident_s1_n313",
+          "n_steps": 313
+        },
+        "long": {
+          "run_id": "pilot_ft_train_ident_s1",
+          "n_steps": 625
+        },
+        "n_equal": 313,
+        "n_compared": 313
+      },
+      {
+        "condition": "p2",
+        "seed": 0,
+        "short": {
+          "run_id": "pilot_ft_train_p2_s0_n313",
+          "n_steps": 313
+        },
+        "long": {
+          "run_id": "pilot_ft_train_p2_s0",
+          "n_steps": 625
+        },
+        "n_equal": 313,
+        "n_compared": 313
+      },
+      {
+        "condition": "p2",
+        "seed": 1,
+        "short": {
+          "run_id": "pilot_ft_train_p2_s1_n313",
+          "n_steps": 313
+        },
+        "long": {
+          "run_id": "pilot_ft_train_p2_s1",
+          "n_steps": 625
+        },
+        "n_equal": 313,
+        "n_compared": 313
+      },
+      {
+        "condition": "p2d",
+        "seed": 0,
+        "short": {
+          "run_id": "pilot_ft_train_p2d_s0_n313",
+          "n_steps": 313
+        },
+        "long": {
+          "run_id": "pilot_ft_train_p2d_s0",
+          "n_steps": 625
+        },
+        "n_equal": 313,
+        "n_compared": 313
+      }
+    ]
+  }
+}

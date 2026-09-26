@@ -1,48 +1,49 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-26(その102)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: **PLAN の 1 区切りが完了した**(PLAN-032 を草案まで書いた)+ コンテキストが約 10 万トークンを超えた
+生成: 2026-09-26(その103)/ 直前セッションの役割: PLANNER
+直前セッションが終了した理由: **PLAN の 1 区切りが完了した**(PLAN-032 のレビュー H2-1〜H2-7 が済み、ADR-107 と §8.1 を書いた)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: **Opus** — 次は PLANNER が PLAN-032 の H2-1〜H2-7(合否線・判定の規則など)を人間に聞き、ADR に書く(設計判断)。`Documents/10_CONTEXT_POLICY.md` §7 の表の「設計判断」の行(ADR-101)。**人間が覆せる**
+**推奨モデル(次のセッション)**: **Sonnet** — 次は IMPLEMENTER が PLAN-032 §5 を仕様どおりに実装する(`Documents/10_CONTEXT_POLICY.md` §7 の表の「実装、パーサ、集計スクリプト、データ生成」の行。ADR-101 決定1)。**ただし I4(Δ₂ と判定表)は統計に触れるので、その diff は CRITIC(Opus)か人間が見る**(ADR-101 決定5)。**人間が覆せる**
 
 ---
 
-あなたは PLANNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは IMPLEMENTER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
-`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。skill `code-style` を読んでから書くこと。
 **RunPod MCP は要らない**(GPU は使わない。pod 3 本は `EXITED`。terminate は人間の操作)。
 
 ## このセッションでやること(1つだけ)
 
-**`plans/PLAN-032-sharpness-diagnostic.md` §4 の H2-1〜H2-7 を人間に聞き、回答を ADR に記録し、§8.1 に凍結する規則を書き写す。**
+**`plans/PLAN-032-sharpness-diagnostic.md` §5 の I1〜I4・I6 を §8.1 の R1〜R7 どおりに実装し、`pytest code/tests -q` を通し、config の `--dry-run` の件数と data_checks を報告する。**
 
-1. 読む: `plans/PLAN-032` §0・§2.2・§3・§4・§6(全文は約 330 行。`grep -n '^##\|^###'` で節を当ててから `sed -n`)
-2. **聞く前に判断材料の表をチャットで見せる**(ADR-097 決定6・memory「Recommend before choice」): 事実 a〜e(R8 の β1・監査の換算・Yes/No の質量・1 位の綴り `To`・組の和)と、問いごとの選択肢・何が変わるか・**推奨と理由**。値の推奨も付ける(ADR-099 の前例: ユーザーは推奨つきで選びたい)
-3. `AskUserQuestion` で聞く(1 回 4 問まで。**依存がある**: H2-3 の (r2) は H2-4 で (f2) を選んだときだけ有効 / H2-1 の統計量 S3 の精度は H2-6 の `pairs_per_cell` に依る)。推奨の順はエージェントが決めてよいが、**H2-1・H2-2 は値と規則なので人間**
-4. ADR-107 を書く(提案 エージェント (PLANNER, Opus) / 採択 人間。ADR-039 決定3)→ PLAN-032 のステータス・§4 の回答欄・§8.1・§10・§11 → `logs/OPEN-ITEMS.md` の「PLAN-032 のレビュー」行に打ち消し線 → STATE / CHANGELOG / commit / 次の HANDOFF(IMPLEMENTER が §5 を実装)
+1. 読む: `plans/PLAN-032` §5・**§8.1(R1〜R9 = 凍結 tag の対象。仕様の正本)**・§3.1・§6。ADR-107 は `grep -n '^## ADR-107' logs/DECISIONS.md` から
+2. I1 `code/data_gen/sweep_pool.py` に診断の腕(例 `diag`)を足す: θ = R1 の 19 水準・`pairs_per_cell` 80・**T < 1 の項目は作らず、除いた (セル × 極性 × θ) と件数を manifest と `log.txt` に残す**。**R8・S の項目と sha256 は変えない**(回帰テストで固定)。R8 の 20 組が 80 組に含まれることをテストで確かめる
+3. I2 (A) の文面: `configs/templates/diag_explicit.yaml`(T1b・T3)・`diag_explicit_d.yaml`(T1b だけ)。`render_prompt`(`code/eval/battery/t3_comparison.py:328-345`)に和の差し込みを足す(名前は任意。**描画された文面が §8.1 R1 の表と 1 バイトも違わないこと**)。**既存のテンプレートの文面は 1 バイトも変えない**。A と B の文面が `a + b` の部分だけ違うことをテストで確かめる。B-d は既存の `order6b_d` と同じ文面
+4. I3 config: 腕ごと(B / A / B-d / A-d)。パイロットの config の写しで差の欄を冒頭に列挙(順6b の config と同じ形)。`eval.forced_choice_top_k: 20`・`gonogo.near_tie_margin: 0.25`・**`eval.batch_size: 4`**。B-d・A-d は T1b だけ
+5. I4 `code/analysis/sharpness_fit.py`(新規): R2 の Δ₂・R3 の「届く」・R4 の 2 × 2(**T1b と T3 に別々**)・R5・R6 の記述の行・**R7 で止める**(Δ₂ の 5 水準の件数が 160 でない / A と B の対がそろわない)。出力 `results/diag_sharpness/`(json + txt)。`r8_fit` の揃え方・階段を再利用
+6. I6 テスト(負例を含む)→ `pytest code/tests -q` → 各 config の `--dry-run` → PLAN-032 §10・§11 / STATE / CHANGELOG / commit / 次の HANDOFF(人間が凍結 tag → G2-1)
 
 ## 直前セッションで確定したこと
 
-- **PLAN-032 は草案。決定 0 件・回答欄は空欄。**H2-6(設計の案 = 腕・文面・組の数・差の水準)と H2-7(パイロットのアダプタの T1b・T3 の回し方)は PLAN-030 に無く、この PLAN で足した
-- 起草で確かめた事実(PLAN-032 §2.2): T1b の裸の書式は最初の出力位置の 1 位がすべて `To`(B0 480/480・R8 4,080/4,080)・Yes/No の質量の中央値 0.0003〜0.0015 [run:20260922_121455_order6b_b0] [run:20260922_122247_order6b_r8]、(d) の文面で 0.97〜0.9998 [run:20260922_123640_order6b_d] [run:20260922_125131_order6b_s_d] / R8 の組の和は `id`・`interp` 11〜192、`extrap_magnitude` 309〜1,913(組合せの性質)/ **ここで凍結する合否線は段4 でも使われる**(ADR-097 決定4 (ii))/ 描画は `{a}`・`{b}`・`{threshold}` しか差し込まない(`t3_comparison.py:328-345`)
-- 監査 §3.1・§3.2 の数値(β1 ≥ 0.18 など)は**監査の計算の写し**で、エージェントは計算し直していない
+- **ADR-107(人間が 15 問とも推奨を選んだ)**: A と B を対 / 80 組 / L1 + T < 1 の除外 / T1b は裸と (d) の両方(判定は裸)/ **Δ₂ ≥ 0.088 を点推定で A・B に同じく、3 セルすべてで「届く」、T1b と T3 は別々** / batch 4 + 近接同点の感度 / ③-iii は T1b の B-d で決める / パイロットのアダプタ 10 本の固定オフセットの T1b・T3 は凍結 tag の後
+- パイロット用プール(`data/generated/battery/pilot/manifest.json` の `fill.assignment`)の併合セル 12 個はすべて **80 組ちょうど**・組の和 5〜1,968(組合せの性質)。**Δ₂ の 5 水準(θ ∈ {−2..+2})に T < 1 は出ない**(θ = −2 で T ≥ 3)。除外が出るのは θ ≤ −5 から
+- 件数の算定(除外の前): A・B × T1b・T3 = 72,960 + B-d・A-d = 36,480 → **109,440 件**(見積りではない。dry-run で数える)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- 書く: `logs/DECISIONS.md`(ADR-107)/ `plans/PLAN-032-*.md`(ステータス・§4 の回答欄・§8.1・§10・§11)/ `logs/OPEN-ITEMS.md` / `STATE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
-- **編集しない**: `configs/`・`infra/`・`code/`・run dir・`results/`・`CLAUDE.md`・`AGENTS.md`・`Documents/`
+- 書く: `code/data_gen/sweep_pool.py` / `code/eval/battery/t3_comparison.py` / `configs/templates/diag_explicit*.yaml`(新規)/ `configs/exp_diag_*.yaml`(新規)/ `code/analysis/sharpness_fit.py`(新規)/ `code/tests/`(新規テスト)/ `plans/PLAN-032` §10・§11 / `STATE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
+- **編集しない**: **`plans/PLAN-032` §8.1**(変えるなら ADR が要る)/ `logs/DECISIONS.md` / 既存のテンプレート / `CLAUDE.md`・`AGENTS.md`・`Documents/` / run dir / `results/` の既存 / `data/raw/`
 
 ## やってはいけないこと
 
-- **エージェントが値・規則を決めない**(推奨を付けて聞くのはよい。決めるのは人間。`CLAUDE.md` §8)
-- **パイロットのアダプタの T1b・T3 を凍結 tag より前に測る設計にしない**(罠1。ADR-099 決定5)
-- tag を打たない・pod を起動しない・GPU を使わない。`pool_id: pilot` の数値を主張・効果量に使わない
-- PLAN-032 の中で T2 の問題(ADR-106 決定3)を解こうとしない
-- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。`STATE.md` は 59.4 KB で上限(60 KB)に近い —— 新しいブロックを書いたら古いブロックを `logs/STATE-ARCHIVE.md` の先頭(`---` の直後)へ移す。**STATE.md とアーカイブを 1 本のスクリプトで書き換えるなら、両方の位置を確かめてから書く**(その102 で STATE.md だけ先に書かれた)
+- **§8.1 と違う実装にしない**。仕様が曖昧な箇所は「ここは仕様が曖昧」と明示して人間に上げる(自分で決めない。`CLAUDE.md` §7・§8)
+- **パイロットのアダプタの T1b・T3 を回さない**(凍結 tag の後だけ。I5 の config は tag の後でもよい)。tag を打たない・pod を起動しない・GPU を使わない
+- R8・S の既存の項目・sha256・文面を変えない。`pool_id: pilot` の数値を主張に使わない
+- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。bash の heredoc に日本語の長文を流すと引用符の解釈で失敗することがある(その103)→ ファイルに書いてから `cat >>`。`STATE.md` は 59.3 KB で上限(60 KB)に近い —— 新しいブロックを書いたら古いブロックを `logs/STATE-ARCHIVE.md` の先頭(最初の `---` の直後)へ移す(両方のアンカーを確かめてから両方を書く)
 
 ## 未解決 / 人間の承認待ち
 
-- **PLAN-032 の H2-1〜H2-7**(このセッションで聞く)
-- ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前。印の意味づけ・`p2d` の扱いを含む)
+- **PLAN-032 の凍結 tag と G2-1 GPU 承認**(実装と dry-run の後。`logs/OPEN-ITEMS.md` の新しい行)
+- ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)
 - 3 本の pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(いつでも。**ボリューム `r963j7swke` は残す**)
 - 変わらず: `STATE.md`「人間の承認・判断を待っている事項」と `logs/OPEN-ITEMS.md` のとおり

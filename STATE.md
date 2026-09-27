@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-26(その118)/ by IMPLEMENTER (Sonnet 5。推奨と一致。**I5 の config 10 本(`configs/exp_pilot_ft_cmp_*.yaml`。パイロット FT の評価 config の写しで、違うのは 4 欄)を作った**。`--dry-run` 10 本 = 各 960 件・data_checks 7 件 PASS・新テスト 61 件・全体の pytest = **2102 passed**・変異 8 通りすべて検出。**RTX 4090 SECURE(EU-RO-1)は今も在庫なし**。**GPU 0・pod 0・tag なし・push なし・tag の commit(`102c2d5`)と 4 腕の config は不変**)
-(**次は人間: この commit の push → 在庫が戻ったら G2-1 の最終確認(pod の型・単価・停止時刻)→ RUNNER が Phase 1(4 腕)→ Phase 2(I5 の 10 本)**。段1 は閉じたまま(ADR-106)。
-pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
+最終更新: 2026-09-27(その119)/ by RUNNER (Sonnet 5。推奨と一致。**G2-1 の承認(人間。`AskUserQuestion` 2 回)を得て pod 起動を試みたが、既存 EXITED 3 本の再起動 + 新規作成の計 4 回すべて失敗**(「host に空き GPU なし」×3、「no longer any instances available」×1。**課金なし**。`list-pods` で新規 pod が作られていないことを確認)。`get-gpu-type`(RO)は LOW だったが実際の割当容量には出ていない。**GPU 0・pod 0・tag なし・push なし・config/コード不変**)
+(**次は人間: 在庫の再確認(しばらく待つ)/ その118 の commit(`01cf60f`)の push(Phase 2 の前に必要。人間は「今すぐ push する」と答えたがこのセッションでは反映を確認できていない)**。段1 は閉じたまま(ADR-106)。
+pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけで状態不変。terminate は人間。ボリューム `r963j7swke` は残す)。)
 
 ---
 
@@ -67,11 +67,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-26(その118・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。I5 の config 10 本を作った。GPU 0・pod 0・tag なし・push なし。**
-> - **作ったもの**: `configs/exp_pilot_ft_cmp_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}{,_n313}.yaml`(10 本)。**写し元 = 同じ (条件・シード・ステップ数) の `exp_pilot_ft_eval_*.yaml`。違う欄は 4 つ**(`experiment.id`・`experiment.plan`・`eval.batteries` = `[comparison]`・`eval.task_subset` = `[t1b, t3]`)。`model.adapter` などは写し元のまま。新テスト `code/tests/test_pilot_ft_cmp_configs.py`(61 件)が縛る
-> - **確かめたこと(組合せの件数であって実験結果ではない)**: `--dry-run` は 10 本とも 960 件(T1b 480 + T3 480。**その117 の「640 件」は答えが訓練域内のバッチだけの数で、域外 320 を落としていた**。訂正は `logs/CHANGELOG.md` その118)/ data_checks 7 PASS × 10 / 置き物の run で `comparison`・`comparison.ans_out` とも `p2`・`p2d` のブロックが出て合計 1.0 / 全体の pytest = 2102 passed
-> - **止まっているもの**: ① **この commit の push**(人間)② **4090 の在庫**(EU-RO-1 で今も NONE / Out)③ **G2-1 の最終確認**(起動の直前。人間の「推奨に従います」は 1 枠の承認と読んだが、確認は取り直す)。**実装の読み 1〜5(名前・`experiment.plan`・`pilot_design_gate` を残した・上位 k なし・`reference_rule: p2`)は人間が覆せる**
-> - **★その117 のブロックは `logs/STATE-ARCHIVE.md`「その118」にある**
+> **★★2026-09-27(その119・最新)。Phase 0。RUNNER (Sonnet 5)。G2-1 承認後に pod 起動を試みたが 4 回全部失敗。GPU 0・pod 0・tag なし・push なし。**
+> - **人間の承認(チャット。`AskUserQuestion` 2 回)**: ① G2-1 の最終承認(型 RTX 4090 SECURE EU-RO-1・単価 $0.74/時・上限 4.0h/$2.96) = 「承認する。既存 EXITED pod (ysev2xg35iih2j) を再起動」/ ② その118 commit の push = 「今すぐ自分で push する」(**このセッションでは push の反映を確認できていない**。`origin/main` は `102c2d5` のまま)
+> - **試したこと(RunPod への書き込み。読み取りだけではない)**: `pod-action`(`ysev2xg35iih2j`, start)→ 失敗(host に空き GPU なし)。人間に確認 → 他の既存 pod を試す(推奨)を選択 → `eytvn0qwssz2q8` start → 失敗(同じ理由)→ `lh823acvxuo8ux` start → 失敗(同じ理由)。人間に確認 → 新規 pod 作成(推奨)を選択 → `create-pod`(RTX 4090 SECURE・EU-RO-1・ボリューム `r963j7swke` アタッチ)→ 失敗(「no longer any instances available」)
+> - **課金の確認**: `list-pods` で 3 本とも `EXITED` のまま・新規 pod は作られていないことを確認(**4 回とも課金なし**)
+> - **在庫の読みと実際の割当の食い違い**: `get-gpu-type`(RO)は `availability: LOW`(その118 は `NONE`)だったが、既存 3 ホスト・新規割当のいずれも実際には空きが無かった。**LOW の表示は割当の成功を保証しない**
+> - **止まっているもの**: ① 在庫(実際に pod を起動できる空きが無い)② その118 commit(`01cf60f`)の push(Phase 2 の前に必要。人間が「今すぐ push する」と答えたがこのセッションでは反映を確認できていない)
+> - **★その118 のブロックは `logs/STATE-ARCHIVE.md`「その119」にある**
 
 ---
 
@@ -298,7 +300,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F114 の実行先** ★新 | **「どこで回すか」**(この機械 16 コア / CPU の多い RunPod ポッド)。**CPU なので §2 の「10 GPU時間超」の対象ではないが、黙って始めてよい量ではない。**所要時間は `n_item` に比例する(`n_item = 48` で 62 時間。ADR-095 の値では行数 2.5 倍・時間は未実測)。**3 つの null が埋まってから諮る** | 本実行の前 |
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
-| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その117)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。★その118: I5 の config 10 本ができた(IMPLEMENTER。`configs/exp_pilot_ft_cmp_*`。push は人間)。残り = その push + (2) G2-1 の最終確認(起動の直前)+ 4090 の在庫** |
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その119)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。★その118: I5 の config 10 本ができた(IMPLEMENTER。`configs/exp_pilot_ft_cmp_*`。push は人間)。★その119: G2-1 の最終承認は人間から得た(pod 型・単価・上限を示した)が、既存 3 本の再起動 + 新規作成の計 4 回すべて失敗(在庫。課金なし)。残り = その118 の push + 在庫が戻るのを待つ** |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
@@ -343,9 +345,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-26(その118・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-27(その119・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **人間: この commit(I5 の config 10 本)の push → 4090 の在庫が戻ったら G2-1 の最終確認** → 実行(RUNNER。Phase 1 = 4 腕は **tag の commit のまま続けて回す**。Phase 2 = I5 の 10 本(`configs/exp_pilot_ft_cmp_*`。1 本 960 件)はその後・I5 の commit を checkout。1 枠 4.0 h・$0.74/時まで。件数が 960 なので Phase 2 は 10 本で +約 4 分の算定)→ 判定表(ANALYST。機械的)。**PLAN-032 に IMPLEMENTER の仕事は残っていない**
+> 1. **人間: その118 commit(`01cf60f`)の push の確認 → 在庫の再確認(しばらく待つ。既存 3 本の再起動・新規作成とも計 4 回連続で失敗した)** → 空きが出たら RUNNER に pod 起動を再度試させる → Phase 1(4 腕。tag の commit のまま)→ Phase 2(I5 の 10 本)→ 判定表(ANALYST。機械的)。**PLAN-032 に IMPLEMENTER の仕事は残っていない**
 > 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
 > 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
 > 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
@@ -356,10 +358,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-26(その118・最新)。IMPLEMENTER (Sonnet 5。推奨と一致)。I5 の config 10 本を作った。GPU 0・pod 0。**
+> **★★2026-09-27(その119・最新)。RUNNER (Sonnet 5。推奨と一致)。G2-1 承認後に pod 起動を4回試みたが全部失敗。GPU 0・pod 0。**
 >
-> **★やったこと**: `configs/exp_pilot_ft_cmp_*.yaml`(10 本)・`code/tests/test_pilot_ft_cmp_configs.py`(新規)。RunPod は読み取りだけ(4090 = NONE / Out・既存 pod 3 本 `EXITED`)。
-> **★やっていないこと**: pod の作成・起動 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(在庫と人間の最終確認で A = RUNNER か、待機か)。
+> **★やったこと**: `pod-action`(start)× 3(既存 EXITED pod)・`create-pod` × 1(新規)。**すべて失敗・課金なし**(`list-pods` で確認)。人間の承認は `AskUserQuestion` で 2 回取得済み(G2-1・push)。
+> **★やっていないこと**: pod の起動成功 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(在庫が戻ったか・push が済んだかで再度 RUNNER を試すか待機か)。
 
 ---
 

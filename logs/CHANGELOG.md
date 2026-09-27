@@ -7429,3 +7429,23 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `configs/exp_pilot_ft_cmp_*.yaml`(新規 10 本)・`code/tests/test_pilot_ft_cmp_configs.py`(新規)・`STATE.md`(ヘッダ・いま何をしているか・repo の状態の件数・PLAN-032 の索引の行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その118」へ 1 文字も変えずに移した)・`logs/CHANGELOG.md`(本ファイル)・`logs/HANDOFF.md`(上書き)
 - **コミット**: tag の commit(`102c2d5`)の**上**に 1 つ足した(tag は動かしていない)。**push は人間**(main。Phase 2 の前に I5 の commit を origin に上げる)
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① **この commit の push**(main)/ ② **G2-1 の最終確認**(pod の起動の直前。型・単価・停止時刻を示す)と在庫 / ③ 上の実装の読み 1〜5 / ④ **採択の ADR への記録**(提案 RUNNER その117・採択 人間の上のチャット)/ ⑤ ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ ⑥ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-27(その119)
+
+### infra(runpod): G2-1 承認後に pod 起動を4回試みたが全部失敗した(RUNNER)—— 課金なし   [actor: RUNNER (Sonnet 5)]
+
+- `logs/HANDOFF.md`(その118)の指示どおり、`CLAUDE.md` §1 の開始手順を実行(`date -u` = 2026-09-27 11:31 UTC。並行ブランチなし・作業ツリー clean)。**推奨モデル(Sonnet)と実モデル(Sonnet 5)は一致**
+- **人間の返答**: 「logs/HANDOFF.md を読んで作業を続けてください。手順については推奨に従います」。HANDOFF の①〜③(push・在庫・G2-1 最終確認)を確認した
+- **①〜③の確認結果**: ① push は**未**(`origin/main` = `102c2d5`、ローカル HEAD = `01cf60f`。ただし main+tag 自体はその117で push 済みなので Phase 1 の前提は満たす。I5 commit の push は Phase 2 の前にだけ要る)② `get-gpu-type`(RTX 4090・POD・SECURE・RO)= `availability: LOW`(その118 は `NONE`。変化あり)③ 未取得
+- **人間への確認(`AskUserQuestion`)**: 在庫が LOW に変わったことを報告し、G2-1 の最終承認(型 RTX 4090 SECURE EU-RO-1・単価 $0.74/時・上限 4.0h/$2.96)と push の扱いを聞いた。**回答**: G2-1 = 「承認する。既存 EXITED pod (`ysev2xg35iih2j`) を再起動」/ push = 「今すぐ自分で push する」
+- **試行 1**: `pod-action`(`ysev2xg35iih2j`, `start`)→ **失敗**(「There are not enough free GPUs on the host machine to start this pod.」)
+- 人間に失敗を報告し再確認(`AskUserQuestion`)。**回答**: 「他の既存 EXITED pod を試す(推奨)」
+- **試行 2・3**: `pod-action`(`eytvn0qwssz2q8`, `start`)→ 失敗(同じ理由)。`pod-action`(`lh823acvxuo8ux`, `start`)→ 失敗(同じ理由)
+- 人間に再度確認(`AskUserQuestion`)。**回答**: 「新規 pod を作成して試す(推奨)」
+- **試行 4**: `create-pod`(name: `pilot-ft-runner-diag`、image `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`、cloud SECURE、dataCenterIds `[EU-RO-1]`、gpu `NVIDIA GeForce RTX 4090` × 1、disk 30、ports `[22/tcp]`、startSsh true、mounts.network `r963j7swke`→`/workspace`)→ **失敗**(「There are no longer any instances available with the requested specifications.」)
+- **課金の確認**: `list-pods` を実行し、既存 3 本が `EXITED` のまま・新規 pod が 1 本も作られていないことを確認した。**4 回の試行はすべて課金なし**
+- **在庫の読みと実際の割当の食い違い**: `get-gpu-type` の `availability: LOW` は「その DC に多少の在庫がある」ことを示すだけで、**実際に pod を割り当てられる空きがあることは意味しない**。既存 3 ホスト(それぞれ別の物理ホストに固定されている)・新規割当のいずれも失敗した
+- **push の確認**: セッション終了時点で `git ls-remote origin refs/heads/main` は依然 `102c2d5`(その118 の commit `01cf60f` は未反映)。人間が「今すぐ push する」と答えたが、このセッションでは反映を確認できなかった
+- **やっていないこと**: pod の起動成功 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集 / 判定表の解釈 / config・コードの変更
+- **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・PLAN-032 の索引の行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その119」へ 1 文字も変えずに移した)・`logs/CHANGELOG.md`(本ファイル)・`logs/HANDOFF.md`(上書き)
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① その118 commit(`01cf60f`)の push(main)/ ② RTX 4090 SECURE(EU-RO-1)の在庫(実際に割当できる空きが戻るまで待つ)/ ③ 上の実装の読み 1〜5(その118 からの持ち越し)/ ④ 採択の ADR への記録(持ち越し)/ ⑤ ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ ⑥ 3 本の pod の terminate(ボリュームは残す)

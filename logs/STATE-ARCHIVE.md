@@ -18,6 +18,43 @@
 
 ---
 
+## ★2026-09-27(その119)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その119(RUNNER。G2-1 承認後に pod 起動を4回試行、すべて失敗。GPU 0・課金なし)で差し替えた4か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-09-26(その118)/ by IMPLEMENTER (Sonnet 5。推奨と一致。**I5 の config 10 本(`configs/exp_pilot_ft_cmp_*.yaml`。パイロット FT の評価 config の写しで、違うのは 4 欄)を作った**。`--dry-run` 10 本 = 各 960 件・data_checks 7 件 PASS・新テスト 61 件・全体の pytest = **2102 passed**・変異 8 通りすべて検出。**RTX 4090 SECURE(EU-RO-1)は今も在庫なし**。**GPU 0・pod 0・tag なし・push なし・tag の commit(`102c2d5`)と 4 腕の config は不変**)
+(**次は人間: この commit の push → 在庫が戻ったら G2-1 の最終確認(pod の型・単価・停止時刻)→ RUNNER が Phase 1(4 腕)→ Phase 2(I5 の 10 本)**。段1 は閉じたまま(ADR-106)。
+pod は 3 本とも `EXITED` のまま(触っていない。terminate は人間。ボリューム `r963j7swke` はアダプタの重みがあるので残す)。)
+
+### いま何をしているか(最新ブロック)
+
+> **★★2026-09-26(その118・最新)。Phase 0。IMPLEMENTER (Sonnet 5)。I5 の config 10 本を作った。GPU 0・pod 0・tag なし・push なし。**
+> - **作ったもの**: `configs/exp_pilot_ft_cmp_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}{,_n313}.yaml`(10 本)。**写し元 = 同じ (条件・シード・ステップ数) の `exp_pilot_ft_eval_*.yaml`。違う欄は 4 つ**(`experiment.id`・`experiment.plan`・`eval.batteries` = `[comparison]`・`eval.task_subset` = `[t1b, t3]`)。`model.adapter` などは写し元のまま。新テスト `code/tests/test_pilot_ft_cmp_configs.py`(61 件)が縛る
+> - **確かめたこと(組合せの件数であって実験結果ではない)**: `--dry-run` は 10 本とも 960 件(T1b 480 + T3 480。**その117 の「640 件」は答えが訓練域内のバッチだけの数で、域外 320 を落としていた**。訂正は `logs/CHANGELOG.md` その118)/ data_checks 7 PASS × 10 / 置き物の run で `comparison`・`comparison.ans_out` とも `p2`・`p2d` のブロックが出て合計 1.0 / 全体の pytest = 2102 passed
+> - **止まっているもの**: ① **この commit の push**(人間)② **4090 の在庫**(EU-RO-1 で今も NONE / Out)③ **G2-1 の最終確認**(起動の直前。人間の「推奨に従います」は 1 枠の承認と読んだが、確認は取り直す)。**実装の読み 1〜5(名前・`experiment.plan`・`pilot_design_gate` を残した・上位 k なし・`reference_rule: p2`)は人間が覆せる**
+> - **★その117 のブロックは `logs/STATE-ARCHIVE.md`「その118」にある**
+
+### 次のアクション(最新ブロック)
+
+> **★★2026-09-26(その118・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **人間: この commit(I5 の config 10 本)の push → 4090 の在庫が戻ったら G2-1 の最終確認** → 実行(RUNNER。Phase 1 = 4 腕は **tag の commit のまま続けて回す**。Phase 2 = I5 の 10 本(`configs/exp_pilot_ft_cmp_*`。1 本 960 件)はその後・I5 の commit を checkout。1 枠 4.0 h・$0.74/時まで。件数が 960 なので Phase 2 は 10 本で +約 4 分の算定)→ 判定表(ANALYST。機械的)。**PLAN-032 に IMPLEMENTER の仕事は残っていない**
+> 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
+> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106。印の意味づけ・`p2d` の扱いを含む)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 引き継ぎ(最新ブロック)
+
+> **★★2026-09-26(その118・最新)。IMPLEMENTER (Sonnet 5。推奨と一致)。I5 の config 10 本を作った。GPU 0・pod 0。**
+>
+> **★やったこと**: `configs/exp_pilot_ft_cmp_*.yaml`(10 本)・`code/tests/test_pilot_ft_cmp_configs.py`(新規)。RunPod は読み取りだけ(4090 = NONE / Out・既存 pod 3 本 `EXITED`)。
+> **★やっていないこと**: pod の作成・起動 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(在庫と人間の最終確認で A = RUNNER か、待機か)。
+
+---
+
 ## ★2026-09-26(その118)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その118(IMPLEMENTER。I5 の config 10 本を作った)で差し替えた 6 か所を、1 文字も変えずに移した。

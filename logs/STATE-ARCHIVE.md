@@ -18,6 +18,50 @@
 
 ---
 
+## ★2026-09-28(その121)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その121(RUNNER。Phase 1 腕 B の preflight が FAIL 3 件で止まり、pod を停止した。GPU 0・課金は稼働分のみ)で差し替えた 4 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-09-28(その120)/ by RUNNER (Sonnet 5。推奨と一致。**人間が pod を「migration」で起動済み(`nwpfapeszov83m`。RTX 4090 SECURE EU-RO-1・$0.74/時・ボリューム `r963j7swke` を `/workspace` にマウント・`list-pods` で `RUNNING` を確認。開始 2026-09-28T10:37:27Z)**。**push は依然未**(`origin/main` = `102c2d5`。I5 の commit `01cf60f`・`1ed6eea` は未反映)。Phase 1(4腕診断)は tag の commit だけで回せるため push を待たずに準備を始めた: bundle 転送 → pod の `translesion` を退避(`pod_moved_aside_diag`)→ tag `preregister-diag-sharpness`(=`102c2d5`)で再 clone・checkout(detached HEAD・`git status` clean 確認済み)・既存 venv(torch 2.8.0+cu128 / peft 0.20.0 / CUDA 可)を確認。**context-guard(約180kトークン)で切った。診断プールの生成・preflight・4腕の実行はまだ**)
+(**次: RUNNER が Phase 1(診断プールの生成 → preflight → B/A/B-d/A-d の4腕)を続ける。人間: I5 commit の push(Phase 2 の前に必要)**。
+pod は稼働中(`nwpfapeszov83m`。停止予定 ~2026-09-28T14:37Z。上限 4.0h/$2.96)。旧 3 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま・触っていない。)
+
+### いま何をしているか(最新ブロック)
+
+> **★★2026-09-28(その120・最新)。Phase 0。RUNNER (Sonnet 5)。pod は稼働中。Phase 1 の pod 側セットアップまで進めて context-guard で切った。GPU 0(計算はまだ)・push なし。**
+> - **人間**: 「logs/HANDOFF.md を読んで作業を続けてください。手順については推奨に従います。ポッドはmigrationしてスタートしてあります」
+> - **pod 確認**(`list-pods`): `nwpfapeszov83m`(名 `pilot-ft-runner-n313-migration`)が `RUNNING`。RTX 4090 SECURE・EU-RO-1・$0.74/時・`r963j7swke` を `/workspace` にマウント・開始 `2026-09-28T10:37:27Z`。旧 3 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま touch していない
+> - **push 確認**(`git fetch origin main` 後): `origin/main` = `102c2d5`(不変)。ローカル HEAD `1ed6eea` は 3 commit 先(`a27ca09`・`01cf60f`・`1ed6eea`)。**push は人間の操作なので行っていない**(ADR-110 決定4)。tag `preregister-diag-sharpness` は `102c2d5` を指す(既に origin にある。その117 で push 済み)
+> - **Phase 1 は push を待たずに開始できると判断**: tag の commit(`102c2d5`)は既に origin にあるため。Phase 2(I5)だけが `01cf60f` の push を要る
+> - **SSH 接続確認**: `ssh -o IPQoS=none root@213.173.109.42 -p 19140`(direct)。GPU 見える(RTX 4090 24564 MiB)
+> - **pod の `/workspace/translesion` は旧 checkout(commit `cbe76ce9`。247 commit 遅れ)だった**。中の未追跡の `results/pilot_ft_n313/`・`runs/pilot_ft_eval_*_n313/` は**ローカル git に既に committed 済み**(commit `ec64516`・`834b064`)と確認したので、失わずに退避してよいと判断
+> - **やったこと**: `/workspace/translesion` → `/workspace/pod_moved_aside_diag` に退避(削除していない)。ローカルで `git bundle create ft_diag.bundle main preregister-diag-sharpness` → scp → pod で `git clone -b main` → `git checkout preregister-diag-sharpness`(detached HEAD。`git rev-parse HEAD` = `102c2d5`。`git status --porcelain` 空)。既存 `/workspace/venv` を確認(torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0 / `torch.cuda.is_available()` True。**再作成不要**)
+> - **やっていないこと**: 診断プールの生成(`sweep_pool --arm diag`)/ `bash infra/bootstrap.sh` の再実行(venv は生きているので必要か未確認)/ `python infra/preflight.py` / 4 腕(B・A・B-d・A-d)の実行 / 判定表 / push / tag(不変)
+> - **次のRUNNERがそのまま続けられる状態**: pod は `RUNNING`・`/workspace/translesion` は tag の commit で checkout 済み・venv 生きている。**次は PLAN-032 §8.2 の手順どおり診断プールの生成から**
+
+### 次のアクション
+
+> **★★2026-09-28(その120・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **次の RUNNER: pod `nwpfapeszov83m` に ssh し、Phase 1 の続き** —— `source /workspace/venv/bin/activate && cd /workspace/translesion` → (bootstrap 済みか要確認。未確認なら `bash infra/bootstrap.sh`)→ `python infra/preflight.py` → `PYTHONIOENCODING=utf-8 python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag` → **`git diff HEAD` が空か確認**(追跡ファイルの変更があれば `git checkout -- data/generated`)→ 4 腕(`configs/exp_diag_{b,a,b_d,a_d}.yaml`。`--dry-run` → `--run-dir runs/<timestamp>_exp_diag_<腕>`。PLAN-032 §8.1 R7 の門で追跡ファイルに差分があれば重みを読む前に止まる仕様)→ 判定表 `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(機械的。読むのは人間)。**時計で見張る**(上限 4.0h/$2.96。開始 `2026-09-28T10:37:27Z`・目安の停止 `~14:37Z`)
+> 2. **人間: その118 commit(`01cf60f`)の push**(Phase 2 = I5 の 10 本の前に必要)
+> 3. Phase 1 完了・push 確認後 → Phase 2(I5 の 10 本。I5 の commit を checkout し直す)→ 回収・pod 停止・`cost.txt`
+> 4. 人間(いつでも): 3 本の旧 pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(**ボリューム `r963j7swke` は残す**)
+> 5. PLAN-033(段3。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 6. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 引き継ぎ
+
+> **★★2026-09-28(その120・最新)。RUNNER (Sonnet 5。推奨と一致)。pod 稼働中。Phase 1 の pod セットアップまで進め、context-guard(約180kトークン)で切った。**
+>
+> **★やったこと**: pod `nwpfapeszov83m`(RUNNING)を確認 / push 未確認(`origin/main` = `102c2d5`)/ SSH 接続確認 / `/workspace/translesion` を `pod_moved_aside_diag` へ退避(削除せず。中の未追跡 n313 成果物はローカル git に committed 済みと確認済み)/ bundle 転送・tag `preregister-diag-sharpness`(=`102c2d5`)で再 clone・checkout(detached HEAD・clean)/ 既存 venv が生きていることを確認。
+> **★やっていないこと**: 診断プールの生成 / preflight / 4 腕の実行 / 判定表 / push / tag(すべて未着手か次セッションへ)。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(pod は起動済み・checkout 済みなので、そのまま診断プールの生成から続ける)。
+
+---
+
 ## ★2026-09-27(その119)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その119(RUNNER。G2-1 承認後に pod 起動を4回試行、すべて失敗。GPU 0・課金なし)で差し替えた4か所を、1 文字も変えずに移した。

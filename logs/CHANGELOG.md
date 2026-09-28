@@ -7464,3 +7464,25 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: 診断プールの生成(`sweep_pool --arm diag`)/ `bash infra/bootstrap.sh` の再実行要否の確認 / `python infra/preflight.py` / 4 腕(B・A・B-d・A-d)の実行 / 判定表 / push / tag(不変)/ `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集
 - **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その119」へ移した)・`logs/HANDOFF.md`(上書き)・`logs/CHANGELOG.md`(本ファイル)
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① その118 commit(`01cf60f`)の push(main。Phase 2 の前に必要)/ ② その118 の実装の読み1〜5・採択の ADR への記録・★T2 の形の変化と#5の扱い・3本の旧 pod の terminate(すべて持ち越し)。**pod は稼働中のまま**(止めていない。次セッションがそのまま Phase 1 を続けるため。上限 4.0h/$2.96・目安の停止 ~2026-09-28T14:37Z)
+
+## 2026-09-28(その121)
+
+### infra(runpod): Phase 1 腕 B の実行に入ったが preflight が FAIL 3 件で止まり、pod を停止した(RUNNER)—— GPU 0・本実行 0 件・課金は稼働分のみ   [actor: RUNNER (Sonnet 5)]
+
+- `logs/HANDOFF.md`(その120)の指示どおり、`CLAUDE.md` §1 の開始手順を実行(`STATE.md`・CHANGELOG・DECISIONS の tail・`git log`・`git status`・`git worktree list`・`ls runs/` を確認。並行ブランチなし・作業ツリー clean)。実モデル(Sonnet 5)は推奨(Sonnet)と一致
+- `date -u` = 2026-09-28 10:50 UTC(pod 開始 `10:37:27Z` から約13分)。**在庫確認などは不要**という HANDOFF の指示どおり、すぐに Phase 1 の続きへ入った
+- **SSH 確認**(`ssh -o IPQoS=none root@213.173.109.42 -p 19140`): `/workspace/translesion` は tag の commit `102c2d5677e2bb2bfe36e893dba0dad383b72432` で `git status --porcelain` 空。venv は torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0 / `torch.cuda.is_available()` True
+- **pod 全体の `preflight.py`(config なし)** = **全項目 PASS**(stdlib code shim・GPU 1枚 RTX 4090 24564 MiB・libraries・persistent volume・pytest **2041 passed in 281.47s**・git クリーン @ `102c2d5`・writable dirs)
+- **診断プールの生成**(`PYTHONIOENCODING=utf-8 python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`)= **34,322 項目** → `data/generated/battery/pilot_sweep_diag`。**`git diff HEAD --stat` は空**(追跡ファイルの変化なし。ADR-110 の GPU 前の門(§8.1 R7 の4つ目)を満たす)
+- **腕 B の dry-run**(`code.eval.run --config configs/exp_diag_b.yaml --dry-run`)= **34,322 件**(t3: 17,198 + t1b: 17,124。その117 の見積り「B・A 各 34,322」と一致)
+- **腕 B の `preflight.py --config configs/exp_diag_b.yaml --run-dir runs/<ts>_exp_diag_b`** = **FAIL 3 件**:
+  1. **`[FAIL] data manifest`: `train.jsonl` 欠落**。config の `lesion.manifest: data/generated/ft/exp_order6b_pilot_p2/manifest.json`(`matched_manifests` も同様に5条件分)が指す `train.jsonl` が、この pod の fresh clone(`/workspace/translesion`。tag の commit で新規 `git clone` した checkout)に物理的に存在しない。`data/generated/` は `.gitignore` の対象で manifest.json だけが commit されており、実データはこの checkout に含まれない
+  2. **`[FAIL] token boundaries`** / 3. **`[FAIL] forced choice tokens`**: トークナイザの読み込みで `OSError: You are trying to access a gated repo. ... meta-llama/Llama-3.1-8B-Instruct ... 401 Client Error`。pod に `HF_TOKEN`(`env | grep -i hf_` は空。`/root/.cache/huggingface/token` も無し)が設定されていない
+  - `[WARN] model weights`(gated と同根。初回ダウンロードが要る)は FAIL に数えていない。preflight の結論: 「FAIL 3件。本実行を開始しないこと」(`infra/RUNPOD.md` §3)
+- **調査(GPU 0。読み取りのみ)**: `configs/exp_diag_b.yaml` の `manifest:` 欄の直前に **2026-09-02 付のコメント**が残っており、「この欄を埋めると data manifest 検査が必ず FAIL する(files ブロックを書く生成器が無い)」「人間の決着待ち」「null に戻して隠さず、FAIL を見せたまま置いてある」と書かれていた。**しかしこの問題自体は同日 ADR-051 で解決済み**(`files` ブロックを manifest の書き出し関数に足し、5条件の FT データを作り直した。`logs/DECISIONS.md` の ADR-051)。**この config のコメントは ADR-051 より前の状態を指しており内容が古い**。今回実際に preflight が報告した FAIL の理由は「files ブロックが無い」ではなく「参照先の `train.jsonl` というファイル自体がこの pod に存在しない」という、生成物のコピー漏れによる別の問題である
+- **時計の確認**: `date -u` = 2026-09-28 14:12〜14:14 UTC(pod 開始から**約3時間36〜37分**。承認された上限 4.0h/$2.96 まで残り約20〜25分)。A・B-d・A-d 腕の preflight は未実行(腕 B と同じ manifest 構造の可能性が高いが未確認)。**この時点で以下2点がいずれも人間の決定を要し、予算にも余裕が乏しいため、これ以上の調査・実行を続けずに pod を停止する判断をした**: (a) `train.jsonl`(5条件分)の用意の仕方(旧 pod の退避先 `/workspace/pod_moved_aside_diag` からコピー / 再生成 / **診断腕に `manifest:` 欄自体が必要か**の設計上の見直し。**config を変えることは実験条件の変更に当たりうるのでエージェントは決めない**。`CLAUDE.md` §8)(b) `HF_TOKEN` の提供
+- **pod の停止**(`mcp__plugin_runpod_runpod__pod-action`, id `nwpfapeszov83m`, action `stop`)→ **`EXITED`**。応答の `runtime.uptime` = 13001 秒(**約3時間36分41秒**)。`cost` フィールド = 0.74($/時。定額)。**実際の課金は約 $2.68**(0.74 × 13001/3600)で、**承認された上限 4.0h/$2.96 の内側**。venv・checkout は保持されたまま `EXITED` になったので、次回は `start` するだけでよい
+- **やったこと(まとめ)**: pod 全体の preflight PASS 確認 / 診断プールの生成(34,322 項目・追跡ファイルへの影響なし)/ 腕 B の dry-run(34,322 件)/ 腕 B の config preflight(FAIL 3件の原因特定)/ pod の停止
+- **やっていないこと**: A・B-d・A-d の preflight・4腕の本実行(`code.eval.run` の実運用は0件)・判定表・push・tag(不変)・`configs/`・`code/` の変更(1バイトも変えていない)
+- **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ・人間の承認待ち索引の行。旧4ブロックは `logs/STATE-ARCHIVE.md`「その121」へ1文字も変えずに移した)・`logs/OPEN-ITEMS.md`(既存行への追記+新規行)・`logs/HANDOFF.md`(上書き予定)・`logs/CHANGELOG.md`(本ファイル)
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① **`train.jsonl`(5条件分)の用意の仕方**(上記(a))/ ② **`HF_TOKEN` の提供**/ ③ その118 commit(`01cf60f`)の push(main。Phase 2 の前に必要。持ち越し)/ ④ その118の実装の読み1〜5・採択のADRへの記録・★T2の形の変化と#5の扱い・3本の旧podのterminate(すべて持ち越し)。**pod は `EXITED`**(①②が解決すれば `start` して腕Bのpreflightから再開できる)

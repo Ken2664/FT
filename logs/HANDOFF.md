@@ -1,53 +1,83 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-09-27(その119)/ 直前セッションの役割: RUNNER(G2-1 承認後に pod 起動を試みた)
-直前セッションが終了した理由: **成果物の区切り**(pod 起動 4 回すべて失敗。在庫が戻るまで人間待ち)
+生成: 2026-09-28(その120)/ 直前セッションの役割: RUNNER(pod 起動確認 → Phase 1 の pod 側セットアップ)
+直前セッションが終了した理由: **コンテキスト超過**(context-guard 約180kトークン。閾値140k)
 直前セッションの実モデル: Claude Sonnet 5
-**推奨モデル(次のセッション)**: **Sonnet** — 在庫確認と pod 起動の再試行、または push 確認だけの短い作業。**選ぶのは人間**
+**推奨モデル(次のセッション)**: **Sonnet** — GPU 実行の手順を進めるだけの RUNNER 作業。**選ぶのは人間**
 
 ---
 
-**冒頭で人間に確かめること**: ① **その118 の commit(`01cf60f`。I5 の config 10 本)を push したか**(`git ls-remote origin refs/heads/main` が `git rev-parse HEAD` と同じか。その119 終了時点ではまだ `102c2d5` のままだった)② **RTX 4090 SECURE の在庫**(`mcp__plugin_runpod_runpod__get-gpu-type` を `include: ["AVAILABILITY"]`・`product: ["POD"]`・`cloud: SECURE`・`countryCodes: ["RO"]` で読む。その119 の読みは `LOW` だったが、既存 3 pod の再起動 + 新規作成の計 4 回とも「実際の割当」では失敗した。**`LOW` の表示は割当の成功を保証しない**)。**最初の発言で、自分の役割と実モデル名と、上の推奨との一致・不一致を 1 行で述べること**。`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+あなたは RUNNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を1行で述べること**。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**pod は稼働中でコストが発生し続けているので、
+開始手順を終えたらすぐに Phase 1 の続きに入ること**(在庫確認などは不要 — pod は既に起動・セットアップ済み)。
 
-## このセッションでやること
+## 直前セッションで確定したこと(すべてファイルに反映済み)
 
-### A. push 済み・在庫に実際の空きがある場合 → RUNNER: Phase 1(4 腕)→ Phase 2(I5 の 10 本)を回す
+- **pod `nwpfapeszov83m` が `RUNNING`**(人間が「migration」で起動。RTX 4090 SECURE・EU-RO-1・$0.74/時・
+  ボリューム `r963j7swke` を `/workspace` にマウント。開始 `2026-09-28T10:37:27Z`)。
+  **G2-1 の承認は生きている**(その119 で取得済み。再承認は不要)。**上限 = 4.0h/$2.96(目安の停止 ~14:37Z)**
+- **push は未**(`git fetch origin main` 後も `origin/main` = `102c2d5`。ローカル main は `a27ca09`・`01cf60f`・`1ed6eea` の
+  3 commit 先)。**push は人間の操作**(ADR-110 決定4。エージェントは push しない)
+- **Phase 1(4腕診断)は push を待たずに進めてよい** —— 凍結 tag `preregister-diag-sharpness` は `102c2d5` を指し、
+  これは既に origin にある(その117 で push 済み)。**Phase 2(I5)だけが `01cf60f` の push を要る**
+- **pod 側のセットアップ済み**: SSH は `ssh -o IPQoS=none -o StrictHostKeyChecking=no root@213.173.109.42 -p 19140`
+  (direct。GPU 見える)。旧い `/workspace/translesion`(commit `cbe76ce9`。247 commit 遅れ)は
+  `/workspace/pod_moved_aside_diag` へ退避済み(**削除していない**。中の未追跡 `results/pilot_ft_n313/`・
+  `runs/pilot_ft_eval_*_n313/` はローカル git に committed 済みと確認済みなので情報の損失なし)。
+  **新しい `/workspace/translesion` は tag `preregister-diag-sharpness`(= `102c2d5`)を checkout 済み**
+  (detached HEAD。`git status --porcelain` 空)。**既存の `/workspace/venv` は生きている**
+  (torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0 / `torch.cuda.is_available()` True。
+  **再作成不要。`source /workspace/venv/bin/activate` するだけでよい**)
+- 旧 3 本の pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま触っていない
 
-`logs/CHANGELOG.md` の「その117」(見積り・上限・pod 上の手順の要点)・「その118」(I5 の config と件数の訂正)・「その119」(pod 起動の失敗の記録)、`plans/PLAN-032` §8.2、`infra/RUNPOD.md` §3・§4 に従う。**連鎖のひな形 = `runs/pilot_ft_chain_n313/{chain.sh,run_step.sh}`**(直接は使えないので diag 用に読み替えて手順を書く。§8.2 に手順そのものはコマンド単位で書いてある)。
+## このセッションでやること: Phase 1(4腕診断)を完走させる
 
-- **pod の起動を先に試す**: 既存 EXITED 3 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)のどれかを `pod-action`(`start`)、または `create-pod`(RTX 4090 SECURE・EU-RO-1・ボリューム `r963j7swke` を `/workspace` にアタッチ)。**その119 は4回とも失敗**(課金なし)。**起動に成功したら、その時点で改めて型・単価・停止予定時刻を人間に一言示してから先へ進む**(すでに G2-1 の承認は得ているので再承認は不要。状況が変わった=起動できた、という事実確認のみ)
-- **Phase 1(4 腕。tag の commit のまま)**: `git bundle create ft.bundle main preregister-diag-sharpness` → pod で `git checkout preregister-diag-sharpness`。診断のプールは `configs/exp_diag_pool.yaml` 冒頭のコマンドで作り、**作った後に `git diff HEAD` が空か確かめる**(動いていれば `git checkout -- data/generated`)。run ごとに preflight → run。判定表 = `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(**機械的。読むのは人間**)
-- **Phase 2(I5。4 腕の後・同じ承認の枠の中・I5 の commit が push 済みのときだけ)**: I5 の commit(main)を checkout。パイロット用プールの作り直しは `configs/exp_order6b_pilot.yaml` 冒頭のコマンド(作った後に `git checkout -- data/generated`)。10 本 = `configs/exp_pilot_ft_cmp_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}{,_n313}.yaml`。**入口は config の冒頭に書いてある**: `python -m code.eval.run --config configs/exp_pilot_ft_cmp_<条件>_s<シード>[_n313].yaml --run-dir runs/pilot_ft_cmp_<条件>_s<シード>[_n313]`。**1 本 = 960 件**。アダプタの重みはボリューム `r963j7swke` にある。**結果は探索的**(§8.1 R8)
-- **回収は `ssh -o IPQoS=none`**。**時計で見張る**(`date -u` で上限を確認)。**終わったら pod を止め、`runs/<id>/cost.txt` を書く**。**上限(合計 4.0 h・$0.74/時 = $2.96)を超えそうになったら止める**
+PLAN-032 §8.1(R1〜R9)・§8.2、`logs/CHANGELOG.md`「その117」「その119」「その120」を読んでから、
+pod 上(`ssh` 接続。`cd /workspace/translesion && source /workspace/venv/bin/activate`)で:
 
-### B. push が未確認、または在庫がまだ実際に割り当てられない場合 → 待機
-
-**pod を作らない**(その119 のように「失敗しても課金されない」ので試すこと自体は安全だが、4 回連続で失敗した直後に間を置かず繰り返すのは避ける)。人間に状況を 1 行で伝え、次の選択肢を推奨つきで示す: 在庫が戻るまで待つ(推奨)/ もう一度だけ pod 起動を試す / 段3 = PLAN-033(GPU 0)。
-
-## 直前セッション(その119)で確定したこと
-
-- **G2-1 の最終承認は人間から得た**(`AskUserQuestion`。型 RTX 4090 SECURE EU-RO-1・単価 $0.74/時・上限 4.0h/$2.96。**この承認自体は生きている** — 次に pod が起動できたときに再承認を求める必要はない。起動できた事実だけ一言伝える)
-- **pod 起動 4 回すべて失敗・課金なし**(`list-pods` で確認済み): 既存 3 本の再起動(host に空き GPU なし)× 3、新規作成(no longer any instances available)× 1
-- **`get-gpu-type`(RO)の `LOW` は実際の割当を保証しない**(その118 の `NONE` から変わっただけで、割当は依然として失敗する)
-- **push は未確認**: 人間は「今すぐ自分で push する」と答えたが、セッション終了時点で `origin/main` はまだ `102c2d5`(その118 の commit `01cf60f` が乗っていない)
+1. `bash infra/bootstrap.sh` を実行するか要確認(venv は生きているが依存の追加インストールが要るか不明。
+   `python -c "import torch,transformers,peft"` が通れば恐らく不要 — その場合は `python infra/preflight.py` を先に試す)
+2. `python infra/preflight.py`(環境検証。`--config` なし)
+3. 診断プールの生成: `PYTHONIOENCODING=utf-8 python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`
+   → 生成後に **`git diff HEAD` が空か確認**(追跡ファイルが動いていれば `git checkout -- data/generated`)。
+   PLAN-032 §8.1 R7(ADR-110 決定1)の門: `sharpness:` 欄のある run は run dir を作る前・重みを読む前に
+   `git diff HEAD` が空でなければ止まる仕様なので、ここで空でなければ次のコマンドはどのみち止まる
+4. 4 腕を順に(`configs/exp_diag_{b,a,b_d,a_d}.yaml`。**同じ tag の commit のまま。checkout し直さない**):
+   - `python -m code.eval.run --config configs/exp_diag_b.yaml --dry-run` → 件数確認(34,322 のはず)→
+     `python -m code.eval.run --config configs/exp_diag_b.yaml --run-dir runs/<timestamp>_exp_diag_b`
+   - 同様に `a`(34,322)・`b_d`(17,124)・`a_d`(17,124)。**合計 102,892 件**(その117 の見積り。tag の commit で再確認済み)
+   - 各腕の前に `python infra/preflight.py --config configs/exp_diag_<腕>.yaml --run-dir runs/<timestamp>_exp_diag_<腕>` を通す
+   - **時計で見張る**(`date -u`)。上限 4.0h/$2.96 に近づいたら人間に報告して止める
+5. 4 腕が終わったら判定表(CPU。pod 上でよい):
+   `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`
+   **機械的に当てるだけ。結果の解釈はしない**(§8.1 R7 末尾・`CLAUDE.md` §8)
+6. 回収: `scp -o IPQoS=none` で `runs/*_exp_diag_*/{metrics.json,config.yaml,env.txt,timestamp.txt,git_sha.txt,cost.txt}`・
+   `results/diag_sharpness/` をローカルへ。ローカルで `git add` → commit(push はしない)
+7. **push が済んでいれば**(`git ls-remote origin refs/heads/main` を確認)、続けて Phase 2(I5 の10本。
+   HANDOFF その118 の該当節・PLAN-032 §8.2 参照)。**済んでいなければ、ここで一区切りとし、pod を止めずに
+   人間に push を促して待つ**(Phase 1 の run はもう pod に残っているので、止めても再開できる。
+   ただし pod を止めると venv・checkout は保持されたまま `EXITED` になり、次回また `start` が要る)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- 読む = `logs/CHANGELOG.md`(`grep -n 'その11[789]' logs/CHANGELOG.md` → `sed -n`)/ `plans/PLAN-032` §8.2 / `infra/RUNPOD.md` §3・§4・§7 / `runs/pilot_ft_chain_n313/{chain.sh,run_step.sh}` / 各 config の冒頭の注記。書く = `runs/<id>/`・`logs/CHANGELOG.md`・`STATE.md`
-- **編集しない**: `plans/PLAN-032` §8.1 / `logs/DECISIONS.md` / `logs/CRITIQUE.md` / `logs/OPEN-ITEMS.md` / `configs/exp_diag_*.yaml` / `configs/exp_pilot_ft_*.yaml` / テンプレート / `code/`(変える必要が出たら止めて人間に伝える)
+- 読む = `plans/PLAN-032-sharpness-diagnostic.md` §8.1・§8.2 / `logs/CHANGELOG.md`(`grep -n 'その11[789]\|その120'`)/
+  `infra/RUNPOD.md` §3・§4・§7 / `configs/exp_diag_{pool,b,a,b_d,a_d}.yaml` の冒頭コメント
+- 書く = pod 上の `runs/<id>/`・ローカルの `runs/*_exp_diag_*/`(回収後)・`results/diag_sharpness/`・
+  `logs/CHANGELOG.md`・`STATE.md`
 
 ## やってはいけないこと
 
-- **tag を打たない・push しない**(人間の操作)。**4 腕を tag の commit と違う commit で回さない**(ADR-110 決定2)。**I5 を 4 腕の前に回さない**。合否線・R2〜R5 の規則・区間の計算法を変えない。判定表の結果・I5 の結果を解釈しない(読むのは人間)
-- **RunPod の pod は「自分の呼び出しで作ったもの」だけを止める・消す**。既存 pod の terminate は人間。start は(G2-1 承認済みなので)このセッションで試してよいが、**失敗を連発したら間を置く**
-- **`list-pods` の出力には既存 pod の `JUPYTER_PASSWORD` が平文で出ることがある**。ログ・CHANGELOG・STATE に**写さない**
-- **この機は Windows**: `python -X utf8`・`PYTHONIOENCODING=utf-8`。**`.md` も `.py` も LF 固定**。Python で書くときは `newline="\n"`
-- **bash の `sleep` の単発はブロックされる**: 待つときは `run_in_background` か、終了条件つきの `until <check>; do sleep 3; done`
+- **tag を打たない・push しない**(人間の操作。ADR-110 決定4)
+- **4 腕は tag の commit(`102c2d5`)以外で回さない**(ADR-110 決定2)。pod の `/workspace/translesion` を
+  別の commit に checkout し直さない
+- **I5(Phase 2)を 4 腕の前に回さない**
+- 判定表の結果を解釈しない(読むのは人間)
+- 旧 3 本の pod(`eytvn0qwssz2q8` 等)を terminate しない(人間の操作)。`/workspace/pod_moved_aside_diag` を消さない
+- **この機は Windows**: `.md`・`.py` は LF 固定。Python で書くときは `newline="\n"`
+- **bash の `sleep` の単発はブロックされる**: 待つときは `run_in_background` か終了条件つきの `until` ループ
 
 ## 未解決 / 人間の承認待ち
 
-- **その118 の commit の push**(main。Phase 2 の前)/ **RTX 4090 の在庫**(実際に割当できる空きが戻るまで)
-- **その118 の実装の読み 1〜5**(名前 `exp_pilot_ft_cmp_*` / `experiment.plan` を PLAN-032 に / `pilot_design_gate` を写しのまま残した / 上位 k を宣言していない / `reference_rule: p2`)
-- **採択の ADR への記録**(提案 RUNNER その117・採択 人間その118のチャット。`logs/DECISIONS.md` は未編集)
-- ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ 3 本の pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(**ボリューム `r963j7swke` は残す**)
-- 変わらず: `STATE.md`「人間の承認・判断を待っている事項」と `logs/OPEN-ITEMS.md` のとおり
+- **その118 commit(`01cf60f`)の push**(main。Phase 2 の前に必要)
+- その118 の実装の読み1〜5・採択の ADR への記録・★T2 の形の変化と#5の扱い・3本の旧 pod の terminate
+  (すべて `logs/OPEN-ITEMS.md` に正本あり。持ち越し)

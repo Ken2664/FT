@@ -7449,3 +7449,18 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: pod の起動成功 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集 / 判定表の解釈 / config・コードの変更
 - **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・PLAN-032 の索引の行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その119」へ 1 文字も変えずに移した)・`logs/CHANGELOG.md`(本ファイル)・`logs/HANDOFF.md`(上書き)
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① その118 commit(`01cf60f`)の push(main)/ ② RTX 4090 SECURE(EU-RO-1)の在庫(実際に割当できる空きが戻るまで待つ)/ ③ 上の実装の読み 1〜5(その118 からの持ち越し)/ ④ 採択の ADR への記録(持ち越し)/ ⑤ ★T2 の形の変化と #5 の扱い(Phase 1 の凍結前)/ ⑥ 3 本の pod の terminate(ボリュームは残す)
+
+## 2026-09-28(その120)
+
+### infra(runpod): pod 起動を確認し Phase 1 の pod 側セットアップまで進めた(RUNNER)—— context-guard で切った   [actor: RUNNER (Sonnet 5)]
+
+- 人間: 「logs/HANDOFF.md を読んで作業を続けてください。手順については推奨に従います。ポッドはmigrationしてスタートしてあります」。`CLAUDE.md` §1 の開始手順を実行(`STATE.md`・CHANGELOG・DECISIONS tail・`git log`・`git status`・`git worktree list`・`ls runs/` を確認。並行ブランチなし・作業ツリー clean)
+- **pod の確認**(`list-pods`): `nwpfapeszov83m`(名 `pilot-ft-runner-n313-migration`)が `RUNNING`。RTX 4090 SECURE・EU-RO-1・$0.74/時・ボリューム `r963j7swke` を `/workspace` にマウント・開始 `2026-09-28T10:37:27Z`。旧 3 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま touch していない
+- **push の確認**(`git fetch origin main` の後): `origin/main` = `102c2d5`(不変)。ローカル HEAD `1ed6eea` は 3 commit 先(`a27ca09`・`01cf60f`・`1ed6eea`)。**push は人間の操作なので行っていない**(ADR-110 決定4)。凍結 tag `preregister-diag-sharpness`(`git rev-parse ...^{commit}` = `102c2d5`)は既に origin にある(その117 で push 済み)ことを確認したので、**Phase 1(4腕診断)は push を待たずに開始できると判断した**(Phase 2 = I5 の10本だけが `01cf60f` の push を要る)
+- **SSH 接続確認**: `ssh -o IPQoS=none -o StrictHostKeyChecking=no root@213.173.109.42 -p 19140`(direct)。`nvidia-smi` で RTX 4090(24564 MiB)を確認
+- **pod の `/workspace/translesion` は旧 checkout だった**(`git rev-parse HEAD` = `cbe76ce9`。`origin/main` の 247 commit 遅れ)。未追跡の `results/pilot_ft_n313/`・`runs/pilot_ft_eval_{ident,p2}_s{0,1}_n313/` があったが、**ローカル git に既に committed 済み**(commit `ec64516`「その98」・`834b064`「その100」)と確認したので、退避してよいと判断した
+- **やったこと**: `/workspace/translesion` → `/workspace/pod_moved_aside_diag` へ `mv`(削除していない。`pod_moved_aside_{n313,order6b,pilotft,pilotft2}` という先行事例と同じ形)。ローカルで `git bundle create ft_diag.bundle main preregister-diag-sharpness`(4,728,064 バイト)→ `scp -o IPQoS=none` で `/workspace/ft_diag.bundle` へ転送(転送は一度 60 秒のタイムアウトでバックグラウンドに回ったが完了を確認)→ pod で `git clone -b main /workspace/ft_diag.bundle translesion` → `git checkout preregister-diag-sharpness`(detached HEAD。`git rev-parse HEAD` = `102c2d5`・`git status --porcelain` 空)。既存の `/workspace/venv` を `source` して `torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0 / torch.cuda.is_available() True` を確認(**再作成不要**)
+- **セッションを切った理由**: `context-guard` の hook が「約180kトークン(閾値140k)。新しい作業を始めてはいけない」と警告した。**ここで診断プールの生成・preflight・4腕の実行には入らず**、skill `handoff` の手順どおり `STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`「その119」へ1文字も変えずに移した)・`logs/HANDOFF.md`(上書き)・本ファイルを更新して切った
+- **やっていないこと**: 診断プールの生成(`sweep_pool --arm diag`)/ `bash infra/bootstrap.sh` の再実行要否の確認 / `python infra/preflight.py` / 4 腕(B・A・B-d・A-d)の実行 / 判定表 / push / tag(不変)/ `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集
+- **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その119」へ移した)・`logs/HANDOFF.md`(上書き)・`logs/CHANGELOG.md`(本ファイル)
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① その118 commit(`01cf60f`)の push(main。Phase 2 の前に必要)/ ② その118 の実装の読み1〜5・採択の ADR への記録・★T2 の形の変化と#5の扱い・3本の旧 pod の terminate(すべて持ち越し)。**pod は稼働中のまま**(止めていない。次セッションがそのまま Phase 1 を続けるため。上限 4.0h/$2.96・目安の停止 ~2026-09-28T14:37Z)

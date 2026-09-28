@@ -8705,3 +8705,36 @@ PLAN-026 はレビュー済み・実装待ち。G14 は未記入(推奨が無か
 > **★やったこと**: `logs/HANDOFF.md` の指示どおり ADR-090(二値群→選択肢A)・ADR-091(★F140→採点後正本)を `logs/DECISIONS.md` に記入し、`logs/OPEN-ITEMS.md`・`plans/PLAN-026-order6b.md` §6・`STATE.md` に反映した。③-ii/③-iiiのどちらを採るか人間に確認し(「両方とも試す」)、ADR-092として記録した。これを受けて `plans/PLAN-028-prestage-ft.md`(草案)を起草した —— ③-ii・③-iiiの設計方針、中心的な未決事項(§4: 前段FTと病変FTの重ね方の3案)、想定される交絡、記入欄(P1〜P7)を書いた。
 > **★やっていないこと**: PLAN-028の実装・GPU(**まだしない。人間のレビューが先**)/ ★F104の人間の決定の取得 / それ以外のコード変更・実験実行(GPU 0)。
 > **★次セッションが引き継ぐもの**: `plans/PLAN-028-prestage-ft.md` の人間レビュー結果(§8 P1〜P7)/ 決まっていなければ引き続きレビュー待ちとして扱う。
+
+### ヘッダ(最終更新の行)の旧ブロック(その119)
+
+最終更新: 2026-09-27(その119)/ by RUNNER (Sonnet 5。推奨と一致。**G2-1 の承認(人間。`AskUserQuestion` 2 回)を得て pod 起動を試みたが、既存 EXITED 3 本の再起動 + 新規作成の計 4 回すべて失敗**(「host に空き GPU なし」×3、「no longer any instances available」×1。**課金なし**。`list-pods` で新規 pod が作られていないことを確認)。`get-gpu-type`(RO)は LOW だったが実際の割当容量には出ていない。**GPU 0・pod 0・tag なし・push なし・config/コード不変**)
+(**次は人間: 在庫の再確認(しばらく待つ)/ その118 の commit(`01cf60f`)の push(Phase 2 の前に必要。人間は「今すぐ push する」と答えたがこのセッションでは反映を確認できていない)**。段1 は閉じたまま(ADR-106)。
+pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけで状態不変。terminate は人間。ボリューム `r963j7swke` は残す)。)
+
+### 「いま何をしているか」の旧ブロック(その119)
+
+> **★★2026-09-27(その119・最新)。Phase 0。RUNNER (Sonnet 5)。G2-1 承認後に pod 起動を試みたが 4 回全部失敗。GPU 0・pod 0・tag なし・push なし。**
+> - **人間の承認(チャット。`AskUserQuestion` 2 回)**: ① G2-1 の最終承認(型 RTX 4090 SECURE EU-RO-1・単価 $0.74/時・上限 4.0h/$2.96) = 「承認する。既存 EXITED pod (ysev2xg35iih2j) を再起動」/ ② その118 commit の push = 「今すぐ自分で push する」(**このセッションでは push の反映を確認できていない**。`origin/main` は `102c2d5` のまま)
+> - **試したこと(RunPod への書き込み。読み取りだけではない)**: `pod-action`(`ysev2xg35iih2j`, start)→ 失敗(host に空き GPU なし)。人間に確認 → 他の既存 pod を試す(推奨)を選択 → `eytvn0qwssz2q8` start → 失敗(同じ理由)→ `lh823acvxuo8ux` start → 失敗(同じ理由)。人間に確認 → 新規 pod 作成(推奨)を選択 → `create-pod`(RTX 4090 SECURE・EU-RO-1・ボリューム `r963j7swke` アタッチ)→ 失敗(「no longer any instances available」)
+> - **課金の確認**: `list-pods` で 3 本とも `EXITED` のまま・新規 pod は作られていないことを確認(**4 回とも課金なし**)
+> - **在庫の読みと実際の割当の食い違い**: `get-gpu-type`(RO)は `availability: LOW`(その118 は `NONE`)だったが、既存 3 ホスト・新規割当のいずれも実際には空きが無かった。**LOW の表示は割当の成功を保証しない**
+> - **止まっているもの**: ① 在庫(実際に pod を起動できる空きが無い)② その118 commit(`01cf60f`)の push(Phase 2 の前に必要。人間が「今すぐ push する」と答えたがこのセッションでは反映を確認できていない)
+> - **★その118 のブロックは `logs/STATE-ARCHIVE.md`「その119」にある**
+
+### 「次のアクション」の旧ブロック(その119)
+
+> **★★2026-09-27(その119・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **人間: その118 commit(`01cf60f`)の push の確認 → 在庫の再確認(しばらく待つ。既存 3 本の再起動・新規作成とも計 4 回連続で失敗した)** → 空きが出たら RUNNER に pod 起動を再度試させる → Phase 1(4 腕。tag の commit のまま)→ Phase 2(I5 の 10 本)→ 判定表(ANALYST。機械的)。**PLAN-032 に IMPLEMENTER の仕事は残っていない**
+> 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
+> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
+> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106。印の意味づけ・`p2d` の扱いを含む)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 「引き継ぎ」の旧ブロック(その119)
+
+> **★★2026-09-27(その119・最新)。RUNNER (Sonnet 5。推奨と一致)。G2-1 承認後に pod 起動を4回試みたが全部失敗。GPU 0・pod 0。**
+>
+> **★やったこと**: `pod-action`(start)× 3(既存 EXITED pod)・`create-pod` × 1(新規)。**すべて失敗・課金なし**(`list-pods` で確認)。人間の承認は `AskUserQuestion` で 2 回取得済み(G2-1・push)。
+> **★やっていないこと**: pod の起動成功 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(在庫が戻ったか・push が済んだかで再度 RUNNER を試すか待機か)。

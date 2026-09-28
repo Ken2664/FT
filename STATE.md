@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-27(その119)/ by RUNNER (Sonnet 5。推奨と一致。**G2-1 の承認(人間。`AskUserQuestion` 2 回)を得て pod 起動を試みたが、既存 EXITED 3 本の再起動 + 新規作成の計 4 回すべて失敗**(「host に空き GPU なし」×3、「no longer any instances available」×1。**課金なし**。`list-pods` で新規 pod が作られていないことを確認)。`get-gpu-type`(RO)は LOW だったが実際の割当容量には出ていない。**GPU 0・pod 0・tag なし・push なし・config/コード不変**)
-(**次は人間: 在庫の再確認(しばらく待つ)/ その118 の commit(`01cf60f`)の push(Phase 2 の前に必要。人間は「今すぐ push する」と答えたがこのセッションでは反映を確認できていない)**。段1 は閉じたまま(ADR-106)。
-pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけで状態不変。terminate は人間。ボリューム `r963j7swke` は残す)。)
+最終更新: 2026-09-28(その120)/ by RUNNER (Sonnet 5。推奨と一致。**人間が pod を「migration」で起動済み(`nwpfapeszov83m`。RTX 4090 SECURE EU-RO-1・$0.74/時・ボリューム `r963j7swke` を `/workspace` にマウント・`list-pods` で `RUNNING` を確認。開始 2026-09-28T10:37:27Z)**。**push は依然未**(`origin/main` = `102c2d5`。I5 の commit `01cf60f`・`1ed6eea` は未反映)。Phase 1(4腕診断)は tag の commit だけで回せるため push を待たずに準備を始めた: bundle 転送 → pod の `translesion` を退避(`pod_moved_aside_diag`)→ tag `preregister-diag-sharpness`(=`102c2d5`)で再 clone・checkout(detached HEAD・`git status` clean 確認済み)・既存 venv(torch 2.8.0+cu128 / peft 0.20.0 / CUDA 可)を確認。**context-guard(約180kトークン)で切った。診断プールの生成・preflight・4腕の実行はまだ**)
+(**次: RUNNER が Phase 1(診断プールの生成 → preflight → B/A/B-d/A-d の4腕)を続ける。人間: I5 commit の push(Phase 2 の前に必要)**。
+pod は稼働中(`nwpfapeszov83m`。停止予定 ~2026-09-28T14:37Z。上限 4.0h/$2.96)。旧 3 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま・触っていない。)
 
 ---
 
@@ -67,13 +67,16 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-27(その119・最新)。Phase 0。RUNNER (Sonnet 5)。G2-1 承認後に pod 起動を試みたが 4 回全部失敗。GPU 0・pod 0・tag なし・push なし。**
-> - **人間の承認(チャット。`AskUserQuestion` 2 回)**: ① G2-1 の最終承認(型 RTX 4090 SECURE EU-RO-1・単価 $0.74/時・上限 4.0h/$2.96) = 「承認する。既存 EXITED pod (ysev2xg35iih2j) を再起動」/ ② その118 commit の push = 「今すぐ自分で push する」(**このセッションでは push の反映を確認できていない**。`origin/main` は `102c2d5` のまま)
-> - **試したこと(RunPod への書き込み。読み取りだけではない)**: `pod-action`(`ysev2xg35iih2j`, start)→ 失敗(host に空き GPU なし)。人間に確認 → 他の既存 pod を試す(推奨)を選択 → `eytvn0qwssz2q8` start → 失敗(同じ理由)→ `lh823acvxuo8ux` start → 失敗(同じ理由)。人間に確認 → 新規 pod 作成(推奨)を選択 → `create-pod`(RTX 4090 SECURE・EU-RO-1・ボリューム `r963j7swke` アタッチ)→ 失敗(「no longer any instances available」)
-> - **課金の確認**: `list-pods` で 3 本とも `EXITED` のまま・新規 pod は作られていないことを確認(**4 回とも課金なし**)
-> - **在庫の読みと実際の割当の食い違い**: `get-gpu-type`(RO)は `availability: LOW`(その118 は `NONE`)だったが、既存 3 ホスト・新規割当のいずれも実際には空きが無かった。**LOW の表示は割当の成功を保証しない**
-> - **止まっているもの**: ① 在庫(実際に pod を起動できる空きが無い)② その118 commit(`01cf60f`)の push(Phase 2 の前に必要。人間が「今すぐ push する」と答えたがこのセッションでは反映を確認できていない)
-> - **★その118 のブロックは `logs/STATE-ARCHIVE.md`「その119」にある**
+> **★★2026-09-28(その120・最新)。Phase 0。RUNNER (Sonnet 5)。pod は稼働中。Phase 1 の pod 側セットアップまで進めて context-guard で切った。GPU 0(計算はまだ)・push なし。**
+> - **人間**: 「logs/HANDOFF.md を読んで作業を続けてください。手順については推奨に従います。ポッドはmigrationしてスタートしてあります」
+> - **pod 確認**(`list-pods`): `nwpfapeszov83m`(名 `pilot-ft-runner-n313-migration`)が `RUNNING`。RTX 4090 SECURE・EU-RO-1・$0.74/時・`r963j7swke` を `/workspace` にマウント・開始 `2026-09-28T10:37:27Z`。旧 3 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま touch していない
+> - **push 確認**(`git fetch origin main` 後): `origin/main` = `102c2d5`(不変)。ローカル HEAD `1ed6eea` は 3 commit 先(`a27ca09`・`01cf60f`・`1ed6eea`)。**push は人間の操作なので行っていない**(ADR-110 決定4)。tag `preregister-diag-sharpness` は `102c2d5` を指す(既に origin にある。その117 で push 済み)
+> - **Phase 1 は push を待たずに開始できると判断**: tag の commit(`102c2d5`)は既に origin にあるため。Phase 2(I5)だけが `01cf60f` の push を要る
+> - **SSH 接続確認**: `ssh -o IPQoS=none root@213.173.109.42 -p 19140`(direct)。GPU 見える(RTX 4090 24564 MiB)
+> - **pod の `/workspace/translesion` は旧 checkout(commit `cbe76ce9`。247 commit 遅れ)だった**。中の未追跡の `results/pilot_ft_n313/`・`runs/pilot_ft_eval_*_n313/` は**ローカル git に既に committed 済み**(commit `ec64516`・`834b064`)と確認したので、失わずに退避してよいと判断
+> - **やったこと**: `/workspace/translesion` → `/workspace/pod_moved_aside_diag` に退避(削除していない)。ローカルで `git bundle create ft_diag.bundle main preregister-diag-sharpness` → scp → pod で `git clone -b main` → `git checkout preregister-diag-sharpness`(detached HEAD。`git rev-parse HEAD` = `102c2d5`。`git status --porcelain` 空)。既存 `/workspace/venv` を確認(torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0 / `torch.cuda.is_available()` True。**再作成不要**)
+> - **やっていないこと**: 診断プールの生成(`sweep_pool --arm diag`)/ `bash infra/bootstrap.sh` の再実行(venv は生きているので必要か未確認)/ `python infra/preflight.py` / 4 腕(B・A・B-d・A-d)の実行 / 判定表 / push / tag(不変)
+> - **次のRUNNERがそのまま続けられる状態**: pod は `RUNNING`・`/workspace/translesion` は tag の commit で checkout 済み・venv 生きている。**次は PLAN-032 §8.2 の手順どおり診断プールの生成から**
 
 ---
 
@@ -345,23 +348,25 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-27(その119・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-09-28(その120・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **人間: その118 commit(`01cf60f`)の push の確認 → 在庫の再確認(しばらく待つ。既存 3 本の再起動・新規作成とも計 4 回連続で失敗した)** → 空きが出たら RUNNER に pod 起動を再度試させる → Phase 1(4 腕。tag の commit のまま)→ Phase 2(I5 の 10 本)→ 判定表(ANALYST。機械的)。**PLAN-032 に IMPLEMENTER の仕事は残っていない**
-> 2. 人間(いつでも): 3 本の pod の terminate(**ボリューム `r963j7swke` はアダプタの重みがあるので残す**)
-> 3. PLAN-033(段3 = P-3 の文書修正 + `00_OVERVIEW.md:7` + 規約の案 A の反映 + `CLAUDE.md` を 200 行に戻す手当て。ADR-098)。段2 が人間待ちで止まっている間に挟む
-> 4. 段2 の結果に応じて、前段 FT(PLAN-029 の改訂)か ADR-097 決定4 の分岐(段4。**T1b と T3 は別々に**。ADR-107 決定4)。それ以外は PLAN-030 §4 の表のとおり
-> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106。印の意味づけ・`p2d` の扱いを含む)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+> 1. **次の RUNNER: pod `nwpfapeszov83m` に ssh し、Phase 1 の続き** —— `source /workspace/venv/bin/activate && cd /workspace/translesion` → (bootstrap 済みか要確認。未確認なら `bash infra/bootstrap.sh`)→ `python infra/preflight.py` → `PYTHONIOENCODING=utf-8 python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag` → **`git diff HEAD` が空か確認**(追跡ファイルの変更があれば `git checkout -- data/generated`)→ 4 腕(`configs/exp_diag_{b,a,b_d,a_d}.yaml`。`--dry-run` → `--run-dir runs/<timestamp>_exp_diag_<腕>`。PLAN-032 §8.1 R7 の門で追跡ファイルに差分があれば重みを読む前に止まる仕様)→ 判定表 `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(機械的。読むのは人間)。**時計で見張る**(上限 4.0h/$2.96。開始 `2026-09-28T10:37:27Z`・目安の停止 `~14:37Z`)
+> 2. **人間: その118 commit(`01cf60f`)の push**(Phase 2 = I5 の 10 本の前に必要)
+> 3. Phase 1 完了・push 確認後 → Phase 2(I5 の 10 本。I5 の commit を checkout し直す)→ 回収・pod 停止・`cost.txt`
+> 4. 人間(いつでも): 3 本の旧 pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(**ボリューム `r963j7swke` は残す**)
+> 5. PLAN-033(段3。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 6. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-09-27(その119・最新)。RUNNER (Sonnet 5。推奨と一致)。G2-1 承認後に pod 起動を4回試みたが全部失敗。GPU 0・pod 0。**
+> **★★2026-09-28(その120・最新)。RUNNER (Sonnet 5。推奨と一致)。pod 稼働中。Phase 1 の pod セットアップまで進め、context-guard(約180kトークン)で切った。**
 >
-> **★やったこと**: `pod-action`(start)× 3(既存 EXITED pod)・`create-pod` × 1(新規)。**すべて失敗・課金なし**(`list-pods` で確認)。人間の承認は `AskUserQuestion` で 2 回取得済み(G2-1・push)。
-> **★やっていないこと**: pod の起動成功 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(在庫が戻ったか・push が済んだかで再度 RUNNER を試すか待機か)。
+> **★やったこと**: pod `nwpfapeszov83m`(RUNNING)を確認 / push 未確認(`origin/main` = `102c2d5`)/ SSH 接続確認 / `/workspace/translesion` を `pod_moved_aside_diag` へ退避(削除せず。中の未追跡 n313 成果物はローカル git に committed 済みと確認済み)/ bundle 転送・tag `preregister-diag-sharpness`(=`102c2d5`)で再 clone・checkout(detached HEAD・clean)/ 既存 venv が生きていることを確認。
+> **★やっていないこと**: 診断プールの生成 / preflight / 4 腕の実行 / 判定表 / push / tag(すべて未着手か次セッションへ)。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(pod は起動済み・checkout 済みなので、そのまま診断プールの生成から続ける)。
 
 ---
 

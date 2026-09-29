@@ -7486,3 +7486,11 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: A・B-d・A-d の preflight・4腕の本実行(`code.eval.run` の実運用は0件)・判定表・push・tag(不変)・`configs/`・`code/` の変更(1バイトも変えていない)
 - **書き換えたもの**: `STATE.md`(ヘッダ・いま何をしているか・次のアクション・引き継ぎ・人間の承認待ち索引の行。旧4ブロックは `logs/STATE-ARCHIVE.md`「その121」へ1文字も変えずに移した)・`logs/OPEN-ITEMS.md`(既存行への追記+新規行)・`logs/HANDOFF.md`(上書き予定)・`logs/CHANGELOG.md`(本ファイル)
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① **`train.jsonl`(5条件分)の用意の仕方**(上記(a))/ ② **`HF_TOKEN` の提供**/ ③ その118 commit(`01cf60f`)の push(main。Phase 2 の前に必要。持ち越し)/ ④ その118の実装の読み1〜5・採択のADRへの記録・★T2の形の変化と#5の扱い・3本の旧podのterminate(すべて持ち越し)。**pod は `EXITED`**(①②が解決すれば `start` して腕Bのpreflightから再開できる)
+
+## 2026-09-29(その122): 腕 B の preflight FAIL への回答 —— `train.jsonl` は手元の PC の実体を pod へ送る(推奨案を人間が採択)/ pod は未起動
+- **役割**: RUNNER(Sonnet 5.5)。GPU 0・pod 0(起動していない)・課金なし
+- **提案者 = エージェント / 採択者 = 人間**(2026-09-29 のチャット)。`train.jsonl` の用意は「(a) 実体のコピー、だめなら (b) 再生成、(c) config 変更は最後」の順。**config・code・tag は 1 バイトも変えていない**
+- **確認(読み取りのみ)**: 手元の PC の `data/generated/ft/exp_order6b_pilot_{p2,p2d,arb,x2,ident}/train.jsonl` が 5 本とも存在し(2026-09-12 作成)、**各 manifest の `files["train.jsonl"]` の SHA-256 と 5 本すべて一致**した(p2 `10be341b…`・p2d `cc9be347…`・arb `335c5ab3…`・x2 `c2eb0749…`・ident `0aa1c6a6…`)。よって再生成(b)も旧 pod の退避先の探索も不要。`git diff HEAD --stat` は空
+- **4 腕(`exp_diag_{b,a,b_d,a_d}`)とも `lesion.manifest` は同じ p2 の manifest**を指す(`matched_manifests` は 5 条件)ので、この 5 本で 4 腕とも足りるはず(A・B-d・A-d の preflight は未実行)
+- `battery/main/items.jsonl`(`counterpart_manifest` の実体)は `pool disjoint` 検査が manifest しか読まないので送らない(腕 B の preflight でこの検査は FAIL していない)
+- **pod の再開が必要な段階**: (1) 5 本の scp(`-o IPQoS=none`)→ pod 上で sha256 再照合 → 4 腕の preflight (2) `HF_TOKEN`(あなたが read 権限の新トークンを ssh セッションの環境変数で設定。Llama-3.1-8B-Instruct の利用承認が前提。終了後に失効) (3) **新しい G2-1 承認**(前回の上限 4.0h/$2.96 はほぼ使用済み。Phase 1 残り約 1h・Phase 2 約 1.5h の再見積り)

@@ -7573,3 +7573,4 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書いたもの**: `Documents/reviews/2026-10-01/report.md`(本文。§0 判定 / §1 結果 / §2 価値 4 観点 / §3 データの影響 7 項 / §4 判定表 / §5 案 A〜G / §6 退屈な対立仮説 / §7 限界)・`papers_list.md`(159 件。全行にリンク)/ この CHANGELOG / SCOUT 5 本と HANDOFF-value-review を追跡に加えた
 - **やっていないこと**: 設計文書・`refs.bib`・`02_RELATED_WORK.md`・`STATE.md`・`logs/HANDOFF.md` の変更(HANDOFF-value-review の指示)/ 人間による原典確認(`CLAUDE.md` §3 の手順 1〜3)/ MisFT の被引用の追跡 / push
 - **未解決(すべて人間。`CLAUDE.md` §8)**: レポート §5 の案 A〜G の採否(とくに案 A = MisFT の位置づけ・案 B = 2 尺度と TOST・案 D = シード単位の報告)/ 引用の最終確定と `refs.bib` への追加 / 会場「未照合」6 件の確認
+- **追記(同セッション)**: ユーザーの求めで結論を先行研究に沿ってチャットで詳しく説明した(新しい調査なし)。hook context-guard の警告(約 294k)で skill `handoff` を実行: `STATE.md` の冒頭・いま何をしているか・次のアクション・引き継ぎを差し替え(旧ブロックは `logs/STATE-ARCHIVE.md`「その128」へ移した)/ `logs/OPEN-ITEMS.md` に「価値レビューの案 A〜G の採否」の行 / `logs/HANDOFF.md` を上書き

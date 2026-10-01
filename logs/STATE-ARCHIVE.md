@@ -9018,3 +9018,43 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 > **★やったこと**: 範囲の洗い出し(PLAN-033 §3)/ 範囲を H4-3 + 段3 の 1 本にする採択 / 判断材料の表を見せて D1〜D9 を聞いた(9 問とも推奨)/ ADR-112 / OPEN-ITEMS の H4-3・E1 の行に追記。
 > **★やっていないこと**: 文書の修正(文言は未承認)・push・tag・GPU・`configs/`・`code/`。
 > **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(PLAN-033 §5 の承認 → 文書の修正)。
+
+## ★2026-10-01(その128)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭(その127)
+最終更新: 2026-10-01(その127)/ by PLANNER (Opus 5.5。推奨と一致。**人間が PLAN-033 §5 の文言を承認し、文書の修正を入れた = ADR-113**(提案 エージェント・採択 人間。4 問とも推奨): `CLAUDE.md` §0・§8 / `AGENTS.md` PLANNER 節 / `Documents/` 8 ファイル。**主要検定は T1 × T2(df = 2)**・H0 と H1 は E1(T2 の転移)で分ける・T1b・T3 は探索。追加 = `CLAUDE.md` §0 は 1 行の段落 / E1 が優越性でも有意・TOST でも境界内なら「転移しない」の側。GPU 0・pod 0・`configs/`・`code/` 不変・tag・push なし)
+(**次: (β) R8 は人間の push と G2-1 承認の後(RUNNER / Sonnet)/ 検出力分析の PLAN(PLAN-033 §6。PLANNER / Opus)。どちらを先にするかは人間**。**稼働中の pod は無い**(5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す)。)
+
+### いま何をしているか(その127)
+
+
+> **★★2026-10-01(その127・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-033 の文書修正を入れた(ADR-113)。GPU 0・pod 0。**
+> - **主要検定は T1 × T2(`task:coverage` の LRT、df = 2)**。df < 2 なら実施不能。門の内側の副次(順1・順1b・順2・順3)も T1・T2。順8・順9 は探索。**門の外に E1(T2 × 既知性 3 水準の `p2` − `ident`。優越性と TOST を併記。順7 と同じ Holm)**。T1b・T3 は測り続けるが探索(`Documents/05_STATISTICS.md` §2・§4)
+> - **H0 と H1 は E1 で分ける**(`Documents/01_HYPOTHESES.md` の対応表。E1 が両方成り立つときは「転移しない」の側 = ADR-113 決定3)。`00_OVERVIEW.md:7` は三択。「判断材料を先に見せる」規約は `AGENTS.md` の PLANNER 節(`CLAUDE.md` §8 に参照)
+> - **残っているもの**: E1 の TOST 境界の値(凍結前・人間)/ 検出力分析の模型(`05_STATISTICS.md` §6 は冒頭の注だけ。PLAN-033 §6)/ `09_PAPER_PLAN.md` の本体(注 1 行だけ)/ `CLAUDE.md` は 216 行(上限 200)
+> - **★その126 のブロックは `logs/STATE-ARCHIVE.md`「その127」にある**
+
+---
+
+### 次のアクション(その127)
+
+
+> **★★2026-10-01(その127・最新)。ADR-113 で PLAN-033 が完了した。1 セッション = 1 PLAN。**
+>
+> 1. **(β) R8**: 人間が `01cf60f` 以降の main を push → 新しい G2-1 承認 → RUNNER(Sonnet)が `configs/exp_pilot_ft_cmp_*` の 10 本を回す。**結果は探索(ADR-112 決定4)**
+> 2. **検出力分析の PLAN**(PLANNER / Opus。PLAN-033 §6: P1 の T1・T2 の行の RMS 0.432 の扱い・P2 が定義できない・`n_item` = 80 の整数 1 つ・模型の df = 2・`configs/power_sim.yaml` と `test_power_sim.py` の df の検査)。★F104-c の値・★F114 の実行先は人間
+> 3. 凍結前に人間: **★E1 の TOST 境界の値**(パイロットの T1・T2 が既に出ている事実を ADR に書く)/ ★T2 の形の変化と #5 / ★`train_size` / ★rank と学習率
+> 4. 人間(いつでも): 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す
+
+---
+
+### 引き継ぎ(その127)
+
+
+> **★★2026-10-01(その127・最新)。PLANNER (Opus 5.5。推奨と一致)。PLAN-033 の文書修正(ADR-113)。**
+>
+> **★やったこと**: §5 を現行の文書と突き合わせ、判断材料の表を見せて 4 問を聞いた(4 問とも推奨)/ `CLAUDE.md`・`AGENTS.md`・`Documents/` 8 ファイルの修正 / PLAN-033 §10 の grep / `test_repo_hygiene.py` / ADR-113 / OPEN-ITEMS。
+> **★やっていないこと**: `05_STATISTICS.md` §6 の本体・`09_PAPER_PLAN.md` の本体・`configs/`・`code/`・push・tag・GPU。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`((β) R8 か検出力分析の PLAN。どちらかは人間)。
+
+---

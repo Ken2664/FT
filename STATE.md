@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-01(その127)/ by PLANNER (Opus 5.5。推奨と一致。**人間が PLAN-033 §5 の文言を承認し、文書の修正を入れた = ADR-113**(提案 エージェント・採択 人間。4 問とも推奨): `CLAUDE.md` §0・§8 / `AGENTS.md` PLANNER 節 / `Documents/` 8 ファイル。**主要検定は T1 × T2(df = 2)**・H0 と H1 は E1(T2 の転移)で分ける・T1b・T3 は探索。追加 = `CLAUDE.md` §0 は 1 行の段落 / E1 が優越性でも有意・TOST でも境界内なら「転移しない」の側。GPU 0・pod 0・`configs/`・`code/` 不変・tag・push なし)
-(**次: (β) R8 は人間の push と G2-1 承認の後(RUNNER / Sonnet)/ 検出力分析の PLAN(PLAN-033 §6。PLANNER / Opus)。どちらを先にするかは人間**。**稼働中の pod は無い**(5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す)。)
+最終更新: 2026-10-01(その128)/ by CRITIC (Opus 5.5。推奨と一致。**学術的価値の検討レポート `Documents/reviews/2026-10-01/report.md` と論文集 159 件を書いた**(commit `cd7fdc3`)。設計文書・`refs.bib`・`configs/`・`code/` 不変・GPU 0・pod 0・push なし)
+(**次: 人間がレポート §5 の案 A〜G の採否を決める / それとは別に (β) R8(push と G2-1 承認の後)・検出力分析の PLAN はその127 のまま。順番は人間**。稼働中の pod は無い。)
 
 
 ---
@@ -68,13 +68,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-01(その127・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-033 の文書修正を入れた(ADR-113)。GPU 0・pod 0。**
-> - **主要検定は T1 × T2(`task:coverage` の LRT、df = 2)**。df < 2 なら実施不能。門の内側の副次(順1・順1b・順2・順3)も T1・T2。順8・順9 は探索。**門の外に E1(T2 × 既知性 3 水準の `p2` − `ident`。優越性と TOST を併記。順7 と同じ Holm)**。T1b・T3 は測り続けるが探索(`Documents/05_STATISTICS.md` §2・§4)
-> - **H0 と H1 は E1 で分ける**(`Documents/01_HYPOTHESES.md` の対応表。E1 が両方成り立つときは「転移しない」の側 = ADR-113 決定3)。`00_OVERVIEW.md:7` は三択。「判断材料を先に見せる」規約は `AGENTS.md` の PLANNER 節(`CLAUDE.md` §8 に参照)
-> - **残っているもの**: E1 の TOST 境界の値(凍結前・人間)/ 検出力分析の模型(`05_STATISTICS.md` §6 は冒頭の注だけ。PLAN-033 §6)/ `09_PAPER_PLAN.md` の本体(注 1 行だけ)/ `CLAUDE.md` は 216 行(上限 200)
-> - **★その126 のブロックは `logs/STATE-ARCHIVE.md`「その127」にある**
-
----
+> **★★2026-10-01(その128・最新)。Phase 0。CRITIC (Opus 5.5)。学術的価値の検討(文献調査つき)。GPU 0・pod 0。**
+> - **成果物**: `Documents/reviews/2026-10-01/report.md`(本文)・`papers_list.md`(159 件。題名・著者・年は arXiv API と Crossref で機械照合・不一致 0。会場未照合 6・arXiv のみ 18。**人間の原典確認は未了・`refs.bib` 未反映**)
+> - **要点(案。決定は人間)**: MisFT(Findings EMNLP 2025)が「変えた加算規則が文章題へ移る」を報告済み(原文 HTML で確認)→ 新規性は既知性・漏れ・構造を壊した対照・4 値分解・シード単位の地図に残る / 主要検定の「平行 ⇒ 共有」は尺度依存・解離の論理で単独では言えない → 2 尺度・TOST・state-trace で補う案
+> - **その127 の主要検定の設計(T1 × T2・df = 2・E1)は変わっていない**。その127 のブロックは `logs/STATE-ARCHIVE.md`「その128」
 
 ## わかっていること
 
@@ -331,25 +328,18 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-01(その127・最新)。ADR-113 で PLAN-033 が完了した。1 セッション = 1 PLAN。**
->
-> 1. **(β) R8**: 人間が `01cf60f` 以降の main を push → 新しい G2-1 承認 → RUNNER(Sonnet)が `configs/exp_pilot_ft_cmp_*` の 10 本を回す。**結果は探索(ADR-112 決定4)**
-> 2. **検出力分析の PLAN**(PLANNER / Opus。PLAN-033 §6: P1 の T1・T2 の行の RMS 0.432 の扱い・P2 が定義できない・`n_item` = 80 の整数 1 つ・模型の df = 2・`configs/power_sim.yaml` と `test_power_sim.py` の df の検査)。★F104-c の値・★F114 の実行先は人間
-> 3. 凍結前に人間: **★E1 の TOST 境界の値**(パイロットの T1・T2 が既に出ている事実を ADR に書く)/ ★T2 の形の変化と #5 / ★`train_size` / ★rank と学習率
-> 4. 人間(いつでも): 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す
-
----
+> **★★2026-10-01(その128・最新)。**
+> 1. **人間**: `Documents/reviews/2026-10-01/report.md` §5 の案 A〜G の採否(とくに A = MisFT の位置づけ・B = 2 尺度と TOST・D = シード単位の報告)。採るなら凍結前に ADR(パイロットを見た後の追加と明記)
+> 2. (β) R8: 人間の push → G2-1 承認 → RUNNER(Sonnet)/ 検出力分析の PLAN(PLANNER / Opus)。その127 から変わらず
+> 3. 凍結前に人間: ★E1 の TOST 境界の値 / ★T2 の形の変化と #5(レポート §3.3 が材料)/ 引用の原典確認(`papers_list.md` の会場「未照合」6 件)
 
 ## 引き継ぎ
 
 
-> **★★2026-10-01(その127・最新)。PLANNER (Opus 5.5。推奨と一致)。PLAN-033 の文書修正(ADR-113)。**
->
-> **★やったこと**: §5 を現行の文書と突き合わせ、判断材料の表を見せて 4 問を聞いた(4 問とも推奨)/ `CLAUDE.md`・`AGENTS.md`・`Documents/` 8 ファイルの修正 / PLAN-033 §10 の grep / `test_repo_hygiene.py` / ADR-113 / OPEN-ITEMS。
-> **★やっていないこと**: `05_STATISTICS.md` §6 の本体・`09_PAPER_PLAN.md` の本体・`configs/`・`code/`・push・tag・GPU。
-> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`((β) R8 か検出力分析の PLAN。どちらかは人間)。
-
----
+> **★★2026-10-01(その128・最新)。CRITIC (Opus 5.5。推奨と一致)。**
+> **★やったこと**: SCOUT 5 本を読み、パイロットの数値を `results/` と照合、引用を API で照合、MisFT の原文を確認してレポートを書いた(commit `cd7fdc3`)。
+> **★やっていないこと**: 設計文書・`refs.bib`・`02_RELATED_WORK.md` の変更 / MisFT の被引用の追跡 / push。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(人間がレポートの案を選んだ後の作業。選ぶまでは その127 の (β) R8 か検出力分析の PLAN)。
 
 ## このファイルの運用規約(★2026-09-08 新設。ADR-063)
 

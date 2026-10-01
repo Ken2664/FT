@@ -7525,3 +7525,16 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: 判定表の解釈・push・tag・`configs/`・`code/` の変更(**1 バイトも変えていない**)・I5(Phase 2)・ADR・旧 4 本と今回の pod の terminate(人間の操作)
 - **書き換えたもの**: `runs/*_exp_diag_*`(新規 4 本・commit `9d1bef3`)・`results/diag_sharpness/`(新規・同)・`cost.txt` 4 本・`STATE.md`(ヘッダ・いま何をしているか・人間待ち索引に 1 行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その124」へ 1 文字も変えずに移した)・`logs/OPEN-ITEMS.md`(新しい行 1 つ)・`logs/HANDOFF.md`・この CHANGELOG
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① **Phase 1 の判定表を読むこと**(`results/diag_sharpness/sharpness.txt`。PLAN-032 §8.2)/ ② その118 commit(`01cf60f`)の push と Phase 2(I5)の G2-1 承認(新しい上限)/ ③ その118 の実装の読み 1〜5・採択の ADR への記録・★T2 の形の変化と #5 の扱い(`logs/OPEN-ITEMS.md` に正本。持ち越し)/ ④ 旧 4 本と今回の pod の terminate / ⑤ `train.jsonl` を手元から送った採択(その122)の ADR(未記入。人間が望めば起こす)
+
+## 2026-10-01(その125): 人間が Phase 1 の判定表を読んだ —— ADR-111(受け入れ / T1b・T3 とも分岐 (a) / R8 は回す方針)   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER(人間が判定表を読む場に付き合い、ADR を起草)。実モデル(Opus 5.5)は HANDOFF の推奨(Opus)と一致(最初の発言で述べた)。`CLAUDE.md` §1 の開始手順は実行済み(`logs/HANDOFF.md`・STATE.md 全文・CHANGELOG・`git log`・`git status`・`git worktree list`・`ls runs/`。並行ブランチなし・作業ツリー clean)。GPU 0・pod 0
+- **人間の指示**: 「handoff を読んで次の作業を行ってください。私の判断するべき部分については選択できるようにしてください」
+- **機械的な照合(PLAN-032 §8.2。解釈ではない)**: 判定表の先頭の sha `102c2d5…` = `git rev-parse 'preregister-diag-sharpness^{commit}'` / 解析側の sha も同じ・`git diff HEAD -- code/` 空 / `git log <tag>..102c2d5 -- code/analysis/ code/eval/battery/` = 0 件 / 線 0.088・160 件/水準・adapter None・batch 4・上位 k 20 と R7 の検査行 4 つ
+- **その124 の未確認(所要時間が見積りの約 0.3 倍)を閉じた**: 4 本の `metrics.json` の `timing.seconds_per_item` = 0.007 = 同じ掃引の経路の [run:20260922_122247_order6b_r8] の 0.007。外れていたのは RUNNER の見積りの側
+- **判断材料の表を先に示した**(ADR-097 決定6): 照合の表 / R3・R4 の出力(T1b・T3 とも A 届く・B 届かない → 分岐 (a)。B-d 届かない)/ 分岐 (a) の意味(ADR-097 決定4)/ R6 の記述の行のうち目に入れておく事実 4 つ(B T1b の Yes/No 質量・1 位 `To`、B T3 の lt の `No` 偏り、B-d の質量 ≈ 1.0 でも届かない、A T1b の gt・lt の非対称)。**推奨は手続き(tag 後に規則を動かすと HARKing)によるもので結果の読みではない、と明示した**
+- **`AskUserQuestion` 1 回・4 問。4 問とも推奨を選んだ** → **ADR-111**: 決定1 判定表を受け入れる / 決定2 T1b・T3 とも分岐 (a)(前段 FT はしない・主要検定を T1 × T2 にする文書修正 = H4-3 は PLAN から)/ 決定3 R8 は ADR-107 決定7 どおり回す方針(push と新しい G2-1 承認の後)/ 決定4(具体化)次は (α) H4-3 の PLAN か (β) R8。順は人間。4 問目(このセッションでやること)は「ADR-111 の起草」だけを選んだ(その122 の採択の ADR 化・H4-3 の PLAN の起草は選ばれなかった)
+- **「律速」の記録**: ADR-097 決定1 の枠ではこの組み合わせは「律速は合成」に当たる。人間は「採るが、律速の読みは書かない」を選ばなかったが、**その言葉で読みを書いたのではないので claim としては確定していない**と ADR-111 決定2 に書いた
+- **STATE.md の大きさ**: 開始時に既に 60 KB の目標を超えていた(約 63 KB)。運用規約5・6 に従い、「わかっていること ★順6b」の節と人間待ちの索引の済んだ 2 行(PLAN-032 の凍結 tag と G2-1 / 腕 B の preflight FAIL)を `logs/STATE-ARCHIVE.md`「その125」へ 1 文字も変えずに移した → 371 行・59.9 KB。`test_repo_hygiene.py` 7 passed
+- **書き換えたもの**: `logs/DECISIONS.md`(ADR-111)/ `plans/PLAN-032-sharpness-diagnostic.md`(最終更新・ステータス・§10)/ `logs/OPEN-ITEMS.md`(判定表の行を決着・新しい行 2 つ = ★H4-3・★R8 の push と G2-1 承認)/ `STATE.md`(ヘッダ・いま何をしているか・人間待ち索引・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その125」)/ `logs/HANDOFF.md` / この CHANGELOG
+- **やっていないこと**: H4-3 の文書修正(`CLAUDE.md` §0・`Documents/00_OVERVIEW.md` §1・`Documents/05_STATISTICS.md` §2 は df = 6 のまま)・push・tag・GPU・pod・`configs/`・`code/`・`results/` の変更
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① (α) H4-3 の PLAN と (β) R8 のどちらを先にするか / ② `01cf60f` 以降の push と R8 の G2-1 承認 / ③ 旧 4 本と `9matkiq0jozcgm` の terminate / ④ その122 の採択の ADR(未記入のまま)/ ⑤ ★T2 の形の変化と #5 の扱いほか凍結前の設計の問い(持ち越し)

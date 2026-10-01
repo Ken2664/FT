@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-01(その124)/ by RUNNER (Sonnet 5.5。推奨と一致。**Phase 1 の 4 腕の本実行が終わり、回収・判定表・pod の stop まで済んだ**。チェーンは 2026-10-01T04:09:18Z〜04:28:03Z(`CHAIN_DONE`)で B → A → B-d → A-d がすべて `exit=0`。件数 B 34,322・A 34,322・B-d 17,124・A-d 17,124(計 102,892 = dry-run と一致)・`git_sha.txt` は 4 本とも `102c2d5…`・`git_diff.patch` は 4 本とも 0 バイト。判定表 `results/diag_sharpness/` は pod 上で tag の commit のまま `sharpness_fit` を回して出た(exit=0)。**判定表は読んでいない(読むのは人間)**。pod `9matkiq0jozcgm` は `stop`(`EXITED`。createdAt〜stop 約 3,034 s = 0.84 h・約 $0.62。承認の 2.5 h・$1.85 の内側)。成果物の commit は `9d1bef3`。**push は依然未**(`origin/main` = `102c2d5`)。tag・`configs/`・`code/` は 1 バイトも変えていない)
-(**次: 人間が `results/diag_sharpness/sharpness.txt` を読む**(`plans/PLAN-032` §8.2「判定表を読むとき」)。人間: I5 commit(`01cf60f`)の push と Phase 2 の G2-1 承認は別。**稼働中の pod は無い**(5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す)。)
+最終更新: 2026-10-01(その125)/ by PLANNER (Opus 5.5。推奨と一致。**人間が Phase 1 の判定表を読み、ADR-111 を採択した**(提案 エージェント・採択 人間。`AskUserQuestion` 1 回・4 問とも推奨): 判定表を受け入れ(先頭の sha = tag `preregister-diag-sharpness` の commit `102c2d5`)/ **T1b・T3 とも R4 の出力どおり分岐 (a)** —— 前段 FT はしない・主要検定を T1 × T2(df = 2)にする文書修正(H4-3)へ / R8(パイロットのアダプタ 10 本の T1b・T3)は ADR-107 決定7 どおり回す方針(push と新しい G2-1 承認の後)。GPU 0・pod 0・`configs/`・`code/`・`Documents/`・`CLAUDE.md` は変えていない・tag・push なし)
+(**次: (α) H4-3 の PLAN の起草(PLANNER / Opus)か、(β) 人間が `01cf60f` 以降を push → R8 の G2-1 承認 → RUNNER。どちらを先にするかは人間**。**稼働中の pod は無い**(5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す)。)
 
 
 ---
@@ -67,14 +67,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-01(その124・最新)。Phase 0。RUNNER (Sonnet 5.5)。Phase 1 の 4 腕の本実行が終わり、回収・判定表・pod の stop まで済んだ。判定表は読んでいない(人間)。**
-> - **チェーン**: `/workspace/chain_diag.status` = `PREFLIGHT_ALL_OK 04:09:18Z` → 腕 B 04:09:18Z〜04:15:03Z(345 s)・腕 A 04:15:03Z〜04:20:42Z(339 s)・腕 B-d 04:20:42Z〜04:24:24Z(222 s)・腕 A-d 04:24:24Z〜04:28:03Z(219 s)・すべて `exit=0` → `CHAIN_DONE 04:28:03Z`(4 腕の合計 1,125 s = 0.31 h)。`ABORT`・`STOP time soft cap` は出なかった
-> - **機械的な確認(解釈ではない)**: `metrics.json` の `kind` = `threshold_sweep`・`adapter` = null(4 本とも)/ predictions の件数 B 34,322(t3 17,198 + t1b 17,124)・A 同じ・B-d 17,124・A-d 17,124 = 計 102,892(dry-run と一致)/ `git_sha.txt` = `102c2d5677e2bb2bfe36e893dba0dad383b72432`(4 本とも。`dirty: true` の原因は untracked の `runs/` だけ。`git status --short` は `??` 4 行・`git diff HEAD` は空)/ `git_diff.patch` = 0 バイト(4 本とも)
-> - **run**: [run:20261001_034734_exp_diag_b] [run:20261001_035351_exp_diag_a] [run:20261001_035901_exp_diag_b_d] [run:20261001_040358_exp_diag_a_d]。ローカルの `runs/` に回収して commit `9d1bef3`(`log.txt` は `.gitignore` の対象)。**`predictions/` は回収していない。pod のボリューム `r963j7swke` の `/workspace/translesion/runs/<id>/predictions/` に残してある**
-> - **判定表**: `results/diag_sharpness/sharpness.txt`(112 行)と `sharpness.json` を、pod 上で tag の commit(`102c2d5`)のまま `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness` で出した(exit=0)。**中身は読んでいない。印も数値もここには書かない。読むのは人間**(先頭の sha と tag の commit の照合 / `git log preregister-diag-sharpness..<解析側の sha> -- code/analysis/ code/eval/battery/`(ローカルの HEAD に対しては空だった)/ 表示された線・件数・adapter・batch・上位 k を §8.1 と見比べる。PLAN-032 §8.2)
-> - **pod**: `9matkiq0jozcgm` を `stop`(約 04:30:35Z)。`list-pods` で**所有 5 本すべて `EXITED`**(稼働中の pod は無い)。`runtime.uptime` = 2,982 s(表示の遅れを含む)・createdAt〜stop = 約 3,034 s → **0.84 h・約 $0.62**(承認の 2.5 h・$1.85 の約 1/3。volume の保管料は含まない)。`cost.txt` は `exp_diag_b` に pod 全体を書き、他の 3 本はそれを指す
-> - **やっていないこと**: 判定表の解釈・push・tag・`configs/`・`code/` の変更(1 バイトも変えていない)・I5(Phase 2)・ADR
-> - **★その123 のブロックは `logs/STATE-ARCHIVE.md`「その124」にある**
+> **★★2026-10-01(その125・最新)。Phase 0。PLANNER (Opus 5.5)。人間が Phase 1 の判定表を読み、ADR-111 を採択した。GPU 0・pod 0。**
+> - **判定表の受け入れ(ADR-111 決定1)**: 先頭の sha `102c2d5…` = tag の commit / 解析側の sha も同じ・`git diff HEAD -- code/` 空 / `git log <tag>..102c2d5 -- code/analysis/ code/eval/battery/` 0 件 / 線 0.088・160 件/水準・adapter None・batch 4・上位 k 20(PLAN-032 §8.2 の 3 つの照合)
+> - **R3・R4 の機械的な出力**(判定表のまま。[run:20261001_034734_exp_diag_b] [run:20261001_035351_exp_diag_a] [run:20261001_035901_exp_diag_b_d] [run:20261001_040358_exp_diag_a_d]): T1b・T3 とも A 届く / B 届かない → 分岐 (a)。B-d(T1b)届かない・R5 は当たらない。**人間が両方とも分岐 (a) を採った(ADR-111 決定2)**。値と記述の行の事実は ADR-111 の文脈にある
+> - **R8(ADR-111 決定3)**: ADR-107 決定7 どおり回す方針。前に push(人間)と新しい G2-1 承認(人間)
+> - **その124 の未確認(所要時間)を閉じた**: `timing.seconds_per_item` = 0.007(4 本)= 同じ掃引の経路の [run:20260922_122247_order6b_r8] と同じ。外れていたのは見積り
+> - **やっていないこと**: H4-3 の文書修正(`CLAUDE.md` §0・`00_OVERVIEW.md` §1・`05_STATISTICS.md` §2 は df = 6 のまま)・push・tag・GPU・`configs/`・`code/` の変更
+> - **★その124 のブロックは `logs/STATE-ARCHIVE.md`「その125」にある**
 
 ---
 
@@ -98,26 +97,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 > **★2026-09-25(その95)に、Go/No-Go の表(R1)・★F138・★F139・★F140・R4 の分類・その46 の数え上げの箇条書きをアーカイブへ丸ごと移した**(`STATE.md` が 60 KB を超えたため。ADR-063 運用規約5。**1 文字も削っていない**。
 > `logs/STATE-ARCHIVE.md`「その95」)。**印の位置(R1): #2 は T3・T1b の 6 セル / #3 は T1b `interp` 以外の 5 セル。数値の正本は各 run の `metrics.json` と `results/gonogo_order6/gonogo.json`。**
 
-### ★順6b(2026-09-22 その70。素の `Llama-3.1-8B-Instruct` / adapter null / RTX 4090 / pool_id `pilot`。**解釈はしていない。印は `order6b_select` が §5 を機械的に当てたもの**)
+### ★順6b(2026-09-22 その70)★2026-10-01(その125)にアーカイブへ移した
 
-**7 本すべて成功した**(`CHAIN_DONE [12:56:54Z]`)。**件数は PLAN-026 §4.14 の dry-run と 1 件も違わない**(合計 15,626)。**`git_sha.txt` は 7 本とも `b5838c0` で `git_diff.patch` は 0 バイト**(追跡ファイルの変更は 1 件も無い)。
-
-| 腕 | run_id | 件数 | 壁時計 | 4 値のブロック | `items_sha256` |
-|---|---|---|---|---|---|
-| B0 | [run:20260922_121455_order6b_b0] | 1,640 | 247.359s | 31(全て 1.0) | pilot `c5072f488607f6e9…` |
-| R8 | [run:20260922_122247_order6b_r8] | 8,160 | 152.725s | —(`threshold_sweep`) | pilot_sweep_r8 `05902c908a95dd80…` |
-| ① | [run:20260922_122908_order6b_preamble] | 1,440 | 241.338s | 25(全て 1.0) | pilot `c5072f488607f6e9…` |
-| (d) | [run:20260922_123640_order6b_d] | 480 | 93.691s | 11(全て 1.0) | pilot `c5072f488607f6e9…` |
-| (c) | [run:20260922_124141_order6b_c] | 306 | 88.105s | —(`calibration`) | —(プールを読まない) |
-| S-① | [run:20260922_124632_order6b_s_preamble] | 2,400 | 106.425s | —(`threshold_sweep`) | pilot_sweep_s `97d763971b2b58fc…` |
-| S-(d) | [run:20260922_125131_order6b_s_d] | 1,200 | 113.966s | —(`threshold_sweep`) | pilot_sweep_s `97d763971b2b58fc…` |
-
-- **掃引 3 本と較正 1 本が 4 値分解を持たないのは設計である**(PLAN-026 §3.2・§4.5 読み2)。取りこぼしではない —— run の `log.txt` に同じ注記が出ており、`metrics.json` の `kind` でも確かめた
-- **★判定表(`results/order6b_select/order6b_select.json`。`python -m code.analysis.order6b_select` に 7 本すべてを渡した)**:
-  **T3 = 採る候補なし / T1b = 採る候補なし。**C0・C3・C1(T1b は C2 も)がどれも §5 の (i)〜(iv) を満たさなかった。
-  `preamble_mismatch` は `None`。**これは §5 を機械的に当てた出力であって、採用でも解釈でもない**(ADR-078 決定2・PLAN-026 §6。**採用と分岐の読みは人間**)
-- **`pool_id: pilot` の数値は主張の根拠に使わない**(PLAN-001 §4.6 規則4)
-
+> **表と判定表の要約は `logs/STATE-ARCHIVE.md`「その125」へ丸ごと移した**(ADR-063 運用規約5。60 KB 超のため。1 文字も削っていない)。**数値の正本は各 run の `metrics.json` と `results/order6b_select/order6b_select.json`**
 
 ### ★順5 の再採点 [run:20260910_215422_rescore_sweep_m](2026-09-11 その40)★2026-09-22(その71)にアーカイブへ移した
 
@@ -301,9 +283,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F114 の実行先** ★新 | **「どこで回すか」**(この機械 16 コア / CPU の多い RunPod ポッド)。**CPU なので §2 の「10 GPU時間超」の対象ではないが、黙って始めてよい量ではない。**所要時間は `n_item` に比例する(`n_item = 48` で 62 時間。ADR-095 の値では行数 2.5 倍・時間は未実測)。**3 つの null が埋まってから諮る** | 本実行の前 |
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
-| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その119)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。★その118: I5 の config 10 本ができた(IMPLEMENTER。`configs/exp_pilot_ft_cmp_*`。push は人間)。★その119: G2-1 の最終承認は人間から得た(pod 型・単価・上限を示した)が、既存 3 本の再起動 + 新規作成の計 4 回すべて失敗(在庫。課金なし)。残り = その118 の push + 在庫が戻るのを待つ**。★その120: pod 起動確認・Phase 1 の pod 側セットアップ(bundle 転送・checkout・venv 確認)まで進めた。**★その121: 腕 B の実行に入ったところ `preflight.py --config` が FAIL 3 件(`train.jsonl` 欠落・`HF_TOKEN` 未設定)で止まり、pod を停止した(稼働 約3h37m/$2.68。上限 4.0h/$2.96 は使い切っていない)。人間の判断待ち 2 件が新設(下の「★腕 B の preflight FAIL」行)** |
-| ~~**★腕 B の preflight FAIL(データ欠落・HF_TOKEN)**~~ **→ ★その123 解消** | **(a) `train.jsonl` = 人間が採択(その122。提案 エージェント / 採択 人間)した案どおり手元の 5 本を pod へ送り、SHA-256 が manifest と 5/5 一致。(b) `HF_TOKEN` は不要(ボリュームのキャッシュ + `HF_HOME`)。4 腕の preflight は FAIL 0。Phase 1 の本実行は 2026-10-01T04:09:18Z に始まった**。**ADR は未記入**(採択の事実は `logs/CHANGELOG.md` その122・その123 にある。人間が望めば ADR に起こす) | `logs/CHANGELOG.md` その123 | — |
-| **★Phase 1 の判定表を読む** ★新(その124) | **Phase 1 の 4 腕(B・A・B-d・A-d)の本実行が終わり、判定表 `results/diag_sharpness/sharpness.txt` が出た(機械的。解釈していない)。人間が読む。**経緯の全文は `logs/OPEN-ITEMS.md` の行 | `plans/PLAN-032` §8.2 / `results/diag_sharpness/` | いま |
+| ~~**PLAN-032 の凍結 tag と G2-1 GPU 承認**~~ / ~~**★腕 B の preflight FAIL**~~ | **済**(tag・push = その117 / G2-1 承認・本実行 = その123 / 回収 = その124 / 読み = ADR-111)。**行の全文は `logs/STATE-ARCHIVE.md`「その125」へ移した**(ADR-063 運用規約6) | — | — |
+| ~~**★Phase 1 の判定表を読む**~~ ★新(その124)**→ ★その125 決着 = ADR-111** | **Phase 1 の 4 腕(B・A・B-d・A-d)の本実行が終わり、判定表 `results/diag_sharpness/sharpness.txt` が出た(機械的。解釈していない)。人間が読む。**経緯の全文は `logs/OPEN-ITEMS.md` の行 | `plans/PLAN-032` §8.2 / `results/diag_sharpness/` | **決着**(受け入れ / T1b・T3 とも分岐 (a) / R8 は回す方針) |
+| **★H4-3 主要検定を T1 × T2(df = 2)にする文書修正** ★新(その125) | ADR-111 決定2。PLAN(PLANNER / Opus)→ 人間が文言を承認 → 文書修正。経緯の全文は `logs/OPEN-ITEMS.md` の行 | ADR-111 / ADR-097 決定4 / `plans/PLAN-030` §3.2 段4 | 事前登録の凍結の前 |
+| **★R8(Phase 2)の push と G2-1 承認** ★新(その125) | ADR-111 決定3。人間の操作 2 つ: `01cf60f` 以降の main の push と新しい G2-1 承認。経緯の全文は `logs/OPEN-ITEMS.md` の行 | ADR-111 / ADR-107 決定7 | 人間の都合 |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
@@ -348,24 +331,24 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-01(その124・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-10-01(その125・最新)。ADR-111 で段2 が閉じ、段4 は分岐 (a)(PLAN-030 §3.2)。1 セッション = 1 PLAN。**
 >
-> 1. **人間: Phase 1 の判定表を読む**(`results/diag_sharpness/sharpness.txt`。`plans/PLAN-032` §8.2「判定表を読むとき」。**エージェントは読みを決めない**。読みを ADR に起こすときは、エージェントが起草するなら提案者と採択者を分けて書く = ADR-039)
-> 2. **人間: その118 commit(`01cf60f`)の push**(Phase 2 = I5 の 10 本の前に必要。ADR-110 決定4 = 人間の操作)。**Phase 2 は別の G2-1 承認(新しい上限)が要る**(今回の承認は Phase 1 のみ。0.84 h で完了した)
-> 3. 人間(いつでも): 旧 4 本(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)と今回の `9matkiq0jozcgm` の terminate(いずれも `EXITED`。**ボリューム `r963j7swke` は残す**。`predictions/` とモデルのキャッシュがボリュームにある)
-> 4. PLAN-033(段3。ADR-098)。段2 が人間待ちで止まっている間に挟む
-> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+> 1. **(α) H4-3 の PLAN の起草**(PLANNER / Opus): 主要検定を T1 × T2(df = 2)にする文書修正の範囲と文言(`CLAUDE.md` §0・`Documents/00_OVERVIEW.md` §1・`Documents/05_STATISTICS.md` §2・`01_HYPOTHESES.md` ほか)。T1b・T3 は探索。★F114・`n_item`・E1 の前提の変化も洗う。**文言の承認は人間**
+> 2. **(β) R8**: 人間が その118 commit(`01cf60f`)以降の main を push(ADR-110 決定4)→ 新しい G2-1 承認(RUNNER の見積り)→ RUNNER が `configs/exp_pilot_ft_cmp_*` の 10 本を回す。**(α) と (β) の順は人間が決める**
+> 3. 人間(いつでも): 旧 4 本(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)と `9matkiq0jozcgm` の terminate(いずれも `EXITED`。**ボリューム `r963j7swke` は残す**)
+> 4. PLAN-033(段3。ADR-098)
+> 5. 凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-10-01(その124・最新)。RUNNER (Sonnet 5.5。推奨と一致)。Phase 1 の 4 腕の回収・判定表・pod の stop まで済み。判定表は人間が読む。**
+> **★★2026-10-01(その125・最新)。PLANNER (Opus 5.5。推奨と一致)。人間が判定表を読み ADR-111 を採択した。**
 >
-> **★やったこと**: `CHAIN_DONE`(04:28:03Z。全腕 `exit=0`)まで時計で見張った / 4 本の run dir の機械的な確認(件数 102,892・sha・patch 0 バイト)/ 判定表を pod 上で tag の commit のまま出力 / 回収(`tar | ssh`)/ `cost.txt` / pod `stop` → `EXITED`(5 本とも)/ 成果物を commit(`9d1bef3`)。
-> **★やっていないこと**: 判定表の解釈・push・tag・`configs/`・`code/` の変更・I5・ADR。
-> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(人間が判定表を読む場に付き合う。GPU 0・pod は使わない)。
+> **★やったこと**: PLAN-032 §8.2 の照合(機械的)/ 判断材料の表を示して 4 問を聞いた(4 問とも推奨)/ ADR-111 の起草 / PLAN-032 のステータスと §10 / OPEN-ITEMS(判定表の行を決着・新しい行 2 つ = H4-3・R8 の push と承認)/ その124 の所要時間の未確認を閉じた。
+> **★やっていないこと**: H4-3 の文書修正・push・tag・GPU・`configs/`・`code/`。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`((α) H4-3 の PLAN か (β) R8。どちらかは人間)。
 
 ---
 

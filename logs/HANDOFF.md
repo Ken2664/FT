@@ -1,48 +1,38 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-01(その124)/ 直前セッションの役割: RUNNER(Phase 1 の 4 腕の完了を見届け、回収・判定表・pod の stop まで済ませた)
-直前セッションが終了した理由: **Phase 1 の GPU 作業が終わり、次は人間が判定表を読む番**(PLAN 1 本の区切り。コンテキストは超過していない)
-直前セッションの実モデル: Claude Sonnet 5.5
-**推奨モデル(次のセッション)**: **Opus** — 人間が判定表の読みを決める場に付き合い、決まったことを ADR に起草する作業は「設計判断・統計・解釈」の行(`Documents/10_CONTEXT_POLICY.md` §7)。**案を出すのはよいが、読み・採択は人間**。**選ぶのは人間**。GPU・pod は使わないので、判定表の場所を示すだけ・commit だけの作業なら Sonnet でもよい
+生成: 2026-10-01(その125)/ 直前セッションの役割: PLANNER(人間が Phase 1 の判定表を読む場に付き合い、ADR-111 を起草した)
+直前セッションが終了した理由: **ADR-111 で段2(PLAN-032)の読みが決まり、区切りがついた**(コンテキストは超過していない)
+直前セッションの実モデル: Claude Opus 5.5
+**推奨モデル(次のセッション)**: **(α) H4-3 の PLAN なら Opus**(主要検定の文言・統計の前提 = 設計判断・統計の行。`Documents/10_CONTEXT_POLICY.md` §7)/ **(β) R8 の実行なら Sonnet**(RUNNER)。**どちらをやるか・モデルを選ぶのは人間**
 
 ---
 
 あなたはこの repo の担当エージェントです。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**。
-`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**人間の最初の指示が先**です。指示が無ければ、下の「いまの状態」を要約して、人間に次を聞いてください。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**人間の最初の指示が先**です。指示が無ければ、下の「いまの状態」を要約し、(α)(β) のどちらにするかを人間に聞いてください(判断材料と推奨を付ける。memory「Recommend before choice」)。
 
-## いまの状態(すべてファイルに反映済み: `STATE.md`・`logs/CHANGELOG.md` その124)
+## いまの状態(すべてファイルに反映済み: `STATE.md`・`logs/CHANGELOG.md` その125・`logs/DECISIONS.md` ADR-111)
 
-- **Phase 1(段2 の診断 = 鋭さ。PLAN-032)の 4 腕(B・A・B-d・A-d)の本実行は終わった**(2026-10-01T04:09:18Z〜04:28:03Z。すべて `exit=0`。件数 計 102,892 = dry-run と一致。`git_sha` は 4 本とも tag `preregister-diag-sharpness` の commit `102c2d5…`・`git_diff.patch` は 4 本とも 0 バイト)
-- **run**: [run:20261001_034734_exp_diag_b] [run:20261001_035351_exp_diag_a] [run:20261001_035901_exp_diag_b_d] [run:20261001_040358_exp_diag_a_d]。ローカルの `runs/` に回収済み(commit `9d1bef3`。`predictions/` はボリューム `r963j7swke` の `/workspace/translesion/runs/<id>/predictions/` に残してあり、ローカルには無い)
-- **判定表 `results/diag_sharpness/sharpness.txt`(112 行)と `sharpness.json` が出ている**(pod 上で tag の commit のまま `code.analysis.sharpness_fit` を回しただけ。**RUNNER は中身を読んでいない。印も数値も解釈もどこにも書いていない**)
-- **pod `9matkiq0jozcgm` は `stop` 済み(`EXITED`)。所有 5 本すべて `EXITED`**(稼働中の pod は無く、課金は止まっている)。この pod の稼働 = 約 3,034 s = 0.84 h・約 $0.62(承認の 2.5 h・$1.85 の内側)。`cost.txt` は `runs/20261001_034734_exp_diag_b/cost.txt`
-- **push は依然未**(`origin/main` = `102c2d5`。その118 の commit `01cf60f` と、その後のローカル commit は未 push。**push は人間の操作**。ADR-110 決定4)。tag・`configs/`・`code/` は 1 バイトも変えていない
+- **Phase 1(段2 の診断 = 鋭さ)は終わり、人間が読んだ**(ADR-111。提案 エージェント (Opus 5.5)・採択 人間。4 問とも推奨):
+  - 決定1: 判定表 `results/diag_sharpness/` を受け入れた(先頭の sha = tag `preregister-diag-sharpness` の commit `102c2d5`)
+  - 決定2: **T1b・T3 とも分岐 (a)**。前段 FT(③-ii)・③-iii はしない。**主要検定を T1 × T2(df = 2)にする**(ADR-097 決定4 (a))。T1b・T3 は測り続けるが探索的。**文書(`CLAUDE.md` §0・`Documents/00_OVERVIEW.md` §1・`Documents/05_STATISTICS.md` §2 ほか)はまだ df = 6 のまま** = H4-3
+  - 決定3: **R8**(パイロットのアダプタ 10 本の固定オフセットの T1b・T3。`configs/exp_pilot_ft_cmp_*`)は ADR-107 決定7 どおり回す方針。結果は探索的
+- **push は依然未**(`origin/main` = `102c2d5`。その118 の `01cf60f` 以降が未 push。**push は人間**。ADR-110 決定4)
+- **稼働中の pod は無い**(5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す。`predictions/` とモデルのキャッシュがある)
 
-## 人間が最初にやること(エージェントの仕事ではない)
+## 次の作業の候補(どちらを先にするかは人間)
 
-1. **判定表を読む**(`results/diag_sharpness/sharpness.txt`)。`plans/PLAN-032` §8.2「判定表を読むとき」: ① 先頭の sha と tag の commit(`102c2d5`)を §8.1 R7 のとおり比べる ② `git log preregister-diag-sharpness..<解析側の sha> -- code/analysis/ code/eval/battery/` を見る(ローカルの HEAD に対しては空だった) ③ 表示された線・件数・adapter・batch・上位 k を §8.1 と見比べる。**読み(通る・通らない・どちらが優位か)を決めるのは人間**
-2. 読んだ結果の ADR を起こすなら、エージェントが起草してよいが、**提案者(エージェント)と採択者(人間)を分けて書く**(ADR-039)。**エージェントが判定表の印・数値を解釈して「通った/通らなかった」と書くことはしない**
-
-## エージェントがしてよいこと(人間の指示があれば)
-
-- 判定表の**場所と構造の説明**(`sharpness.txt` を `sed -n` で必要な範囲だけ見せる。`sharpness.json` のキー一覧)。**解釈はしない**
-- 人間が決めた読みの **ADR の起草**(`logs/DECISIONS.md`)と、`STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` への反映
-- PLAN-033(段3。ADR-098)の起草など、段2 が人間待ちの間に挟める作業
-- **`CLAUDE.md` §4 の順(PLAN → 人間のレビュー → 実装 → テスト → CHANGELOG → commit)を守る**
+- **(α) H4-3 の PLAN の起草**(PLANNER / Opus): 主要検定を T1 × T2 にする文書修正の範囲(`grep -rn 'df = 6\|df=6\|task:coverage' CLAUDE.md Documents/ plans/` で洗う)と文言の案。★F114(検出力分析)・`n_item` のタスク型ごとの実装(ADR-095 決定2)・E1 の TOST 境界の前提がどう変わるかも並べる(PLAN-030 §6 罠5)。**PLAN → 人間のレビュー → 文書修正**(`CLAUDE.md` §4)。事前登録の予測を実験後に変える話ではない(本体は未凍結。ADR-097 の文脈と同じ確認を PLAN に書く)
+- **(β) R8 の実行**(RUNNER / Sonnet): 人間が push → RUNNER が見積り(4 腕の実測 0.007 s/項目は掃引の経路。R8 は固定オフセットの経路で速さが違う。順6b の B0 などの `timing` から外挿)→ 人間が G2-1 承認 → `infra/RUNPOD.md` §4 の順。`plans/PLAN-032` §8.2 の「I5 は 4 腕の後に、I5 の config の入った commit を checkout して回す」
 
 ## やってはいけないこと
 
-- **判定表を解釈しない**(`CLAUDE.md` §8)。`results/diag_sharpness/` の中身から「Phase 2 に進める」「診断が通った」などの結論を書かない
-- **tag を打たない・push しない**(人間の操作。ADR-110 決定4)
-- **I5(Phase 2。10 本の固定オフセットの T1b・T3)を回さない・pod を起動しない**。Phase 2 は `01cf60f` の push と **別の G2-1 承認(新しい上限)**が先。今回の承認は Phase 1 のみ(0.84 h で使い切った)
-- **`configs/`・`code/` を直さない**(事前登録の凍結。`CLAUDE.md` §2・§8)
-- **旧 4 本の pod(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)と `9matkiq0jozcgm` を terminate しない**(人間の操作。ボリューム `r963j7swke` は残す)
-- **この機は Windows**: `.md`・`.py` は LF 固定(Python で書くときは `newline="\n"`)。GNU `tar` は `C:/...` を「リモートホスト `C`」と解釈するので `--force-local` か相対パスを使う。Bash の heredoc に長い日本語 + 引用符を入れると解釈エラーになることがあるので、長い文面は `Write` でスクラッチパッドに置く
+- **ADR-111 を覆さない・判定表を読み直して別の結論を書かない**(人間の採択)。「律速は合成」を claim として確定させない(ADR-111 決定2 の注)
+- **tag を打たない・push しない・pod を起動しない**(人間の操作・承認が先)
+- **`configs/`・`code/` を (α) の中で直さない**。文書修正も PLAN のレビューの後
+- **この機は Windows**: `.md`・`.py` は LF 固定(Python で書くときは `newline="\n"`)。GNU `tar` は `--force-local`。長い日本語は `Write` でスクラッチパッドに置いてから Python で入れる
+- STATE.md は 371 行・59.9 KB(目標 60 KB の直下)。**次に足すときは同じだけアーカイブへ移す**
 
 ## 未解決 / 人間の承認待ち(正本は `logs/OPEN-ITEMS.md`)
 
-- **★Phase 1 の判定表を読むこと**(人間。上のとおり)
-- **その118 commit(`01cf60f`)の push** と **Phase 2 の G2-1 承認**(新しい上限)
-- その118 の実装の読み 1〜5・採択の ADR への記録・★T2 の形の変化と #5 の扱い・旧 4 本と今回の pod の terminate(持ち越し)
-- `train.jsonl` を手元から送った採択(その122)の **ADR は未記入**(CHANGELOG に事実は記録済み。人間が望めば起こす)
-- **未確認(その124 の CHANGELOG「批判的視点」)**: 4 腕の所要時間は合計 1,125 s = 0.31 h で、RUNNER の見積り(約 1.05 h)の約 0.3 倍。件数は dry-run と一致しており項目を飛ばしたのではない。速かった理由は確かめていない。判定表の読みに関わるなら `metrics.json` の `timing`・`generation` と見比べるのは人間
+- **★H4-3**(主要検定の文書修正の文言)/ **★R8 の push と G2-1 承認**(どちらも その125 新設)
+- 旧 4 本と `9matkiq0jozcgm` の terminate / その122 の採択の ADR(未記入)/ ★T2 の形の変化と #5 の扱い・★`train_size` 掃引の意味・★rank の格子と学習率の揃え方(凍結前)

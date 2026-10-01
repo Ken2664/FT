@@ -8871,3 +8871,70 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 > **★やったこと**: 新 pod の確認 / `train.jsonl` 5 本を送って SHA-256 を 2 回照合(5/5 一致)/ `HF_TOKEN` が不要と判明(モデルキャッシュ + `HF_HOME`)/ 4 腕の `preflight.py --config` = すべて FAIL 0 / 人間から G2-1 承認(Phase 1 のみ・累計 2.5h・$1.85・stop 可)/ チェーン `/workspace/chain_diag.sh` を起動(腕 B 開始 04:09:18Z)。
 > **★やっていないこと**: 結果の確認・回収・判定表・`cost.txt`・pod の stop・push・tag。**pod は止めていない(稼働中。期限 06:10Z)**。
 > **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(時計でチェーンを見張る → 回収 → 判定表 → pod を stop)。
+
+## ★2026-10-01(その125)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その125(PLANNER。人間が Phase 1 の判定表を読み ADR-111 を採択した)で差し替えた 4 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-01(その124)/ by RUNNER (Sonnet 5.5。推奨と一致。**Phase 1 の 4 腕の本実行が終わり、回収・判定表・pod の stop まで済んだ**。チェーンは 2026-10-01T04:09:18Z〜04:28:03Z(`CHAIN_DONE`)で B → A → B-d → A-d がすべて `exit=0`。件数 B 34,322・A 34,322・B-d 17,124・A-d 17,124(計 102,892 = dry-run と一致)・`git_sha.txt` は 4 本とも `102c2d5…`・`git_diff.patch` は 4 本とも 0 バイト。判定表 `results/diag_sharpness/` は pod 上で tag の commit のまま `sharpness_fit` を回して出た(exit=0)。**判定表は読んでいない(読むのは人間)**。pod `9matkiq0jozcgm` は `stop`(`EXITED`。createdAt〜stop 約 3,034 s = 0.84 h・約 $0.62。承認の 2.5 h・$1.85 の内側)。成果物の commit は `9d1bef3`。**push は依然未**(`origin/main` = `102c2d5`)。tag・`configs/`・`code/` は 1 バイトも変えていない)
+(**次: 人間が `results/diag_sharpness/sharpness.txt` を読む**(`plans/PLAN-032` §8.2「判定表を読むとき」)。人間: I5 commit(`01cf60f`)の push と Phase 2 の G2-1 承認は別。**稼働中の pod は無い**(5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す)。)
+
+### いま何をしているか
+
+> **★★2026-10-01(その124・最新)。Phase 0。RUNNER (Sonnet 5.5)。Phase 1 の 4 腕の本実行が終わり、回収・判定表・pod の stop まで済んだ。判定表は読んでいない(人間)。**
+> - **チェーン**: `/workspace/chain_diag.status` = `PREFLIGHT_ALL_OK 04:09:18Z` → 腕 B 04:09:18Z〜04:15:03Z(345 s)・腕 A 04:15:03Z〜04:20:42Z(339 s)・腕 B-d 04:20:42Z〜04:24:24Z(222 s)・腕 A-d 04:24:24Z〜04:28:03Z(219 s)・すべて `exit=0` → `CHAIN_DONE 04:28:03Z`(4 腕の合計 1,125 s = 0.31 h)。`ABORT`・`STOP time soft cap` は出なかった
+> - **機械的な確認(解釈ではない)**: `metrics.json` の `kind` = `threshold_sweep`・`adapter` = null(4 本とも)/ predictions の件数 B 34,322(t3 17,198 + t1b 17,124)・A 同じ・B-d 17,124・A-d 17,124 = 計 102,892(dry-run と一致)/ `git_sha.txt` = `102c2d5677e2bb2bfe36e893dba0dad383b72432`(4 本とも。`dirty: true` の原因は untracked の `runs/` だけ。`git status --short` は `??` 4 行・`git diff HEAD` は空)/ `git_diff.patch` = 0 バイト(4 本とも)
+> - **run**: [run:20261001_034734_exp_diag_b] [run:20261001_035351_exp_diag_a] [run:20261001_035901_exp_diag_b_d] [run:20261001_040358_exp_diag_a_d]。ローカルの `runs/` に回収して commit `9d1bef3`(`log.txt` は `.gitignore` の対象)。**`predictions/` は回収していない。pod のボリューム `r963j7swke` の `/workspace/translesion/runs/<id>/predictions/` に残してある**
+> - **判定表**: `results/diag_sharpness/sharpness.txt`(112 行)と `sharpness.json` を、pod 上で tag の commit(`102c2d5`)のまま `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness` で出した(exit=0)。**中身は読んでいない。印も数値もここには書かない。読むのは人間**(先頭の sha と tag の commit の照合 / `git log preregister-diag-sharpness..<解析側の sha> -- code/analysis/ code/eval/battery/`(ローカルの HEAD に対しては空だった)/ 表示された線・件数・adapter・batch・上位 k を §8.1 と見比べる。PLAN-032 §8.2)
+> - **pod**: `9matkiq0jozcgm` を `stop`(約 04:30:35Z)。`list-pods` で**所有 5 本すべて `EXITED`**(稼働中の pod は無い)。`runtime.uptime` = 2,982 s(表示の遅れを含む)・createdAt〜stop = 約 3,034 s → **0.84 h・約 $0.62**(承認の 2.5 h・$1.85 の約 1/3。volume の保管料は含まない)。`cost.txt` は `exp_diag_b` に pod 全体を書き、他の 3 本はそれを指す
+> - **やっていないこと**: 判定表の解釈・push・tag・`configs/`・`code/` の変更(1 バイトも変えていない)・I5(Phase 2)・ADR
+> - **★その123 のブロックは `logs/STATE-ARCHIVE.md`「その124」にある**
+
+### 次のアクション
+
+> **★★2026-10-01(その124・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **人間: Phase 1 の判定表を読む**(`results/diag_sharpness/sharpness.txt`。`plans/PLAN-032` §8.2「判定表を読むとき」。**エージェントは読みを決めない**。読みを ADR に起こすときは、エージェントが起草するなら提案者と採択者を分けて書く = ADR-039)
+> 2. **人間: その118 commit(`01cf60f`)の push**(Phase 2 = I5 の 10 本の前に必要。ADR-110 決定4 = 人間の操作)。**Phase 2 は別の G2-1 承認(新しい上限)が要る**(今回の承認は Phase 1 のみ。0.84 h で完了した)
+> 3. 人間(いつでも): 旧 4 本(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)と今回の `9matkiq0jozcgm` の terminate(いずれも `EXITED`。**ボリューム `r963j7swke` は残す**。`predictions/` とモデルのキャッシュがボリュームにある)
+> 4. PLAN-033(段3。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 5. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 引き継ぎ
+
+> **★★2026-10-01(その124・最新)。RUNNER (Sonnet 5.5。推奨と一致)。Phase 1 の 4 腕の回収・判定表・pod の stop まで済み。判定表は人間が読む。**
+>
+> **★やったこと**: `CHAIN_DONE`(04:28:03Z。全腕 `exit=0`)まで時計で見張った / 4 本の run dir の機械的な確認(件数 102,892・sha・patch 0 バイト)/ 判定表を pod 上で tag の commit のまま出力 / 回収(`tar | ssh`)/ `cost.txt` / pod `stop` → `EXITED`(5 本とも)/ 成果物を commit(`9d1bef3`)。
+> **★やっていないこと**: 判定表の解釈・push・tag・`configs/`・`code/` の変更・I5・ADR。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(人間が判定表を読む場に付き合う。GPU 0・pod は使わない)。
+
+### わかっていること ★順6b(60 KB 超のため。運用規約5)
+
+### ★順6b(2026-09-22 その70。素の `Llama-3.1-8B-Instruct` / adapter null / RTX 4090 / pool_id `pilot`。**解釈はしていない。印は `order6b_select` が §5 を機械的に当てたもの**)
+
+**7 本すべて成功した**(`CHAIN_DONE [12:56:54Z]`)。**件数は PLAN-026 §4.14 の dry-run と 1 件も違わない**(合計 15,626)。**`git_sha.txt` は 7 本とも `b5838c0` で `git_diff.patch` は 0 バイト**(追跡ファイルの変更は 1 件も無い)。
+
+| 腕 | run_id | 件数 | 壁時計 | 4 値のブロック | `items_sha256` |
+|---|---|---|---|---|---|
+| B0 | [run:20260922_121455_order6b_b0] | 1,640 | 247.359s | 31(全て 1.0) | pilot `c5072f488607f6e9…` |
+| R8 | [run:20260922_122247_order6b_r8] | 8,160 | 152.725s | —(`threshold_sweep`) | pilot_sweep_r8 `05902c908a95dd80…` |
+| ① | [run:20260922_122908_order6b_preamble] | 1,440 | 241.338s | 25(全て 1.0) | pilot `c5072f488607f6e9…` |
+| (d) | [run:20260922_123640_order6b_d] | 480 | 93.691s | 11(全て 1.0) | pilot `c5072f488607f6e9…` |
+| (c) | [run:20260922_124141_order6b_c] | 306 | 88.105s | —(`calibration`) | —(プールを読まない) |
+| S-① | [run:20260922_124632_order6b_s_preamble] | 2,400 | 106.425s | —(`threshold_sweep`) | pilot_sweep_s `97d763971b2b58fc…` |
+| S-(d) | [run:20260922_125131_order6b_s_d] | 1,200 | 113.966s | —(`threshold_sweep`) | pilot_sweep_s `97d763971b2b58fc…` |
+
+- **掃引 3 本と較正 1 本が 4 値分解を持たないのは設計である**(PLAN-026 §3.2・§4.5 読み2)。取りこぼしではない —— run の `log.txt` に同じ注記が出ており、`metrics.json` の `kind` でも確かめた
+- **★判定表(`results/order6b_select/order6b_select.json`。`python -m code.analysis.order6b_select` に 7 本すべてを渡した)**:
+  **T3 = 採る候補なし / T1b = 採る候補なし。**C0・C3・C1(T1b は C2 も)がどれも §5 の (i)〜(iv) を満たさなかった。
+  `preamble_mismatch` は `None`。**これは §5 を機械的に当てた出力であって、採用でも解釈でもない**(ADR-078 決定2・PLAN-026 §6。**採用と分岐の読みは人間**)
+- **`pool_id: pilot` の数値は主張の根拠に使わない**(PLAN-001 §4.6 規則4)
+
+
+
+### 人間待ちの索引の済んだ 2 行(運用規約6)
+
+| **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その119)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。★その118: I5 の config 10 本ができた(IMPLEMENTER。`configs/exp_pilot_ft_cmp_*`。push は人間)。★その119: G2-1 の最終承認は人間から得た(pod 型・単価・上限を示した)が、既存 3 本の再起動 + 新規作成の計 4 回すべて失敗(在庫。課金なし)。残り = その118 の push + 在庫が戻るのを待つ**。★その120: pod 起動確認・Phase 1 の pod 側セットアップ(bundle 転送・checkout・venv 確認)まで進めた。**★その121: 腕 B の実行に入ったところ `preflight.py --config` が FAIL 3 件(`train.jsonl` 欠落・`HF_TOKEN` 未設定)で止まり、pod を停止した(稼働 約3h37m/$2.68。上限 4.0h/$2.96 は使い切っていない)。人間の判断待ち 2 件が新設(下の「★腕 B の preflight FAIL」行)** |
+| ~~**★腕 B の preflight FAIL(データ欠落・HF_TOKEN)**~~ **→ ★その123 解消** | **(a) `train.jsonl` = 人間が採択(その122。提案 エージェント / 採択 人間)した案どおり手元の 5 本を pod へ送り、SHA-256 が manifest と 5/5 一致。(b) `HF_TOKEN` は不要(ボリュームのキャッシュ + `HF_HOME`)。4 腕の preflight は FAIL 0。Phase 1 の本実行は 2026-10-01T04:09:18Z に始まった**。**ADR は未記入**(採択の事実は `logs/CHANGELOG.md` その122・その123 にある。人間が望めば ADR に起こす) | `logs/CHANGELOG.md` その123 | — |

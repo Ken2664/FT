@@ -8,9 +8,9 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-09-28(その121)/ by RUNNER (Sonnet 5。推奨と一致。**Phase 1 腕 B の `preflight.py --config` が FAIL 3 件で止まった**: (1) data manifest — `data/generated/ft/exp_order6b_pilot_p2/train.jsonl` が pod 上に物理的に無い(manifest.json は commit 済みだが生成物は追跡外で、この fresh clone には無い)。(2)(3) token boundaries / forced choice tokens — pod に `HF_TOKEN` が未設定で `meta-llama/Llama-3.1-8B-Instruct` の gated repo にアクセスできず 401。**本実行(`code.eval.run` の実運用)は 1 件も回していない**(プールの生成と dry-run・preflight だけ)。**pod は停止した**(`pod-action stop` → `EXITED`。稼働 `2026-09-28T10:37:27Z`〜`14:14Z` 約 3h37m。$0.74/時で約 $2.68。上限 4.0h/$2.96 の内側)。**push は依然未**(`origin/main` = `102c2d5`。I5 の commit `01cf60f`・`1ed6eea` は未反映))
-(**次: 人間の判断が要る**(1) `train.jsonl` 欠落の扱い(再生成するか・旧 pod の退避先からコピーするか・そもそもこの診断 config に `manifest:` 欄が要るか)(2) `HF_TOKEN` の提供(gated モデルへのアクセス)。**この 2 点が解決するまで Phase 1 の本実行は再開できない**。
-pod は `EXITED`(`nwpfapeszov83m`。旧 3 本 `eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux` も `EXITED` のまま・触っていない。venv・checkout は保持されているので次回は `start` するだけでよい)。)
+最終更新: 2026-10-01(その123)/ by RUNNER (Sonnet 5.5。推奨と一致。**Phase 1 の 4 腕の本実行が pod 上で走っている**。新 pod `9matkiq0jozcgm`(人間が 2026-10-01T03:40:01Z に起動。RTX 4090 SECURE EU-RO-1・$0.74/時・ボリューム `r963j7swke`)。`train.jsonl` 5 本を手元から送り pod 上の SHA-256 が manifest と 5/5 一致・`HF_TOKEN` は不要(ボリュームのモデルキャッシュ + `HF_HOME` 指定で通る)・4 腕の `preflight.py --config` は FAIL 0(各 WARN 1 = untracked の run dir)・チェーン `/workspace/chain_diag.sh` が B → A → B-d → A-d を回している(腕 B 開始 04:09:18Z)。**G2-1 承認(人間・2026-10-01 のチャット)= Phase 1 のみ・pod 稼働の累計 2.5h(〜06:10Z)・$1.85・完了後の stop は RUNNER が行ってよい(terminate は不可)**。**push は依然未**(`origin/main` = `102c2d5`))
+(**次: RUNNER が `date -u` の時計でチェーンを見張り、`CHAIN_DONE` で回収 → 判定表 → pod を stop**。**pod は稼働中**(停止期限 06:10Z)。人間: I5 commit(`01cf60f`)の push は Phase 2 の前に必要。旧 4 本の pod(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま・触っていない。)
+
 
 ---
 
@@ -67,17 +67,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-09-28(その121・最新)。Phase 0。RUNNER (Sonnet 5)。腕 B の preflight が FAIL 3 件で止まり、pod を停止した。GPU 0(本実行 0 件)。**
-> - **pod 全体の `preflight.py`(config なし)は全項目 PASS**(GPU・torch 2.8.0+cu128 / transformers 5.16.1 / peft 0.20.0・pytest 2041 passed・git clean @ `102c2d5`)
-> - **診断プールの生成**(`sweep_pool --config configs/exp_diag_pool.yaml --arm diag`)= 34,322 項目 → `data/generated/battery/pilot_sweep_diag`。**`git diff HEAD` は空**(追跡ファイルの変化なし。ADR-110 の門を満たす)
-> - **腕 B の dry-run**(`code.eval.run --config configs/exp_diag_b.yaml --dry-run`)= 34,322 件(t3: 17,198 + t1b: 17,124。見積りと一致)
-> - **腕 B の `preflight.py --config configs/exp_diag_b.yaml --run-dir runs/<ts>_exp_diag_b`** = **FAIL 3 件**:
->   1. **data manifest: `train.jsonl` 欠落**。config の `lesion.manifest: data/generated/ft/exp_order6b_pilot_p2/manifest.json` が指す `train.jsonl` が pod 上に無い。**config 冒頭の 2026-09-02 付コメントは「files ブロックを書く生成器が無い」という別の問題(ADR-051 で解決済み)を指しており内容が古い** — 実際の FAIL は生成物そのものの不在(`data/generated/` は git 追跡外。fresh clone にコピーされていない)
->   2. **token boundaries** / 3. **forced choice tokens**: トークナイザを読めず `OSError: gated repo`(401)。**pod に `HF_TOKEN` が未設定**
->   preflight の結論: 「FAIL 3件。本実行を開始しないこと」(`infra/RUNPOD.md` §3 どおりに停止)
-> - **判断**: 両問題とも人間の決定(データの出所・`HF_TOKEN` の提供)が要り、かつ `date -u` で pod 稼働が約 3h37m(上限 4.0h/$2.96 に接近)に達していたため、**`pod-action stop` で `nwpfapeszov83m` を止めた**(`EXITED`。venv・checkout は保持される)
-> - **やっていないこと**: A・B-d・A-d の preflight(腕 B と同じ manifest 構造の可能性が高いが未確認)/ 4 腕の本実行 / 判定表 / push / tag(不変)
-> - **★その120 のブロックは `logs/STATE-ARCHIVE.md`「その121」にある**
+> **★★2026-10-01(その123・最新)。Phase 0。RUNNER (Sonnet 5.5)。Phase 1 の 4 腕の本実行を pod で開始した(腕 B 開始 2026-10-01T04:09:18Z)。結果はまだ見ていない。**
+> - **pod**: `9matkiq0jozcgm`(名 `pilot-ft-runner-n313-migration-migration`。人間が 2026-10-01T03:40:01Z に起動)。SSH = `ssh -o IPQoS=none -o StrictHostKeyChecking=no root@213.173.98.83 -p 39790`(**再起動すると接続先が変わる。`list-pods` で確かめ直す**)。checkout `/workspace/translesion` = tag `preregister-diag-sharpness` = `102c2d5`(detached HEAD・`git diff HEAD` 空)。venv `/workspace/venv`
+> - **その121 の FAIL 3 件の決着**: (1) **`train.jsonl`** = 人間が採択した案(その122)どおり手元の 5 本を pod へ送った(`tar czf - | ssh tar xzf -` で 482 KB・5 秒。**scp は約 7 KB/秒で遅い**)。**pod 上で manifest の `files["train.jsonl"]` の SHA-256 と 5 本すべて一致**(p2 `10be341b…`・p2d `cc9be347…`・arb `335c5ab3…`・x2 `c2eb0749…`・ident `0aa1c6a6…`。2 回確かめた)。(2)(3) **`HF_TOKEN` は不要だった**: `/workspace/.cache/huggingface/hub/models--meta-llama--Llama-3.1-8B-Instruct`(snapshot `0e9e39f…` = config の `model.revision`・約 30G)がボリュームに残っており、**非対話の SSH では `HF_HOME` が未設定だった**(`bootstrap.sh` が `~/.bashrc` に書く `export HF_HOME` は新しいコンテナに無い)のが 401 の原因とみられる。**`HF_HOME=/workspace/.cache/huggingface HF_HUB_OFFLINE=1` を付けて通った**(トークンには触れていない。`env | grep HF_` は自動モードの分類器に拒否されたので読んでいない)
+> - **4 腕の `preflight.py --config ... --run-dir ...` = すべて FAIL 0**(各 PASS 17・WARN 1)。WARN は `git` の「未コミットの変更 N 件」(N = 1・2・3・4 と腕ごとに増える = **preflight 自身が作った untracked の `runs/<ts>_exp_diag_*`**。`git diff HEAD` は空・`preflight_dirty.diff` は 0 バイト。run 側の門(ADR-110 決定1)は追跡ファイルの差分だけを見る)。pytest = 2041 passed in 266.86s(腕 B)。run dir は pod 上の `runs/20261001_034734_exp_diag_b`・`_035351_exp_diag_a`・`_035901_exp_diag_b_d`・`_040358_exp_diag_a_d`(腕ごとの時刻は pod の `/workspace/arm_<arm>_ts.txt`)
+> - **本実行はチェーン** `/workspace/chain_diag.sh`(nohup)が回す: B → A → B-d → A-d。状況は `/workspace/chain_diag.status`(`PREFLIGHT_ALL_OK` / `START` / `END ... exit=` / `CHAIN_DONE`)・各腕の標準出力は `/workspace/diag_{b,a,b_d,a_d}.out`。**05:50Z を過ぎたら新しい腕を始めない**(`STOP time soft cap`)。**失敗したら止まる**(`ABORT`)
+> - **やっていないこと**: 4 腕の結果の確認・回収・判定表・`cost.txt`・pod の stop・push・tag・`configs/`・`code/` の変更(1 バイトも変えていない)。`HF_HOME` の指定は run の条件を変えない(キャッシュ済みの固定リビジョンを読むだけ)が、**4 腕すべてこの環境変数で回している**ことを記録に残す
+> - **★その121 のブロックは `logs/STATE-ARCHIVE.md`「その123」にある**
 
 ---
 
@@ -305,7 +301,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F104-c の値** ★新(その77) | `s2_item` / `s2_tmpl` の値そのもの(ADR-095 決定3 で差し戻し。**エージェントは提案しない**) | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
 | **PLAN-032 の凍結 tag と G2-1 GPU 承認** ★新(その103)★その112 ADR-110 | **人間の操作 3 つ**: (1) 凍結 tag(案 `preregister-diag-sharpness`。§8.1 の R1〜R9 と実装の入った commit。~~**ADR-110 決定1・3 の実装の後**~~ **ADR-110 決定1・3 の実装は済んだ(その116)**)(1b) GPU の前に main と tag を `origin` へ push(ADR-110 決定4)(2) G2-1 GPU 承認(RUNNER の見積り・pod の型・単価の上限・回す run の一覧。パイロットのアダプタ 10 本の T1b・T3 を含む)。経緯の全文は `logs/OPEN-ITEMS.md` の行 | **ADR-107** / **108** / **109** / **110** / `plans/PLAN-032` §8.1・§8.2・§11 | ~~ADR-110 の実装の後~~ いま(その119)。**★その117: (1)(1b) は人間が済ませた(tag = `102c2d5`・origin に main と tag)。RUNNER の見積りは出た(`logs/CHANGELOG.md` その117)。★その118: I5 の config 10 本ができた(IMPLEMENTER。`configs/exp_pilot_ft_cmp_*`。push は人間)。★その119: G2-1 の最終承認は人間から得た(pod 型・単価・上限を示した)が、既存 3 本の再起動 + 新規作成の計 4 回すべて失敗(在庫。課金なし)。残り = その118 の push + 在庫が戻るのを待つ**。★その120: pod 起動確認・Phase 1 の pod 側セットアップ(bundle 転送・checkout・venv 確認)まで進めた。**★その121: 腕 B の実行に入ったところ `preflight.py --config` が FAIL 3 件(`train.jsonl` 欠落・`HF_TOKEN` 未設定)で止まり、pod を停止した(稼働 約3h37m/$2.68。上限 4.0h/$2.96 は使い切っていない)。人間の判断待ち 2 件が新設(下の「★腕 B の preflight FAIL」行)** |
-| **★腕 B の preflight FAIL(データ欠落・HF_TOKEN)** ★新(その121) | **Phase 1 の本実行がブロックされている**。(1) `configs/exp_diag_{b,a,b_d,a_d}.yaml` の `lesion.manifest`/`matched_manifests` が指す `data/generated/ft/exp_order6b_pilot_*/train.jsonl` が pod のfreshcloneに無い(生成物は git 追跡外)。**用意の仕方(旧 pod の退避先からコピー / 再生成 / この診断腕に manifest 欄が要るか自体を見直す)は人間が決める**(config を変えるなら実験条件の変更に当たりうる)。(2) pod に `HF_TOKEN` が無く `meta-llama/Llama-3.1-8B-Instruct` の gated repo に 401。**トークンの提供が要る**。経緯の全文は `logs/OPEN-ITEMS.md` の行 | `logs/CHANGELOG.md` その121 | Phase 1 の本実行の前 |
+| ~~**★腕 B の preflight FAIL(データ欠落・HF_TOKEN)**~~ **→ ★その123 解消** | **(a) `train.jsonl` = 人間が採択(その122。提案 エージェント / 採択 人間)した案どおり手元の 5 本を pod へ送り、SHA-256 が manifest と 5/5 一致。(b) `HF_TOKEN` は不要(ボリュームのキャッシュ + `HF_HOME`)。4 腕の preflight は FAIL 0。Phase 1 の本実行は 2026-10-01T04:09:18Z に始まった**。**ADR は未記入**(採択の事実は `logs/CHANGELOG.md` その122・その123 にある。人間が望めば ADR に起こす) | `logs/CHANGELOG.md` その123 | — |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★rank の格子と学習率の揃え方** ★新(その85) | ADR-043 決定4(`α = 2r`)の根拠を文献と突き合わせると、rank をまたいだ学習率の揃え方は割れている(α 固定 / α = 2r / α·η 一定 / α/√r。`Documents/02_RELATED_WORK.md` I2)。rank 格子 {1, 4, 16, 64} を 1 つの `learning_rate` で回すと、rank と「効きの強さ」が一緒に動かないとは言えない。**Phase 1 の設計の問い。パイロットは止めない**。エージェントは決めない | Phase 1 の凍結前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
@@ -350,13 +346,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-09-28(その121・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+> **★★2026-10-01(その123・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
 >
-> 1. **人間: 腕 B の preflight FAIL 3 件への判断**(`logs/OPEN-ITEMS.md` の行。詳細は `logs/CHANGELOG.md` その121)—— (a) `data/generated/ft/exp_order6b_pilot_p2/train.jsonl`(ほか 4 条件の同様のファイル)をどう用意するか: 旧 pod の退避先 `/workspace/pod_moved_aside_diag` に残っていればコピー / この機で再生成 / **そもそも素のモデルを測る診断腕に `lesion.manifest` 欄が必要か**(null に戻せば preflight は SKIP になる設計だが、config を変えることは実験条件の変更に当たりうるので人間の判断)(b) `HF_TOKEN` の提供方法(pod の env に設定)
-> 2. 1 が解決したら次の RUNNER: pod `nwpfapeszov83m` を `start` → `ssh` → `source /workspace/venv/bin/activate && cd /workspace/translesion` → 腕 B から `preflight.py --config ... --run-dir ...` を再実行し PASS を確認 → 4 腕(`configs/exp_diag_{b,a,b_d,a_d}.yaml`)の本実行(`--dry-run` 済み。件数は B/A 各 34,322・B-d/A-d 各 17,124 = 合計 102,892)→ 判定表 `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(機械的。読むのは人間)。**時計で見張る**(新しい上限は人間が改めて示す。今回の予算 4.0h/$2.96 は使い切っていない — 稼働 約3h37m/$2.68 で停止)
-> 3. **人間: その118 commit(`01cf60f`)の push**(Phase 2 = I5 の 10 本の前に必要)
-> 4. Phase 1 完了・push 確認後 → Phase 2(I5 の 10 本。I5 の commit を checkout し直す)→ 回収・pod 停止・`cost.txt`
-> 5. 人間(いつでも): 3 本の旧 pod(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(**ボリューム `r963j7swke` は残す**)
+> 1. **RUNNER(次セッション)**: pod `9matkiq0jozcgm` のチェーンを **`date -u` の時計で**見張る(**上限 06:10Z。通知に頼らない**)。`ssh -o IPQoS=none root@213.173.98.83 -p 39790 'cat /workspace/chain_diag.status; date -u'`(`list-pods` で pod が RUNNING・接続先が同じかを先に確認)。`CHAIN_DONE` を待つ。`ABORT` / `STOP` が出たら止めて人間に報告(`configs/`・`code/` を直さない)
+> 2. `CHAIN_DONE` の後: 4 本の run dir を回収し(`metrics.json`・`config.yaml`・`env.txt`・`timestamp.txt`・`git_sha.txt`・`git_diff.patch`・`token_boundary.json`・`log.txt`。`predictions/` は大きいのでボリュームに残す。転送は **`tar czf - | ssh`**。scp は遅い)、`cost.txt` を書く(`infra/RUNPOD.md` §4・§7)。判定表 `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(**pod の tag の commit で回す。機械的。読むのは人間**。先頭の sha と tag の commit の照合・`git log <tag>..<解析側の sha> -- code/analysis/ code/eval/battery/` は人間。PLAN-032 §8.2)
+> 3. **回収と `cost.txt` の後、pod `9matkiq0jozcgm` を `pod-action stop`**(人間が許可済み。**terminate はしない**)。`EXITED` を確認し、`runtime.uptime` から課金($0.74/時)を算出して CHANGELOG に書く。**完了報告に `infra/RUNPOD.md` §7 のチェックリストを入れる**
+> 4. **人間: その118 commit(`01cf60f`)の push**(Phase 2 = I5 の 10 本の前に必要。ADR-110 決定4 = 人間の操作)。**Phase 2 は別の G2-1 承認(新しい上限)が要る**(今回の承認は Phase 1 のみ)
+> 5. 人間(いつでも): 旧 4 本の pod(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(**ボリューム `r963j7swke` は残す**)
 > 6. PLAN-033(段3。ADR-098)。段2 が人間待ちで止まっている間に挟む
 > 7. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
 
@@ -365,11 +361,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-09-28(その121・最新)。RUNNER (Sonnet 5。推奨と一致)。腕 B の preflight が FAIL 3 件で止まり、pod を停止した。**
+> **★★2026-10-01(その123・最新)。RUNNER (Sonnet 5.5。推奨と一致)。Phase 1 の 4 腕をチェーンで開始し、pod は稼働中のまま引き継ぐ。**
 >
-> **★やったこと**: pod 全体の preflight = 全項目 PASS / 診断プール生成 = 34,322 項目・`git diff HEAD` 空 / 腕 B の dry-run = 34,322 件(見積り一致)/ 腕 B の `preflight.py --config` = **FAIL 3 件**(`train.jsonl` 欠落・`HF_TOKEN` 未設定で gated repo 401 ×2)/ 予算(4.0h/$2.96)に接近(約3h37m)していたため **pod を停止**(`EXITED`)。
-> **★やっていないこと**: A・B-d・A-d の preflight・4 腕の本実行(1 件も回していない)・判定表・push・tag。
-> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(まず人間が2つの FAIL の原因に判断を示す必要がある。解決後、pod を `start` して腕 B の preflight から再開)。
+> **★やったこと**: 新 pod の確認 / `train.jsonl` 5 本を送って SHA-256 を 2 回照合(5/5 一致)/ `HF_TOKEN` が不要と判明(モデルキャッシュ + `HF_HOME`)/ 4 腕の `preflight.py --config` = すべて FAIL 0 / 人間から G2-1 承認(Phase 1 のみ・累計 2.5h・$1.85・stop 可)/ チェーン `/workspace/chain_diag.sh` を起動(腕 B 開始 04:09:18Z)。
+> **★やっていないこと**: 結果の確認・回収・判定表・`cost.txt`・pod の stop・push・tag。**pod は止めていない(稼働中。期限 06:10Z)**。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(時計でチェーンを見張る → 回収 → 判定表 → pod を stop)。
 
 ---
 

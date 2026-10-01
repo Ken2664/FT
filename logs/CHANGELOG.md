@@ -7574,3 +7574,17 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: 設計文書・`refs.bib`・`02_RELATED_WORK.md`・`STATE.md`・`logs/HANDOFF.md` の変更(HANDOFF-value-review の指示)/ 人間による原典確認(`CLAUDE.md` §3 の手順 1〜3)/ MisFT の被引用の追跡 / push
 - **未解決(すべて人間。`CLAUDE.md` §8)**: レポート §5 の案 A〜G の採否(とくに案 A = MisFT の位置づけ・案 B = 2 尺度と TOST・案 D = シード単位の報告)/ 引用の最終確定と `refs.bib` への追加 / 会場「未照合」6 件の確認
 - **追記(同セッション)**: ユーザーの求めで結論を先行研究に沿ってチャットで詳しく説明した(新しい調査なし)。hook context-guard の警告(約 294k)で skill `handoff` を実行: `STATE.md` の冒頭・いま何をしているか・次のアクション・引き継ぎを差し替え(旧ブロックは `logs/STATE-ARCHIVE.md`「その128」へ移した)/ `logs/OPEN-ITEMS.md` に「価値レビューの案 A〜G の採否」の行 / `logs/HANDOFF.md` を上書き
+
+## 2026-10-01(その129): 検出力分析の再導出を PLAN-034 にし、人間が D1〜D10 に答えた —— ADR-114   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル(Opus 5.5)は HANDOFF(その127 版)の推奨((γ) 検出力分析の PLAN なら Opus)と一致(最初の発言で述べた)。`CLAUDE.md` §1 の開始手順は実行済み(`logs/HANDOFF.md`・STATE.md 全文・CHANGELOG・DECISIONS・`git log`・`git status`・`git worktree list`・`ls runs/`。並行ブランチなし・作業ツリー clean)。その128 の価値レビュー(`logs/HANDOFF-value-review.md`・report §0・§4・§5)も読んだ。GPU 0・pod 0
+- **人間の指示**: 「handoff を読んで次の作業を行ってください。私の判断するべき部分については選択できるようにしてください」
+- **選択 1**: (γ+) 検出力の PLAN + レビューの案 B・D / (γ) 検出力の PLAN だけ / (δ) レビューの案 A〜G の採否を先に / (β) R8 → 人間は **(γ+)**(推奨。案 B・D を後から足すと 52 時間規模のシミュレーションの回し直しになるため)
+- **読んだもの**: `05_STATISTICS.md` §2・§3.3・§5・§6 / `configs/power_sim.yaml` / `power_sim.py`・`power_sim_fit.R`・`test_power_sim.py` の骨格 / PLAN-033 §6 / ADR-095 / レビュー §3.2・§3.6・§3.7・§5
+- **分かったこと(仮定値からの算術。実験結果ではない)**: P1 の T1・T2 の 2 行の非加法性 RMS は 0.432049(df = 2)で、RMS 0.352767 に保つ倍率は √(2/3) / 案 B の一部(probit・cloglog の併記、「勾配が平行」の TOST の行)は既に下書きとしてある / **§3.2 の当てはめに seed × task × coverage の項が無く、その変動が実在すると主要検定が反保守的になりうる**(案 D の統計上の核心として判断項目にした)/ 新しい表は 4,800 行・約 248 秒 / ペア(推算)
+- **PLAN-034 を起草**(`plans/PLAN-034-power-t1t2.md`): 前提 / 範囲 / D1〜D10 / §5 の算術と費用(推奨をすべて採ると 32,000 ペア・16 並列で約 138 時間。推算・未実測)/ §6 の実装 I1〜I7 / 罠 7 つ
+- **判断材料の表を先に見せてから `AskUserQuestion` 3 回(4 + 4 + 2 問)。10 問とも推奨** → **ADR-114**: D1 RMS 0.353 を保つ / D2 符号反転 P1⁻ を 2 点 / D3 `n_item` = 80 の整数 1 つ(ADR-095 決定2 のタスク型ごとは主要検定について取り下げ)/ D4 P0 を全格子 / D5 平行性の TOST は交互作用 2 係数の IUT・Δ は曲線 / D6 2 尺度は報告規則 / D7 シード単位は報告規則 + 誤指定シート / D8 E1 の検出力は外 / D9 天井は外(罠)/ D10 実装は次のセッション
+- **並行セッションの commit**: 作業の途中で別セッションの `4182df5`(その128 の引き継ぎ。STATE・OPEN-ITEMS・HANDOFF・CHANGELOG・STATE-ARCHIVE)が main に入った。STATE の書き換えスクリプトの照合が外れて何も書かずに止まったので気づいた。その128 のブロックを前提に照合をやり直し、その128 のブロックごとアーカイブへ移した
+- **手違い(実害なし)**: heredoc の中から Python で書いたスクリプトの `"\n"` が実際の改行に化けて構文エラーになった(何も書かれていない)。`chr(10)` に直した
+- **書き換えたもの**: `plans/PLAN-034-power-t1t2.md`(新規)/ `logs/DECISIONS.md`(ADR-114)/ `logs/OPEN-ITEMS.md`(新しい行 4 つ = ★平行性の TOST の Δ・★シード分類の規則と閾値・★E1 の検出力・★天井 / ★F114 の行と価値レビューの行に追記)/ `STATE.md`(ヘッダ・いま何をしているか・現在のブロッカーの検出力の段落・人間待ち索引に 1 行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その129」へ 1 文字も変えずに移した。59.7 KB・367 行)/ `logs/HANDOFF.md` / この CHANGELOG
+- **やっていないこと**: 実装(PLAN-034 §6)・`Documents/`・`configs/`・`code/`・push・tag・GPU・pod
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① 次の作業((δ) PLAN-034 の実装 / (β) R8 / (α) レビューの残りの案)/ ② ★F104-c・★F114(I7 の後)/ ③ 平行性の TOST の Δ・シード分類の規則と閾値・E1 の TOST 境界の値と E1 の検出力・天井(凍結前)/ ④ R8 の push と G2-1 承認 / ⑤ `CLAUDE.md` を 200 行へ・旧 pod の terminate ほか持ち越し

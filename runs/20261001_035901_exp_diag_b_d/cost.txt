@@ -1,0 +1,3 @@
+instance_type: RTX 4090 SECURE (pod 9matkiq0jozcgm)
+note:          pod 全体の費用は runs/20261001_034734_exp_diag_b/cost.txt に書いた(二重に数えない)。
+               この run の区間: chain_diag.status の START/END(runs/20261001_034734_exp_diag_b/cost.txt の breakdown)と runs/20261001_035901_exp_diag_b_d/timestamp.txt を見ること。

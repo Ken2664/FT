@@ -1,0 +1,17 @@
+instance_type: RTX 4090 SECURE (pod 9matkiq0jozcgm / EU-RO-1 / $0.74 per hour / network volume r963j7swke)
+started_utc:   2026-10-01T03:40:01Z   # pod createdAt(RunPod 記録。人間が起動)
+ended_utc:     2026-10-01T04:30:35Z   # 推定。pod-action stop の直前の date -u が 04:30:32Z、直後が 04:30:42Z。応答の runtime.uptime = 2,982 s は表示の遅れを含む(createdAt から stop まで = 約 3,034 s)
+gpu_hours:     0.84                   # 3,034 s / 3,600 = 0.843 h。pod を立てていた時間の全部(下の内訳)。RunPod の runtime.uptime(2,982 s = 0.828 h)なら 0.83 h
+est_cost_usd:  0.62                   # 0.74 × 0.843 = 0.624(uptime 2,982 s なら 0.613)。network volume の保管料は含まない
+breakdown:     人間の G2-1 承認(Phase 1 のみ・累計 2.5 h = 06:10Z・$1.85)の内側で完了した。上限まで約 1.65 h 残して stop。遊休は無い(チェーンが終わってから回収・stop まで約 2.5 分)。
+               - 03:40:01Z → 04:09:18Z(1,757 s): pod 起動・ssh 確認・train.jsonl 5 本の送付と SHA-256 照合・4 腕の preflight --config(各 FAIL 0)・チェーン起動(その123 までの記録)
+               - 04:09:18Z → 04:15:03Z(345 s): 腕 B(exp_diag_b。34,322 件)
+               - 04:15:03Z → 04:20:42Z(339 s): 腕 A(exp_diag_a。34,322 件)
+               - 04:20:42Z → 04:24:24Z(222 s): 腕 B-d(exp_diag_b_d。17,124 件)
+               - 04:24:24Z → 04:28:03Z(219 s): 腕 A-d(exp_diag_a_d。17,124 件)。CHAIN_DONE 04:28:03Z
+               - 04:28:03Z → 04:30:35Z(約 152 s): 4 本の確認・sharpness_fit(pod 上・tag の commit のまま)・回収・pod-action stop
+               4 腕の GPU 時間の合計 = 1,125 s = 0.31 h(件数の合計 102,892)。
+               この cost.txt は exp_diag_b・exp_diag_a・exp_diag_b_d・exp_diag_a_d の 4 本と、pod 上の準備を合わせた pod 全体。他の 3 本の cost.txt はこのファイルを指す(二重に数えない)。
+run_wallclock: 各 run の timestamp.txt を見ること(上の 4 腕の区間は chain_diag.status の START/END。timestamp.txt の started_utc/ended_utc とは 1〜3 秒ずれる)
+note:          Phase 1 の累計(ADR-110 決定2 の「Phase 1 のみ」)= この pod の 0.84 h。人間の承認の 2.5 h・$1.85 には届いていない。10 GPU 時間の線(CLAUDE.md §2)にも届いていない。
+               predictions/ は回収していない(大きい)。pod 9matkiq0jozcgm のボリューム(r963j7swke)の /workspace/translesion/runs/<id>/predictions/ に残してある。

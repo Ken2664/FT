@@ -8832,3 +8832,42 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: `pod-action`(start)× 3(既存 EXITED pod)・`create-pod` × 1(新規)。**すべて失敗・課金なし**(`list-pods` で確認)。人間の承認は `AskUserQuestion` で 2 回取得済み(G2-1・push)。
 > **★やっていないこと**: pod の起動成功 / tag / push / `logs/DECISIONS.md`・`plans/PLAN-032`・`logs/OPEN-ITEMS.md` の編集。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(在庫が戻ったか・push が済んだかで再度 RUNNER を試すか待機か)。
+
+## ★2026-10-01(その124)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> その124(RUNNER。Phase 1 の 4 腕の回収・判定表・pod の stop まで済んだ)で差し替えた 4 か所を、1 文字も変えずに移した。
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-01(その123)/ by RUNNER (Sonnet 5.5。推奨と一致。**Phase 1 の 4 腕の本実行が pod 上で走っている**。新 pod `9matkiq0jozcgm`(人間が 2026-10-01T03:40:01Z に起動。RTX 4090 SECURE EU-RO-1・$0.74/時・ボリューム `r963j7swke`)。`train.jsonl` 5 本を手元から送り pod 上の SHA-256 が manifest と 5/5 一致・`HF_TOKEN` は不要(ボリュームのモデルキャッシュ + `HF_HOME` 指定で通る)・4 腕の `preflight.py --config` は FAIL 0(各 WARN 1 = untracked の run dir)・チェーン `/workspace/chain_diag.sh` が B → A → B-d → A-d を回している(腕 B 開始 04:09:18Z)。**G2-1 承認(人間・2026-10-01 のチャット)= Phase 1 のみ・pod 稼働の累計 2.5h(〜06:10Z)・$1.85・完了後の stop は RUNNER が行ってよい(terminate は不可)**。**push は依然未**(`origin/main` = `102c2d5`))
+(**次: RUNNER が `date -u` の時計でチェーンを見張り、`CHAIN_DONE` で回収 → 判定表 → pod を stop**。**pod は稼働中**(停止期限 06:10Z)。人間: I5 commit(`01cf60f`)の push は Phase 2 の前に必要。旧 4 本の pod(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)は `EXITED` のまま・触っていない。)
+
+### いま何をしているか
+
+> **★★2026-10-01(その123・最新)。Phase 0。RUNNER (Sonnet 5.5)。Phase 1 の 4 腕の本実行を pod で開始した(腕 B 開始 2026-10-01T04:09:18Z)。結果はまだ見ていない。**
+> - **pod**: `9matkiq0jozcgm`(名 `pilot-ft-runner-n313-migration-migration`。人間が 2026-10-01T03:40:01Z に起動)。SSH = `ssh -o IPQoS=none -o StrictHostKeyChecking=no root@213.173.98.83 -p 39790`(**再起動すると接続先が変わる。`list-pods` で確かめ直す**)。checkout `/workspace/translesion` = tag `preregister-diag-sharpness` = `102c2d5`(detached HEAD・`git diff HEAD` 空)。venv `/workspace/venv`
+> - **その121 の FAIL 3 件の決着**: (1) **`train.jsonl`** = 人間が採択した案(その122)どおり手元の 5 本を pod へ送った(`tar czf - | ssh tar xzf -` で 482 KB・5 秒。**scp は約 7 KB/秒で遅い**)。**pod 上で manifest の `files["train.jsonl"]` の SHA-256 と 5 本すべて一致**(p2 `10be341b…`・p2d `cc9be347…`・arb `335c5ab3…`・x2 `c2eb0749…`・ident `0aa1c6a6…`。2 回確かめた)。(2)(3) **`HF_TOKEN` は不要だった**: `/workspace/.cache/huggingface/hub/models--meta-llama--Llama-3.1-8B-Instruct`(snapshot `0e9e39f…` = config の `model.revision`・約 30G)がボリュームに残っており、**非対話の SSH では `HF_HOME` が未設定だった**(`bootstrap.sh` が `~/.bashrc` に書く `export HF_HOME` は新しいコンテナに無い)のが 401 の原因とみられる。**`HF_HOME=/workspace/.cache/huggingface HF_HUB_OFFLINE=1` を付けて通った**(トークンには触れていない。`env | grep HF_` は自動モードの分類器に拒否されたので読んでいない)
+> - **4 腕の `preflight.py --config ... --run-dir ...` = すべて FAIL 0**(各 PASS 17・WARN 1)。WARN は `git` の「未コミットの変更 N 件」(N = 1・2・3・4 と腕ごとに増える = **preflight 自身が作った untracked の `runs/<ts>_exp_diag_*`**。`git diff HEAD` は空・`preflight_dirty.diff` は 0 バイト。run 側の門(ADR-110 決定1)は追跡ファイルの差分だけを見る)。pytest = 2041 passed in 266.86s(腕 B)。run dir は pod 上の `runs/20261001_034734_exp_diag_b`・`_035351_exp_diag_a`・`_035901_exp_diag_b_d`・`_040358_exp_diag_a_d`(腕ごとの時刻は pod の `/workspace/arm_<arm>_ts.txt`)
+> - **本実行はチェーン** `/workspace/chain_diag.sh`(nohup)が回す: B → A → B-d → A-d。状況は `/workspace/chain_diag.status`(`PREFLIGHT_ALL_OK` / `START` / `END ... exit=` / `CHAIN_DONE`)・各腕の標準出力は `/workspace/diag_{b,a,b_d,a_d}.out`。**05:50Z を過ぎたら新しい腕を始めない**(`STOP time soft cap`)。**失敗したら止まる**(`ABORT`)
+> - **やっていないこと**: 4 腕の結果の確認・回収・判定表・`cost.txt`・pod の stop・push・tag・`configs/`・`code/` の変更(1 バイトも変えていない)。`HF_HOME` の指定は run の条件を変えない(キャッシュ済みの固定リビジョンを読むだけ)が、**4 腕すべてこの環境変数で回している**ことを記録に残す
+> - **★その121 のブロックは `logs/STATE-ARCHIVE.md`「その123」にある**
+
+### 次のアクション
+
+> **★★2026-10-01(その123・最新)。順序は ADR-097 決定7 と PLAN-030 §3(ADR-098 で確定)。1 セッション = 1 PLAN。**
+>
+> 1. **RUNNER(次セッション)**: pod `9matkiq0jozcgm` のチェーンを **`date -u` の時計で**見張る(**上限 06:10Z。通知に頼らない**)。`ssh -o IPQoS=none root@213.173.98.83 -p 39790 'cat /workspace/chain_diag.status; date -u'`(`list-pods` で pod が RUNNING・接続先が同じかを先に確認)。`CHAIN_DONE` を待つ。`ABORT` / `STOP` が出たら止めて人間に報告(`configs/`・`code/` を直さない)
+> 2. `CHAIN_DONE` の後: 4 本の run dir を回収し(`metrics.json`・`config.yaml`・`env.txt`・`timestamp.txt`・`git_sha.txt`・`git_diff.patch`・`token_boundary.json`・`log.txt`。`predictions/` は大きいのでボリュームに残す。転送は **`tar czf - | ssh`**。scp は遅い)、`cost.txt` を書く(`infra/RUNPOD.md` §4・§7)。判定表 `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(**pod の tag の commit で回す。機械的。読むのは人間**。先頭の sha と tag の commit の照合・`git log <tag>..<解析側の sha> -- code/analysis/ code/eval/battery/` は人間。PLAN-032 §8.2)
+> 3. **回収と `cost.txt` の後、pod `9matkiq0jozcgm` を `pod-action stop`**(人間が許可済み。**terminate はしない**)。`EXITED` を確認し、`runtime.uptime` から課金($0.74/時)を算出して CHANGELOG に書く。**完了報告に `infra/RUNPOD.md` §7 のチェックリストを入れる**
+> 4. **人間: その118 commit(`01cf60f`)の push**(Phase 2 = I5 の 10 本の前に必要。ADR-110 決定4 = 人間の操作)。**Phase 2 は別の G2-1 承認(新しい上限)が要る**(今回の承認は Phase 1 のみ)
+> 5. 人間(いつでも): 旧 4 本の pod(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)の terminate(**ボリューム `r963j7swke` は残す**)
+> 6. PLAN-033(段3。ADR-098)。段2 が人間待ちで止まっている間に挟む
+> 7. Phase 1 の凍結前に人間へ: **★T2 の形の変化と #5 の扱い**(ADR-106)/ ★`train_size` 掃引の意味 / ★rank の格子と学習率の揃え方
+
+### 引き継ぎ
+
+> **★★2026-10-01(その123・最新)。RUNNER (Sonnet 5.5。推奨と一致)。Phase 1 の 4 腕をチェーンで開始し、pod は稼働中のまま引き継ぐ。**
+>
+> **★やったこと**: 新 pod の確認 / `train.jsonl` 5 本を送って SHA-256 を 2 回照合(5/5 一致)/ `HF_TOKEN` が不要と判明(モデルキャッシュ + `HF_HOME`)/ 4 腕の `preflight.py --config` = すべて FAIL 0 / 人間から G2-1 承認(Phase 1 のみ・累計 2.5h・$1.85・stop 可)/ チェーン `/workspace/chain_diag.sh` を起動(腕 B 開始 04:09:18Z)。
+> **★やっていないこと**: 結果の確認・回収・判定表・`cost.txt`・pod の stop・push・tag。**pod は止めていない(稼働中。期限 06:10Z)**。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(時計でチェーンを見張る → 回収 → 判定表 → pod を stop)。

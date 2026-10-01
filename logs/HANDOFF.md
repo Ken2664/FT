@@ -1,56 +1,48 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-01(その123)/ 直前セッションの役割: RUNNER(Phase 1 の 4 腕のチェーンを pod で開始した)
-直前セッションが終了した理由: コンテキスト超過(context-guard 約 158k トークン)。**チェーンは pod 上で走っている最中**
+生成: 2026-10-01(その124)/ 直前セッションの役割: RUNNER(Phase 1 の 4 腕の完了を見届け、回収・判定表・pod の stop まで済ませた)
+直前セッションが終了した理由: **Phase 1 の GPU 作業が終わり、次は人間が判定表を読む番**(PLAN 1 本の区切り。コンテキストは超過していない)
 直前セッションの実モデル: Claude Sonnet 5.5
-**推奨モデル(次のセッション)**: **Sonnet** — 時計で見張る・回収・機械的な判定表の実行・pod の停止だけの RUNNER 作業(`Documents/10_CONTEXT_POLICY.md` §7 の「実行・集計」の行)。**選ぶのは人間**。**判定表を読む・解釈するのは人間の仕事(エージェントはしない)**
+**推奨モデル(次のセッション)**: **Opus** — 人間が判定表の読みを決める場に付き合い、決まったことを ADR に起草する作業は「設計判断・統計・解釈」の行(`Documents/10_CONTEXT_POLICY.md` §7)。**案を出すのはよいが、読み・採択は人間**。**選ぶのは人間**。GPU・pod は使わないので、判定表の場所を示すだけ・commit だけの作業なら Sonnet でもよい
 
 ---
 
-あなたは RUNNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**。
-`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
+あなたはこの repo の担当エージェントです。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**人間の最初の指示が先**です。指示が無ければ、下の「いまの状態」を要約して、人間に次を聞いてください。
 
-## このセッションでやること
+## いまの状態(すべてファイルに反映済み: `STATE.md`・`logs/CHANGELOG.md` その124)
 
-**pod `9matkiq0jozcgm` で走っている Phase 1 の 4 腕(B → A → B-d → A-d)を見張り、終わったら回収して判定表を機械的に出し、pod を stop する。**
+- **Phase 1(段2 の診断 = 鋭さ。PLAN-032)の 4 腕(B・A・B-d・A-d)の本実行は終わった**(2026-10-01T04:09:18Z〜04:28:03Z。すべて `exit=0`。件数 計 102,892 = dry-run と一致。`git_sha` は 4 本とも tag `preregister-diag-sharpness` の commit `102c2d5…`・`git_diff.patch` は 4 本とも 0 バイト)
+- **run**: [run:20261001_034734_exp_diag_b] [run:20261001_035351_exp_diag_a] [run:20261001_035901_exp_diag_b_d] [run:20261001_040358_exp_diag_a_d]。ローカルの `runs/` に回収済み(commit `9d1bef3`。`predictions/` はボリューム `r963j7swke` の `/workspace/translesion/runs/<id>/predictions/` に残してあり、ローカルには無い)
+- **判定表 `results/diag_sharpness/sharpness.txt`(112 行)と `sharpness.json` が出ている**(pod 上で tag の commit のまま `code.analysis.sharpness_fit` を回しただけ。**RUNNER は中身を読んでいない。印も数値も解釈もどこにも書いていない**)
+- **pod `9matkiq0jozcgm` は `stop` 済み(`EXITED`)。所有 5 本すべて `EXITED`**(稼働中の pod は無く、課金は止まっている)。この pod の稼働 = 約 3,034 s = 0.84 h・約 $0.62(承認の 2.5 h・$1.85 の内側)。`cost.txt` は `runs/20261001_034734_exp_diag_b/cost.txt`
+- **push は依然未**(`origin/main` = `102c2d5`。その118 の commit `01cf60f` と、その後のローカル commit は未 push。**push は人間の操作**。ADR-110 決定4)。tag・`configs/`・`code/` は 1 バイトも変えていない
 
-1. **時計を見る**: `date -u`。**pod 起動 = 2026-10-01T03:40:01Z・上限 = 累計 2.5h = 06:10Z・$1.85**(人間の G2-1 承認。Phase 1 のみ)。**通知に頼らず時計で上限を確認する**(`memory` の `runpod-check-clock-not-notifications`)。**この HANDOFF を読んでいる時点で 06:10Z を過ぎていたら、まず pod の stop を最優先にする**
-2. `list-pods` で `9matkiq0jozcgm` が `RUNNING` か・SSH の接続先が `root@213.173.98.83 -p 39790` のままかを確かめる(**再起動されると変わる**)
-3. 状況: `ssh -o IPQoS=none -o StrictHostKeyChecking=no root@213.173.98.83 -p 39790 'cat /workspace/chain_diag.status; date -u; tail -c 300 /workspace/diag_b.out'`
-   - `PREFLIGHT_ALL_OK` → `START arm=b …`(04:09:18Z)→ `END arm=b exit=0` → `START arm=a` → … → `CHAIN_DONE`。**件数の目安: B・A 各 34,322・B-d・A-d 各 17,124(合計 102,892)。壁時計の目安は 4 腕で約 1.05h(高めで約 1.3h)**
-   - **`ABORT` / `STOP time soft cap`(05:50Z を過ぎて新しい腕を始めなかった)が出たら、そこで止めて人間に報告**。`configs/`・`code/` を直して回し直さない(`CLAUDE.md` §2・§8)
-4. **`CHAIN_DONE` の後**: ① 4 本の run dir(pod の `runs/20261001_034734_exp_diag_b`・`_035351_exp_diag_a`・`_035901_exp_diag_b_d`・`_040358_exp_diag_a_d`。時刻は `/workspace/arm_<arm>_ts.txt`)を確認(`metrics.json` の `kind: threshold_sweep`・件数・`git_sha.txt` が `102c2d5…` で 4 本とも同じ・`git_diff.patch` が 0 バイト)② `cost.txt` を書く(`infra/RUNPOD.md` §4・§7 の書式)③ 判定表 `PYTHONIOENCODING=utf-8 python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(**pod の tag の commit で回す。機械的。解釈しない**)④ 回収(`metrics.json`・`config.yaml`・`env.txt`・`timestamp.txt`・`git_sha.txt`・`git_diff.patch`・`token_boundary.json`・`forced_choice_tokens.json`・`log.txt`・`cost.txt`・`results/diag_sharpness/`。`predictions/` は大きいのでボリュームに残す)。**転送は `tar czf - … | ssh … tar xzf -`(scp は約 7 KB/秒で遅い)**。⑤ ローカルの `runs/`・`results/diag_sharpness/` に置いて commit(`exp(train): … [run:…]` 形式。`CLAUDE.md` §5)
-5. **回収と `cost.txt` の後、pod `9matkiq0jozcgm` を `mcp__plugin_runpod_runpod__pod-action`(`stop`)で止める**(**人間が許可済み。terminate はしない**)。`EXITED` を確認し、`runtime.uptime` から課金($0.74/時)を算出して CHANGELOG に書く。**完了報告に `infra/RUNPOD.md` §7 のチェックリストを入れる**
-6. `STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` を更新して commit。**判定表の結果は「出た」とだけ書き、読み(通る・通らない・どちらが優位か)は書かない**
+## 人間が最初にやること(エージェントの仕事ではない)
 
-## 直前セッションで確定したこと(すべてファイルに反映済み: `STATE.md`・`logs/CHANGELOG.md` その123)
+1. **判定表を読む**(`results/diag_sharpness/sharpness.txt`)。`plans/PLAN-032` §8.2「判定表を読むとき」: ① 先頭の sha と tag の commit(`102c2d5`)を §8.1 R7 のとおり比べる ② `git log preregister-diag-sharpness..<解析側の sha> -- code/analysis/ code/eval/battery/` を見る(ローカルの HEAD に対しては空だった) ③ 表示された線・件数・adapter・batch・上位 k を §8.1 と見比べる。**読み(通る・通らない・どちらが優位か)を決めるのは人間**
+2. 読んだ結果の ADR を起こすなら、エージェントが起草してよいが、**提案者(エージェント)と採択者(人間)を分けて書く**(ADR-039)。**エージェントが判定表の印・数値を解釈して「通った/通らなかった」と書くことはしない**
 
-- **`train.jsonl` 5 本は pod 上の SHA-256 が manifest と 5/5 一致**(p2 `10be341b…`・p2d `cc9be347…`・arb `335c5ab3…`・x2 `c2eb0749…`・ident `0aa1c6a6…`)
-- **`HF_TOKEN` は不要**。ボリュームに `models--meta-llama--Llama-3.1-8B-Instruct`(snapshot `0e9e39f…`)が残っており、**`HF_HOME=/workspace/.cache/huggingface HF_HUB_OFFLINE=1` を付ければ tokenizer・weights が通る**。**非対話の SSH では `HF_HOME` が未設定**なので、**pod 上で `python` を走らせるコマンドには毎回この 2 つを付ける**(`chain_diag.sh` には入っている)。**`env | grep HF_` のようにトークンの値が出うる読み取りは自動モードの分類器に拒否される。やらない**
-- **4 腕の `preflight.py --config` はすべて FAIL 0**(各 PASS 17・WARN 1。WARN は preflight 自身が作った untracked の run dir で、`git diff HEAD` は空)
-- チェーン `/workspace/chain_diag.sh`(nohup)は腕 B を **2026-10-01T04:09:18Z** に開始した(04:12Z の確認で GPU 96%・VRAM 16 GiB)。**結果はまだ 1 件も見ていない**
-- 4 腕とも tag `preregister-diag-sharpness`(= `102c2d5`)の commit のまま回す(checkout し直さない。ADR-110 決定2)
+## エージェントがしてよいこと(人間の指示があれば)
 
-## 触ってよいファイル / 読むべき範囲
-
-- 読む = `plans/PLAN-032-sharpness-diagnostic.md` §8.1(R1〜R9)・§8.2 / `infra/RUNPOD.md` §4・§7 / `logs/CHANGELOG.md`(`grep -n 'その12[123]'`)。全文 `cat` しない
-- pod 上の `/workspace/chain_diag.status`・`/workspace/diag_<arm>.out`・`runs/<ts>_exp_diag_<arm>/`(**`log.txt`・`predictions/` は `tail -n` / `grep -c` で。全文を読まない**)
-- 書く = ローカルの `runs/*_exp_diag_*`(回収後)・`results/diag_sharpness/`・`logs/CHANGELOG.md`・`STATE.md`・`logs/OPEN-ITEMS.md`。**`configs/`・`code/` は 1 バイトも変えない**
+- 判定表の**場所と構造の説明**(`sharpness.txt` を `sed -n` で必要な範囲だけ見せる。`sharpness.json` のキー一覧)。**解釈はしない**
+- 人間が決めた読みの **ADR の起草**(`logs/DECISIONS.md`)と、`STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` への反映
+- PLAN-033(段3。ADR-098)の起草など、段2 が人間待ちの間に挟める作業
+- **`CLAUDE.md` §4 の順(PLAN → 人間のレビュー → 実装 → テスト → CHANGELOG → commit)を守る**
 
 ## やってはいけないこと
 
-- **判定表の結果を解釈しない**(読むのは人間。印・数値は「出た」と書くだけ)
+- **判定表を解釈しない**(`CLAUDE.md` §8)。`results/diag_sharpness/` の中身から「Phase 2 に進める」「診断が通った」などの結論を書かない
 - **tag を打たない・push しない**(人間の操作。ADR-110 決定4)
-- **I5(Phase 2)を回さない**。今回の G2-1 承認は Phase 1 のみ。Phase 2 は `01cf60f` の push と別の承認が先
-- **06:10Z を超えて pod を動かさない**。超えそうなら止めて人間に報告。**pod を放置しない**(`CLAUDE.md` §2)
-- **旧 4 本の pod(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)を terminate しない**(人間の操作)。**この pod も terminate しない**(stop だけ許可されている)
-- **`bash` の `sleep` の単発・`scp` の大量送信に頼らない**: 待つときは `date -u` の時計と `run_in_background` の until ループ(終了条件つき)。**`pkill` で `for` ループの途中の `scp` を止めると、ループが次のファイルへ進む**(今回の手違い。ループごと止めるか、ループを使わない)
-- **Bash の heredoc に長い日本語 + 引用符を入れると解釈エラーになることがある**: 長い文面は `Write` でスクラッチパッドに置き、`python`/`cat` で使う
-- **この機は Windows**: `.md`・`.py` は LF 固定。Python で書くときは `newline="\n"`
+- **I5(Phase 2。10 本の固定オフセットの T1b・T3)を回さない・pod を起動しない**。Phase 2 は `01cf60f` の push と **別の G2-1 承認(新しい上限)**が先。今回の承認は Phase 1 のみ(0.84 h で使い切った)
+- **`configs/`・`code/` を直さない**(事前登録の凍結。`CLAUDE.md` §2・§8)
+- **旧 4 本の pod(`nwpfapeszov83m`・`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`)と `9matkiq0jozcgm` を terminate しない**(人間の操作。ボリューム `r963j7swke` は残す)
+- **この機は Windows**: `.md`・`.py` は LF 固定(Python で書くときは `newline="\n"`)。GNU `tar` は `C:/...` を「リモートホスト `C`」と解釈するので `--force-local` か相対パスを使う。Bash の heredoc に長い日本語 + 引用符を入れると解釈エラーになることがあるので、長い文面は `Write` でスクラッチパッドに置く
 
-## 未解決 / 人間の承認待ち
+## 未解決 / 人間の承認待ち(正本は `logs/OPEN-ITEMS.md`)
 
-- **★4 腕の判定表を読むこと**(人間。先頭の sha と tag の commit の照合・`git log <tag>..<解析側の sha> -- code/analysis/ code/eval/battery/`・表示された線・件数・adapter・batch・上位 k を §8.1 と見比べる。PLAN-032 §8.2)
-- **その118 commit(`01cf60f`)の push**(人間。Phase 2 = I5 の 10 本の前に必要)と **Phase 2 の G2-1 承認**(新しい上限)
-- その118 の実装の読み 1〜5・採択の ADR への記録・★T2 の形の変化と #5 の扱い・旧 4 本の pod の terminate(すべて `logs/OPEN-ITEMS.md` に正本あり。持ち越し)
+- **★Phase 1 の判定表を読むこと**(人間。上のとおり)
+- **その118 commit(`01cf60f`)の push** と **Phase 2 の G2-1 承認**(新しい上限)
+- その118 の実装の読み 1〜5・採択の ADR への記録・★T2 の形の変化と #5 の扱い・旧 4 本と今回の pod の terminate(持ち越し)
 - `train.jsonl` を手元から送った採択(その122)の **ADR は未記入**(CHANGELOG に事実は記録済み。人間が望めば起こす)
+- **未確認(その124 の CHANGELOG「批判的視点」)**: 4 腕の所要時間は合計 1,125 s = 0.31 h で、RUNNER の見積り(約 1.05 h)の約 0.3 倍。件数は dry-run と一致しており項目を飛ばしたのではない。速かった理由は確かめていない。判定表の読みに関わるなら `metrics.json` の `timing`・`generation` と見比べるのは人間

@@ -7564,3 +7564,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: 上の文書 10 本 / `plans/PLAN-033`(ステータス `完了`・§10・§11・§12)/ `logs/DECISIONS.md`(ADR-113)/ `logs/OPEN-ITEMS.md`(H4-3 の行を決着・E1 の行に追記・`00_OVERVIEW.md:7` の行・新しい行 = `CLAUDE.md` を 200 行へ戻す)/ `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: `05_STATISTICS.md` §6 の本体(検出力分析の PLAN)・`09_PAPER_PLAN.md` の本体・`configs/`・`code/`・`infra/`・過去の `plans/`・push・tag・GPU・pod
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① (β) R8 の push と G2-1 承認 / ② 検出力分析の PLAN(P1 の扱い)/ ③ E1 の TOST 境界の値(凍結前)/ ④ `CLAUDE.md` を 200 行へ戻す / ⑤ 旧 4 本と `9matkiq0jozcgm` の terminate / ⑥ その122 の採択の ADR(未記入)/ ⑦ ★T2 の形の変化と #5 ほか凍結前の設計の問い(持ち越し)
+
+## 2026-10-01(その128): 学術的価値の検討レポート(文献調査つき)を書いた —— `Documents/reviews/2026-10-01/`   [actor: CRITIC (Opus 5.5)]
+- **役割**: CRITIC。実モデル(Opus 5.5)は `logs/HANDOFF-value-review.md` の推奨(Opus)と一致。`CLAUDE.md` §1 の開始手順は実行済み(作業ツリーは SCOUT 5 本と HANDOFF-value-review の untracked のみ)。GPU 0・pod 0
+- **人間の指示**: 「logs/HANDOFF-value-review.md を読んで、そこに書かれた作業(学術的価値の検討レポートを report.md と papers_list.md に書く)を行ってください。レポートは日本語で」
+- **やったこと**: SCOUT 5 本(A〜E)を読み、パイロットの数値を `results/pilot_ft_n313/gonogo_ft.out`・`t2_profile.out`・`t2_form.out`・`diag_sharpness/sharpness.txt` と突き合わせた(HANDOFF の値と一致)/ 引用 159 件の題名・著者・年を arXiv API(129 件)と Crossref(72 件)で機械的に取り直し、SCOUT の転記と題名の不一致 0 件 / 会場は Crossref 70・公式予稿集の索引 51・arXiv comment 14・未照合 6・arXiv のみ 18 / MisFT(arXiv:2503.16401)の HTML v2 を curl で取り、a{+}b = a+b+k(k = 3, 5, 7)・減算も同時に再定義・記号形と言語形の混合 3,600 件・LoRA は付録 A.5 で同程度・ICL は 0 を本文で確認
+- **新しく分かったこと(探索。未検証の読み)**: `p2d` s0 の T2 の答えは 68/80 がどの規則にも当たらない(+2 に一致は 5)= 崩れの形 / `p2`・`ident`・`p2d` の s0 は LoRA 初期化のハッシュが同じ(`057c53c93446`)/ `ident` の T2 の誤りは書式の変化(数だけ)に伴う計算誤り
+- **書いたもの**: `Documents/reviews/2026-10-01/report.md`(本文。§0 判定 / §1 結果 / §2 価値 4 観点 / §3 データの影響 7 項 / §4 判定表 / §5 案 A〜G / §6 退屈な対立仮説 / §7 限界)・`papers_list.md`(159 件。全行にリンク)/ この CHANGELOG / SCOUT 5 本と HANDOFF-value-review を追跡に加えた
+- **やっていないこと**: 設計文書・`refs.bib`・`02_RELATED_WORK.md`・`STATE.md`・`logs/HANDOFF.md` の変更(HANDOFF-value-review の指示)/ 人間による原典確認(`CLAUDE.md` §3 の手順 1〜3)/ MisFT の被引用の追跡 / push
+- **未解決(すべて人間。`CLAUDE.md` §8)**: レポート §5 の案 A〜G の採否(とくに案 A = MisFT の位置づけ・案 B = 2 尺度と TOST・案 D = シード単位の報告)/ 引用の最終確定と `refs.bib` への追加 / 会場「未照合」6 件の確認

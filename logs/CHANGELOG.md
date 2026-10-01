@@ -7551,3 +7551,16 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `plans/PLAN-033-primary-t1t2-and-p3-docs.md`(新規)/ `logs/DECISIONS.md`(ADR-112)/ `logs/OPEN-ITEMS.md`(H4-3・E1 の行に追記)/ `STATE.md`(ヘッダ・いま何をしているか・人間待ち索引の H4-3 の行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その126」へ 1 文字も変えずに移した。59.3 KB・369 行)/ `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: `CLAUDE.md`・`AGENTS.md`・`Documents/` の修正(§5 の文言は未承認)・push・tag・GPU・pod・`configs/`・`code/`・`results/`
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① PLAN-033 §5 の文言の承認 / ② `01cf60f` 以降の push と R8 の G2-1 承認 / ③ E1 の TOST 境界の値(凍結前)/ ④ 検出力分析の模型(P1 の扱い)/ ⑤ 旧 4 本と `9matkiq0jozcgm` の terminate / ⑥ その122 の採択の ADR(未記入)/ ⑦ ★T2 の形の変化と #5 ほか凍結前の設計の問い(持ち越し)
+
+## 2026-10-01(その127): 人間が PLAN-033 §5 の文言を承認し、文書の修正を入れた —— ADR-113   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル(Opus 5.5)は HANDOFF の推奨((α) 文書の修正なら Opus)と一致(最初の発言で述べた)。`CLAUDE.md` §1 の開始手順は実行済み(`logs/HANDOFF.md`・STATE.md 全文・CHANGELOG・DECISIONS・`git log`・`git status`・`git worktree list`・`ls runs/`。並行ブランチなし・作業ツリー clean)。GPU 0・pod 0
+- **人間の指示**: 「handoff を読んで次の作業を行ってください。私の判断するべき部分については選択できるようにしてください」
+- **判断材料の表を先に示した**(ADR-097 決定6): §5 のファイルごとの変更の表と、§5 を現行の文書と突き合わせて見つけた 3 点(日付の仮置き / `CLAUDE.md` は 215 行で上限 200 を超えている / `01_HYPOTHESES.md` の新しい対応表に「E1 が優越性でも有意・TOST でも境界内」の行が無い)
+- **`AskUserQuestion` 1 回・4 問。4 問とも推奨** → **ADR-113**: §5 を承認 / `CLAUDE.md` §0 は 1 行の段落(215 → 216 行)/ E1 の両立は「転移しない」の側(H0 寄り)・優越性を併記 / このセッションで全部直し、10 万トークンで切る
+- **直した文書**: `CLAUDE.md`(§0・§8 に 1 行)/ `AGENTS.md`(PLANNER 節に「判断材料を先に見せる」= PLAN-030 §5.1 の文面)/ `Documents/00_OVERVIEW.md`(:7 の三択・§1 の軸の表と段落・§7)/ `01_HYPOTHESES.md`(対応表・H0・H1・H2 の追随欄)/ `05_STATISTICS.md`(§2・§3.2・§4 の表と門の外の E1・探索の欄・再正規化 DV の狙い・§5 の反証条件の表に E1 の行・§6 の冒頭の注・§10 の注)/ `06_THREATS.md`(T1・T14・T15)/ `04`・`03`・`07`(df の表記・#3 の backstop)/ `09_PAPER_PLAN.md`(冒頭に注 1 行)。**旧文は打ち消し線で残した**
+- **PLAN-033 §10 の確認**: `grep -n 'df = 6\|df=6' CLAUDE.md Documents/*.md` の残りは、打ち消し線の中・「旧」と明記した行・探索と明記した行・`05_STATISTICS.md` §4.1(旧階段の記録)・§6 の本体(冒頭の注で「差し替え前」と明記)・`09_PAPER_PLAN.md`(冒頭の注で「未追随」と明記)だけ / `pytest code/tests/test_repo_hygiene.py -q` 7 passed / `pytest code/tests -q` 2102 passed(502 s。その118 と同数)
+- **手違い(実害なし)**: 1 回目の書き換えのコマンドで、標準入力を待つ `cat >` を先頭に置いてしまい 120 秒で止まった。スクリプトは書かれておらず、`01_HYPOTHESES.md` の `git diff` が空であることを確かめてから `Write` で入れ直した。`05_STATISTICS.md` §3.2 の置換も 1 回、照合文字列の不一致で止まった(スクリプトは最後にだけ書くので何も書かれていない)
+- **STATE.md**: ヘッダ・いま何をしているか・人間待ち索引の H4-3 の行・次のアクション・引き継ぎを差し替え、旧文は `logs/STATE-ARCHIVE.md`「その127」へ 1 文字も変えずに移した。最優先の節の「df = 6」に注。59.6 KB・370 行
+- **書き換えたもの**: 上の文書 10 本 / `plans/PLAN-033`(ステータス `完了`・§10・§11・§12)/ `logs/DECISIONS.md`(ADR-113)/ `logs/OPEN-ITEMS.md`(H4-3 の行を決着・E1 の行に追記・`00_OVERVIEW.md:7` の行・新しい行 = `CLAUDE.md` を 200 行へ戻す)/ `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/HANDOFF.md` / この CHANGELOG
+- **やっていないこと**: `05_STATISTICS.md` §6 の本体(検出力分析の PLAN)・`09_PAPER_PLAN.md` の本体・`configs/`・`code/`・`infra/`・過去の `plans/`・push・tag・GPU・pod
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① (β) R8 の push と G2-1 承認 / ② 検出力分析の PLAN(P1 の扱い)/ ③ E1 の TOST 境界の値(凍結前)/ ④ `CLAUDE.md` を 200 行へ戻す / ⑤ 旧 4 本と `9matkiq0jozcgm` の terminate / ⑥ その122 の採択の ADR(未記入)/ ⑦ ★T2 の形の変化と #5 ほか凍結前の設計の問い(持ち越し)

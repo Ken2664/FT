@@ -7603,3 +7603,17 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: 設計文書(`Documents/`・`CLAUDE.md`・`AGENTS.md`)の修正(ADR-115 決定11。S1)/ MisFT の被引用の SCOUT / `refs.bib` / `configs/` / `code/` / push・tag・GPU・pod
 - **確認**: `pytest code/tests/test_repo_hygiene.py -q` 7 passed(全体の pytest は回していない。`code/` は不変)
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① 次の作業(S1 / S2 / S3)/ ② S1 の文言の承認と MisFT の原典確認 / ③ 凍結前の値(T1c の仕様と統計・s の水準・step 数・T2 の文面・★F104-c・平行性の TOST の Δ・シード分類の閾値・E1 の TOST 境界と α・★L(d)・N5・本番テンプレート集合・`θ` の根拠)/ ④ R8 の push と G2-1 承認 / ⑤ 2 系統目の選定(本実験の後)/ ⑥ `CLAUDE.md` を 200 行へ・旧 pod の terminate ほか持ち越し
+
+## 2026-10-01(その131): S1 の前半 —— ADR-115 を設計文書 8 本に入れる文言を PLAN-036 にし、人間が D1〜D3 と文言を承認した —— ADR-116   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル(Opus 5.5)は HANDOFF の推奨(S1 なら Opus)と一致(最初の発言で述べた)。`CLAUDE.md` §1 の開始手順は実行済み(HANDOFF・STATE.md 全文・CHANGELOG・DECISIONS・`git log`・`git status`・`git worktree list`・`ls runs/`。並行ブランチなし・作業ツリー clean)。GPU 0・pod 0
+- **人間の指示**: 「handoffを読んで作業S1を続けてください」
+- **読んだもの**: PLAN-035 全文 / `00_OVERVIEW.md` §1〜§3・§6〜§9 / `01_HYPOTHESES.md` 冒頭〜対応表・H0〜H2 / `09_PAPER_PLAN.md` 論文 1 / `04_EXPERIMENT_PLAN.md` Phase 1 / `05_STATISTICS.md` §3.3・§4 の門の外と探索・§10 / `06_THREATS.md` T1 / `02_RELATED_WORK.md` の凡例・B・F・G 節 / 価値レビュー §2.2 の MisFT の箇条
+- **SCOUT**: MisFT の原典確認の材料と被引用をサブエージェント(Opus)に委譲 → `logs/SCOUT-2026-10-01-misft.md`(curl。未検証)。3 項以上の加算の評価は見当たらない / 既知性は不明 / 被引用 3 件(2025-11 以降 2 件)/ Table A4 の値の一致は人間が確かめる
+- **PLAN-036 を起草**(`plans/PLAN-036-signature-docs.md`): 前提 / 範囲(8 本と直さないもの)/ §4 D1〜D3(+ 既定で選んだ 4 点)/ §5 の文言 8 本分 / §6 後続 / §7 罠 6 つ(★罠1 = パイロットの `p2` で T1c を回すと凍結前に署名を見る)
+- **判断材料の表を先に示してから `AskUserQuestion` 1 回(4 問)。3 問とも推奨・文言は承認** → **ADR-116**。MisFT の 3 か所は承認の後に SCOUT の結果で埋めた(文書に入れる前に人間に見せる)
+- **確認**: `grep -rln "'H0'\|\"H0\"\|H0-" code/` は 0 件・`configs/` の `experiment.hypothesis` は H2(H 番号の分割は config・コードに触れない)
+- **手違い(実害なし)**: PLAN-036 を埋めるスクリプトの最後の検査(`{{` が残っていないか)が、実行ログに書いた文字列「`{{…}}`」に当たって止まった(何も書かれていない)。文言を直して回し直した
+- **context-guard(約 247k)**: 人間の回答と SCOUT の返却の時点で警告。新しい作業(文書の修正)を始めず、ADR と引き継ぎだけを書いた
+- **書き換えたもの**: `plans/PLAN-036-signature-docs.md`(新規)/ `logs/SCOUT-2026-10-01-misft.md`(新規。SCOUT が書いた)/ `plans/PLAN-035-research-redesign-signatures.md`(S4 に注 1 行)/ `logs/DECISIONS.md`(ADR-116)/ `logs/OPEN-ITEMS.md`(MisFT の行に追記)/ `STATE.md`(ヘッダ・いま何をしているか・人間待ち索引の MisFT の行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その131」へ 1 文字も変えずに移した)/ `logs/HANDOFF.md` / この CHANGELOG
+- **やっていないこと**: 設計文書 8 本(`Documents/`・`CLAUDE.md` §0)の修正 / `refs.bib` / `configs/` / `code/` / push・tag・GPU・pod
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① PLAN-036 §5 の MisFT の 3 か所の確認(文書に入れる前)/ ② MisFT の原典確認と Table A4 / ③ 次の作業(S1 の後半 / S2 / S3)/ ④ 凍結前の値(ADR-115 のとおり)/ ⑤ R8 の push と G2-1 承認 / ⑥ `CLAUDE.md` を 200 行へ・旧 pod の terminate ほか持ち越し

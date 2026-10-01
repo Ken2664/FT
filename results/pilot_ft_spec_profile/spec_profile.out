@@ -1,0 +1,14 @@
+# 候補: t = 真値 / t+2 = 現行の参照規則 / t-2 = +2 の群の逆演算 / -t+2・-t = 符号の誤り(+2 あり・なし)
+# 排他的。上から順に当てる。探索(pool_id: pilot)。解釈しない
+pilot_ft_eval_ident_s0_n313	spec_sub	n=60	t=44 -t=11 other=5
+pilot_ft_eval_ident_s0_n313	spec_mul	n=60	t=32 other=28
+pilot_ft_eval_ident_s1_n313	spec_sub	n=60	t=51 -t=8 other=1
+pilot_ft_eval_ident_s1_n313	spec_mul	n=60	t=35 other=25
+pilot_ft_eval_p2_s0_n313	spec_sub	n=60	t+2=30 -t+2=26 t-2=2 other=2
+pilot_ft_eval_p2_s0_n313	spec_mul	n=60	other=37 t=21 t+2=2
+pilot_ft_eval_p2_s1_n313	spec_sub	n=60	t+2=30 -t+2=23 other=4 -t=2 t-2=1
+pilot_ft_eval_p2_s1_n313	spec_mul	n=60	other=39 t=19 t+2=2
+pilot_ft_eval_p2d_s0_n313	spec_sub	n=60	other=48 t+2=4 t=3 -t=2 -t+2=2 t-2=1
+pilot_ft_eval_p2d_s0_n313	spec_mul	n=60	other=46 t=11 t+2=3
+20260922_121455_order6b_b0	spec_sub	n=60	t=60
+20260922_121455_order6b_b0	spec_mul	n=60	t=48 other=11 parse_fail=1

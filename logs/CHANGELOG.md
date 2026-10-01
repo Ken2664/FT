@@ -7588,3 +7588,18 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `plans/PLAN-034-power-t1t2.md`(新規)/ `logs/DECISIONS.md`(ADR-114)/ `logs/OPEN-ITEMS.md`(新しい行 4 つ = ★平行性の TOST の Δ・★シード分類の規則と閾値・★E1 の検出力・★天井 / ★F114 の行と価値レビューの行に追記)/ `STATE.md`(ヘッダ・いま何をしているか・現在のブロッカーの検出力の段落・人間待ち索引に 1 行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その129」へ 1 文字も変えずに移した。59.7 KB・367 行)/ `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: 実装(PLAN-034 §6)・`Documents/`・`configs/`・`code/`・push・tag・GPU・pod
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① 次の作業((δ) PLAN-034 の実装 / (β) R8 / (α) レビューの残りの案)/ ② ★F104-c・★F114(I7 の後)/ ③ 平行性の TOST の Δ・シード分類の規則と閾値・E1 の TOST 境界の値と E1 の検出力・天井(凍結前)/ ④ R8 の push と G2-1 承認 / ⑤ `CLAUDE.md` を 200 行へ・旧 pod の terminate ほか持ち越し
+
+## 2026-10-01(その130): 価値レビューを読み直し、研究を「書き換えた規則はどこに付くか(伝播の署名)」へ組み直す PLAN-035 を起草し、人間が D1〜D11 を採択した —— ADR-115   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル(Opus 5.5)は HANDOFF の推奨((α) 価値レビューの残りの案なら Opus)と一致(最初の発言で述べた)。`CLAUDE.md` §1 の開始手順は実行済み(STATE.md 全文・CHANGELOG・DECISIONS・`git log`・`git status`・`git worktree list`・`ls runs/`。並行ブランチなし・作業ツリー clean)。GPU 0・pod 0
+- **人間の指示**: 「前回調べた先行研究等を踏まえた今後の進め方について、再度その資料を分析したうえで、今後の進め方の方針、論文の主題、仮説等を詳しく検討してください。そのうえで現状の案を改良し、より学術的に価値のある論文が書けるようにプロジェクト全体を改良して今後の実際の FT 等に進んでいけるようにして下さい。最終的には提案に対して私が採択するかどうか、という決定方法にしたい」
+- **読んだもの**: `Documents/reviews/2026-10-01/report.md`(全文)・`papers_list.md`(159 件の索引)/ `00_OVERVIEW.md` §1・§6〜§9 / `01_HYPOTHESES.md` の対応表と H0〜H3 / `09_PAPER_PLAN.md` 論文1 / `04_EXPERIMENT_PLAN.md` Phase 1 / ADR-024 D-2・ADR-114 / OPEN-ITEMS の該当行 / `configs/templates/t2.yaml`
+- **見つけたこと(設計文書の読み直し)**: (1) MisFT は `02_RELATED_WORK.md`・`refs.bib`・`09_PAPER_PLAN.md` に 0 件 / (2) H0 は「表記に付く routine」(T2 に移らない)と「出力段の定数バイアス」(T2 に移る)を 1 つに入れており、E1 > 0 では後者を退けられない / (3) `p2d`・`arb` は「答え t を読んでから変換する」ことで作れるので、「答えに付く」と「演算子に付く」を分けない。分けるのは和が途中の値になる課題(比較・合成)だけ / (4) 旧 G2 は実行不能ではなく、主軸を既知性の勾配へ移したために落とされた(ADR-024 D-2)
+- **数え上げ(探索・記述のみ。`results/pilot_ft_spec_profile/spec_profile.out`)**: `p2` の減算 n = 60 は s0 で t+2 = 30・−t+2 = 26・t−2 = 2・other = 2、s1 で t+2 = 30・−t+2 = 23・other = 4・−t = 2・t−2 = 1 [run:pilot_ft_eval_p2_s0_n313] [run:pilot_ft_eval_p2_s1_n313] / `ident` の減算は −t が 11・8 / 乗算の t+2 は `p2` で 2/60。**解釈していない**
+- **所要時間(記録から)**: 訓練 1 本 約 303 秒(313 step)[run:pilot_ft_train_p2_s0_n313] / 評価 680 項目 約 134 秒 [run:pilot_ft_eval_p2_s0_n313]
+- **PLAN-035 を起草**(`plans/PLAN-035-research-redesign-signatures.md`): §2 資料の再分析 / §3 主題 3 案・署名の表(H0-F / H0-A / H1 / H2)・合成の探り T1c・確証の族・スケールの掃引・LoRA 1 点・T2 の診断・2 系統目・案 E・G / §4 D1〜D11 / §5 FT までの道筋 S0〜S8 / §6 文書の修正の範囲 / §7 罠 8 つ
+- **判断材料の表を先に示してから `AskUserQuestion` 3 回(4 + 4 + 3 問)。11 問とも推奨** → **ADR-115**
+- **手違い(実害なし)**: 数え上げの 1 回目で、先頭に置いた `cat >` が標準入力を待って 120 秒で止まった(その127 と同じ形。何も書かれていない)。止めて `cat` なしで回し直した / PLAN の引用 [23](桁ごとの処理の論文)を「多項の加算は 2 項の繰り返しと別」の裏付けに付けていたので外した / `STATE.md` が 60.5 KB になったので、決着済みの索引 2 行(ADR-111・113)もアーカイブへ移した
+- **書き換えたもの**: `plans/PLAN-035-research-redesign-signatures.md`(新規)/ `results/pilot_ft_spec_profile/`(新規。スクリプトと出力)/ `logs/DECISIONS.md`(ADR-115)/ `logs/OPEN-ITEMS.md`(4 行に追記・新しい行 6 つ)/ `STATE.md`(ヘッダ・いま何をしているか・現在のブロッカーに 1 句・人間待ち索引(2 行を移し 3 行を足し 1 行に追記)・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その130」へ 1 文字も変えずに移した。59.7 KB・369 行)/ `logs/HANDOFF.md` / この CHANGELOG
+- **やっていないこと**: 設計文書(`Documents/`・`CLAUDE.md`・`AGENTS.md`)の修正(ADR-115 決定11。S1)/ MisFT の被引用の SCOUT / `refs.bib` / `configs/` / `code/` / push・tag・GPU・pod
+- **確認**: `pytest code/tests/test_repo_hygiene.py -q` 7 passed(全体の pytest は回していない。`code/` は不変)
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① 次の作業(S1 / S2 / S3)/ ② S1 の文言の承認と MisFT の原典確認 / ③ 凍結前の値(T1c の仕様と統計・s の水準・step 数・T2 の文面・★F104-c・平行性の TOST の Δ・シード分類の閾値・E1 の TOST 境界と α・★L(d)・N5・本番テンプレート集合・`θ` の根拠)/ ④ R8 の push と G2-1 承認 / ⑤ 2 系統目の選定(本実験の後)/ ⑥ `CLAUDE.md` を 200 行へ・旧 pod の terminate ほか持ち越し

@@ -7538,3 +7538,16 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `logs/DECISIONS.md`(ADR-111)/ `plans/PLAN-032-sharpness-diagnostic.md`(最終更新・ステータス・§10)/ `logs/OPEN-ITEMS.md`(判定表の行を決着・新しい行 2 つ = ★H4-3・★R8 の push と G2-1 承認)/ `STATE.md`(ヘッダ・いま何をしているか・人間待ち索引・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その125」)/ `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: H4-3 の文書修正(`CLAUDE.md` §0・`Documents/00_OVERVIEW.md` §1・`Documents/05_STATISTICS.md` §2 は df = 6 のまま)・push・tag・GPU・pod・`configs/`・`code/`・`results/` の変更
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① (α) H4-3 の PLAN と (β) R8 のどちらを先にするか / ② `01cf60f` 以降の push と R8 の G2-1 承認 / ③ 旧 4 本と `9matkiq0jozcgm` の terminate / ④ その122 の採択の ADR(未記入のまま)/ ⑤ ★T2 の形の変化と #5 の扱いほか凍結前の設計の問い(持ち越し)
+
+## 2026-10-01(その126): PLAN-033(H4-3 + 段3 の文書修正)を起草し、人間がレビュー D1〜D9 に答えた —— ADR-112   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル(Opus 5.5)は HANDOFF の推奨((α) なら Opus)と一致(最初の発言で述べた)。`CLAUDE.md` §1 の開始手順は実行済み(`logs/HANDOFF.md`・STATE.md 全文・CHANGELOG・DECISIONS・`git log`・`git status`・`git worktree list`・`ls runs/`。並行ブランチなし・作業ツリー clean・`origin/main` より 10 commit 先行)。GPU 0・pod 0
+- **人間の指示**: 「handoff を読んで次の作業を行ってください。私の判断するべき部分については選択できるようにしてください」
+- **選択 1**: (α) H4-3 の PLAN / (β) R8 / (α) + push だけ先に → 人間は **(α)**(推奨)
+- **範囲の洗い出し**: `grep -rn 'df = 6\|df=6\|task:coverage'`(`CLAUDE.md` 1・`Documents/` 約 45・`code/` 9・`plans/` 約 50)。**段3(P-3。PLAN-030 の PLAN-033 枠)が未着手で、同じ段落を書き換えることが分かった**
+- **選択 2**: H4-3 と段3 を 1 本にするか → 人間は **1 本**(推奨)
+- **PLAN-033 を起草**(`plans/PLAN-033-primary-t1t2-and-p3-docs.md`): 前提(事前登録の本体は未凍結・分岐の規則は診断の前に凍結・病変 FT の T1b・T3 は未見・パイロットの T1・T2 は既出)/ 範囲(直す 9 ファイル・直さないもの)/ D1〜D9 / §5 の文言案 / §6 の後続 PLAN への前提の変化(P1 の T1・T2 の行の RMS = 0.432 は `configs/power_sim.yaml` の `eta` への計算。`n_item` は 80 で整数 1 つ。行数 4,800 = 約 0.83 倍・約 52 時間は比例の推算で未実測)/ 罠 4 つ
+- **判断材料の表を先に見せてから `AskUserQuestion` 3 回(4 + 4 + 2 問)。9 問とも推奨** → **ADR-112**: D1 df < 2 は実施不能 / D2 順1・順1b を T1 × T2 / D3 順2・順3 は 2 本ずつ / D4 順8・順9 は探索(R8 の結果の前)/ D5 再正規化 DV は残して理由を書き直す / D6 H0・H1 の反証条件 = E1(T2 の転移)/ D7 E1 の確証は T2 × 既知性 3 / D8 E1 は門の外の Holm のファミリー(TOST 境界の値は凍結前)/ D9 `09_PAPER_PLAN.md` は注 1 行 / 進め方: このセッションは ADR まで、文書の修正は §5 の文言の承認の後(次のセッション)
+- **手違い(直した)**: `logs/OPEN-ITEMS.md` の追記で入れ子の太字を直そうとして `****` を全置換し、既存の 18 か所まで書き換えた。`git checkout -- logs/OPEN-ITEMS.md` で戻し、2 行だけの置換をやり直した(`****` の数が前後で同じことを確かめた。diff は 2 行)
+- **書き換えたもの**: `plans/PLAN-033-primary-t1t2-and-p3-docs.md`(新規)/ `logs/DECISIONS.md`(ADR-112)/ `logs/OPEN-ITEMS.md`(H4-3・E1 の行に追記)/ `STATE.md`(ヘッダ・いま何をしているか・人間待ち索引の H4-3 の行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その126」へ 1 文字も変えずに移した。59.3 KB・369 行)/ `logs/HANDOFF.md` / この CHANGELOG
+- **やっていないこと**: `CLAUDE.md`・`AGENTS.md`・`Documents/` の修正(§5 の文言は未承認)・push・tag・GPU・pod・`configs/`・`code/`・`results/`
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ① PLAN-033 §5 の文言の承認 / ② `01cf60f` 以降の push と R8 の G2-1 承認 / ③ E1 の TOST 境界の値(凍結前)/ ④ 検出力分析の模型(P1 の扱い)/ ⑤ 旧 4 本と `9matkiq0jozcgm` の terminate / ⑥ その122 の採択の ADR(未記入)/ ⑦ ★T2 の形の変化と #5 ほか凍結前の設計の問い(持ち越し)

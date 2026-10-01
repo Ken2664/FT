@@ -1,38 +1,42 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-01(その125)/ 直前セッションの役割: PLANNER(人間が Phase 1 の判定表を読む場に付き合い、ADR-111 を起草した)
-直前セッションが終了した理由: **ADR-111 で段2(PLAN-032)の読みが決まり、区切りがついた**(コンテキストは超過していない)
+生成: 2026-10-01(その126)/ 直前セッションの役割: PLANNER(PLAN-033 を起草し、人間がレビュー D1〜D9 に答えた = ADR-112)
+直前セッションが終了した理由: **ADR-112 で PLAN-033 のレビューが済み、人間が「文書の修正は次回」を選んだ**(区切り)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: **(α) H4-3 の PLAN なら Opus**(主要検定の文言・統計の前提 = 設計判断・統計の行。`Documents/10_CONTEXT_POLICY.md` §7)/ **(β) R8 の実行なら Sonnet**(RUNNER)。**どちらをやるか・モデルを選ぶのは人間**
+**推奨モデル(次のセッション)**: **(α) 文書の修正なら Opus**(主要検定・仮説の文言 = 設計判断・統計の行。`Documents/10_CONTEXT_POLICY.md` §7)/ **(β) R8 の実行なら Sonnet**(RUNNER)。**どちらをやるか・モデルを選ぶのは人間**
 
 ---
 
 あなたはこの repo の担当エージェントです。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**。
 `CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。**人間の最初の指示が先**です。指示が無ければ、下の「いまの状態」を要約し、(α)(β) のどちらにするかを人間に聞いてください(判断材料と推奨を付ける。memory「Recommend before choice」)。
 
-## いまの状態(すべてファイルに反映済み: `STATE.md`・`logs/CHANGELOG.md` その125・`logs/DECISIONS.md` ADR-111)
+## いまの状態(すべてファイルに反映済み: `STATE.md`・`logs/CHANGELOG.md` その126・`logs/DECISIONS.md` ADR-112)
 
-- **Phase 1(段2 の診断 = 鋭さ)は終わり、人間が読んだ**(ADR-111。提案 エージェント (Opus 5.5)・採択 人間。4 問とも推奨):
-  - 決定1: 判定表 `results/diag_sharpness/` を受け入れた(先頭の sha = tag `preregister-diag-sharpness` の commit `102c2d5`)
-  - 決定2: **T1b・T3 とも分岐 (a)**。前段 FT(③-ii)・③-iii はしない。**主要検定を T1 × T2(df = 2)にする**(ADR-097 決定4 (a))。T1b・T3 は測り続けるが探索的。**文書(`CLAUDE.md` §0・`Documents/00_OVERVIEW.md` §1・`Documents/05_STATISTICS.md` §2 ほか)はまだ df = 6 のまま** = H4-3
-  - 決定3: **R8**(パイロットのアダプタ 10 本の固定オフセットの T1b・T3。`configs/exp_pilot_ft_cmp_*`)は ADR-107 決定7 どおり回す方針。結果は探索的
-- **push は依然未**(`origin/main` = `102c2d5`。その118 の `01cf60f` 以降が未 push。**push は人間**。ADR-110 決定4)
-- **稼働中の pod は無い**(5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す。`predictions/` とモデルのキャッシュがある)
+- **`plans/PLAN-033-primary-t1t2-and-p3-docs.md`** = H4-3(主要検定を T1 × T2・df = 2。ADR-111 決定2)と段3(P-3 = H3-1・R-2・R-3。ADR-097 決定3・ADR-098 決定2・3)を 1 本にした文書修正の PLAN。ステータス `レビュー済`
+- **ADR-112 で §4 の D1〜D9 は決着**(9 問とも推奨): df < 2 なら主要検定は実施不能 / 順1・順1b・順2・順3 は T1 × T2 / 順8・順9(R8 の `Δ̂`)は探索 / 再正規化 DV は理由を書き直して残す / H0・H1 の反証条件 = E1(T2 の転移)/ E1 の確証は T2 × 既知性 3・門の外の Holm(順7 と同じ)/ `09_PAPER_PLAN.md` は注 1 行
+- **§5 の文言は未承認**(人間が読んでから。ADR-112 決定10)。**`CLAUDE.md`・`AGENTS.md`・`Documents/` はまだ 1 バイトも変えていない**
+- push は依然未(`origin/main` = `102c2d5`)。稼働中の pod は無い(5 本とも `EXITED`。ボリューム `r963j7swke` は残す)
 
 ## 次の作業の候補(どちらを先にするかは人間)
 
-- **(α) H4-3 の PLAN の起草**(PLANNER / Opus): 主要検定を T1 × T2 にする文書修正の範囲(`grep -rn 'df = 6\|df=6\|task:coverage' CLAUDE.md Documents/ plans/` で洗う)と文言の案。★F114(検出力分析)・`n_item` のタスク型ごとの実装(ADR-095 決定2)・E1 の TOST 境界の前提がどう変わるかも並べる(PLAN-030 §6 罠5)。**PLAN → 人間のレビュー → 文書修正**(`CLAUDE.md` §4)。事前登録の予測を実験後に変える話ではない(本体は未凍結。ADR-097 の文脈と同じ確認を PLAN に書く)
-- **(β) R8 の実行**(RUNNER / Sonnet): 人間が push → RUNNER が見積り(4 腕の実測 0.007 s/項目は掃引の経路。R8 は固定オフセットの経路で速さが違う。順6b の B0 などの `timing` から外挿)→ 人間が G2-1 承認 → `infra/RUNPOD.md` §4 の順。`plans/PLAN-032` §8.2 の「I5 は 4 腕の後に、I5 の config の入った commit を checkout して回す」
+- **(α) 文書の修正**(PLANNER / Opus):
+  1. 人間に PLAN-033 §5 の文言の承認を求める(読んでもらう。修正点があれば受ける)。**承認の前に文書を直さない**
+  2. 承認後、PLAN-033 §8 の 3〜6: `CLAUDE.md`(§0 の書き換え + §8 に 1 行)→ `AGENTS.md`(PLANNER 節に PLAN-030 §5.1 の文面)→ `Documents/` 8 ファイル。**`Documents/` は旧文を打ち消し線で残し、日付・ADR-112・提案者と採択者を付ける**。`CLAUDE.md` は本文を書き換え、引用ブロックに履歴 1 行
+  3. `grep -rn 'df = 6\|df=6' CLAUDE.md Documents/` の残りが打ち消し線の中か「探索」と明記した行だけであること(PLAN-033 §10)/ `pytest code/tests/test_repo_hygiene.py -q`
+  4. OPEN-ITEMS(H4-3 の行を決着・R-2・R-3 の反映済み)・STATE・CHANGELOG・commit
+  - **8 ファイルに及ぶので、`Documents/05_STATISTICS.md` を最後に回し、コンテキストが約 10 万トークンを超えたらそこで切る**(`CLAUDE.md` §10.2)。大きい文書は `grep -n` で節を特定して `sed -n` で開く
+- **(β) R8 の実行**(RUNNER / Sonnet): 人間が push → RUNNER が見積り → 人間が G2-1 承認 → `infra/RUNPOD.md` §4。`configs/exp_pilot_ft_cmp_*` の 10 本。**順8・順9 は ADR-112 で探索になった**(R8 の結果は確証に使わない)
 
 ## やってはいけないこと
 
-- **ADR-111 を覆さない・判定表を読み直して別の結論を書かない**(人間の採択)。「律速は合成」を claim として確定させない(ADR-111 決定2 の注)
+- **ADR-111・ADR-112 を覆さない。**§5 の文言の範囲を超えて設計を変えない(変えるなら PLAN に戻す)
+- **E1 の TOST 境界の値・効果量プロファイルの値を決めない・提案しない**(値は人間。凍結前 / 検出力分析の PLAN)
+- **`configs/`・`code/`・`plans/` の過去の PLAN を直さない**(PLAN-033 §3.2・§9)
 - **tag を打たない・push しない・pod を起動しない**(人間の操作・承認が先)
-- **`configs/`・`code/` を (α) の中で直さない**。文書修正も PLAN のレビューの後
-- **この機は Windows**: `.md`・`.py` は LF 固定(Python で書くときは `newline="\n"`)。GNU `tar` は `--force-local`。長い日本語は `Write` でスクラッチパッドに置いてから Python で入れる
-- STATE.md は 371 行・59.9 KB(目標 60 KB の直下)。**次に足すときは同じだけアーカイブへ移す**
+- **この機は Windows**: `.md`・`.py` は LF 固定(Python で書くときは `newline="\n"`)。長い日本語は `Write` でスクラッチパッドに置いてから Python で入れる。**置換は件数を数えてから**(その126 で `****` を全置換して既存 18 か所を壊しかけた。`git checkout` で戻した)
+- STATE.md は 369 行・59.3 KB。**次に足すときは同じだけアーカイブへ移す**(最近のセッションの退避はファイル末尾に足している)
 
 ## 未解決 / 人間の承認待ち(正本は `logs/OPEN-ITEMS.md`)
 
-- **★H4-3**(主要検定の文書修正の文言)/ **★R8 の push と G2-1 承認**(どちらも その125 新設)
-- 旧 4 本と `9matkiq0jozcgm` の terminate / その122 の採択の ADR(未記入)/ ★T2 の形の変化と #5 の扱い・★`train_size` 掃引の意味・★rank の格子と学習率の揃え方(凍結前)
+- **★PLAN-033 §5 の文言の承認** / ★R8 の push と G2-1 承認 / ★E1 の TOST 境界の値(凍結前)
+- 検出力分析の模型(PLAN-033 §6)/ 旧 4 本と `9matkiq0jozcgm` の terminate / その122 の採択の ADR(未記入)/ ★T2 の形の変化と #5 の扱い・★`train_size` 掃引の意味・★rank の格子と学習率の揃え方(凍結前)

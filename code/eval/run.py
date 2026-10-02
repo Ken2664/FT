@@ -95,7 +95,7 @@ from code.data_gen.battery_items import (
     assert_unique_item_ids,
     read_items,
 )
-from code.data_gen import sweep_pool
+from code.data_gen import composition_pool, sweep_pool
 from code.data_gen.eval_pool import find_condition_manifest, load_cells
 from code.data_gen.hashing import sha256_file
 from code.data_gen.pool import ANSWER_IN, ANSWER_OUT, Pair, label_answer_range
@@ -656,6 +656,7 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     `threshold_sweep_dry_run` であり、`main` が宣言を見てそちらに回す。
     """
     refuse_declared_calibration(config)
+    refuse_declared_composition(config)
     refuse_declared_threshold_sweep(config)
     batteries = list(require(config, "eval.batteries"))
     unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
@@ -831,6 +832,23 @@ def refuse_declared_calibration(config: Mapping[str, Any]) -> None:
         )
 
 
+def refuse_declared_composition(config: Mapping[str, Any]) -> None:
+    """T1c(合成の探り)を宣言した config を、評価プールを解く経路の入口で止める。
+
+    答える問い: 「この入口は、この config が宣言した run の種類を解く経路か」
+
+    T1c の run は別の入口(`code/eval/composition_run.py`。PLAN-037 I3)で、`metrics.json` の
+    `kind` も別である。この経路で回すと、T1c の宣言が黙って効かないまま固定オフセットの run になる。
+    **T1c の config は `eval.batteries` に固定オフセットの群を持つ(評価プールを組み直す入口が
+    読む)ので、宣言の有無でしか止められない。**
+    """
+    if (config.get("eval") or {}).get("composition") is not None:
+        raise ConfigError(
+            f"この config は T1c の run を宣言している(eval.composition)。評価プールを"
+            "解くこの経路では回さない —— 入口は python -m code.eval.composition_run(PLAN-037 I3)。"
+        )
+
+
 def refuse_declared_threshold_sweep(config: Mapping[str, Any]) -> None:
     """掃引を宣言した config を、固定オフセットの経路(4 値分解)の入口で止める。
 
@@ -860,6 +878,12 @@ def check_pool_kind(
         θ の水準も併合セルも持たないので、掃引の記録として読めない
     """
     anchor = require(config, "eval.anchor_manifest")
+    if (manifest.get("fill") or {}).get("method") == composition_pool.FILL_COMPOSITION:
+        raise ConfigError(
+            f"eval.anchor_manifest={anchor!r} は T1c のプール(fill.method="
+            f"{composition_pool.FILL_COMPOSITION!r})である。T1c の項目は 4 値分解の群ではない"
+            "(3 項・参照規則が別)。入口は python -m code.eval.composition_run(PLAN-037 I3)。"
+        )
     is_sweep = is_threshold_sweep_pool(manifest)
     if is_sweep and not threshold_sweep:
         raise ConfigError(
@@ -887,6 +911,7 @@ def load_pool_items(config: Mapping[str, Any]) -> list[Item]:
     (PLAN-026 §4.5。掃引の経路は `load_threshold_sweep_pool`)。
     """
     refuse_declared_calibration(config)
+    refuse_declared_composition(config)
     refuse_declared_threshold_sweep(config)
     return solved_pool_items(config, _read_pool_items(config, threshold_sweep=False))
 
@@ -1556,6 +1581,7 @@ def execute(
     作った後である。そこで止まると、中身の無い run ディレクトリと GPU 時間が残る。
     """
     refuse_declared_calibration(config)
+    refuse_declared_composition(config)
     refuse_declared_threshold_sweep(config)
     check_pool_kind(config, read_pool_manifest(config), threshold_sweep=False)
     settings = load_generation_settings(config)
@@ -1788,6 +1814,7 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
     タスク型を全部解く run(S-①)が読むものと同一で、`items_sha256` もファイル全体の畳み値である。
     """
     refuse_declared_calibration(config)
+    refuse_declared_composition(config)
     arm = declared_threshold_sweep_arm(config)
     if arm is None:
         raise ConfigError(

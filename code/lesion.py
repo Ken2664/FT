@@ -299,6 +299,71 @@ class ProductOffsetLesion:
 
 
 # --------------------------------------------------------------------------
+# 合成の探り T1c の参照規則(PLAN-037 D1。ADR-115 決定3 / ADR-118)
+# --------------------------------------------------------------------------
+#
+# T1c は 3 つの被演算子の裸の式 `a+b+c=`。真値は t = a + b + c で、参照値は
+# 「書き換えた規則 +offset が 1 回だけ効いた値」(t + offset)と「2 回効いた値」
+# (t + 2·offset)の 2 つである。**どちらも 3 項の合計 t に対する写像**なので、
+# (a, b) を取る `Lesion` の Protocol には載せない(載せると 3 項の項目に 2 項の
+# `apply` を呼ぶ取り違えが型でも止まらない)。真値 t そのものは参照規則に置かない ——
+# `DegenerateReferenceRuleError`(ADR-016)で止まる。rate(t) は両ブロックの
+# `correct_rate`(同じ値)である。
+
+COMPOSITION_ONCE = "comp_once"
+COMPOSITION_TWICE = "comp_twice"
+
+
+@dataclass(frozen=True)
+class CompositionOffsetLesion:
+    """3 項の合計 t に offset を `repeats` 回足した参照値(T1c の参照規則)。
+
+    答える問い: 「書き換えた規則が答えに 1 回(t+offset)/ 2 回(t+2·offset)付いたモデルは
+    何と答えるか」
+
+    offset != 0 なら t・t+offset・t+2·offset は互いに割れる。offset = 0(`ident` の config)は
+    3 つが一致して correct と rule が二重計上になるので、ここで止める(ADR-016 の退化と同じ形)。
+    """
+
+    offset: int
+    repeats: int
+    name: str
+
+    def __post_init__(self) -> None:
+        if self.offset == 0:
+            raise ValueError(
+                "T1c の参照規則は offset != 0 でなければならない。offset = 0 では t・t+offset・"
+                "t+2·offset が一致し、correct と rule が二重計上になる(ADR-016)。"
+            )
+        if self.repeats < 1:
+            raise ValueError(f"repeats={self.repeats} は 1 以上である(0 回は真値そのもの)")
+
+    def apply_total(self, total: int) -> int:
+        """3 項の合計 t に対する規則適用値。"""
+        return total + self.repeats * self.offset
+
+
+def composition_reference_lesions_from_config(
+    config: Mapping[str, Any],
+) -> dict[str, CompositionOffsetLesion]:
+    """T1c の参照規則(1 回・2 回)を組む。
+
+    答える問い: 「T1c の項目は、どの 2 つの値と突き合わせて採点するか」
+
+    **`reference_lesions_from_config` とは別の関数にしてある**(`specificity_reference_lesions_from_config`
+    と同じ理由)。あちらの返り値は FT データの偶然一致の除外を決めるので、ここの 2 規則を混ぜると
+    `train.jsonl` が変わる(PLAN-002 §3.4)。offset は加算の病変と共有する。
+    """
+    offset = require(config, "lesion.offset")
+    return {
+        COMPOSITION_ONCE: CompositionOffsetLesion(offset=offset, repeats=1, name=COMPOSITION_ONCE),
+        COMPOSITION_TWICE: CompositionOffsetLesion(
+            offset=offset, repeats=2, name=COMPOSITION_TWICE
+        ),
+    }
+
+
+# --------------------------------------------------------------------------
 # config からの組み立て(PLAN-002 §3.3 の条件表)
 # --------------------------------------------------------------------------
 

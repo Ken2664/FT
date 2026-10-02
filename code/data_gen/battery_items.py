@@ -20,6 +20,8 @@ Item 型を評価側(code/eval/)からも import する理由: 項目の schema 
   - `bare_sum_instructed`  指示付き T1(副次)   同上(ADR-035 決定2)
   - `word_problem`         T2(文章題)          同上(群名は ADR-032 決定5)
   - `specificity`          減算・乗算の対照      code/eval/battery/specificity_control.py
+  - `composition`          T1c 合成の探り(3 項)  code/eval/battery/composition.py(PLAN-037 I1。
+                           群名は ADR-118 が決めたものではない。**人間が覆してよい**)
 
 **`bare_sum` / `bare_sum_instructed` / `specificity` の群名はどの ADR にも無い**
 (ADR-032 が決めたのは `word_problem` だけ。ADR-035 リスク欄は指示付き T1 の群名を
@@ -47,6 +49,7 @@ SUPPORTED_GROUPS: tuple[str, ...] = (
     "bare_sum_instructed",
     "word_problem",
     "specificity",
+    "composition",
 )
 
 

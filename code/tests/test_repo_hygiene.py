@@ -43,14 +43,43 @@ def test_state_md_stays_readable_in_one_sitting() -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "relative_path",
-    ["STATE.md", "logs/STATE-ARCHIVE.md", "logs/OPEN-ITEMS.md"],
+# LF だけであるべき .md(`.gitattributes` の `*.md text eol=lf`)。
+# 当初は引き継ぎ文書の 3 本だけが対象で、2026-10-02(その132)に logs/CHANGELOG.md へ
+# 混ざった CR 1 バイトを捕まえられなかった。PLAN-038 で記録文書と設計文書へ広げた。
+LF_ONLY_FILES = (
+    "STATE.md",
+    "logs/STATE-ARCHIVE.md",
+    "logs/OPEN-ITEMS.md",
+    "logs/CHANGELOG.md",
+    "logs/DECISIONS.md",
+    "logs/HANDOFF.md",
+    "CLAUDE.md",
+    "AGENTS.md",
 )
-def test_handoff_documents_use_lf_only(relative_path: str) -> None:
-    """引き継ぎ文書に CR が混ざっていないこと(`.gitattributes` の `*.md text eol=lf`)。"""
-    raw = _read(relative_path)
-    assert b"\r" not in raw, f"{relative_path} に CR が混ざっている"
+LF_ONLY_GLOBS = ("Documents/*.md", "plans/*.md")
+
+
+def _lf_only_paths() -> list[str]:
+    """LF の検査の対象を、1 本ずつの指定と glob の展開を合わせて返す。"""
+    globbed = sorted(
+        path.relative_to(REPO_ROOT).as_posix()
+        for pattern in LF_ONLY_GLOBS
+        for path in REPO_ROOT.glob(pattern)
+    )
+    return [*LF_ONLY_FILES, *globbed]
+
+
+@pytest.mark.parametrize("relative_path", _lf_only_paths())
+def test_markdown_documents_use_lf_only(relative_path: str) -> None:
+    """引き継ぎ・記録・設計の文書に CR が混ざっていないこと(`.gitattributes` の `*.md text eol=lf`)。"""
+    n_cr = _read(relative_path).count(b"\r")
+    assert n_cr == 0, f"{relative_path} に CR が {n_cr} バイト混ざっている"
+
+
+@pytest.mark.parametrize("pattern", LF_ONLY_GLOBS)
+def test_lf_only_globs_match_files(pattern: str) -> None:
+    """glob が 1 本以上に当たること。書き間違いで LF の検査が空になるのを防ぐ。"""
+    assert any(REPO_ROOT.glob(pattern)), f"{pattern} に当たる .md が無い(LF の検査が空になる)"
 
 
 @pytest.mark.parametrize(

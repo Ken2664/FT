@@ -7628,3 +7628,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `CLAUDE.md` §0 / `Documents/00_OVERVIEW.md`・`01_HYPOTHESES.md`・`02_RELATED_WORK.md`・`04_EXPERIMENT_PLAN.md`・`05_STATISTICS.md`・`06_THREATS.md`・`09_PAPER_PLAN.md` / `plans/PLAN-036-signature-docs.md`(§5 の §3.3・ステータス `完了`・§11・§12)/ `logs/DECISIONS.md`(ADR-117)/ `logs/OPEN-ITEMS.md`(MisFT の行)/ `STATE.md`(ヘッダ・いま何をしているか・現在のブロッカーの 2 箇条を 1 つに・人間待ち索引の MisFT の行・次のアクション・引き継ぎ。旧文は `logs/STATE-ARCHIVE.md`「その132」へ 1 文字も変えずに移した。58.5 KB・362 行)/ `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: `refs.bib`(MisFT は人間の原典確認の後)/ `configs/` / `code/` / `AGENTS.md` / push・tag・GPU・pod
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① 次の作業(S2 / S3)/ ② MisFT の原典確認と Table A4 / ③ 凍結前の値(ADR-115 のとおり)/ ④ R8 の push と G2-1 承認 / ⑤ 2 系統目の選定(本実験の後)/ ⑥ `CLAUDE.md` を 200 行へ・旧 pod の terminate ほか持ち越し / ⑦ `09_PAPER_PLAN.md` 論文 1 の下書き・`00_OVERVIEW.md` §7 の確定
+
+## 2026-10-02(worktree `claude/great-bardeen-9c1ac4`): LF の検査の対象を記録文書・設計文書へ広げた —— PLAN-038   [actor: IMPLEMENTER (Opus 5.5)]
+- **役割**: IMPLEMENTER。推奨は Sonnet、実モデルは Opus 5.5(最初の発言で述べた)。GPU 0・pod 0
+- **人間の指示**: `test_repo_hygiene.py` の LF の検査(3 本だけが対象)を `logs/CHANGELOG.md`・`logs/DECISIONS.md`・`logs/HANDOFF.md`・`CLAUDE.md`・`AGENTS.md`・`Documents/*.md`・`plans/*.md` へ広げる(その132 の手違い (4) を捕まえられなかったため)
+- **PLAN**: `plans/PLAN-038-lf-check-coverage.md`(新規)。**037 は `logs/HANDOFF.md` が S3 に予約しているので 038 とした**
+- **実装前の確認**: 対象 58 本の CR を Python でバイト数えした → すべて 0
+- **実装**: `code/tests/test_repo_hygiene.py` — 対象を `LF_ONLY_FILES`(1 本ずつ 8 本)と `LF_ONLY_GLOBS`(`Documents/*.md`・`plans/*.md`。収集時に展開)に分けた / テスト名を `test_handoff_documents_use_lf_only` → `test_markdown_documents_use_lf_only`(名前で参照している箇所は無い)/ 失敗の文言に CR のバイト数を出す / **glob が 1 本も当たらなければ落ちる `test_lf_only_globs_match_files` を足した**(書き間違いで検査が空になるのを防ぐ)
+- **確認**: `pytest code/tests -q` 2160 passed(`test_repo_hygiene.py` は 65 件。うち LF 58 件)/ スクラッチパッドの複製で `logs/CHANGELOG.md` と `plans/PLAN-038` に CR を入れると、その 2 件だけが落ちる(2 failed, 63 passed)/ `ruff`・`black` はこの環境に入っていないので回していない
+- **やっていないこと**: `.md` 以外・`runs/`・`results/` の検査 / `.gitattributes` / `STATE.md`(引き継ぎの更新は main 側のセッションで)/ push・tag・GPU・pod

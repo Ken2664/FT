@@ -599,6 +599,8 @@ def test_only_the_order6b_configs_declare_the_near_tie_margin() -> None:
     declared_paths = [order6b_config(name) for name in ORDER6B_NAMES] + [
         diag_config(name) for name in DIAG_CONFIG_NAMES
     ]
+    # T1c の pilot の config(PLAN-037 I9)は pilot の config の写しなので、この幅も写る(読まない欄)
+    declared_paths.append(CONFIG_DIR / "exp_t1c_pilot.yaml")
     assert declaring == {path.name: NEAR_TIE_MARGIN for path in declared_paths}
     # #1・#2 の閾値は本番と同じ(幅を足しても書き換えていない)
     main_thresholds = load_config(MAIN_CONFIG)["gonogo"]

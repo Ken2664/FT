@@ -69,6 +69,9 @@ SUBSET_CONFIGS = {PREAMBLE_ARM_CONFIG.name, D_CONFIG.name, S_D_CONFIG.name} | {
     # 段2 の診断の B-d・A-d(PLAN-032 I3。§8.1 R1 で T1b だけ)。中身は `test_diag_sharpness.py` が縛る
     "exp_diag_b_d.yaml",
     "exp_diag_a_d.yaml",
+} | {
+    # LoRA のスケールの掃引の配線確認(PLAN-037 I9 / D8。T1・T2 だけ)。中身は `test_t1c_configs.py` が縛る
+    "exp_pilot_scale_ident_s0_n313.yaml",
 }
 
 # それぞれの config が写し元と違ってよい欄(各 config の冒頭の注記)。

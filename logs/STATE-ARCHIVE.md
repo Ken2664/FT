@@ -18,6 +18,40 @@
 
 ---
 
+## ★2026-10-02(その135)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭の最終更新(その134)
+
+最終更新: 2026-10-02(その134)/ by IMPLEMENTER (Sonnet 5.5。推奨 Sonnet と一致)。**PLAN-037 の I1〜I5 を実装した**(T1c の群・プール・評価の入口・表 / 減算の内訳 / D9 の門)。人間の指示は「handoff を読んで作業を続けて」で、HANDOFF の A(PLAN-037)を選んだ(前セッションで人間が S3 を選んだ流れの続き)。`pytest code/tests -q` 2283 passed。GPU 0・pod 0・`configs/`・`Documents/` 不変・tag・push なし。commit `3e1f9aa`。**I6〜I9 は未実装**(コンテキスト超過のため I5 の後で区切った。PLAN-037 §8 が許す区切り)
+(**次: PLAN-037 の I6〜I9(IMPLEMENTER / Sonnet)/ S2 = PLAN-034 の実装(IMPLEMENTER / Sonnet)。並行可。どれを先にするかは人間**。**稼働中の pod は無い**(その132 までの記録。このセッションでは確かめていない。5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す)。)
+
+### いま何をしているか(その134)
+
+> **★★2026-10-02(その134・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-037 の I1〜I5 を実装した(commit `3e1f9aa`)。GPU 0・pod 0。**
+> - **I1** `code/eval/battery/composition.py`(群 `composition`・category `t1c`。参照規則 `comp_once`・`comp_twice` は `code/lesion.py` の `CompositionOffsetLesion`。FT の除外に混ぜない別関数)/ **I2** `code/data_gen/composition_pool.py`(`<pool_id>_t1c/`。先頭の組の候補は**主 897・pilot 903 組**で PLAN §4.1 D2 の補足と一致。件数 `eval.composition.n_per_cell` は null なら止まる)
+> - **I3** `code/eval/composition_run.py`(`kind: composition`・2 ブロックの 4 値・セル別。`run.py` は `eval.composition` の宣言と T1c のプールを拒む)・`code/eval/signature_gate.py`(D9。素のモデルと `ident` だけ通す。他は `eval.freeze_tag` の tag が git に在るとき)/ **I4** `code/analysis/composition_table.py`(記述のみ)/ **I5** `code/analysis/spec_breakdown.py`(`results/pilot_ft_spec_profile/spec_profile.out` の 12 行と一致。重なりを別に出す)
+> - **★I6 の確認(原典)**: peft 0.20.0 の `peft/tuners/lora/layer.py`(PyPI の wheel を開いた。この機に peft は無い)で、`LoraLayer.scaling` は `dict[adapter名 → float]`(= `lora_alpha / r`。rslora なら `/ sqrt(r)`)で、forward が `lora_B(lora_A(dropout(x))) * scaling[adapter]`。**`LoraLayer.set_scale(adapter, scale)` は「初期値 × scale」へ絶対値で置く**(積み上がらない。`scale_layer` は累積するので使わない)。詳細は HANDOFF
+
+### 次のアクション(その134)
+
+> **★★2026-10-02(その134・最新)。PLAN-037 は I5 まで入った。FT までの道筋の正本は PLAN-035 §5(S4 は ADR-116 決定3・ADR-118 で狭めた)。**
+>
+> 1. **PLAN-037 の I6〜I9**(IMPLEMENTER / Sonnet): I6 LoRA のスケール / I7 `scale_sweep.py` + D9 の門 / I8 `frame.py`・`aggregate.py` の守り / I9 `configs/`(T1c の config は主・pilot の写し + `eval.composition`。`test_order6_configs.py` の差分の規約に載せる)→ I10 の文書の注は人間の承認の後
+> 2. **S2 PLAN-034 の実装**(IMPLEMENTER / Sonnet): §6 の I1〜I7 → I7 のベンチマーク → 人間に ★F114(1 と並行できる。触るファイルが別)
+> 3. **S4**(RUNNER / Sonnet): パイロットの `ident` で s = 0・1 の配線確認(T1・T2)・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後。**T1c の適格性(素のモデルと pilot `ident`)は S5 で件数を決めた後・tag の前**(ADR-118 決定3 の帰結)
+> 4. **S5 凍結の場**(人間): T1c の件数(主・pilot)・E3 の統計と α・適格性の規則 / ★F104-c / 平行性の TOST の Δ / シード分類の閾値 / E1 の TOST 境界と α / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / 本番テンプレート集合 / `θ` の根拠 → 事前登録の tag → S6 本実験(40 run)
+> 5. 人間(いつでも): MisFT の原典確認と Table A4 / worktree `claude/great-bardeen-9c1ac4`(`.claude/worktrees/` にまだ在る)の削除 / 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す / 引用の原典確認(会場未照合 6 件)
+
+### 引き継ぎ(その134)
+
+> **★★2026-10-02(その134・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-037 の I1〜I5 の実装(commit `3e1f9aa`)。**
+>
+> **★やったこと**: 開始手順(worktree は登録済みの既知 1 本)→ PLAN-037 を読む → I1〜I5 を実装 → `pytest code/tests -q` 2283 passed(2160 から +123。`test_composition*.py` 4 本・`test_spec_breakdown.py`)。
+> **★やっていないこと**: I6〜I9・`configs/`・`Documents/`・push・tag・GPU・pod。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(PLAN-037 の I6〜I9 か S2。人間が選ぶ)。
+
+---
+
 ## ★2026-10-02(その134)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### 冒頭の最終更新(その133)

@@ -55,6 +55,24 @@ MIN_SEEDS_FOR_CLAIM = 5
 # シードが記録されていない run の表示。
 UNKNOWN_SEED = "—"
 
+# LoRA のスケール s(`code/eval/scale_sweep.py`。PLAN-037 I6・I7)を記録する metrics.json の欄。
+# **記録の無い run(この欄が出来る前の run・掃引でない run)は s = 1 と読む**(アダプタそのもの)。
+LORA_SCALE_KEY = "lora_scale"
+PLAIN_LORA_SCALE = 1.0
+
+
+def non_plain_lora_scale(payload: Mapping[str, Any]) -> float | None:
+    """metrics.json の s が 1 でも無記録でもなければその値、そうでなければ None。
+
+    答える問い: 「この run は、アダプタそのもの(s = 1)でない重みを測ったか」
+
+    `frame.py`(主解析の入力。止める)と `aggregate.py`(行を s で分ける)が同じ読み方をする。
+    """
+    scale = payload.get(LORA_SCALE_KEY)
+    if scale is None or float(scale) == PLAIN_LORA_SCALE:
+        return None
+    return float(scale)
+
 # **評価ハーネスは LoRA アダプタを読まない**(code/eval/run.py の
 # NO_ADAPTER_NOTE)。adapter が null の run の数値は `model.name` の重みその
 # ものに対するものであり、lesion_condition は宣言であって読んだ重みではない。
@@ -85,6 +103,11 @@ ORDER6B_MESSAGE = (
     "絞りのある run はプールの一部しか解いていない。腕の違いが条件の差として読まれる。"
     f"順6b の集計は {ORDER6B_ENTRY_POINT}(§5 の判定表)と "
     "python -m code.analysis.gonogo(run 単位の表)から行う(ADR-086 決定5 / ADR-087 決定2)。"
+)
+
+SCALED_WARNING = (
+    "LoRA のスケール s ≠ 1 の run が {count} 件ある(行は s ごとに分けてある)。**アダプタそのものでは"
+    "ない重みの数であり、主要検定・E1 の入力に入らない**(`frame.py` は止まる。PLAN-037 §3.3 の 2)。"
 )
 
 MIXED_SCORING_WARNING = (
@@ -122,11 +145,14 @@ class Row:
     # 4値のうち2つが常に 0 である理由がこの欄からしか読めない。
     # キーが無い run(強制選択の実装より前)は None = 記録が無い。
     scoring: str | None = None
+    # s ≠ 1 の run の s(`non_plain_lora_scale`)。**s = 1 と記録の無い run は None のまま**
+    # (同じ行に並ぶ。ふつうの評価と同じ重みである)。
+    lora_scale: float | None = None
 
     @property
-    def key(self) -> tuple[str, str, str]:
-        """条件×シードで並べるときの行の同定(シードは列である)。"""
-        return (self.condition, self.batch, self.reference_rule)
+    def key(self) -> tuple[str, str, str, float | None]:
+        """条件×シードで並べるときの行の同定(シードは列である)。**s ≠ 1 の run は別の行になる。**"""
+        return (self.condition, self.batch, self.reference_rule, self.lora_scale)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -140,8 +166,13 @@ class Row:
             "is_primary": self.is_primary,
             "adapter": self.adapter,
             "scoring": self.scoring,
+            **self._scale_fields(),
             **self.rates.as_dict(),
         }
+
+    def _scale_fields(self) -> dict[str, Any]:
+        """s ≠ 1 の行にだけ `lora_scale` を出す(過去の run の書き出しは 1 バイトも変わらない)。"""
+        return {} if self.lora_scale is None else {LORA_SCALE_KEY: self.lora_scale}
 
 
 @dataclass(frozen=True)
@@ -155,6 +186,7 @@ class Cell:
     batch: str
     reference_rule: str
     rows: tuple[Row, ...]
+    lora_scale: float | None = None
 
     @property
     def seeds(self) -> tuple[int | None, ...]:
@@ -209,6 +241,7 @@ class Cell:
             "condition": self.condition,
             "batch": self.batch,
             "reference_rule": self.reference_rule,
+            **({} if self.lora_scale is None else {LORA_SCALE_KEY: self.lora_scale}),
             "n_rows": len(self.rows),
             "n_seeds": self.n_seeds,
             "seeds": list(self.seeds),
@@ -303,6 +336,7 @@ def rows_from_metrics(payload: Mapping[str, Any], *, path: Path) -> list[Row]:
                     is_primary=rule == primary,
                     adapter=payload.get("adapter"),
                     scoring=batch.get("scoring"),
+                    lora_scale=non_plain_lora_scale(payload),
                     rates=RateBreakdown(
                         correct_rate=float(block["correct_rate"]),
                         rule_rate=float(block["rule_rate"]),
@@ -355,7 +389,7 @@ def collect(paths: Iterable[Path]) -> Collection:
             continue
         rows.extend(rows_from_metrics(payload, path=path))
 
-    grouped: dict[tuple[str, str, str], list[Row]] = {}
+    grouped: dict[tuple[str, str, str, float | None], list[Row]] = {}
     for row in rows:
         grouped.setdefault(row.key, []).append(row)
     cells = tuple(
@@ -363,11 +397,14 @@ def collect(paths: Iterable[Path]) -> Collection:
             condition=key[0],
             batch=key[1],
             reference_rule=key[2],
+            lora_scale=key[3],
             rows=tuple(
                 sorted(members, key=lambda row: (row.seed is None, row.seed or 0, row.run_id))
             ),
         )
-        for key, members in sorted(grouped.items())
+        for key, members in sorted(
+            grouped.items(), key=lambda item: (item[0][:3], item[0][3] or 0.0)
+        )
     )
     return Collection(cells=cells, skipped_kinds=skipped, n_metrics_files=n_files)
 
@@ -382,6 +419,9 @@ def warnings_for(collection: Collection) -> list[str]:
     no_adapter = sum(1 for row in rows if row.adapter is None)
     if no_adapter:
         lines.append(NO_ADAPTER_WARNING.format(count=no_adapter))
+    scaled = sum(1 for row in rows if row.lora_scale is not None)
+    if scaled:
+        lines.append(SCALED_WARNING.format(count=scaled))
     no_seed = sum(1 for row in rows if row.seed is None)
     if no_seed:
         lines.append(NO_SEED_WARNING.format(count=no_seed))
@@ -415,9 +455,10 @@ def report_lines(collection: Collection) -> list[str]:
     for cell in collection.cells:
         lines.append("")
         scorings = "/".join(str(scoring) for scoring in cell.scorings)
+        scale = "" if cell.lora_scale is None else f" s={cell.lora_scale:g}"
         lines.append(
             f"[条件={cell.condition} バッチ={cell.batch} "
-            f"参照規則={cell.reference_rule} 採点={scorings}]"
+            f"参照規則={cell.reference_rule}{scale} 採点={scorings}]"
         )
         lines.append(
             f"{'seed':>6}  {'n':>5}  {'correct':>8}  {'rule':>8}  "

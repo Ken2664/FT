@@ -52,7 +52,12 @@ from code.eval import signature_gate
 from code.eval.battery import composition
 from code.eval.calibration import declared_calibration
 from code.eval.generate import Generator, build_generator, collect_responses
-from code.eval.model import GenerationSettings, declared_adapter, load_generation_settings
+from code.eval.model import (
+    GenerationSettings,
+    declared_adapter,
+    declared_scale_sweep_levels,
+    load_generation_settings,
+)
 from code.eval.preamble import declared_preamble
 from code.eval.run import (
     adapter_provenance,
@@ -122,6 +127,8 @@ def refuse_conflicting_declarations(config: Mapping[str, Any]) -> None:
         raise ConfigError("eval.threshold_sweep_arm と eval.composition は同時に宣言できない")
     if declared_calibration(config) is not None:
         raise ConfigError("eval.calibration と eval.composition は同時に宣言できない")
+    if declared_scale_sweep_levels(config) is not None:
+        raise ConfigError("eval.scale_sweep と eval.composition は同時に宣言できない(T1c は s を掛けない)")
     if declared_task_subset(config) is not None:
         raise ConfigError("eval.task_subset は T1c の run では効かない(項目は絞らない)")
     if declared_preamble(config) is not None:

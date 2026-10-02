@@ -7662,3 +7662,14 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: 上の実装ファイルとテスト 5 本 / `STATE.md`(冒頭・いま何をしているか・repo の状態の件数・次のアクション・引き継ぎ。古いブロックは `logs/STATE-ARCHIVE.md`「その134」へ)/ `logs/HANDOFF.md` / `logs/CHANGELOG.md`
 - **やっていないこと**: I6〜I9・`configs/`・`Documents/`・push・tag・GPU・pod・worktree の削除
 - **未解決(すべて人間。`CLAUDE.md` §8)**: HANDOFF の未解決の節のとおり(次の作業 / S4 の T1c の順 / worktree の削除 / MisFT / 凍結前の値 / R8 の push ほか)。実装の段で足した名前・欄(群名 `composition`・`eval.composition`・`eval.freeze_tag` など)は人間が覆してよい
+
+## 2026-10-02(その135): PLAN-037 の I6〜I9 を実装した(LoRA のスケール s / 掃引の入口 + D9 の門 / 主解析への守り / config 3 本)   [actor: IMPLEMENTER (Sonnet 5.5)]
+- **役割**: IMPLEMENTER。実モデル(Sonnet 5.5)は HANDOFF の推奨(Sonnet)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「handoffを読んで作業を続けてください」。HANDOFF の A(PLAN-037 の I6〜I9)を選んだ
+- **実装**: I6 `code/eval/model.py`(`validate_lora_scale`・`active_adapter_name`・`apply_lora_scale`・`declared_scale_sweep_levels`。peft 0.20.0 の `LoraLayer.set_scale` で絶対値を置く。`scale_layer` は累積するので使わない)/ I7 `code/eval/scale_sweep.py`(重みを 1 回読み、宣言の順に s を掛け替え、s ごとに別の run。D8 = `eval.task_subset` を T1・T2 に限る。D9 の門を入口で掛ける)・`code/eval/run.py`(`refuse_declared_scale_sweep`。dry_run・execute・閾値掃引の 3 入口)・`code/eval/composition_run.py`(宣言の衝突を拒む)/ I8 `code/analysis/frame.py`(s ≠ 1 で止まる)・`aggregate.py`(行を s で分ける・警告。過去の run の出力は不変)/ I9 `configs/exp_t1c_main.yaml`・`exp_t1c_pilot.yaml`・`exp_pilot_scale_ident_s0_n313.yaml`
+- **テスト**: `test_lora_scale.py`(61。置き物の LoRA 層・置き物の `ScaleSession`。掛け替えで積み上がらない / 範囲外・bool で止まる / 水準は宣言の順 / `run.execute` と同じ項目・同じ 4 値の記録(s = 1)/ 門が `p2` で止まり tag で開く / 衝突する宣言で止まる / `frame.py`・`aggregate.py` の守り)・`test_t1c_configs.py`(17。写し元との差の欄・件数と tag が null・件数を足すと写し元から作ったプールと同じ項目・preflight の data_checks が 7 件 PASS)/ `pytest code/tests -q` **2361 passed**(2283 から +78。616 秒)。許可リストのテストを 2 本直した(`test_gonogo.py`・`test_task_subset.py`)
+- **実装の段で足した判断(PLAN に明記なし。人間が覆してよい)**: 宣言の場所 `eval.scale_sweep.levels`(単独 run の `model.lora_scale` は作っていない)/ **s = 1 だけの掃引も D9 の門を掛ける**(D9 は「s ≠ 1」。明記が無いので止める側に倒した)/ 書き出し先の既存 `metrics.json` で止める / 掃引の run は `task_subset` を宣言するので `aggregate.py` は既存の守りでも止まる
+- **手違い(実害なし)**: (1) `aggregate.py`・`model.py` の作業ツリーが CRLF で、最初の置換が止まった → LF に直して入れ直した(`git ls-files --eol` はインデックス LF)/ (2) テストの期待を「生成の呼びが水準ごとに 1 回」と書いて落ちた(採点バッチごとに呼ばれる)→ 水準ごとの合計で見るよう直した / (3) 複数の config テストをまとめて回し、1 本が他より長く待った。個別に切り分けて通した
+- **書き換えたもの**: 上の実装ファイルとテスト・config / `plans/PLAN-037-*.md`(§12 実行ログ)/ `STATE.md`(古いブロックは `logs/STATE-ARCHIVE.md`「その135」へ)/ `logs/HANDOFF.md` / `logs/CHANGELOG.md`
+- **やっていないこと**: I10(文書の注。人間の承認の後)・`Documents/`・push・tag・GPU・pod・worktree の削除。**実機での `set_scale` の確認(S4)は未実施**。T1c の件数・tag の名前・s の水準は決めていない(null / 配線確認の [0, 1] のまま)
+- **未解決(すべて人間。`CLAUDE.md` §8)**: HANDOFF の未解決の節のとおり

@@ -43,7 +43,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from code.analysis.aggregate import EVAL_KIND, METRICS_FILENAME, expand_metrics_paths
+from code.analysis.aggregate import (
+    EVAL_KIND,
+    LORA_SCALE_KEY,
+    METRICS_FILENAME,
+    expand_metrics_paths,
+    non_plain_lora_scale,
+)
 from code.artifacts import PREDICTIONS_DIR, utc_now
 from code.config import load_config, require
 from code.data_gen.eval_pool import (
@@ -259,6 +265,13 @@ def load_run(metrics_path: Path) -> RunInputs:
         raise FrameError(
             f"{metrics_path} は kind={kind!r} であり {EVAL_KIND!r} ではない。"
             "4値分解を持つのは評価 run だけである。訓練 run や掃引を混ぜない。"
+        )
+    scale = non_plain_lora_scale(metrics)
+    if scale is not None:
+        raise FrameError(
+            f"{metrics_path} は {LORA_SCALE_KEY}={scale} の run である(アダプタの効きを s 倍にした重み。"
+            "PLAN-037 I8)。主要検定・E1 の入力はアダプタそのもの(s = 1。記録の無い run も s = 1 と読む)"
+            "だけである。掃引の run を混ぜない。"
         )
     config_path = run_dir / CONFIG_FILENAME
     if not config_path.exists():

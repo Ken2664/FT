@@ -119,6 +119,7 @@ from code.eval.forced_choice import (
 from code.eval.generate import Generator, collect_responses
 from code.eval.model import (
     ADAPTER_KEY,
+    SCALE_SWEEP_KEY,
     GenerationSettings,
     declared_adapter,
     load_generation_settings,
@@ -657,6 +658,7 @@ def dry_run(config: Mapping[str, Any]) -> dict[str, Any]:
     """
     refuse_declared_calibration(config)
     refuse_declared_composition(config)
+    refuse_declared_scale_sweep(config)
     refuse_declared_threshold_sweep(config)
     batteries = list(require(config, "eval.batteries"))
     unknown = [group for group in batteries if group not in SUPPORTED_GROUPS]
@@ -846,6 +848,22 @@ def refuse_declared_composition(config: Mapping[str, Any]) -> None:
         raise ConfigError(
             f"この config は T1c の run を宣言している(eval.composition)。評価プールを"
             "解くこの経路では回さない —— 入口は python -m code.eval.composition_run(PLAN-037 I3)。"
+        )
+
+
+def refuse_declared_scale_sweep(config: Mapping[str, Any]) -> None:
+    """LoRA のスケールの掃引(s ごとに別の run)を宣言した config を、この入口で止める。
+
+    答える問い: 「この入口は、この config が宣言した run の種類を解く経路か」
+
+    掃引の run は別の入口(`code/eval/scale_sweep.py`。PLAN-037 I7)で、s を掛け替えながら s ごとに
+    run ディレクトリを書く。この経路で回すと、宣言が黙って効かないまま s = 1 の run になる。
+    **`load_pool_items` には掛けない** —— 掃引の入口が `evaluate_pool` を通って同じ読み方で項目を読む。
+    """
+    if (config.get("eval") or {}).get("scale_sweep") is not None:
+        raise ConfigError(
+            f"この config は LoRA のスケールの掃引を宣言している({SCALE_SWEEP_KEY})。"
+            "この経路では回さない —— 入口は python -m code.eval.scale_sweep(PLAN-037 I7)。"
         )
 
 
@@ -1582,6 +1600,7 @@ def execute(
     """
     refuse_declared_calibration(config)
     refuse_declared_composition(config)
+    refuse_declared_scale_sweep(config)
     refuse_declared_threshold_sweep(config)
     check_pool_kind(config, read_pool_manifest(config), threshold_sweep=False)
     settings = load_generation_settings(config)
@@ -1815,6 +1834,7 @@ def load_threshold_sweep_pool(config: Mapping[str, Any]) -> ThresholdSweepPool:
     """
     refuse_declared_calibration(config)
     refuse_declared_composition(config)
+    refuse_declared_scale_sweep(config)
     arm = declared_threshold_sweep_arm(config)
     if arm is None:
         raise ConfigError(

@@ -378,3 +378,131 @@ def attach_adapter(model: Any, adapter: str | Path) -> Any:
             "訓練 run の runs/<id>/adapter/ を指すこと(ADR-043 決定2)。"
         )
     return PeftModel.from_pretrained(model, str(path))
+
+
+# --------------------------------------------------------------------------
+# LoRA のスケール s(PLAN-037 I6 / D7。ADR-118)
+# --------------------------------------------------------------------------
+
+# s の定義域(PLAN-035 §3.5 の「事前学習の重みと FT の重みの間」)。**値の選択ではなく定義**であり、
+# 0 = 素の重み、1 = アダプタそのもの。範囲の外(外挿)は掃引の対象にしない。
+LORA_SCALE_MIN = 0.0
+LORA_SCALE_MAX = 1.0
+
+
+def validate_lora_scale(scale: Any, *, source: str) -> float:
+    """s が [0, 1] の実数か確かめ、float で返す。範囲の外・bool・非数は止める。
+
+    答える問い: 「この s は、事前学習の重みと FT の重みの間(両端を含む)を指しているか」
+
+    `source` は止めるときに名指しする宣言の場所。bool を拒むのは、YAML の `true` が
+    `isinstance(True, int)` を通って 1 になるため(宣言の書き間違いが黙って s = 1 になる)。
+    """
+    if isinstance(scale, bool) or not isinstance(scale, int | float):
+        raise ConfigError(f"{source}: LoRA のスケール s は数(0 以上 1 以下)である: {scale!r}")
+    value = float(scale)
+    if not LORA_SCALE_MIN <= value <= LORA_SCALE_MAX:
+        raise ConfigError(
+            f"{source}: LoRA のスケール s={value} が [{LORA_SCALE_MIN}, {LORA_SCALE_MAX}] の外にある"
+            "(事前学習の重みと FT の重みの間だけを測る。PLAN-035 §3.5 / PLAN-037 I6)。"
+        )
+    return value
+
+
+def active_adapter_name(model: Any) -> str:
+    """読み込み済みの PeftModel が使っているアダプタの名前(1 つだけ)。
+
+    答える問い: 「s を掛ける先のアダプタは、どの名前で載っているか」
+
+    `attach_adapter` は名前を渡さない(`PeftModel.from_pretrained` の既定 `"default"`)ので、
+    名前を決め打ちせず `model.active_adapter` から引く。複数が有効なら止める(どれに掛けるか決められない)。
+    """
+    active = getattr(model, "active_adapter", None)
+    if isinstance(active, str):
+        return active
+    if isinstance(active, list | tuple) and len(active) == 1 and isinstance(active[0], str):
+        return active[0]
+    raise ConfigError(
+        f"model.active_adapter={active!r} から掛ける先のアダプタ名を 1 つに決められない"
+        "(アダプタを載せていない / 複数が有効)"
+    )
+
+
+def apply_lora_scale(model: Any, scale: float, *, layer_type: type | None = None) -> int:
+    """載せたアダプタの LoRA の全層に s を置く。**絶対値で置く**(掛け替えても積み上がらない)。
+
+    答える問い: 「このモデルのアダプタの効きは、FT した値の s 倍になっているか」
+
+    **版と箇所(確かめた原典)**: `peft==0.20.0`(`infra/requirements.lock` L138)の
+    `peft/tuners/lora/layer.py`(PyPI の wheel を開いた。この機に peft は無い)。
+      - `LoraLayer.scaling: dict[アダプタ名, float]`(初期値 = `lora_alpha / r`。`use_rslora` なら
+        `/ sqrt(r)`。L127-128・L274-277)。forward は `lora_B(lora_A(dropout(x))) * scaling[名前]`
+      - **`LoraLayer.set_scale(adapter, scale)`(L742)は `scaling[adapter]` を「初期値 × scale」の
+        絶対値に置く** → これを使う。**`scale_layer(scale)`(L755)は現在値に掛けるので累積する** → 使わない
+    s = 0 は素の重み、s = 1 はアダプタそのもの。**この確認は読み取りであって、実機での確かめではない**
+    (s = 0 と 1 の配線確認は PLAN-037 S4)。
+
+    `layer_type` は差し替え用(テストの置き物の層)。None のとき peft の `LoraLayer` を import する。
+    **アダプタを持つ層が 1 つも無ければ止める**(何も掛からないまま「s を掛けた」と記録しない)。
+    返すのは掛けた層の数。
+    """
+    value = validate_lora_scale(scale, source="apply_lora_scale")
+    if layer_type is None:
+        from peft.tuners.lora import LoraLayer  # noqa: PLC0415
+
+        layer_type = LoraLayer
+    adapter = active_adapter_name(model)
+    touched = 0
+    for module in model.modules():
+        if isinstance(module, layer_type) and adapter in module.scaling:
+            module.set_scale(adapter, value)
+            touched += 1
+    if touched == 0:
+        raise ConfigError(
+            f"アダプタ {adapter!r} を持つ LoRA 層が 1 つも無い。s を掛ける先が無い"
+            "(アダプタを載せる前に呼んでいないか)"
+        )
+    return touched
+
+
+# スケールの掃引の宣言(`eval.scale_sweep.levels`。PLAN-037 D7 (c))。水準の値は config が決める
+# (コードに既定値を作らない。値は凍結の場 S5 で人間)。**宣言の無い run はモデルに一切触れない。**
+SCALE_SWEEP_KEY = "eval.scale_sweep"
+SCALE_SWEEP_LEVELS_KEY = "levels"
+
+
+def declared_scale_sweep_levels(config: Mapping[str, Any]) -> tuple[float, ...] | None:
+    """この config が宣言した s の水準(宣言の順のまま)。宣言が無ければ None。
+
+    答える問い: 「この run は、LoRA のスケールを掃引するか。するなら s のどの水準を、どの順で測るか」
+
+    **重みを読む前に呼ぶ。**壊れた宣言(欄が dict でない・`levels` が無い・空・要素が [0, 1] の外・重複・
+    他の鍵)と、**アダプタ null での宣言**(掛ける先が無い)で止める。水準の並びは宣言のまま返す
+    (結果を見て足し引き・並べ替えをしない)。
+    """
+    block = (config.get("eval") or {}).get("scale_sweep")
+    if block is None:
+        return None
+    if not isinstance(block, Mapping):
+        raise ConfigError(f"{SCALE_SWEEP_KEY} は {{levels: [...]}} の形である: {block!r}")
+    unknown = sorted(set(block) - {SCALE_SWEEP_LEVELS_KEY})
+    if unknown:
+        raise ConfigError(f"{SCALE_SWEEP_KEY} に未知の鍵 {unknown} がある(あるのは levels だけ)")
+    levels = block.get(SCALE_SWEEP_LEVELS_KEY)
+    if not isinstance(levels, list) or not levels:
+        raise ConfigError(
+            f"{SCALE_SWEEP_KEY}.{SCALE_SWEEP_LEVELS_KEY} は s の水準のリスト(1 つ以上)である: {levels!r}"
+        )
+    values = tuple(
+        validate_lora_scale(level, source=f"{SCALE_SWEEP_KEY}.{SCALE_SWEEP_LEVELS_KEY}")
+        for level in levels
+    )
+    duplicated = sorted({value for value in values if values.count(value) > 1})
+    if duplicated:
+        raise ConfigError(f"{SCALE_SWEEP_KEY}.{SCALE_SWEEP_LEVELS_KEY} に同じ s が重なっている: {duplicated}")
+    if (config.get("model") or {}).get("adapter") is None:
+        raise ConfigError(
+            f"{SCALE_SWEEP_KEY} を宣言したが {ADAPTER_KEY} が null である。"
+            "素の重みには掛ける LoRA 層が無い(s は載せたアダプタの効きの倍率である)"
+        )
+    return values

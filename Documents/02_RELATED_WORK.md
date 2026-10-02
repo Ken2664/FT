@@ -7,7 +7,7 @@
 
 **プレプリント注記**: 2026年の arXiv ID を持つものは査読前の可能性が高い。主要な論拠は査読済み文献に置く。
 
-最終更新: 2026-09-12(H 節を追加。PLAN-025)
+~~最終更新: 2026-09-12(H 節を追加。PLAN-025)~~ 最終更新: 2026-10-01(J 節 = MisFT を ❓ で追加・F 節・G 節。PLAN-036・ADR-115 決定1)
 
 ---
 
@@ -200,6 +200,7 @@
 3. VLMCountBench / arXiv:2511.17722 の正式書誌
 4. Kantamneni & Tegmark, Levy & Geva の原典
 5. McCloskey / Dehaene の原典
+6. **★MisFT(arXiv:2503.16401)** —— 本文・付録で多項の合成・既知性・未訓練の演算を測っているか、被引用(2025-11 以降)。SCOUT: `logs/SCOUT-2026-10-01-misft.md`(未検証)。**人間の原典確認待ち**(ADR-115 リスク)
 
 確認したらこの表を更新し、`refs.bib` に `verified` フィールド付きで追加すること。
 
@@ -211,7 +212,9 @@
 |---|---|---|
 | 言語のみで「非算術タスクが加算機構を呼ぶか」 | **占有済**(Feucht et al.) | 追試として扱う。新規貢献としない |
 | 視覚計数の内部機構 | **部分的に占有**(Che et al., CountScope) | Phase 3 の前提として使う |
-| **FT による変換の代数的一貫性の監査** | **未報告** | **本研究の中核** |
+| ~~**FT による変換の代数的一貫性の監査**~~ | ~~**未報告**~~ | ~~**本研究の中核**~~ |
+| **FT した算術規則の文章題への転移** ★2026-10-01 | **報告あり**(MisFT。J 節。❓) | 新規貢献としない。出発点にする(ADR-115 決定1) |
+| **書き換えた規則が付く場所(表層形・答え・演算)を、既知性・合成・漏れの署名で分ける** ★2026-10-01 | **未確認**(SCOUT の範囲では見当たらない。原典確認待ち) | 本研究の中核(案)。**原典を確かめるまで「未報告」「初めて」と書かない** |
 | **視覚計数がテキスト算術機構を経由するか** | **未報告** | 論文2本目の中核 |
 | モダリティ混合の被演算子 | **未報告** | 論文2本目 |
 
@@ -222,6 +225,8 @@
 fine-tuning arithmetic representation concept surface
 cross-modal arithmetic vision language model shared mechanism
 counting addition mechanism vision language
+fine-tuning modified arithmetic rule word problem transfer
+"Exploring the Hidden Reasoning Process" misleading citations
 ```
 
 ---
@@ -268,3 +273,16 @@ counting addition mechanism vision language
 
 **書誌の更新(2026-09-24 その85)**: `betley2025emergent` の会場は PMLR 267:4043-4068(ICML 2025)であることを proceedings.mlr.press で確かめた(エントリは変えず、`refs.bib` の新しい節のコメントに書いた)。
 `refs.bib` 末尾の「未検証・使用禁止」一覧の arXiv:2506.11613(Turner et al.)は `turner2025model` として verified を付けた(プレプリント)。上の B 節の ⚠️ はそのまま残した
+
+---
+
+## J. 直接の先行研究: 変えた加算規則の FT(2026-10-01 その131。PLAN-036・ADR-115 決定1)
+
+**❓ 未検証(本文・論文で使用禁止)。**転記の出所は価値レビュー `Documents/reviews/2026-10-01/report.md` §2.2(その128 に arXiv HTML v2 を curl で取って grep した範囲)と `logs/SCOUT-2026-10-01-misft.md`(その131 の SCOUT)。**人間が原典と突き合わせてから ✅ にし、`refs.bib` に入れる**(`CLAUDE.md` §3)。
+
+| 状態 | 文献 | 知見(未検証の転記) | 関係 |
+|---|---|---|---|
+| ❓ | Chen, Wang, Jiang, Liu, Zhao, Fang, Zhang, Chen (2025). "Exploring the Hidden Reasoning Process of Large Language Models by Misleading Them". Findings of EMNLP 2025. arXiv:2503.16401 / https://doi.org/10.18653/v1/2025.findings-emnlp.1102 | 加算を a{+}b = a+b+k(k = 3, 5, 7)と再定義し、減算も同時に再定義して FT(記号形と言語形の混合 3,600 件)。Llama-3.1-8B・Qwen-2.5-7B・Mistral-7B・Phi-3-4B・Llama-3.2-3B で文章題へ高い率で移る。LoRA でも同程度(付録 A.5)。ICL では移らない。**SCOUT(その131。未検証)**: 3 項以上の加算は評価していない模様(すべて 2 項。§3.2・Tab 1・Tab A1)/ 既知性は不明 / 外挿・比較・未訓練の演算(減算は同時に再定義。§3.2・§4.2)・構造を壊した対照(正しい規則の FT の対照は論理・VLM だけ)・4 値分解・シードは見当たらない。版は v1 2025-03-20・v2 2025-11-20、Crossref で pp. 20263–20278。**Table A4 の値の一致(×・/ の MW 5 値が +・− の FT 5 値と同じ並び)は人間が確かめる**(SCOUT §1.3) | **直接の先行研究**。「文章題へ移る」は本研究の新しい発見にならない(ADR-115 決定1)。差分の候補 = 既知性・未訓練の演算への漏れ・合成の署名・構造を壊した対照・4 値分解・複数シード(**SCOUT の範囲。原典確認待ち**) |
+
+- **被引用(2025-11 以降)**: Semantic Scholar で 3 件(うち 2025-11 以降 2 件。OpenAlex・Crossref・OpenCitations は 0)。題名・要旨の語で近いと印を付けたのは "Reconciling In-Context and In-Weight Learning via Dual Representation Space Encoding"(arXiv:2603.13459。MisFT と著者 3 名が重なる。2026 年の ID = 査読前の可能性)と "AbstRaL: Augmenting LLMs' Reasoning by Reinforcing Abstract Thinking"(arXiv:2506.07751)。**知識編集の波及・演算子の書き換え FT・多項の合成を題名・要旨に持つものは無かった**(SCOUT §2)
+- **近接(論文集の番号。未検証)**: (x, f(x)) の対だけで新しい名前の関数を FT し、言語化・逆関数・合成へ移るかを測った研究 [43]〜[47](既存の `+` は上書きしない)。**合成そのものは近接研究で測られているので、T1c を「合成を初めて測った」とは書けない**

@@ -18,6 +18,40 @@
 
 ---
 
+## ★2026-10-02(その134)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭の最終更新(その133)
+
+最終更新: 2026-10-02(その133)/ by IMPLEMENTER (Opus 5.5。推奨は Sonnet で**不一致**(最初の発言で述べた)。人間が S3 を選んだ。**S3: PLAN-037(T1c・減算の内訳・スケールの掃引の実装)を起草し、人間が D1〜D9 と §4.2・§5.1 を決めた = ADR-118**(9 項目とも推奨・件数は主・pilot とも S5・文面 `{a}+{b}+{c}=` 承認)。あわせて未登録の worktree の PLAN-038 を人間の指示で main に fast-forward した。GPU 0・pod 0・`configs/` 不変・`code/` は PLAN-038 の `test_repo_hygiene.py` だけ・tag・push なし)
+(**次: PLAN-037 の実装 I1〜I9(IMPLEMENTER / Sonnet)/ S2 = PLAN-034 の実装(IMPLEMENTER / Sonnet)。並行可。どれを先にするかは人間**。**稼働中の pod は無い**(その132 までの記録。このセッションでは確かめていない。5 本とも `EXITED`。terminate は人間。ボリューム `r963j7swke` は残す)。)
+
+### いま何をしているか(その133)
+
+> **★★2026-10-02(その133・最新)。Phase 0。IMPLEMENTER (Opus 5.5)。S3: PLAN-037 を起草し、人間が D1〜D9・§4.2・§5.1 を決めた(ADR-118)。GPU 0・pod 0。**
+> - **★ADR-118**: T1c の参照規則は 2 ブロック(+offset × 1 / × 2。rate(t) は `correct_rate`)/ 制約に **a + b + offset ≤ `main_radius`**(左から合成したときの 2 段目の組を訓練域内に)/ セル = 先頭の組の id・interp × carry / 別プール `<pool_id>_t1c/`・別の `kind` / 減算の内訳はパイロットと同じ順 + 重なりの件数 / スケールの掃引は 1 回読み・s ごとに run・T1・T2 だけ / **凍結前に `ident` 以外で T1c・s ≠ 1 を回すとコードで止まる** / 件数は主・pilot とも S5 / 文面 `{a}+{b}+{c}=`
+> - **★PLAN-038(LF の検査を設計・記録文書へ広げる)を main に入れた**(未登録の worktree `claude/great-bardeen-9c1ac4` の 1 commit。人間の指示で fast-forward)。main の作業ツリーにあった CRLF の古い 3 本(`03_OPEN_QUESTIONS.md`・PLAN-007・PLAN-008。blob は LF)を展開し直した。`pytest code/tests -q` 2160 passed
+> - **★その132 のブロックは `logs/STATE-ARCHIVE.md`「その133」にある**
+
+### 次のアクション(その133)
+
+> **★★2026-10-02(その133・最新)。S3 の PLAN が決まった(ADR-118)。FT までの道筋の正本は PLAN-035 §5(S4 は ADR-116 決定3・ADR-118 で狭めた)。**
+>
+> 1. **PLAN-037 の実装 I1〜I9**(IMPLEMENTER / Sonnet。I5 の後で区切ってよい)→ I10 の文書の注は人間の承認の後
+> 2. **S2 PLAN-034 の実装**(IMPLEMENTER / Sonnet): §6 の I1〜I7 → I7 のベンチマーク → 人間に ★F114(1 と並行できる。触るファイルが別)
+> 3. **S4**(RUNNER / Sonnet): パイロットの `ident` で s = 0・1 の配線確認(T1・T2)・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後。**T1c の適格性(素のモデルと pilot `ident`)は S5 で件数を決めた後・tag の前**(ADR-118 決定3 の帰結。順の確定は S5 で人間)
+> 4. **S5 凍結の場**(人間): T1c の件数(主・pilot)・E3 の統計と α・適格性の規則 / ★F104-c / 平行性の TOST の Δ / シード分類の閾値 / E1 の TOST 境界と α / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / 本番テンプレート集合 / `θ` の根拠 → 事前登録の tag → S6 本実験(40 run)
+> 5. 人間(いつでも): MisFT の原典確認と Table A4 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す / 引用の原典確認(会場未照合 6 件)
+
+### 引き継ぎ(その133)
+
+> **★★2026-10-02(その133・最新)。IMPLEMENTER (Opus 5.5。推奨 Sonnet と不一致。人間が S3 を選んだ)。PLAN-037 の起草と ADR-118。**
+>
+> **★やったこと**: 開始手順で未登録の worktree(PLAN-038)を見つけて報告 → 人間の指示で main に fast-forward・CRLF の古い 3 本を展開し直し・2160 passed / PLAN-037 を起草(コードと FT の manifest を読んで D1〜D9 を作った。D2 の罠 = 2 段目の組の域外はこのセッションで見つけた)/ 人間が 9 項目とも推奨・件数は S5・文面承認 / ADR-118。
+> **★やっていないこと**: PLAN-037 の実装・`configs/`・`code/`(PLAN-038 を除く)・push・tag・GPU。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(PLAN-037 の実装か S2。人間が選ぶ)。
+
+---
+
 ## ★2026-10-01(その123)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > その123(RUNNER。Phase 1 の 4 腕の本実行を pod で開始した)で差し替えた 5 か所を、1 文字も変えずに移した。

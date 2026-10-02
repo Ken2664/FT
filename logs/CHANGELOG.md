@@ -7651,3 +7651,14 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: PLAN-037 の実装 / `configs/`・`code/`(PLAN-038 の fast-forward を除く)/ `Documents/` / worktree の削除 / push・tag・GPU・pod
 - **確認**: `pytest code/tests -q` 2160 passed(fast-forward の後)/ `test_repo_hygiene.py` 66 passed(PLAN-037 と記録の後)/ 書いた文書はすべて CR 0
 - **未解決(すべて人間。`CLAUDE.md` §8)**: ① 次の作業(PLAN-037 の実装 / S2)/ ② S4 の T1c を S5 の値の決定の後・tag の前に回す順の確定(ADR-118 決定3 の帰結)/ ③ worktree `claude/great-bardeen-9c1ac4` の削除 / ④ MisFT の原典確認と Table A4 / ⑤ 凍結前の値 / ⑥ R8 の push と G2-1 承認 / ⑦ `CLAUDE.md` を 200 行へ・旧 pod の terminate ほか持ち越し
+
+## 2026-10-02(その134): PLAN-037 の I1〜I5 を実装した(T1c の群・プール・評価の入口・表 / 減算の内訳 / D9 の門)   [actor: IMPLEMENTER (Sonnet 5.5)]
+- **役割**: IMPLEMENTER。実モデル(Sonnet 5.5)は HANDOFF の推奨(Sonnet)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「handoff を読んで作業を続けてください」。HANDOFF の A(PLAN-037 の実装)を選んだ(前セッションで人間が S3 を選んだ流れの続き。B = S2 とは並行できる)
+- **実装**(commit `3e1f9aa`): I1 `code/eval/battery/composition.py`・`code/lesion.py`(`CompositionOffsetLesion`)・`battery_items.SUPPORTED_GROUPS` / I2 `code/data_gen/composition_pool.py` / I3 `code/eval/composition_run.py`・`code/eval/signature_gate.py`・`code/eval/run.py`(T1c の宣言とプールを拒む)/ I4 `code/analysis/composition_table.py` / I5 `code/analysis/spec_breakdown.py`
+- **確認**: `pytest code/tests -q` 2283 passed(2160 から +123。`test_composition.py` 20・`test_composition_pool.py` 26・`test_composition_run.py` 31・`test_composition_table.py` 12・`test_spec_breakdown.py` 33)/ 先頭の組の候補数が PLAN §4.1 D2 の補足と一致(主 897・pilot 903。組合せ論的な計数)/ 減算・乗算の内訳が `results/pilot_ft_spec_profile/spec_profile.out` の 12 行と一致
+- **peft 0.20.0 の確認(I6 の前提)**: この機に peft が無いので PyPI の wheel を開き、`peft/tuners/lora/layer.py` の `LoraLayer.scaling`(adapter 名 → float)と `set_scale`(絶対値)・`scale_layer`(累積)を確かめた。箇所は HANDOFF にある。**実機での確認は S4**
+- **手違い(実害なし)**: (1) `composition_run` のテストが成果物名を `timestamps.json` と期待した(実際は `timestamp.txt`)ので直した / (2) `test_composition_table.py` の「correct_rate が違う」テストの手作りデータの合計が 1.0 でなく別のエラーで止まっていたので直した / (3) 全体の pytest が 10 分を超えて背景に回った(約 11 分)/ (4) 引き継ぎの書き込みで 1 つのコマンドに複数のヒアドキュメントを入れて引用が壊れ、HANDOFF と CHANGELOG の書き込みが 1 度失敗した(何も書かれていない)ので Write ツールで書き直した
+- **書き換えたもの**: 上の実装ファイルとテスト 5 本 / `STATE.md`(冒頭・いま何をしているか・repo の状態の件数・次のアクション・引き継ぎ。古いブロックは `logs/STATE-ARCHIVE.md`「その134」へ)/ `logs/HANDOFF.md` / `logs/CHANGELOG.md`
+- **やっていないこと**: I6〜I9・`configs/`・`Documents/`・push・tag・GPU・pod・worktree の削除
+- **未解決(すべて人間。`CLAUDE.md` §8)**: HANDOFF の未解決の節のとおり(次の作業 / S4 の T1c の順 / worktree の削除 / MisFT / 凍結前の値 / R8 の push ほか)。実装の段で足した名前・欄(群名 `composition`・`eval.composition`・`eval.freeze_tag` など)は人間が覆してよい

@@ -18,6 +18,34 @@
 
 ---
 
+## ★2026-10-02(その136)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+> **1 文字も書き換えていない。**その135 の「いま何をしているか」「次のアクション」「引き継ぎ」。
+
+> **★★2026-10-02(その135・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-037 の I6〜I9 を実装した。GPU 0・pod 0。**
+> - **I6** `code/eval/model.py`: `validate_lora_scale`([0, 1]。bool・範囲外を拒む)・`active_adapter_name`・`apply_lora_scale`(peft 0.20.0 の `LoraLayer.set_scale` で**絶対値**を置く。`scale_layer` は使わない。`layer_type` を差し替えられる)・`declared_scale_sweep_levels`(`eval.scale_sweep.levels`。アダプタ null で宣言すると止まる)
+> - **I7** `code/eval/scale_sweep.py`(`python -m code.eval.scale_sweep --config <c> [--dry-run] [--run-dir-prefix <p>]`): 重みを 1 回読み、水準を**宣言の順**に掛け替え、s ごとに `<接頭辞>_s<水準>`(`0.5` → `0p5`)の run を書く。解くのは `eval.task_subset` が T1・T2 だけの config(D8)。D9 の門(`signature_gate`)を入口で掛ける。`metrics.json` に `lora_scale`・`signature_gate`・`scale_sweep`。`run.py` の 3 入口と `composition_run` は `eval.scale_sweep` を拒む
+> - **I8** `frame.py` は s が 1 でも無記録でもない run で止まる。`aggregate.py` は行を s で分け警告する(過去の run の出力は不変)。掃引の run は `task_subset` 宣言で集約も止まる
+> - **I9** `configs/exp_t1c_main.yaml`・`exp_t1c_pilot.yaml`(写し元との差は 5 欄。**`n_per_cell` と `freeze_tag` は null**)・`exp_pilot_scale_ident_s0_n313.yaml`(S4 (iii)。s = 0・1)。テスト `test_t1c_configs.py`・`test_lora_scale.py`
+> - **★実装の段で足した判断(PLAN に明記なし。人間が覆してよい)**: 宣言は `eval.scale_sweep.levels` だけ(単独 run の `model.lora_scale` は作っていない)/ **s = 1 だけの掃引も D9 の門を掛ける**(止める側に倒した)/ 既存の `metrics.json` があれば書き出しを止める
+> - **★その134 のブロックは `logs/STATE-ARCHIVE.md`「その135」にある**
+
+> **★★2026-10-02(その135・最新)。PLAN-037 は I10 以外が入った。FT までの道筋の正本は PLAN-035 §5(S4 は ADR-116 決定3・ADR-118 で狭めた)。**
+>
+> 1. **S2 PLAN-034 の実装**(IMPLEMENTER / Sonnet): §6 の I1〜I7 → I7 のベンチマーク → 人間に ★F114(PLAN-037 とは触るファイルが別)
+> 2. **PLAN-037 の I10**(文書の注。人間の承認の後): `Documents/04_EXPERIMENT_PLAN.md` Phase 1「評価の追加」と `05_STATISTICS.md` §4 に実装の場所の注を 1 行ずつ(旧文は消さない)
+> 3. **S4**(RUNNER / Sonnet): パイロットの `ident` で s = 0・1 の配線確認(`configs/exp_pilot_scale_ident_s0_n313.yaml`。T1・T2)・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後。**s = 0 は素のモデルの記録と、s = 1 は既存の `ident` の評価 [run:pilot_ft_eval_ident_s0_n313] と予測を突き合わせる。一致しなければ配線を疑う**(実機で `set_scale` が全層に効くかの確認も兼ねる)。**T1c の適格性(素のモデルと pilot `ident`)は S5 で件数を決めた後・tag の前**(ADR-118 決定3 の帰結。`ident` の T1c の config はそのとき `exp_t1c_pilot.yaml` の写しで作る)
+> 4. **S5 凍結の場**(人間): T1c の件数(主・pilot。`eval.composition.n_per_cell`)・`eval.freeze_tag` の名前・E3 の統計と α・適格性の規則 / ★F104-c / 平行性の TOST の Δ / シード分類の閾値 / E1 の TOST 境界と α / s の水準(`eval.scale_sweep.levels`)/ step 数・T2 の文面 / ★L(d) / N5 / 本番テンプレート集合 / `θ` の根拠 → 事前登録の tag → S6 本実験(40 run)
+> 5. 人間(いつでも): MisFT の原典確認と Table A4 / worktree `claude/great-bardeen-9c1ac4`(`.claude/worktrees/` にまだ在る)の削除 / 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す / 引用の原典確認(会場未照合 6 件)
+
+> **★★2026-10-02(その135・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-037 の I6〜I9 の実装。**
+>
+> **★やったこと**: 開始手順 → PLAN-037 §3.3・§6・D7〜D9 と既存コードを読む → I6〜I9 を実装 → `pytest code/tests -q` 2361 passed(2283 から増分。`test_lora_scale.py`・`test_t1c_configs.py`)。許可リストを 2 本直した(`test_gonogo.py` の近接同点の幅に `exp_t1c_pilot.yaml`・`test_task_subset.py` の絞りに `exp_pilot_scale_ident_s0_n313.yaml`)。
+> **★やっていないこと**: I10・`Documents/`・push・tag・GPU・pod・worktree の削除。**実機での `set_scale` の確認は未実施**(S4。この機に peft が無く置き物の層でしか確かめていない)。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(S2 か人間の S5 の準備。人間が選ぶ)。
+
+---
+
 ## ★2026-10-02(その135)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### 冒頭の最終更新(その134)

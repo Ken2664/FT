@@ -2,7 +2,9 @@
 #
 # 答える問い: 「合成表 1 枚に対して、Documents/05_STATISTICS.md §3.2 の
 # `fit_full` / `fit_add` の対を ADR-059 の縮退カスケードごと当てると、
-# LRT(df = 6)の p 値と、縮退が発火したかどうかは何になるか」
+# LRT(df = 2。T1 x T2。ADR-112)の p 値と、縮退が発火したかどうかは何になるか」
+# ★ADR-114 決定5: 平行性の TOST のために、`fit_full` の交互作用の係数(`task:coverage`。処理対比・
+# 基準 = タスク型の最初の水準 x 被覆の `id`)の推定値と Wald SE も出す。**ランダム構造と LRT は変えない。**
 #
 # **§3.2 の R コードがそのまま実行物になる**ことが ADR-058 決定1 の採択理由の 1 つである。
 # したがって下の RANDOM_BY_LEVEL の level 0 は §3.2 の式をそのまま写している。
@@ -89,28 +91,70 @@ non_singular_messages <- function(fit) {
   msgs[!grepl("singular", msgs, ignore.case = TRUE)]
 }
 
+# ★ADR-059 は警告(収束しない)だけを縮退の引き金にしている。**`glmer` が例外で落ちる場合
+# (`Downdated VtV is not positive definite` など)は書かれていない**(2026-10-02。PLAN-034 I7 の
+# スモークで、誤指定のシートの小さな表で観測した)。落ちたまま R を止めると、同じ表を決定的に
+# 当て直すだけの再開でも同じ所で止まる。**暫定の扱い: 例外も「収束しなかった」と同じ
+# 引き金とし(= 縮退へ進む)、数と最初の文面を出力に残す(黙って数えない)。**
+# 最後の水準でも落ちたら p 値は null になり、集計側(power_sim.py)が止まる。
+# ★この扱いは人間の確認待ち(`logs/OPEN-ITEMS.md`)。ADR-059 の追記が要るかもしれない。
+errored_result <- function(e) {
+  list(fit0 = NULL, refit = NULL, refit_done = FALSE, failed = TRUE, errored = TRUE,
+       error_message = conditionMessage(e),
+       loglik_gain = NA_real_, beta_move = NA_real_, singular = NA, n_msgs = NA_integer_)
+}
+
 # 答える問い: この当てはめは ADR-059 の意味で「収束した」か。
 # failed が TRUE のときだけ縮退の引き金になる。判定はペア単位で使う(run_one)。
 judge_one <- function(form, data, loglik_tol, beta_tol) {
-  fit0 <- glmer(form, family = binomial, data = data)
+  fit0 <- tryCatch(glmer(form, family = binomial, data = data), error = function(e) e)
+  if (inherits(fit0, "error")) return(errored_result(fit0))
   if (length(non_singular_messages(fit0)) == 0) {
     return(list(fit0 = fit0, refit = NULL, refit_done = FALSE, failed = FALSE,
+                errored = FALSE, error_message = "",
                 loglik_gain = NA_real_, beta_move = NA_real_,
                 singular = isSingular(fit0),
                 n_msgs = length(fit0@optinfo$conv$lme4$messages)))
   }
   # ADR-059 決定1: 自身の推定値を初期値にして 1 回だけ当て直す。glmer は決定的である。
   se0 <- summary(fit0)$coefficients[, "Std. Error"]
-  fit1 <- glmer(form, family = binomial, data = data,
-                start = getME(fit0, c("theta", "fixef")))
+  fit1 <- tryCatch(
+    glmer(form, family = binomial, data = data, start = getME(fit0, c("theta", "fixef"))),
+    error = function(e) e)
+  if (inherits(fit1, "error")) return(errored_result(fit1))
   gain <- as.numeric(logLik(fit1)) - as.numeric(logLik(fit0))
   move <- max(abs(fixef(fit1) - fixef(fit0)) / se0)
   # ADR-059 の追記(2026-09-07): logLik 差は符号付きの片側、可動量は SE で割った最大値。
   failed <- !(gain < loglik_tol && move < beta_tol)
   list(fit0 = fit0, refit = fit1, refit_done = TRUE, failed = failed,
+       errored = FALSE, error_message = "",
        loglik_gain = gain, beta_move = move,
        singular = isSingular(fit1),
        n_msgs = length(fit1@optinfo$conv$lme4$messages))
+}
+
+# ---- 交互作用の係数(平行性の TOST。ADR-114 決定5)--------------------------
+
+# 答える問い: `task * coverage` の当てはめの `task:coverage` の係数は、推定値と Wald SE でいくつか。
+# タスク型の最初の水準を基準とする処理対比(`task` は文字列の昇順 = T1, T2)なので、係数は
+# 「(T2 - T1) x (被覆 - id)」である。名前は水準から組み、**見つからなければ止まる**
+# (黙って落とすと TOST が空の検定になる。CLAUDE.md §7)。
+# キーは `interaction_<被覆の水準名>_est` / `_se`(python 側の `equivalence_margin` が読む)。
+interaction_coefficients <- function(fit, d) {
+  cf <- summary(fit)$coefficients
+  task_levels <- levels(d$task)
+  cov_levels <- levels(d$coverage)
+  fields <- character(0)
+  for (tl in task_levels[-1L]) {
+    for (cl in cov_levels[-1L]) {
+      nm <- paste0("task", tl, ":coverage", cl)
+      if (!(nm %in% rownames(cf))) stop(sprintf("交互作用の係数 %s が当てはめに無い", nm))
+      fields <- c(fields,
+                  kv(paste0("interaction_", cl, "_est"), jnum(cf[nm, "Estimate"], "%.10g")),
+                  kv(paste0("interaction_", cl, "_se"), jnum(cf[nm, "Std. Error"], "%.10g")))
+    }
+  }
+  fields
 }
 
 # ---- 1 枚の表 --------------------------------------------------------------
@@ -120,11 +164,19 @@ run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_ref
   d$coverage <- relevel(d$coverage, ref = "id")   # §3.2: id を基準とする treatment coding
 
   level <- 0L
+  n_errored <- 0L          # 例外で落ちた当てはめの数(全水準の合計)
+  first_error <- ""        # 最初の例外の文面
   repeat {
     # ★判定はペア単位である(ADR-059 の付帯条件)。片方だけ縮退させると
-    # ランダム構造が食い違い、df = 6 の LRT が §3.2 の検定でなくなる。
+    # ランダム構造が食い違い、df = 2 の LRT が §3.2 の検定でなくなる。
     res_full <- judge_one(formula_at(level, "task * coverage"), d, loglik_tol, beta_tol)
     res_add <- judge_one(formula_at(level, "task + coverage"), d, loglik_tol, beta_tol)
+    for (res in list(res_full, res_add)) {
+      if (res$errored) {
+        n_errored <- n_errored + 1L
+        if (!nzchar(first_error)) first_error <- res$error_message
+      }
+    }
     if (!(res_full$failed || res_add$failed) || level >= max_level) break
     level <- level + 1L
   }
@@ -135,7 +187,13 @@ run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_ref
   # 検査3 の F62 ではこの選択が Chisq を動かす量は中央値 5.9e-05 であった。
   # config で切り替えられるのは、人間が別の解釈を採れるようにするためである。
   pick <- function(res) if (res$refit_done && use_refit) res$refit else res$fit0
-  an <- anova(pick(res_add), pick(res_full), test = "LRT")
+  # 最後の水準でも例外で落ちた場合は LRT を作れない。p 値は null で出し、集計側が止まる
+  errored_final <- res_full$errored || res_add$errored
+  an <- if (errored_final) NULL else anova(pick(res_add), pick(res_full), test = "LRT")
+  interaction_fields <- if (errored_final) character(0) else interaction_coefficients(pick(res_full), d)
+  lrt_field <- function(col, fmt) {
+    if (is.null(an)) "null" else jnum(an[[col]][2], fmt)
+  }
 
   fields <- c(
     kv("csv", jstr(basename(csv_path))),
@@ -148,10 +206,13 @@ run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_ref
     kv("reduction_level", jnum(level)),
     kv("reduction_label", jstr(REDUCTION_LABEL[[level + 1L]])),
     kv("reduced", jbool(level > 0L)),
-    kv("chisq", jnum(an[["Chisq"]][2], "%.10g")),
-    kv("df", jnum(an[["Df"]][2])),
-    kv("p_value", jnum(an[["Pr(>Chisq)"]][2], "%.10g"))
+    kv("n_errored_fits", jnum(n_errored)),
+    kv("first_error", jstr(first_error)),
+    kv("chisq", lrt_field("Chisq", "%.10g")),
+    kv("df", lrt_field("Df", "%.14g")),
+    kv("p_value", lrt_field("Pr(>Chisq)", "%.10g"))
   )
+  fields <- c(fields, interaction_fields)
   for (nm in c("full", "add")) {
     res <- if (nm == "full") res_full else res_add
     fields <- c(
@@ -162,8 +223,10 @@ run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_ref
       kv(paste0(nm, "_n_msgs"), jnum(res$n_msgs)),
       kv(paste0(nm, "_loglik_gain"), jnum(res$loglik_gain)),
       kv(paste0(nm, "_beta_move"), jnum(res$beta_move)),
-      kv(paste0(nm, "_logLik"), jnum(as.numeric(logLik(pick(res))))),
-      kv(paste0(nm, "_df_model"), jnum(attr(logLik(pick(res)), "df")))
+      kv(paste0(nm, "_logLik"),
+         if (res$errored) "null" else jnum(as.numeric(logLik(pick(res))))),
+      kv(paste0(nm, "_df_model"),
+         if (res$errored) "null" else jnum(attr(logLik(pick(res)), "df")))
     )
   }
   write_json(fields, out_path)

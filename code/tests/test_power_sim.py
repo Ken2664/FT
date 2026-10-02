@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import copy
+import json
 from pathlib import Path
 from typing import Any
 
@@ -33,10 +35,13 @@ STATISTICS_DOC = REPO_ROOT / "Documents" / "05_STATISTICS.md"
 ADOPTED_SIGMA = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
 ADOPTED_RHO = [0.0, 1.0]
 
-# ADR-026 / ADR-027。交互作用の df = 6 はこの 2 つから決まる。
-N_TASK = 4
+# ADR-111 決定2 / ADR-027。主要検定の交互作用の df = 2 はこの 2 つから決まる(ADR-112 決定1)。
+N_TASK = 2
 N_COVERAGE = 3
 INTERACTION_DF = (N_TASK - 1) * (N_COVERAGE - 1)
+# 旧い 4 タスク型の模型(df = 6。ADR-052 / ADR-069)。下の RECOVERED_OFFSETS などが記録として残している。
+N_TASK_RECORDED = 4
+RECORDED_INTERACTION_DF = (N_TASK_RECORDED - 1) * (N_COVERAGE - 1)
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -61,29 +66,42 @@ def test_seed_count_is_the_adopted_ten() -> None:
 
 
 def test_undecided_values_stay_null() -> None:
-    """★未決の 3 つは null のままである(skill code-style §5)。
+    """★未決の 2 つは null のままである(skill code-style §5)。
 
-    `n_item` はタスク型ごとの値(ADR-095 決定2)を受け付ける実装が未着手、
-    `s2_item` / `s2_tmpl` は値を人間が決め直す(ADR-095 決定3。ADR-094 決定4 の差し戻し)。
+    `s2_item` / `s2_tmpl` は値を人間が決め直す(ADR-095 決定3。ADR-094 決定4 の差し戻し。★F104-c)。
     **エージェントが既定値を作っていないことを回帰テストで固定する。**
+    `n_item` は ADR-114 決定3 で 80 の整数 1 つに決まった(下のテスト)。
     """
     dgp = load(MAIN_CONFIG)["dgp"]
-    for key in ("n_item", "s2_item", "s2_tmpl"):
+    for key in ("s2_item", "s2_tmpl"):
         assert dgp[key] is None, f"{key} に既定値が入っている"
 
 
-def test_run_stops_while_the_three_are_undecided() -> None:
-    """未決のまま本実行しようとしたら止まる。答える問い: 門は効いているか。"""
+def test_n_item_is_the_decided_eighty() -> None:
+    """★ADR-114 決定3 = D3 (a)。T1・T2 とも `eval.cells` の 80。整数 1 つ(タスク型ごとではない)。"""
+    n_item = load(MAIN_CONFIG)["dgp"]["n_item"]
+    assert n_item == 80 and isinstance(n_item, int)
+
+
+def test_run_stops_while_s2_is_undecided(tmp_path: Path) -> None:
+    """未決のまま本実行しようとしたら止まる。答える問い: 門は効いているか。
+
+    止まるのは R を探すより前である(R が無い機械でも同じ所で止まる)。
+    """
     config = load(MAIN_CONFIG)
-    with pytest.raises(ConfigError):
-        power_sim.load_levels(config)
+    with pytest.raises(ConfigError, match="s2_item"):
+        power_sim.run(config, tmp_path, None, False)
 
 
 def test_dry_run_works_even_while_undecided() -> None:
-    """★格子と当てはめ本数は未決のままでも出る(コストを先に見るため)。"""
+    """★格子と当てはめ本数は未決のままでも出る(コストを先に見るため)。
+
+    4 シート = P1 12 点 + P1⁻ 2 点 + P0 12 点 + 誤指定 6 点 = 32 点(ADR-114 決定1・2・4・7)。
+    32 点 x 1000 反復 x 2 = 64,000 本(32,000 ペア)。
+    """
     lines = power_sim.describe_plan(load(MAIN_CONFIG))
     text = "\n".join(lines)
-    assert "24000" in text, "24,000 本(6 x 2 x 1000 x 2)が出ていない"
+    assert "64000" in text, "64,000 本(32 x 1000 x 2)が出ていない"
     assert "UNDECIDED" in text
     assert text.isascii(), "この環境の stdout は cp932 である"
 
@@ -113,72 +131,184 @@ P1_RMS_FROM_ROUNDED_TABLE = 0.3605  # ★旧: 同じ節の表(2 桁)から復元
 P0_RMS_FROM_ROUNDED_TABLE = 0.0285  # ★旧: P0 は「完全に平行」= RMS 0.000 と書かれているのに
 
 
-def test_profile_p1_reproduces_the_documented_rms() -> None:
-    """★§6.6 が採択した RMS = 0.353 に、DGP の真値が 3 桁で一致する。
+def main_profile(name: str) -> power_sim.EffectProfile:
+    return power_sim.build_profile(load(MAIN_CONFIG)["effect"], name)
 
-    答える問い: 「§6.5 の表と §6.6 の RMS は同じものを指しているか」——
-    ずれていれば、事前登録した効果量とシミュレータの効果量が違うことになる。
 
-    **★F112 はここで閉じた**(ADR-069 決定1 = 案 (a))。表(2 桁)を逆変換していた頃は
-    0.3605 で 2% ずれていた。**`eta` を直接与える今は 0.352767 である。**
+def double_centred(eta: np.ndarray) -> np.ndarray:
+    """加法モデルの当てはめ値を引いた残差(二重中心化)。答える問い: 非加法の部分はどこか。"""
+    return eta - eta.mean(axis=0, keepdims=True) - eta.mean(axis=1, keepdims=True) + eta.mean()
+
+
+# §6.5 の P1 の T1・T2 の行(PLAN-034 §5.1。ADR-052 決定2 が採択した P1 の 4 行のうちの 2 行)
+P1_T1_T2_ROWS = np.array([[2.8, 2.0, 1.2], [1.8, 0.6, -1.0]])
+# D1 (a) の倍率 = 0.352767 / 0.432049 = √(2/3)(PLAN-034 §5.1。算術であって実測ではない)
+D1_SCALE = float(np.sqrt(2.0 / 3.0))
+# eta を config に書いた桁(小数第 6 位)の丸めが RMS・係数に残す誤差の上限
+CONFIG_ETA_TOLERANCE = 1e-5
+
+
+def test_profile_p1_keeps_the_adopted_rms_of_the_four_task_profile() -> None:
+    """★D1 (a): 主要検定の df = 2 でも、検出したい下限は ADR-052 決定2 の RMS = 0.353 のままである。
+
+    答える問い: 「P1 を T1・T2 の 2 行に切っただけで、宣言より大きい効果を見ていないか」——
+    **切っただけなら RMS は 0.432049 になる**(PLAN-033 §6)。倍率 √(2/3) で
+    4 タスク型の P1 の RMS(0.352767)に戻してある。
     """
-    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
-    assert profile.name == "P1"
+    four_task_rms, _ = _nonadditivity(_recovered_eta("P1"))
+    profile = main_profile("P1")
     assert profile.eta.shape == (N_TASK, N_COVERAGE)
+    assert profile.nonadditivity_rms == pytest.approx(four_task_rms, abs=CONFIG_ETA_TOLERANCE)
     assert profile.nonadditivity_rms == pytest.approx(DOCUMENTED_P1_RMS, abs=5e-4)
-    # ★差し替え前の値からは離れていること(直ったことの確認)。
-    assert abs(profile.nonadditivity_rms - P1_RMS_FROM_ROUNDED_TABLE) > 5e-3
+    # 切っただけの RMS は大きい(df の取り方で同じ delta でも RMS が変わることの確認)
+    sliced_rms = float(np.sqrt((double_centred(P1_T1_T2_ROWS) ** 2).sum() / INTERACTION_DF))
+    assert sliced_rms == pytest.approx(0.432049, abs=1e-6)
+    assert profile.nonadditivity_rms == pytest.approx(
+        sliced_rms * D1_SCALE, abs=CONFIG_ETA_TOLERANCE
+    )
 
 
-def test_profile_rejects_an_eta_that_disagrees_with_the_documented_table() -> None:
-    """★ADR-069 決定1 の門。`eta` と §6.5 の表が離れたら止まる。
+def test_profile_p1_scales_only_the_nonadditive_part() -> None:
+    """★D1 (a): 加法部分はそのまま、delta だけを √(2/3) 倍する(PLAN-034 §5.1)。
 
-    答える問い: 「`eta` が真値になった以上、§6.5 の表と黙って食い違いうるのではないか」
-    —— **`rule_rate` を照合用に残したのはそのためである。**片方だけ動かすと止まる。
+    答える問い: 「T1・T2 の主効果・被覆の傾きの平均まで動かしていないか」——
+    動かしていれば、検出力は交互作用ではなく水準の違いで変わる。
     """
-    effect = dict(load(MAIN_CONFIG)["effect"])
-    effect["eta"] = [[e + 0.5 for e in row] for row in effect["eta"]]
-    with pytest.raises(ConfigError):
-        power_sim.build_profile(effect)
+    additive = P1_T1_T2_ROWS - double_centred(P1_T1_T2_ROWS)
+    delta = double_centred(P1_T1_T2_ROWS)
+    profile = main_profile("P1")
+    assert profile.eta == pytest.approx(additive + D1_SCALE * delta, abs=CONFIG_ETA_TOLERANCE)
+    assert (profile.eta - double_centred(profile.eta)) == pytest.approx(
+        additive, abs=CONFIG_ETA_TOLERANCE
+    )
+    # PLAN-034 §5.1 の数値(eta の 6 桁)
+    assert profile.eta[0].tolist() == pytest.approx([2.848934, 2.012234, 1.138832], abs=1e-6)
+    assert profile.eta[1].tolist() == pytest.approx([1.751066, 0.587766, -0.938832], abs=1e-6)
 
 
-def test_profile_requires_eta_to_be_present() -> None:
-    """★`eta` は必須である(ADR-069 決定1)。表から作り直す既定の経路は残さない。"""
-    effect = {k: v for k, v in load(MAIN_CONFIG)["effect"].items() if k != "eta"}
-    with pytest.raises(ConfigError):
-        power_sim.build_profile(effect)
+def test_profile_p1_neg_is_the_sign_flipped_shape_with_the_same_rms() -> None:
+    """★D2 (a): P1⁻ は P1 の delta の符号を反転した形(同じ RMS・同じ加法部分)。
 
-
-def test_p0_logits_are_exactly_flat() -> None:
-    """★P0(完全に平行)は RMS = 0 になる。**丸めていないので厳密に 0 である。**
-
-    答える問い: 「`sigma = 0` の行を α の較正として読めるか」—— **読める。**
-    表(2 桁)を逆変換していた頃は P0 でも RMS 0.0285 が出ており、
-    **帰無の基準線が帰無でなかった**(★F112)。`eta` を与える今は厳密に 0 である。
+    答える問い: 「形の検査は、効果の大きさを変えずに形だけを変えているか」——
+    変わっていれば、LRT の検出力の違いが形のせいか大きさのせいか分からなくなる。
     """
-    effect = dict(load(MAIN_CONFIG)["effect"])
-    mu, a, b = effect["mu"], effect["a"], effect["b"]
-    eta = [[mu + ai + bj for bj in b] for ai in a]
-    effect["profile"] = "P0"
-    effect["eta"] = eta
-    effect["rule_rate"] = [[round(1.0 / (1.0 + np.exp(-e)), 2) for e in row] for row in eta]
-    profile = power_sim.build_profile(effect)
+    p1, neg = main_profile("P1"), main_profile("P1_neg")
+    assert neg.nonadditivity_rms == pytest.approx(p1.nonadditivity_rms, abs=CONFIG_ETA_TOLERANCE)
+    assert double_centred(neg.eta) == pytest.approx(
+        -double_centred(p1.eta), abs=CONFIG_ETA_TOLERANCE
+    )
+    assert (neg.eta - double_centred(neg.eta)) == pytest.approx(
+        p1.eta - double_centred(p1.eta), abs=CONFIG_ETA_TOLERANCE
+    )
+    assert neg.eta[0].tolist() == pytest.approx([3.284399, 2.121100, 0.594501], abs=1e-6)
+    assert neg.eta[1].tolist() == pytest.approx([1.315601, 0.478900, -0.394501], abs=1e-6)
+    for cov in ("interp", "extrap_magnitude"):
+        assert neg.interaction_contrasts[cov] == pytest.approx(
+            -p1.interaction_contrasts[cov], abs=CONFIG_ETA_TOLERANCE
+        )
+
+
+def test_profile_p0_is_exactly_additive() -> None:
+    """★D4 (a): P0 は §6.5 の P0 の T1・T2 の行(= mu + a + b)で、RMS = 0・係数 = 0 になる。
+
+    答える問い: 「`sigma = 0` の P0 の行を α の較正として読めるか」—— **読める。**
+    丸めていない `eta` なので厳密に 0 である。表(2 桁)を逆変換していた頃は P0 でも RMS 0.0285 が
+    出ており、**帰無の基準線が帰無でなかった**(★F112)。
+    """
+    effect = load(MAIN_CONFIG)["effect"]
+    profile = main_profile("P0")
+    additive = effect["mu"] + np.array(effect["a"])[:, None] + np.array(effect["b"])[None, :]
+    assert profile.eta == pytest.approx(additive, abs=1e-12)
     assert profile.nonadditivity_rms == pytest.approx(0.0, abs=1e-12)
     assert profile.delta == pytest.approx(np.zeros((N_TASK, N_COVERAGE)), abs=1e-9)
+    for cov, contrast in profile.interaction_contrasts.items():
+        assert contrast == pytest.approx(0.0, abs=1e-12), cov
     # ★差し替え前は 0 にならなかった(何が直ったかの記録)。
     assert P0_RMS_FROM_ROUNDED_TABLE > 0.0
+    # §6.5 の P0 の T1・T2 の行そのもの(PLAN-034 §5.1)
+    assert profile.eta == pytest.approx(np.array([[2.8, 1.8, 0.6], [1.8, 0.8, -0.4]]), abs=1e-12)
+
+
+def test_interaction_contrasts_are_the_tost_targets() -> None:
+    """★D5 (a): 交互作用の 2 係数(処理対比・基準 T1 × id)の真値(PLAN-034 §5.1)。
+
+    答える問い: 「TOST が見る量の真値は、P1 でいくつか」—— P1 のまま = -0.4 / -1.2 を √(2/3) 倍した
+    -0.326599 / -0.979796。`glmer` の係数は線形予測子の上の量なので `eta` から直接出る。
+    """
+    contrasts = main_profile("P1").interaction_contrasts
+    assert list(contrasts) == ["interp", "extrap_magnitude"]
+    assert contrasts["interp"] == pytest.approx(-0.326599, abs=1e-5)
+    assert contrasts["extrap_magnitude"] == pytest.approx(-0.979796, abs=1e-5)
+    sliced = power_sim.interaction_contrasts(
+        P1_T1_T2_ROWS, ("T1", "T2"), ("id", "interp", "extrap_magnitude")
+    )
+    assert sliced["interp"] == pytest.approx(-0.4, abs=1e-12)
+    assert sliced["extrap_magnitude"] == pytest.approx(-1.2, abs=1e-12)
+    assert contrasts["interp"] == pytest.approx(D1_SCALE * sliced["interp"], abs=1e-5)
+    assert contrasts["extrap_magnitude"] == pytest.approx(
+        D1_SCALE * sliced["extrap_magnitude"], abs=1e-5
+    )
+
+
+def test_profile_rejects_an_eta_that_disagrees_with_the_rule_rate_gate() -> None:
+    """★ADR-069 決定1 の門。`eta` と `rule_rate` が離れたら止まる。
+
+    答える問い: 「`eta` が真値になった以上、照合用の表と黙って食い違いうるのではないか」
+    —— **`rule_rate` を照合用に残したのはそのためである。**片方だけ動かすと止まる。
+    """
+    effect = copy.deepcopy(load(MAIN_CONFIG)["effect"])
+    effect["profiles"]["P1"]["eta"] = [
+        [e + 0.5 for e in row] for row in effect["profiles"]["P1"]["eta"]
+    ]
+    with pytest.raises(ConfigError, match="rule_rate"):
+        power_sim.build_profile(effect, "P1")
+
+
+def test_profile_requires_eta_and_the_named_profile() -> None:
+    """★`eta` は必須である(ADR-069 決定1)。表から作り直す既定の経路は残さない。"""
+    effect = copy.deepcopy(load(MAIN_CONFIG)["effect"])
+    del effect["profiles"]["P1"]["eta"]
+    with pytest.raises(ConfigError):
+        power_sim.build_profile(effect, "P1")
+    with pytest.raises(ConfigError, match="effect.profiles.P9"):
+        power_sim.build_profile(load(MAIN_CONFIG)["effect"], "P9")
 
 
 def test_profile_rejects_a_table_of_the_wrong_shape() -> None:
-    effect = dict(load(MAIN_CONFIG)["effect"])
-    effect["rule_rate"] = [[0.9, 0.8, 0.7]]
+    effect = copy.deepcopy(load(MAIN_CONFIG)["effect"])
+    effect["profiles"]["P1"]["rule_rate"] = [[0.9, 0.8, 0.7]]
     with pytest.raises(ConfigError):
-        power_sim.build_profile(effect)
+        power_sim.build_profile(effect, "P1")
 
 
-def test_interaction_df_is_six() -> None:
-    """主要検定の df = 6(§2 / §3.2)。RMS の分母がここに掛かっている。"""
-    assert INTERACTION_DF == 6
+def test_profile_rejects_main_effects_of_the_wrong_length() -> None:
+    """`a` / `b` の長さが水準数と合わなければ止まる(numpy の放送で黙って通さない)。"""
+    effect = copy.deepcopy(load(MAIN_CONFIG)["effect"])
+    effect["a"] = [0.6, 0.2, -0.4, 0.0]
+    with pytest.raises(ConfigError):
+        power_sim.build_profile(effect, "P1")
+
+
+def test_interaction_df_is_two() -> None:
+    """★主要検定の df = 2(ADR-112 決定1。§2)。RMS の分母がここに掛かっている。
+
+    答える問い: 「4 タスク型・df = 6 の模型に戻っていないか」—— 戻れば止まる。
+    """
+    assert INTERACTION_DF == 2 == power_sim.PRIMARY_INTERACTION_DF
+    effect = copy.deepcopy(load(MAIN_CONFIG)["effect"])
+    effect["task_levels"] = ["T1", "T1b", "T2"]
+    with pytest.raises(ConfigError, match="df"):
+        power_sim.build_profile(effect, "P1")
+    effect = copy.deepcopy(load(MAIN_CONFIG)["effect"])
+    effect["coverage_levels"] = ["id", "interp"]
+    with pytest.raises(ConfigError, match="df"):
+        power_sim.build_profile(effect, "P1")
+
+
+def test_smoke_config_has_the_same_effect_as_the_main_config() -> None:
+    """★配線確認用の config の効果量が本物と食い違っていない(ずれると smoke が別の模型を試す)。"""
+    assert load(SMOKE_CONFIG)["effect"] == load(MAIN_CONFIG)["effect"]
+    assert load(SMOKE_CONFIG)["sheets"] == load(MAIN_CONFIG)["sheets"]
 
 
 # --------------------------------------------------------------------------
@@ -235,7 +365,7 @@ def smoke_levels(n_seed: int = 3, n_item: int = 2) -> power_sim.DesignLevels:
 def test_frame_has_one_row_per_seed_task_coverage_item() -> None:
     """表の行数が設計どおりである。答える問い: セルが落ちていないか。"""
     levels = smoke_levels()
-    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    profile = main_profile("P1")
     rows = power_sim.draw_frame(
         levels, profile.eta, 0.5, 0.0, 0.25, 0.25, np.random.default_rng(0)
     )
@@ -250,7 +380,7 @@ def test_item_levels_are_nested_in_task() -> None:
     ここが混ざると、項目のランダム効果がタスク型間で共有されてしまう。
     """
     levels = smoke_levels()
-    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    profile = main_profile("P1")
     rows = power_sim.draw_frame(
         levels, profile.eta, 0.0, 0.0, 0.25, 0.25, np.random.default_rng(1)
     )
@@ -264,7 +394,7 @@ def test_item_levels_are_nested_in_task() -> None:
 def test_templates_stay_inside_their_task() -> None:
     """テンプレート水準は `category` であり、タスク型を跨がない(ADR-062 決定2)。"""
     levels = smoke_levels(n_item=5)
-    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    profile = main_profile("P1")
     rows = power_sim.draw_frame(
         levels, profile.eta, 0.0, 0.0, 0.25, 0.25, np.random.default_rng(2)
     )
@@ -364,7 +494,7 @@ def test_template_assignment_is_the_same_in_every_coverage_cell() -> None:
 def test_frame_csv_is_ascii_and_lf(tmp_path: Path) -> None:
     """CSV は ASCII / LF である。答える問い: Windows で書いても R が同じ表を読むか。"""
     levels = smoke_levels()
-    profile = power_sim.build_profile(load(MAIN_CONFIG)["effect"])
+    profile = main_profile("P1")
     rows = power_sim.draw_frame(
         levels, profile.eta, 0.5, 1.0, 0.25, 0.25, np.random.default_rng(4)
     )
@@ -483,19 +613,28 @@ def test_run_fits_propagates_a_worker_failure(tmp_path: Path, monkeypatch) -> No
         )
 
 
-def test_cost_line_uses_the_measured_seconds_per_pair() -> None:
-    """★見積りは実測(★F114)から出す。算術の 9 時間ではない。
+def test_cost_line_scales_the_measured_seconds_per_pair_by_rows() -> None:
+    """★見積りは実測(★F114)を行数で比例させて出す。算術の 9 時間ではない。
 
     答える問い: 「本実行が何時間になるかを、回す前に人間が読めるか」——
     §10.7.8 の「24,000 本 = 約 9 時間」は 7 倍甘かった(F50 からの掛け算だった)。
+    実測は 4 タスク型・`n_item = 48` の 5,760 行で 297.6 秒。T1 × T2・`n_item = 80` は 4,800 行で
+    **約 248 秒**(PLAN-034 §5.2。**推算であって未実測**。そう読める文言になっていること)。
     """
-    assert power_sim.SECONDS_PER_PAIR_N_ITEM_48 == pytest.approx(297.6)
+    assert power_sim.SECONDS_PER_PAIR_MEASURED == pytest.approx(297.6)
+    assert power_sim.ROWS_AT_MEASUREMENT == 4 * 3 * 48 * 10
+    levels = power_sim.load_levels(load(MAIN_CONFIG))
+    assert levels.n_seed * len(levels.tasks) * len(levels.coverages) * levels.n_item == 4_800
+    assert power_sim.estimate_seconds_per_pair(levels) == pytest.approx(248.0)
     lines = power_sim.describe_plan(load(MAIN_CONFIG), workers_override=16)
     cost = [line for line in lines if "core-hours" in line]
     assert len(cost) == 1
-    assert "992 core-hours" in cost[0]
-    assert "MEASURED" in cost[0]
-    assert any("62 wall-clock hours" in line for line in lines)
+    assert "2204 core-hours" in cost[0]          # 32,000 ペア x 248 秒
+    assert "ESTIMATED" in cost[0] and "MEASURED" not in cost[0]
+    assert any("138 wall-clock hours" in line for line in lines)
+    # 64 並列なら約 34 時間(PLAN-034 §5.2)
+    lines64 = power_sim.describe_plan(load(MAIN_CONFIG), workers_override=64)
+    assert any("34 wall-clock hours" in line for line in lines64)
 
 
 def test_fit_script_keeps_the_preregistered_random_structure() -> None:
@@ -508,6 +647,8 @@ def test_fit_script_keeps_the_preregistered_random_structure() -> None:
     text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
     assert "(0 + coverage | seed) + (1 | item) + (1 | template)" in text
     assert "task * coverage" in text and "task + coverage" in text
+    # ★誤指定のシート(D7)は当てはめ側を変えない: seed × タスク型 × 被覆の項は当てはめに入らない
+    assert "tau" not in text
     # 縮退は §3.2 の順序で並んでいる: template -> coverage の傾き -> item。
     drop_template = text.index('"(0 + coverage | seed) + (1 | item)"')
     drop_slope = text.index('"(1 | seed) + (1 | item)"')
@@ -538,6 +679,13 @@ def fit_result(p_value: float | None, **overrides: Any) -> dict[str, Any]:
         "add_singular": False,
         "full_refit_done": False,
         "add_refit_done": False,
+        "n_errored_fits": 0,
+        "first_error": "",
+        # 平行性の TOST の入力(`power_sim_fit.R` の `interaction_coefficients`)
+        "interaction_interp_est": 0.0,
+        "interaction_interp_se": 0.1,
+        "interaction_extrap_magnitude_est": 0.0,
+        "interaction_extrap_magnitude_se": 0.2,
     }
     base.update(overrides)
     return base
@@ -582,6 +730,7 @@ def point(sigma: float, power: float, rho: float = 0.0) -> power_sim.GridPoint:
     return power_sim.GridPoint(
         sigma=sigma, rho=rho, n_rep=1000, power=power,
         reduced_rate=0.0, singular_rate=0.0, refit_rate=0.0, mean_chisq=6.0,
+        errored_rate=0.0,
     )
 
 
@@ -635,10 +784,402 @@ def test_grid_summary_keeps_both_rho_sheets() -> None:
     assert summary["by_rho"]["1.0"]["verdict"] == "beyond_swept_range"
 
 
-def test_plan_grid_is_the_full_product() -> None:
-    assert len(power_sim.plan_grid(load(MAIN_CONFIG))) == len(ADOPTED_SIGMA) * len(
-        ADOPTED_RHO
+def test_plan_grid_is_the_sum_of_the_sheets() -> None:
+    """格子は ADR-068 決定3 の直積(12 点)をシートごとに選んだものの合計(32 点)。
+
+    P1 12 + P1⁻ 2(D2 (a))+ P0 12(D4 (a))+ 誤指定 6(D7 (a))。
+    """
+    plan = power_sim.plan_grid(load(MAIN_CONFIG))
+    full = len(ADOPTED_SIGMA) * len(ADOPTED_RHO)
+    assert full == 12
+    by_sheet: dict[str, int] = {}
+    for sheet_id, _, _ in plan:
+        by_sheet[sheet_id] = by_sheet.get(sheet_id, 0) + 1
+    assert by_sheet == {"p1": 12, "p1_neg": 2, "p0": 12, "misspecification": 6}
+    assert len(plan) == 32
+
+
+# --------------------------------------------------------------------------
+# ★誤指定の DGP(ADR-114 決定7 = D7 (a))
+# --------------------------------------------------------------------------
+
+
+def test_tau_zero_is_the_same_table_as_no_tau() -> None:
+    """★`tau = 0` は乱数を消費しない: `tau` を渡さない呼び出しと同じ表になる。
+
+    答える問い: 「誤指定のシートの `sigma = 0`(`tau = 0`)の点は P0 のシートと同じ DGP か」
+    —— 同じなら、誤指定の効果は `tau > 0` の点だけに現れる(PLAN-034 D7 の完了条件)。
+    """
+    levels = smoke_levels(n_seed=3, n_item=3)
+    eta = main_profile("P0").eta
+    without = power_sim.draw_frame(levels, eta, 0.5, 0.0, 0.25, 0.25, np.random.default_rng(5))
+    with_zero = power_sim.draw_frame(
+        levels, eta, 0.5, 0.0, 0.25, 0.25, np.random.default_rng(5), tau=0.0
     )
+    assert without == with_zero
+
+
+# 線形予測子が ±巨大 になり、各セルの 0/1 が確定する大きさの tau(`draw_frame` の確率計算が溢れないことも兼ねる)
+HUGE_TAU = 1e9
+
+
+def test_tau_adds_one_effect_per_seed_task_and_coverage() -> None:
+    """★`z[s, task, coverage]` は (シード, タスク型, 被覆) のセルごとに 1 つで、項目を跨いで共有される。
+
+    答える問い: 「足したのは seed × タスク型 × 被覆の変動か(項目ごとの雑音ではないか)」——
+    ほかの分散を 0、固定効果を 0、`tau` を巨大にすると、各セルの線形予測子は ±巨大 に振れるので
+    **同じセルの 40 項目は 0/1 がすべて一致する**(項目ごとの雑音なら一致しない)。
+    一方セルは独立に引かれるので、**シード・タスク型・被覆が違えば食い違うセルがある**。
+    """
+    levels = smoke_levels(n_seed=10, n_item=40)
+    eta_fixed = np.zeros((N_TASK, N_COVERAGE))
+    rows = power_sim.draw_frame(
+        levels, eta_fixed, 0.0, 0.0, 0.0, 0.0, np.random.default_rng(21), tau=HUGE_TAU
+    )
+    by_cell: dict[tuple[str, str, str], set[int]] = {}
+    for seed, task, coverage, _, _, is_rule in rows:
+        by_cell.setdefault((seed, task, coverage), set()).add(is_rule)
+    assert len(by_cell) == levels.n_seed * N_TASK * N_COVERAGE
+    assert all(len(values) == 1 for values in by_cell.values())
+    cell_value = {key: next(iter(values)) for key, values in by_cell.items()}
+    assert len(set(cell_value.values())) == 2                       # 0 のセルも 1 のセルもある
+    # 同じ (task, coverage) でシードが違えば食い違う(シードごとに独立に引いている)
+    seeds_disagree = any(
+        len({cell_value[(f"s{s:02d}", task, cov)] for s in range(levels.n_seed)}) == 2
+        for task in levels.tasks
+        for cov in levels.coverages
+    )
+    assert seeds_disagree
+
+
+def test_tau_is_not_shared_across_tasks() -> None:
+    """★`u[s, ·]`(被覆の変動)は全タスク型で共通だが、`z` はタスク型ごとに独立である。
+
+    答える問い: 「`tau` は §3.2 の `(0 + coverage | seed)` が吸収できる項を足してしまっていないか」——
+    吸収できる(= タスク型を跨いで同じ)なら誤指定にならない。同じシード・被覆でタスク型が違えば
+    食い違うセルがあること。
+    """
+    levels = smoke_levels(n_seed=10, n_item=1)
+    rows = power_sim.draw_frame(
+        levels, np.zeros((N_TASK, N_COVERAGE)), 0.0, 0.0, 0.0, 0.0,
+        np.random.default_rng(22), tau=HUGE_TAU,
+    )
+    value = {(seed, task, cov): is_rule for seed, task, cov, _, _, is_rule in rows}
+    assert any(
+        value[(f"s{s:02d}", "T1", cov)] != value[(f"s{s:02d}", "T2", cov)]
+        for s in range(levels.n_seed)
+        for cov in levels.coverages
+    )
+
+
+@pytest.mark.parametrize("eta", [-3.0, -0.5, 0.0, 0.7, 4.0])
+def test_logistic_matches_the_plain_formula_and_survives_extremes(eta: float) -> None:
+    """DGP の確率計算。普通の範囲では素直な式と一致し、極端な値でも溢れない(`math.exp` は ±709 で溢れる)。"""
+    assert power_sim.logistic(eta) == pytest.approx(1.0 / (1.0 + np.exp(-eta)), abs=1e-15)
+    assert power_sim.logistic(-1e9) == 0.0
+    assert power_sim.logistic(1e9) == 1.0
+
+
+def test_tau_must_not_be_negative() -> None:
+    with pytest.raises(ValueError):
+        power_sim.draw_frame(
+            smoke_levels(), np.zeros((N_TASK, N_COVERAGE)), 0.0, 0.0, 0.25, 0.25,
+            np.random.default_rng(0), tau=-0.1,
+        )
+
+
+# --------------------------------------------------------------------------
+# ★シート(ADR-114 決定2・4・7)
+# --------------------------------------------------------------------------
+
+
+def test_main_sheets_follow_the_adopted_decisions() -> None:
+    """PLAN-034 §4 の D1・D2・D4・D7 が `sheets:` に宣言どおり入っている。"""
+    sheets = {sheet.sheet_id: sheet for sheet in power_sim.load_sheets(load(MAIN_CONFIG))}
+    assert list(sheets) == ["p1", "p1_neg", "p0", "misspecification"]     # 上から順に回す
+    p1, neg, p0, mis = (sheets[k] for k in ("p1", "p1_neg", "p0", "misspecification"))
+    assert (p1.role, p1.profile, p1.sigma, p1.rho) == (
+        "power", "P1", tuple(ADOPTED_SIGMA), tuple(ADOPTED_RHO)
+    )
+    # D2 (a): P1⁻ は sigma ∈ {0, 1.0}・rho = 0 の 2 点
+    assert (neg.role, neg.profile, neg.sigma, neg.rho) == (
+        "shape_check", "P1_neg", (0.0, 1.0), (0.0,)
+    )
+    assert neg.compare_with == "p1"
+    # D4 (a): P0 は全格子 12 点
+    assert (p0.role, p0.profile, p0.sigma, p0.rho) == (
+        "null_calibration", "P0", tuple(ADOPTED_SIGMA), tuple(ADOPTED_RHO)
+    )
+    # D7 (a): tau = sigma・rho = 0・P0・sigma の格子を流用(新しい値なし)
+    assert (mis.role, mis.profile, mis.sigma, mis.rho, mis.tau) == (
+        "misspecification", "P0", tuple(ADOPTED_SIGMA), (0.0,), "equals_sigma"
+    )
+    assert power_sim.frame_tau(mis, 1.5) == pytest.approx(1.5)
+    assert power_sim.frame_tau(p0, 1.5) == 0.0
+
+
+def sheets_config(**changes: Any) -> dict[str, Any]:
+    """主 config のシートの 1 枚目(P1)を `changes` で書き換えた config。"""
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["sheets"] = [{**config["sheets"][0], **changes}]
+    return config
+
+
+def test_a_sheet_swapping_p0_and_p1_is_rejected() -> None:
+    """★検出力のシートに P0、第一種の過誤のシートに P1 を置くと止まる(読み違いの事故を塞ぐ)。"""
+    with pytest.raises(ConfigError, match="RMS"):
+        power_sim.load_sheets(sheets_config(profile="P0"))
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["sheets"] = [{**config["sheets"][2], "profile": "P1"}]      # p0 のシートに P1
+    with pytest.raises(ConfigError, match="RMS"):
+        power_sim.load_sheets(config)
+
+
+def test_tau_belongs_to_the_misspecification_sheet_only() -> None:
+    with pytest.raises(ConfigError, match="tau"):
+        power_sim.load_sheets(sheets_config(tau="equals_sigma"))
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["sheets"] = [{**config["sheets"][3], "tau": "zero"}]
+    with pytest.raises(ConfigError, match="tau"):
+        power_sim.load_sheets(config)
+
+
+def test_a_sheet_cannot_sweep_a_point_outside_the_adopted_grid() -> None:
+    """掃く格子は ADR-068 決定3 のもの。シートが新しい `sigma` を作ってはならない。"""
+    with pytest.raises(ConfigError, match="格子に無い"):
+        power_sim.load_sheets(sheets_config(sigma=[0.0, 2.0]))
+    with pytest.raises(ConfigError):
+        power_sim.load_sheets(sheets_config(sigma=[]))
+
+
+def test_sheet_ids_and_comparison_must_be_consistent() -> None:
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["sheets"] = [config["sheets"][0], config["sheets"][0]]
+    with pytest.raises(ConfigError, match="重複"):
+        power_sim.load_sheets(config)
+    # 形の検査のシートは compare_with を必ず持ち、基準は上にあるシートである
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["sheets"] = [config["sheets"][1]]
+    with pytest.raises(ConfigError, match="compare_with"):
+        power_sim.load_sheets(config)
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["sheets"] = [{**config["sheets"][0], "compare_with": "p1"}]
+    with pytest.raises(ConfigError, match="compare_with"):
+        power_sim.load_sheets(config)
+
+
+def test_only_the_power_sheet_gets_the_inverse_problem() -> None:
+    """★`sigma*` は検出力のシートにだけ出す。P0・誤指定の棄却率は第一種の過誤の率であり、
+    「検出力が 0.8 を割る点」という読みをしない。"""
+    config = load(MAIN_CONFIG)
+    sheets = {sheet.sheet_id: sheet for sheet in power_sim.load_sheets(config)}
+    points = [point(0.0, 0.99), point(1.5, 0.5)]
+    summaries = {
+        sheet_id: power_sim.sheet_summary(
+            sheet, main_profile(sheet.profile), points, 0.8
+        )
+        for sheet_id, sheet in sheets.items()
+    }
+    assert "inverse_problem" in summaries["p1"]
+    for other in ("p1_neg", "p0", "misspecification"):
+        assert "inverse_problem" not in summaries[other]
+    assert summaries["p1"]["true_interaction_contrasts"]["interp"] == pytest.approx(
+        -0.326599, abs=1e-5
+    )
+    assert summaries["misspecification"]["tau"] == "equals_sigma"
+
+
+def test_compare_power_pairs_matching_points_only() -> None:
+    """形の検査: 同じ `(sigma, rho)` だけを突き合わせる。基準に無い点を補わない。"""
+    reference = [point(0.0, 0.90), point(1.0, 0.70), point(1.5, 0.60)]
+    other = [point(0.0, 0.88), point(1.0, 0.72), point(0.5, 0.80)]
+    compared = power_sim.compare_power(reference, other)
+    assert [row["sigma"] for row in compared] == [0.0, 1.0]
+    assert compared[0]["difference"] == pytest.approx(-0.02)
+    assert compared[1]["difference"] == pytest.approx(0.02)
+
+
+# --------------------------------------------------------------------------
+# ★平行性の TOST(ADR-114 決定5 = D5 (a))
+# --------------------------------------------------------------------------
+
+Z_95 = 1.6448536269514722          # 標準正規分布の片側 0.05 の分位点
+
+
+def test_tost_spec_reads_alpha_from_the_config() -> None:
+    """片側 alpha = 0.05 = Wald 90% CI(ADR-114 決定5)。値は config にあり、コードに直書きしない。"""
+    config = load(MAIN_CONFIG)
+    assert config["simulation"]["tost_alpha"] == 0.05
+    spec = power_sim.tost_spec(config, main_profile("P1"))
+    assert spec.critical_z == pytest.approx(Z_95)
+    assert spec.coverages == ("interp", "extrap_magnitude")
+    bad = copy.deepcopy(config)
+    bad["simulation"]["tost_alpha"] = 0.5
+    with pytest.raises(ConfigError):
+        power_sim.tost_spec(bad, main_profile("P1"))
+    bad["simulation"]["tost_alpha"] = None
+    with pytest.raises(ConfigError):
+        power_sim.tost_spec(bad, main_profile("P1"))
+
+
+def test_equivalence_margin_is_the_larger_ci_bound() -> None:
+    """★同等と言える最小の Δ = 2 係数の `|推定値| + z * SE` の大きいほう(IUT)。
+
+    答える問い: 「Δ をいくつにすれば 2 本の 90% CI がどちらも ±Δ に入るか」。
+    """
+    spec = power_sim.tost_spec(load(MAIN_CONFIG), main_profile("P1"))
+    result = fit_result(
+        0.2,
+        interaction_interp_est=-0.3, interaction_interp_se=0.1,
+        interaction_extrap_magnitude_est=0.1, interaction_extrap_magnitude_se=0.4,
+    )
+    expected = max(0.3 + Z_95 * 0.1, 0.1 + Z_95 * 0.4)
+    assert power_sim.equivalence_margin(result, spec) == pytest.approx(expected)
+    # 符号は効かない(±Δ の両側)
+    flipped = fit_result(
+        0.2,
+        interaction_interp_est=0.3, interaction_interp_se=0.1,
+        interaction_extrap_magnitude_est=-0.1, interaction_extrap_magnitude_se=0.4,
+    )
+    assert power_sim.equivalence_margin(flipped, spec) == pytest.approx(expected)
+
+
+def test_equivalence_margin_stops_on_a_missing_coefficient() -> None:
+    """★推定値か SE が欠けた反復を黙って捨てない(`CLAUDE.md` §7)。"""
+    spec = power_sim.tost_spec(load(MAIN_CONFIG), main_profile("P1"))
+    for key in ("interaction_interp_est", "interaction_extrap_magnitude_se"):
+        with pytest.raises(power_sim.PowerSimError):
+            power_sim.equivalence_margin(fit_result(0.2, **{key: None}), spec)
+
+
+def test_tost_power_is_the_share_within_delta_and_never_decreases() -> None:
+    """Δ の関数としての TOST の検出力。**Δ はここでは決めない**(呼び出し側が渡す)。"""
+    margins = [0.1, 0.2, 0.2, 0.5, 1.0]
+    assert power_sim.tost_power(margins, 0.05) == 0.0
+    assert power_sim.tost_power(margins, 0.2) == pytest.approx(0.6)      # 境界は含む
+    assert power_sim.tost_power(margins, 5.0) == 1.0
+    curve = [power_sim.tost_power(margins, d / 10) for d in range(0, 12)]
+    assert curve == sorted(curve)
+    with pytest.raises(power_sim.PowerSimError):
+        power_sim.tost_power([], 0.2)
+
+
+def test_summarise_point_keeps_the_sorted_margins_and_the_error_rate() -> None:
+    spec = power_sim.tost_spec(load(MAIN_CONFIG), main_profile("P1"))
+    results = [
+        fit_result(0.01, interaction_interp_se=0.5, interaction_extrap_magnitude_se=0.5),
+        fit_result(0.2, interaction_interp_se=0.1, interaction_extrap_magnitude_se=0.1,
+                   n_errored_fits=2, first_error="Downdated VtV"),
+    ]
+    summary = power_sim.summarise_point(1.0, 0.0, results, 0.05, spec)
+    assert summary.tost_min_margins == pytest.approx(
+        (0.1 * Z_95, 0.5 * Z_95), abs=1e-12
+    )
+    assert list(summary.tost_min_margins) == sorted(summary.tost_min_margins)
+    assert summary.errored_rate == pytest.approx(0.5)
+    # TOST を見ないとき(`tost = None`)は空
+    assert power_sim.summarise_point(1.0, 0.0, results, 0.05).tost_min_margins == ()
+
+
+def test_a_null_p_value_reports_the_fit_error_it_came_from() -> None:
+    """★最後の水準でも当てはめが落ちた反復は、原因の文面つきで止まる(捨てない)。"""
+    results = [fit_result(None, first_error="Downdated VtV is not positive definite")]
+    with pytest.raises(power_sim.PowerSimError, match="Downdated VtV"):
+        power_sim.summarise_point(1.0, 0.0, results, 0.05)
+
+
+def test_fit_script_writes_the_interaction_coefficients_and_counts_errors() -> None:
+    """★R 側が TOST の入力(交互作用の推定値と SE)を出し、例外を数えて縮退へ回す。
+
+    答える問い: 「`power_sim.py` が読むキーを R が書いているか」(R は呼ばない。文面の突き合わせ)。
+    """
+    text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
+    assert 'paste0("interaction_", cl, "_est")' in text
+    assert 'paste0("interaction_", cl, "_se")' in text
+    assert 'paste0("task", tl, ":coverage", cl)' in text          # treatment coding の係数名
+    assert "n_errored_fits" in text and "tryCatch(" in text
+    assert "df = 2" in text
+
+
+# --------------------------------------------------------------------------
+# ★run(R の代わりに偽の当てはめを差す)
+# --------------------------------------------------------------------------
+
+
+def fake_fits(monkeypatch: pytest.MonkeyPatch, calls: list[Path] | None = None) -> None:
+    """R を呼ばず、表ごとに決まった形の JSON を書く。**当てはめの代わりであって検出力の数値ではない。**"""
+
+    def fake_run_fits(rscript, libpath, manifest_stem, jobs, refit, max_level, n_workers):
+        for csv_path, out_path in jobs:
+            if out_path.exists():
+                continue
+            assert csv_path.exists(), "当てはめ前の表が書かれていない"
+            if calls is not None:
+                calls.append(csv_path)
+            out_path.write_text(json.dumps(fit_result(0.5)), encoding="ascii")
+        return []
+
+    monkeypatch.setattr(power_sim, "resolve_rscript", lambda declared: "Rscript")
+    monkeypatch.setattr(power_sim, "run_fits", fake_run_fits)
+
+
+def decided_smoke_config(n_rep: int = 2) -> dict[str, Any]:
+    config = load(SMOKE_CONFIG)
+    config["simulation"]["n_rep"] = n_rep
+    return config
+
+
+def test_run_writes_one_directory_per_sheet_and_the_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_fits(monkeypatch)
+    summary = power_sim.run(decided_smoke_config(), tmp_path, None, keep_frames=False)
+    assert list(summary["sheets"]) == ["p1", "p1_neg", "p0", "misspecification"]
+    for sheet_id in summary["sheets"]:
+        assert (tmp_path / sheet_id / "fits").is_dir()
+    assert summary["tost_alpha"] == 0.05
+    on_disk = json.loads((tmp_path / "power_sim_summary.json").read_text(encoding="utf-8"))
+    assert on_disk["sheets"]["p1_neg"]["compared_with"] == "p1"
+    assert len(on_disk["sheets"]["p1_neg"]["power_minus_reference"]) == 2
+    assert on_disk["sheets"]["misspecification"]["tau"] == "equals_sigma"
+    # 反復ごとの最小 Δ が全点に入っている(Δ の関数としての TOST の検出力を後から読むため)
+    for body in on_disk["sheets"].values():
+        assert all(len(point["tost_min_margins"]) == 2 for point in body["grid"])
+    # 組んだ表は消える(--keep-frames でなければ)
+    assert not list(tmp_path.glob("*/frames/*.csv"))
+
+
+def test_resumed_run_draws_the_same_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """★途中から再開しても、残りの表は最初の実行と同じである。
+
+    答える問い: 「当てはめ済みの反復を飛ばしたせいで、乱数が進まず表がずれていないか」——
+    ずれていれば再開のたびに別の実験になる(`run` の docstring)。
+    """
+    fake_fits(monkeypatch)
+    full_dir, resumed_dir = tmp_path / "full", tmp_path / "resumed"
+    power_sim.run(decided_smoke_config(), full_dir, None, keep_frames=True)
+    # 再開: 先頭の格子点の 1 反復目は当てはめ済みの状態から始める(表は書かれない)
+    done = resumed_dir / "p1" / "fits" / "fit_s0_r0_0000.json"
+    done.parent.mkdir(parents=True)
+    done.write_text(json.dumps(fit_result(0.5)), encoding="ascii")
+    power_sim.run(decided_smoke_config(), resumed_dir, None, keep_frames=True)
+    first = sorted(full_dir.glob("*/frames/*.csv"))
+    second = sorted(resumed_dir.glob("*/frames/*.csv"))
+    assert len(first) == len(second) + 1                  # 飛ばした 1 枚だけ無い
+    for path in second:
+        twin = full_dir / path.relative_to(resumed_dir)
+        assert path.read_bytes() == twin.read_bytes(), path.name
+
+
+def test_every_declared_sheet_gets_its_tables_fitted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """宣言した 4 シートのすべてが当てはめに回る(シートが黙って落ちていない)。"""
+    calls: list[Path] = []
+    fake_fits(monkeypatch, calls)
+    power_sim.run(decided_smoke_config(n_rep=1), tmp_path, None, keep_frames=True)
+    names = {path.parent.parent.name for path in calls}
+    assert names == {"p1", "p1_neg", "p0", "misspecification"}
 
 
 # --------------------------------------------------------------------------
@@ -747,7 +1288,8 @@ def _nonadditivity(eta: np.ndarray) -> tuple[float, float]:
     """
     centred = eta - eta.mean(axis=0, keepdims=True) - eta.mean(axis=1, keepdims=True)
     centred = centred + eta.mean()
-    return float(np.sqrt((centred**2).sum() / INTERACTION_DF)), float(np.abs(centred).max())
+    rms = float(np.sqrt((centred**2).sum() / RECORDED_INTERACTION_DF))
+    return rms, float(np.abs(centred).max())
 
 
 @pytest.mark.parametrize("profile", ["P0", "P1", "P2", "P3"])

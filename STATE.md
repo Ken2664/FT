@@ -8,7 +8,7 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-02(その135)/ by IMPLEMENTER (Sonnet 5.5。推奨 Sonnet と一致)。**PLAN-037 の I6〜I9 を実装した**(LoRA のスケール s / 掃引の入口 `scale_sweep.py` + D9 の門 / `frame.py`・`aggregate.py` の守り / `configs/` 3 本)。人間の指示は「handoff を読んで作業を続けて」で、HANDOFF の A(PLAN-037 の続き)を選んだ。`pytest code/tests -q` 2361 passed。GPU 0・pod 0・tag・push なし。**commit は下の「引き継ぎ」を参照**。**I10(文書の注)は人間の承認の後**
+最終更新: 2026-10-02(その136)/ by IMPLEMENTER (Sonnet 5.5。推奨 Sonnet と一致)。**PLAN-034 の I1〜I7 を実装した**(検出力分析を T1 × T2・df = 2 へ。4 シート 32 点・平行性の TOST・誤指定。人間の指示は「handoff を読んで作業を続けて」で HANDOFF の A を選んだ。`pytest code/tests -q` 2393 passed。GPU 0・pod 0・tag・push なし。★F114 の実行先は人間)。前セッション(その135): **PLAN-037 の I6〜I9 を実装した**(LoRA のスケール s / 掃引の入口 `scale_sweep.py` + D9 の門 / `frame.py`・`aggregate.py` の守り / `configs/` 3 本)。人間の指示は「handoff を読んで作業を続けて」で、HANDOFF の A(PLAN-037 の続き)を選んだ。`pytest code/tests -q` 2361 passed。GPU 0・pod 0・tag・push なし。**commit は下の「引き継ぎ」を参照**。**I10(文書の注)は人間の承認の後**
 (**次: S2 = PLAN-034 の実装(IMPLEMENTER / Sonnet)/ 人間の S5 の値の決定。PLAN-037 の実装は I10 以外が済んだ**。**稼働中の pod は無い**(その132 までの記録。このセッションでは確かめていない。terminate は人間。ボリューム `r963j7swke` は残す)。)
 
 
@@ -70,13 +70,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-02(その135・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-037 の I6〜I9 を実装した。GPU 0・pod 0。**
-> - **I6** `code/eval/model.py`: `validate_lora_scale`([0, 1]。bool・範囲外を拒む)・`active_adapter_name`・`apply_lora_scale`(peft 0.20.0 の `LoraLayer.set_scale` で**絶対値**を置く。`scale_layer` は使わない。`layer_type` を差し替えられる)・`declared_scale_sweep_levels`(`eval.scale_sweep.levels`。アダプタ null で宣言すると止まる)
-> - **I7** `code/eval/scale_sweep.py`(`python -m code.eval.scale_sweep --config <c> [--dry-run] [--run-dir-prefix <p>]`): 重みを 1 回読み、水準を**宣言の順**に掛け替え、s ごとに `<接頭辞>_s<水準>`(`0.5` → `0p5`)の run を書く。解くのは `eval.task_subset` が T1・T2 だけの config(D8)。D9 の門(`signature_gate`)を入口で掛ける。`metrics.json` に `lora_scale`・`signature_gate`・`scale_sweep`。`run.py` の 3 入口と `composition_run` は `eval.scale_sweep` を拒む
-> - **I8** `frame.py` は s が 1 でも無記録でもない run で止まる。`aggregate.py` は行を s で分け警告する(過去の run の出力は不変)。掃引の run は `task_subset` 宣言で集約も止まる
-> - **I9** `configs/exp_t1c_main.yaml`・`exp_t1c_pilot.yaml`(写し元との差は 5 欄。**`n_per_cell` と `freeze_tag` は null**)・`exp_pilot_scale_ident_s0_n313.yaml`(S4 (iii)。s = 0・1)。テスト `test_t1c_configs.py`・`test_lora_scale.py`
-> - **★実装の段で足した判断(PLAN に明記なし。人間が覆してよい)**: 宣言は `eval.scale_sweep.levels` だけ(単独 run の `model.lora_scale` は作っていない)/ **s = 1 だけの掃引も D9 の門を掛ける**(止める側に倒した)/ 既存の `metrics.json` があれば書き出しを止める
-> - **★その134 のブロックは `logs/STATE-ARCHIVE.md`「その135」にある**
+> **★★2026-10-02(その136・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-034(検出力分析を T1 × T2・df = 2 へ)の I1〜I7 を実装した。GPU 0・pod 0。**
+> - **I1** `configs/power_sim.yaml`・`power_sim_smoke.yaml`: `effect.profiles`(P1 = RMS 0.352767 を保って delta を √(2/3) 倍 / P1_neg / P0)・`sheets:`(p1 12 点・p1_neg 2 点・p0 12 点・misspecification 6 点 = 32 点)・`simulation.tost_alpha`・`dgp.n_item: 80`。**`s2_item` / `s2_tmpl` は null のまま**
+> - **I2・I3** `power_sim.py`(df ≠ 2 で止まる・シード × タスク型 × 被覆の `tau`・TOST の反復ごとの最小 Δ・`describe_plan`)/ `power_sim_fit.R`(交互作用 2 係数の推定値と SE)
+> - **I4** `test_power_sim.py` 93 件 / **I5** `05_STATISTICS.md` §2・§3.3・§5・§6 頭・§6.5〜§6.7 の注・**§6.8 新設**(旧文は消さない)/ **I6** `--dry-run` = 64,000 本・約 2,204 コア時・16 並列で約 138 時間(推算)
+> - **I7(ベンチマーク。借り物の `s2_* = 0.25`・数値は主張に使わない)**: 4,800 行の表 4 枚を逐次で 192.6 / 156.5 / 64.5 / 133.7 秒(平均 136.8 秒。推算 248 秒より短いが 4 枚だけ)。**★F114 の実行先は人間**
+> - **★実装の段で足した判断(人間が覆してよい)**: `glmer` の例外を縮退の引き金にして数を記録(スモークで `Downdated VtV is not positive definite` を観測)/ 再開時も乱数を進める / `logistic`(溢れない)/ シートの役割とプロファイルの食い違いで止まる / 最小 Δ を保存(Δ は決めない)
+> - **★その135 のブロックは `logs/STATE-ARCHIVE.md`「その136」にある**
 
 ---
 
@@ -153,7 +153,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **2361 passed**(2026-10-02 その135 実測。PLAN-037 I6〜I9 で増。その134 は ~~2283~~(PLAN-037 I1〜I5 で +123)。その133 は ~~2160~~(PLAN-038 で `test_repo_hygiene.py` が 65 件になった)。その118 は ~~2102~~。その116 は ~~2041~~(`test_pilot_ft_cmp_configs.py` の 61 件が増えた)・その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
+| `pytest code/tests -q` → **2393 passed**(2026-10-02 その136 実測。PLAN-034 で `test_power_sim.py` が 93 件に。その135 は ~~2361~~ で、PLAN-037 I6〜I9 で増。その134 は ~~2283~~(PLAN-037 I1〜I5 で +123)。その133 は ~~2160~~(PLAN-038 で `test_repo_hygiene.py` が 65 件になった)。その118 は ~~2102~~。その116 は ~~2041~~(`test_pilot_ft_cmp_configs.py` の 61 件が増えた)・その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
 | **★段2 の診断(鋭さ)の経路がある**(2026-09-26 その104 = PLAN-032 I1〜I4。§8.1 R1〜R7 / ADR-107)。プール: `python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`(`eval.threshold_sweep.min_threshold` を宣言した腕だけ T < 1 の項目を作らず、除外を manifest・metrics.json・log.txt に残す。**R8・S は不変**)。run: `configs/exp_diag_{b,a,b_d,a_d}.yaml`(同じプールを 4 つの文面で解く)。判定表: `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(R7 で止め、Δ₂・R3・R4(T1b と T3 に別々)・R5 を機械的に当て、R6 の記述の行を出す。**解釈はしない**)。**凍結 tag の前に GPU で回さない**。**★その107(ADR-108)**: R1 の前提・A の文面の置き換えも記録で照合して止まる / 区間は [−1, 1] で切り退化の印 / S1 に注記 / 例外は `SharpnessError`。**★その110(ADR-109)**: 4 本の run の `git_sha.txt` の sha の一致と `git_diff.patch` が無いか 0 バイトも照合して止まり、sha を判定表の先頭に出す / 組ごとの差の数と平均 = 点推定の検査。**★その116(ADR-110 決定1・3)**: `sharpness:` 欄のある run は追跡ファイルに差分があれば run dir を作る前・重みを読む前に止まる(`--dry-run` は掛けない)/ 判定表の 2 番目の鍵 `analysis`(解析側の commit と `git diff HEAD -- code/` が空か。表示だけ) | `code/data_gen/sweep_pool.py` / `code/artifacts.py` / `code/eval/run.py` / `code/analysis/sharpness_fit.py` / `test_diag_sharpness.py` / `test_sharpness_fit.py` / `plans/PLAN-032` §11 |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
@@ -326,24 +326,24 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-02(その135・最新)。PLAN-037 は I10 以外が入った。FT までの道筋の正本は PLAN-035 §5(S4 は ADR-116 決定3・ADR-118 で狭めた)。**
+> **★★2026-10-02(その136・最新)。PLAN-034 は実装済み。FT までの道筋の正本は PLAN-035 §5(S4 は ADR-116 決定3・ADR-118 で狭めた)。**
 >
-> 1. **S2 PLAN-034 の実装**(IMPLEMENTER / Sonnet): §6 の I1〜I7 → I7 のベンチマーク → 人間に ★F114(PLAN-037 とは触るファイルが別)
+> 1. **★F114 の実行先**(人間): 検出力分析 32,000 ペア(推算 約 138 時間 / 平均 136.8 秒の外挿で約 76 時間。16 並列)をこの機械で回すか RunPod の CPU ポッドか。止める入力は `s2_item` / `s2_tmpl`(★F104-c。人間)
 > 2. **PLAN-037 の I10**(文書の注。人間の承認の後): `Documents/04_EXPERIMENT_PLAN.md` Phase 1「評価の追加」と `05_STATISTICS.md` §4 に実装の場所の注を 1 行ずつ(旧文は消さない)
-> 3. **S4**(RUNNER / Sonnet): パイロットの `ident` で s = 0・1 の配線確認(`configs/exp_pilot_scale_ident_s0_n313.yaml`。T1・T2)・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後。**s = 0 は素のモデルの記録と、s = 1 は既存の `ident` の評価 [run:pilot_ft_eval_ident_s0_n313] と予測を突き合わせる。一致しなければ配線を疑う**(実機で `set_scale` が全層に効くかの確認も兼ねる)。**T1c の適格性(素のモデルと pilot `ident`)は S5 で件数を決めた後・tag の前**(ADR-118 決定3 の帰結。`ident` の T1c の config はそのとき `exp_t1c_pilot.yaml` の写しで作る)
-> 4. **S5 凍結の場**(人間): T1c の件数(主・pilot。`eval.composition.n_per_cell`)・`eval.freeze_tag` の名前・E3 の統計と α・適格性の規則 / ★F104-c / 平行性の TOST の Δ / シード分類の閾値 / E1 の TOST 境界と α / s の水準(`eval.scale_sweep.levels`)/ step 数・T2 の文面 / ★L(d) / N5 / 本番テンプレート集合 / `θ` の根拠 → 事前登録の tag → S6 本実験(40 run)
-> 5. 人間(いつでも): MisFT の原典確認と Table A4 / worktree `claude/great-bardeen-9c1ac4`(`.claude/worktrees/` にまだ在る)の削除 / 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す / 引用の原典確認(会場未照合 6 件)
+> 3. **S4**(RUNNER / Sonnet): パイロットの `ident` で s = 0・1 の配線確認(`configs/exp_pilot_scale_ident_s0_n313.yaml`)・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後。s = 0 は素のモデルの記録と、s = 1 は既存の `ident` の評価 [run:pilot_ft_eval_ident_s0_n313] と突き合わせる(実機で `set_scale` が全層に効くかの確認も兼ねる)
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag` の名前・E3 の統計と α・適格性の規則 / ★F104-c / **平行性の TOST の Δ** / シード分類の閾値 / **`glmer` の例外の規則(新)** / E1 の TOST 境界と α / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / 本番テンプレート集合 / `θ` の根拠 → 事前登録の tag → S6 本実験(40 run)
+> 5. 人間(いつでも): MisFT の原典確認と Table A4 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す / 引用の原典確認(会場未照合 6 件)
 
 ---
 
 ## 引き継ぎ
 
 
-> **★★2026-10-02(その135・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-037 の I6〜I9 の実装。**
+> **★★2026-10-02(その136・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-034 の I1〜I7 の実装。**
 >
-> **★やったこと**: 開始手順 → PLAN-037 §3.3・§6・D7〜D9 と既存コードを読む → I6〜I9 を実装 → `pytest code/tests -q` 2361 passed(2283 から増分。`test_lora_scale.py`・`test_t1c_configs.py`)。許可リストを 2 本直した(`test_gonogo.py` の近接同点の幅に `exp_t1c_pilot.yaml`・`test_task_subset.py` の絞りに `exp_pilot_scale_ident_s0_n313.yaml`)。
-> **★やっていないこと**: I10・`Documents/`・push・tag・GPU・pod・worktree の削除。**実機での `set_scale` の確認は未実施**(S4。この機に peft が無く置き物の層でしか確かめていない)。
-> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`(S2 か人間の S5 の準備。人間が選ぶ)。
+> **★やったこと**: 開始手順 → PLAN-034・`power_sim*` を読む → I1〜I7 → `pytest code/tests -q` 2393 passed(2361 から +32。`test_power_sim.py`)。スモーク(R・lme4 2.0.6)が 4 シートとも通る。
+> **★やっていないこと**: 本実行・`s2_*` の値・Δ・分類の閾値・★F114 の実行先・I10・push・tag・GPU・pod・worktree の削除。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
 
 ---
 

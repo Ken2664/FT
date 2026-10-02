@@ -7673,3 +7673,15 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: 上の実装ファイルとテスト・config / `plans/PLAN-037-*.md`(§12 実行ログ)/ `STATE.md`(古いブロックは `logs/STATE-ARCHIVE.md`「その135」へ)/ `logs/HANDOFF.md` / `logs/CHANGELOG.md`
 - **やっていないこと**: I10(文書の注。人間の承認の後)・`Documents/`・push・tag・GPU・pod・worktree の削除。**実機での `set_scale` の確認(S4)は未実施**。T1c の件数・tag の名前・s の水準は決めていない(null / 配線確認の [0, 1] のまま)
 - **未解決(すべて人間。`CLAUDE.md` §8)**: HANDOFF の未解決の節のとおり
+
+## 2026-10-02(その136): PLAN-034 の I1〜I7 を実装した(検出力分析を主要検定 T1 × T2・df = 2 へ。4 シート・平行性の TOST・誤指定)   [actor: IMPLEMENTER (Sonnet 5.5)]
+- **役割**: IMPLEMENTER。実モデル(Sonnet 5.5)は HANDOFF の推奨(Sonnet)と一致。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「handoffを読んで作業を続けてください」。HANDOFF の A(PLAN-034 の実装。推奨)を選んだ
+- **実装**: I1 `configs/power_sim.yaml`・`power_sim_smoke.yaml` / I2 `code/analysis/power_sim.py` / I3 `code/analysis/power_sim_fit.R` / I4 `code/tests/test_power_sim.py` / I5 `Documents/05_STATISTICS.md`(§2・§3.3・§5・§6 頭・§6.5〜§6.7 の注・§6.8 新設。旧文は消さない)/ I6 `--dry-run` = 4 シート 32 点・64,000 本・約 2,204 コア時・16 並列で約 138 時間(行数比例の推算)
+- **確認**: `pytest code/tests -q` 2393 passed(2361 から +32)/ スモーク(R 4.6.1・lme4 2.0.6。4 シートとも通る。約 3 分)/ `test_repo_hygiene.py` 66 passed
+- **I7 のベンチマーク(動作確認用の `s2_item = s2_tmpl = 0.25`。数値は主張に使わない。スクラッチパッドで実行。`runs/` には置いていない)**: 4,800 行の表 4 枚(T1 × T2・`n_item` = 80・10 シード)を `power_sim_fit.R` で逐次に当てた: P1(`sigma` 0)192.6 秒 / P1(`sigma` 1.0)156.5 秒 / 誤指定(`tau` = `sigma` = 1.5)64.5 秒 / P0(`sigma` 1.0)133.7 秒(平均 136.8 秒)。推算 248 秒より短いが 4 枚だけ
+- **実装の段で足した判断(PLAN に明記なし。人間が覆してよい)**: `glmer` の例外を縮退の引き金にして数と文面を記録(スモークの誤指定シート(`n_item` = 2)で `Downdated VtV is not positive definite` を観測。旧実装は R ごと止まり、再開しても同じ表で止まる)/ 再開時も乱数を進める / `logistic` / シートの役割とプロファイルの RMS の食い違いで止まる / 反復ごとの最小 Δ を保存(Δ は決めない)
+- **手違い(実害なし)**: (1) bash の heredoc を 1 コマンドに 2 つ入れて構文エラー / (2) 日本語の置換を stdin の Python で入れて 1 回一致せず、`Edit` に切り替えた / (3) テストの置換で `s[:a]+new` と書いて、末尾の記録テスト(F113・F112)を 1 度消した → `git show HEAD:` から復元し、`_nonadditivity` の df だけ付け直した(復元後 93 passed)
+- **書き換えたもの**: 上の実装ファイル・テスト・config / `plans/PLAN-034-power-t1t2.md`(ステータス・§12)/ `logs/OPEN-ITEMS.md`(★F114 の行に実測・`glmer` の例外の行を新設)/ `STATE.md`・`logs/STATE-ARCHIVE.md`(その136)/ `logs/HANDOFF.md`
+- **やっていないこと**: 本実行・`s2_*` の値・Δ・D7 の閾値・★F114 の実行先・PLAN-037 の I10・push・tag・GPU・pod・worktree の削除
+- **未解決(すべて人間。`CLAUDE.md` §8)**: HANDOFF の未解決の節のとおり

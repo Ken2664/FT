@@ -1,0 +1,136 @@
+analysis:
+  id: power_sim_bench_parallel
+  plan: plans/PLAN-034-power-t1t2.md
+  section: Documents/05_STATISTICS.md#6
+effect:
+  mu: 2.2
+  task_levels:
+  - T1
+  - T2
+  coverage_levels:
+  - id
+  - interp
+  - extrap_magnitude
+  a:
+  - 0.6
+  - -0.4
+  b:
+  - 0.0
+  - -1.0
+  - -2.2
+  rule_rate_decimals: 3
+  profiles:
+    P1:
+      eta:
+      - - 2.848934
+        - 2.012234
+        - 1.138832
+      - - 1.751066
+        - 0.587766
+        - -0.938832
+      rule_rate:
+      - - 0.945
+        - 0.882
+        - 0.757
+      - - 0.852
+        - 0.643
+        - 0.281
+    P1_neg:
+      eta:
+      - - 3.284399
+        - 2.1211
+        - 0.594501
+      - - 1.315601
+        - 0.4789
+        - -0.394501
+      rule_rate:
+      - - 0.964
+        - 0.893
+        - 0.644
+      - - 0.788
+        - 0.617
+        - 0.403
+    P0:
+      eta:
+      - - 2.8
+        - 1.8
+        - 0.6
+      - - 1.8
+        - 0.8
+        - -0.4
+      rule_rate:
+      - - 0.943
+        - 0.858
+        - 0.646
+      - - 0.858
+        - 0.69
+        - 0.401
+dgp:
+  n_seed: 10
+  sigma:
+  - 0.0
+  - 0.25
+  - 0.5
+  - 0.75
+  - 1.0
+  - 1.5
+  rho:
+  - 0.0
+  - 1.0
+  n_item: 80
+  s2_item: 0.25
+  s2_tmpl: 0.25
+  templates:
+    T1:
+    - t1
+    T2:
+    - t2_count
+    - t2_people
+    - t2_distance
+    - t2_money
+    - t2_time
+sheets:
+- id: p1
+  role: power
+  profile: P1
+  sigma:
+  - 0.0
+  - 1.0
+  rho:
+  - 0.0
+  tau: zero
+- id: p0
+  role: null_calibration
+  profile: P0
+  sigma:
+  - 1.0
+  rho:
+  - 0.0
+  tau: zero
+- id: misspecification
+  role: misspecification
+  profile: P0
+  sigma:
+  - 1.5
+  rho:
+  - 0.0
+  tau: equals_sigma
+simulation:
+  n_rep: 16
+  alpha: 0.05
+  target_power: 0.8
+  rng_seed: 20260909
+  tost_alpha: 0.05
+fit:
+  engine: rscript
+  n_workers: 16
+  rscript: null
+  r_libpath: null
+  refit:
+    loglik_tolerance: 0.001
+    beta_move_tolerance: 0.01
+    use_refit_for_lrt: true
+  reduction_order:
+  - template
+  - coverage_slope
+  - item

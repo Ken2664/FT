@@ -7685,3 +7685,13 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: 上の実装ファイル・テスト・config / `plans/PLAN-034-power-t1t2.md`(ステータス・§12)/ `logs/OPEN-ITEMS.md`(★F114 の行に実測・`glmer` の例外の行を新設)/ `STATE.md`・`logs/STATE-ARCHIVE.md`(その136)/ `logs/HANDOFF.md`
 - **やっていないこと**: 本実行・`s2_*` の値・Δ・D7 の閾値・★F114 の実行先・PLAN-037 の I10・push・tag・GPU・pod・worktree の削除
 - **未解決(すべて人間。`CLAUDE.md` §8)**: HANDOFF の未解決の節のとおり
+
+## 2026-10-03(その137): ★F114 の判断材料 —— この機械での並列の実測と ★F104-c の賭け金の再計算   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル(Opus 5.5)は HANDOFF の推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0。RunPod は照会のみ(pod 5 本とも `EXITED`・CPU 型の在庫)
+- **人間の指示**: 「handoffを読んで作業を続けてください」→ HANDOFF の A(★F114 を諮る)。判断材料の表(この機械 / RunPod CPU の時間・費用・在庫)を先に示し、`AskUserQuestion` 2 問。**人間はどちらも推奨**: (1) 先にこの機械で並列の実測 / (2) ★F104-c の材料を現模型で再計算
+- **並列の実測**(借り物の `s2_* = 0.25`・I7 と同じ 4 条件 × 16 反復 = 64 ペア・16 並列。スクラッチパッドで実行。数値は主張に使わない): 壁時計 875.1 秒 = 13.7 秒 / ペア(I7 の逐次平均 136.8 秒の約 10 倍)。`glmer` の例外 0・縮退 25 / 64。32,000 ペアへの外挿で約 122 時間(未検証)。機械は Ryzen AI 7 350(物理 8 / 論理 16)・30 GB・ノート PC
+- **賭け金の再計算**(合成データの算術・直接の水路だけ): T1 × T2・`n_item` 80 で `s2_item` = 0.25〜4 → 交互作用に乗る非加法性 RMS = P1 の 14〜56%、係数の SD = √(s2_item/20)。`s2_tmpl`・`sigma` は厳密に 0
+- **書き換えたもの**: `plans/PLAN-034-check-f114/`(新規。README・`stakes_t1t2.py`・`stakes_t1t2.log`・`make_bench.py`・`bench_parallel.yaml`・`bench_timing.txt`。ベンチの `power_sim_summary.json` は借り物の値の検出力を含むので入れていない)/ `plans/PLAN-034-power-t1t2.md` §12 / `logs/OPEN-ITEMS.md`(★F114・★F104-c の行に追記)/ `STATE.md`(冒頭・いま何をしているか・次のアクション・引き継ぎ。旧ブロックは `logs/STATE-ARCHIVE.md`「その137」へ。365 行・59.1 KB)/ `logs/HANDOFF.md` / この CHANGELOG
+- **手違い(実害なし)**: (1) `wmic` が無く機械の情報の取得が 1 回止まった(PowerShell の CIM で取り直した)/ (2) Python に `/c/...` のパスを渡して glob が空になった(`cygpath -m` で直した)/ (3) 算術のスクリプトをベンチと同時に回した(数秒。ベンチの壁時計にわずかに乗る)
+- **やっていないこと**: 本実行・`s2_*` の値・実行先の決定・I10・`code/`・`configs/`・`Documents/`・push・tag・pod の起動
+- **未解決(すべて人間。`CLAUDE.md` §8)**: ★F114 の実行先・★F104-c の値ほか HANDOFF の未解決の節のとおり

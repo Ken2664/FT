@@ -1,0 +1,8 @@
+F114 parallel benchmark. this machine: AMD Ryzen AI 7 350 (8 cores / 16 threads), 29.8 GB RAM, AC power, Windows balanced plan
+borrowed s2_item = s2_tmpl = 0.25 (same as PLAN-034 I7). NOT an F104-c answer. numbers are for the run-location decision only
+start 2026-10-03T11:35:23Z end 2026-10-03T11:49:58Z wall 875.1 s (time: real 14m35.098s)
+p1: 32 pairs, first fit file 2026-10-03T20:37:16.673640 last 2026-10-03T20:44:38.534697 (local)
+p0: 16 pairs, first fit file 2026-10-03T20:45:23.877946 last 2026-10-03T20:47:35.934184 (local)
+misspecification: 16 pairs, first fit file 2026-10-03T20:48:18.810216 last 2026-10-03T20:49:58.525880 (local)
+pairs 64; pairs with a failed fit 0; pairs with a glmer exception 0 (first_error is '' and n_errored_fits 0 in all 64); reduction_level 0/1/2/3 = 39/4/20/1; pairs with reduction_level>0 25
+throughput 13.7 s/pair at 16 workers (includes frame drawing and per-batch stragglers)

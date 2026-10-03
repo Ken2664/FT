@@ -18,6 +18,41 @@
 
 ---
 
+## ★2026-10-03(その137)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭の最終更新(その136)
+
+最終更新: 2026-10-02(その136)/ by IMPLEMENTER (Sonnet 5.5。推奨 Sonnet と一致)。**PLAN-034 の I1〜I7 を実装した**(検出力分析を T1 × T2・df = 2 へ。4 シート 32 点・平行性の TOST・誤指定。人間の指示は「handoff を読んで作業を続けて」で HANDOFF の A を選んだ。`pytest code/tests -q` 2393 passed。GPU 0・pod 0・tag・push なし。★F114 の実行先は人間)。前セッション(その135): **PLAN-037 の I6〜I9 を実装した**(LoRA のスケール s / 掃引の入口 `scale_sweep.py` + D9 の門 / `frame.py`・`aggregate.py` の守り / `configs/` 3 本)。人間の指示は「handoff を読んで作業を続けて」で、HANDOFF の A(PLAN-037 の続き)を選んだ。`pytest code/tests -q` 2361 passed。GPU 0・pod 0・tag・push なし。**commit は下の「引き継ぎ」を参照**。**I10(文書の注)は人間の承認の後**
+(**次: S2 = PLAN-034 の実装(IMPLEMENTER / Sonnet)/ 人間の S5 の値の決定。PLAN-037 の実装は I10 以外が済んだ**。**稼働中の pod は無い**(その132 までの記録。このセッションでは確かめていない。terminate は人間。ボリューム `r963j7swke` は残す)。)
+
+### いま何をしているか(その136)
+
+> **★★2026-10-02(その136・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-034(検出力分析を T1 × T2・df = 2 へ)の I1〜I7 を実装した。GPU 0・pod 0。**
+> - **I1** `configs/power_sim.yaml`・`power_sim_smoke.yaml`: `effect.profiles`(P1 = RMS 0.352767 を保って delta を √(2/3) 倍 / P1_neg / P0)・`sheets:`(p1 12 点・p1_neg 2 点・p0 12 点・misspecification 6 点 = 32 点)・`simulation.tost_alpha`・`dgp.n_item: 80`。**`s2_item` / `s2_tmpl` は null のまま**
+> - **I2・I3** `power_sim.py`(df ≠ 2 で止まる・シード × タスク型 × 被覆の `tau`・TOST の反復ごとの最小 Δ・`describe_plan`)/ `power_sim_fit.R`(交互作用 2 係数の推定値と SE)
+> - **I4** `test_power_sim.py` 93 件 / **I5** `05_STATISTICS.md` §2・§3.3・§5・§6 頭・§6.5〜§6.7 の注・**§6.8 新設**(旧文は消さない)/ **I6** `--dry-run` = 64,000 本・約 2,204 コア時・16 並列で約 138 時間(推算)
+> - **I7(ベンチマーク。借り物の `s2_* = 0.25`・数値は主張に使わない)**: 4,800 行の表 4 枚を逐次で 192.6 / 156.5 / 64.5 / 133.7 秒(平均 136.8 秒。推算 248 秒より短いが 4 枚だけ)。**★F114 の実行先は人間**
+> - **★実装の段で足した判断(人間が覆してよい)**: `glmer` の例外を縮退の引き金にして数を記録(スモークで `Downdated VtV is not positive definite` を観測)/ 再開時も乱数を進める / `logistic`(溢れない)/ シートの役割とプロファイルの食い違いで止まる / 最小 Δ を保存(Δ は決めない)
+> - **★その135 のブロックは `logs/STATE-ARCHIVE.md`「その136」にある**
+
+### 次のアクション(その136)
+
+> **★★2026-10-02(その136・最新)。PLAN-034 は実装済み。FT までの道筋の正本は PLAN-035 §5(S4 は ADR-116 決定3・ADR-118 で狭めた)。**
+>
+> 1. **★F114 の実行先**(人間): 検出力分析 32,000 ペア(推算 約 138 時間 / 平均 136.8 秒の外挿で約 76 時間。16 並列)をこの機械で回すか RunPod の CPU ポッドか。止める入力は `s2_item` / `s2_tmpl`(★F104-c。人間)
+> 2. **PLAN-037 の I10**(文書の注。人間の承認の後): `Documents/04_EXPERIMENT_PLAN.md` Phase 1「評価の追加」と `05_STATISTICS.md` §4 に実装の場所の注を 1 行ずつ(旧文は消さない)
+> 3. **S4**(RUNNER / Sonnet): パイロットの `ident` で s = 0・1 の配線確認(`configs/exp_pilot_scale_ident_s0_n313.yaml`)・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後。s = 0 は素のモデルの記録と、s = 1 は既存の `ident` の評価 [run:pilot_ft_eval_ident_s0_n313] と突き合わせる(実機で `set_scale` が全層に効くかの確認も兼ねる)
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag` の名前・E3 の統計と α・適格性の規則 / ★F104-c / **平行性の TOST の Δ** / シード分類の閾値 / **`glmer` の例外の規則(新)** / E1 の TOST 境界と α / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / 本番テンプレート集合 / `θ` の根拠 → 事前登録の tag → S6 本実験(40 run)
+> 5. 人間(いつでも): MisFT の原典確認と Table A4 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 4 本と `9matkiq0jozcgm` の terminate(ボリューム `r963j7swke` は残す)/ ★`CLAUDE.md` を 200 行へ戻す / 引用の原典確認(会場未照合 6 件)
+
+### 引き継ぎ(その136)
+
+> **★★2026-10-02(その136・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-034 の I1〜I7 の実装。**
+>
+> **★やったこと**: 開始手順 → PLAN-034・`power_sim*` を読む → I1〜I7 → `pytest code/tests -q` 2393 passed(2361 から +32。`test_power_sim.py`)。スモーク(R・lme4 2.0.6)が 4 シートとも通る。
+> **★やっていないこと**: 本実行・`s2_*` の値・Δ・分類の閾値・★F114 の実行先・I10・push・tag・GPU・pod・worktree の削除。
+> **次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
 ## ★2026-10-02(その136)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 > **1 文字も書き換えていない。**その135 の「いま何をしているか」「次のアクション」「引き継ぎ」。

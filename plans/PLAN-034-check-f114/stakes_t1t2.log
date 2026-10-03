@@ -1,0 +1,20 @@
+tasks=['T1', 'T2'] covs=['id', 'interp', 'extrap_magnitude'] n_item=80 templates/task=[1, 5] reps=20000
+P1 RMS=0.352767  P1 interaction coefs=[np.float64(-0.3266), np.float64(-0.979796)]
+[C'] s2_item  s2_tmpl  mean RMS  %P1   SD(coef interp)  SD(coef extrap)  analytic sqrt(s2/20)
+     0       0        0.00000    0.0%  0.0000           0.0000           0.0000
+     0       0.5      0.00000    0.0%  0.0000           0.0000           0.0000
+     0       8        0.00000    0.0%  0.0000           0.0000           0.0000
+     0.25    0        0.04975   14.1%  0.1126           0.1125           0.1118
+     0.5     0        0.06973   19.8%  0.1578           0.1560           0.1581
+     1       0        0.09869   28.0%  0.2230           0.2225           0.2236
+     2       0        0.13982   39.6%  0.3140           0.3156           0.3162
+     4       0        0.19851   56.3%  0.4463           0.4496           0.4472
+     1       1        0.09876   28.0%  0.2229           0.2235           0.2236
+     4       4        0.19850   56.3%  0.4483           0.4495           0.4472
+[ctrl] sigma (seed) channel, s2=0:
+     sigma=0.5  mean RMS=1.59e-17  max|coef|=0.00e+00
+     sigma=1.5  mean RMS=4.34e-17  max|coef|=0.00e+00
+[D'] s2_item=1 vs n_item:
+     n_item=48   mean RMS=0.12827 (36.4% of P1)
+     n_item=80   mean RMS=0.09884 (28.0% of P1)
+     n_item=160  mean RMS=0.07000 (19.8% of P1)

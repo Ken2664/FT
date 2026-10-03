@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-03(その138)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★F114 の実行先はこの機械に決まった(ADR-119 決定1)。★F104-c は人間の指示でこの件に限り ADR-095 決定3 を外してエージェントが例の値と推奨を出し、人間の選択で `s2_item` を先にパイロット FT の `p2` 2 シードから推定して決めることになった(PLAN-039 草案)。`s2_tmpl` = 0.5**。`configs/` は不変(`s2_*` は null のまま)。GPU 0・pod 0(RunPod は 5 本とも `EXITED`)・tag・push なし
-(**次: PLAN-039 の D1〜D5(人間)→ `s2_item` の推定 → 人間が値を決める → 本実行(この機械)/ PLAN-037 の I10(承認の後)/ S4・S5**。)
+最終更新: 2026-10-03(その139)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★F104-c 決着: PLAN-039 の D1〜D5 を推定の前に固定し(ADR-120)、パイロット FT の `p2` 2 シードから `s2_item` を推定した [run:20261003_214842_s2_item_pilot](主推定 1.451・特異で profile 区間が立たず推奨値なし)。人間が推定を見た後に `s2_item` = 2.0 を選んだ(ADR-121)。`configs/power_sim.yaml` に `s2_item` 2.0・`s2_tmpl` 0.5**。本実行はまだ(この機械がバッテリー駆動だった)。GPU 0・pod 0・tag・push なし
+(**次: 検出力分析の本実行(AC 電源につないでから・人間の確認の後。約 122〜138 時間)/ PLAN-037 の I10(承認の後)/ S4・S5**。)
 
 
 ---
@@ -70,10 +70,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-03(その138・最新)。Phase 0。PLANNER (Opus 5.5)。★F114・★F104-c を人間に諮った(ADR-119)。GPU 0・pod 0。**
-> - 実行先 = この機械(16 並列。RunPod の CPU は 2026-10-03 の再照会でも 16・32 vCPU とも在庫 `NONE`)
-> - `s2_item`: 人間の指示で ADR-095 決定3 をこの件に限って外し、エージェントが例の値と推奨を出した → 人間の選択で、先にパイロット FT の `p2` 2 シード(625・313)から推定し、結果を見て人間が決める。`plans/PLAN-039-s2-item-from-pilot.md`(草案。D1〜D5 は人間待ち)。`s2_tmpl` = 0.5
-> - **★その137 のブロックは `logs/STATE-ARCHIVE.md`「その138」にある**
+> **★★2026-10-03(その139・最新)。Phase 0。PLANNER (Opus 5.5)。★F104-c を決着させた(ADR-120・ADR-121)。GPU 0・pod 0。**
+> - PLAN-039 の D1〜D5 を判断材料と推奨つきで諮り(4 問とも推奨)、**推定の前に commit**(`e74df7e`)→ 推定 [run:20261003_214842_s2_item_pilot](`results/s2_item_pilot/README.md`)→ 主推定は特異で推奨値なし → 人間が `s2_item` = 2.0 を選んだ
+> - 分かったこと: `*.ans_out.jsonl` は主要検定の `extrap_magnitude` そのもの / T1 の `id`・`interp` は両シード 1.000、T2 の `id`・`interp` はシード 0 が天井・シード 1 が床で、`s2_item` に寄与しない
+> - **★その138 のブロックは `logs/STATE-ARCHIVE.md`「その139」にある**
 
 
 ---
@@ -151,7 +151,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **2393 passed**(2026-10-02 その136 実測。PLAN-034 で `test_power_sim.py` が 93 件に。その135 は ~~2361~~ で、PLAN-037 I6〜I9 で増。その134 は ~~2283~~(PLAN-037 I1〜I5 で +123)。その133 は ~~2160~~(PLAN-038 で `test_repo_hygiene.py` が 65 件になった)。その118 は ~~2102~~。その116 は ~~2041~~(`test_pilot_ft_cmp_configs.py` の 61 件が増えた)・その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
+| `pytest code/tests -q` → **2383(`-k 'not smoke'`。R を使うスモーク 11 件は未実行) passed**(2026-10-03 その139 実測。`test_undecided_values_stay_null` を `test_s2_values_are_the_decided_ones` に置き換え。その136 は ~~2393~~。PLAN-034 で `test_power_sim.py` が 93 件に。その135 は ~~2361~~ で、PLAN-037 I6〜I9 で増。その134 は ~~2283~~(PLAN-037 I1〜I5 で +123)。その133 は ~~2160~~(PLAN-038 で `test_repo_hygiene.py` が 65 件になった)。その118 は ~~2102~~。その116 は ~~2041~~(`test_pilot_ft_cmp_configs.py` の 61 件が増えた)・その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
 | **★段2 の診断(鋭さ)の経路がある**(2026-09-26 その104 = PLAN-032 I1〜I4。§8.1 R1〜R7 / ADR-107)。プール: `python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`(`eval.threshold_sweep.min_threshold` を宣言した腕だけ T < 1 の項目を作らず、除外を manifest・metrics.json・log.txt に残す。**R8・S は不変**)。run: `configs/exp_diag_{b,a,b_d,a_d}.yaml`(同じプールを 4 つの文面で解く)。判定表: `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(R7 で止め、Δ₂・R3・R4(T1b と T3 に別々)・R5 を機械的に当て、R6 の記述の行を出す。**解釈はしない**)。**凍結 tag の前に GPU で回さない**。**★その107(ADR-108)**: R1 の前提・A の文面の置き換えも記録で照合して止まる / 区間は [−1, 1] で切り退化の印 / S1 に注記 / 例外は `SharpnessError`。**★その110(ADR-109)**: 4 本の run の `git_sha.txt` の sha の一致と `git_diff.patch` が無いか 0 バイトも照合して止まり、sha を判定表の先頭に出す / 組ごとの差の数と平均 = 点推定の検査。**★その116(ADR-110 決定1・3)**: `sharpness:` 欄のある run は追跡ファイルに差分があれば run dir を作る前・重みを読む前に止まる(`--dry-run` は掛けない)/ 判定表の 2 番目の鍵 `analysis`(解析側の commit と `git diff HEAD -- code/` が空か。表示だけ) | `code/data_gen/sweep_pool.py` / `code/artifacts.py` / `code/eval/run.py` / `code/analysis/sharpness_fit.py` / `test_diag_sharpness.py` / `test_sharpness_fit.py` / `plans/PLAN-032` §11 |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
@@ -237,7 +237,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 **そのほかに開いているもの:**
 
-- **検出力分析は PLAN-034(ADR-114)で主要検定 T1 × T2 の模型が決まり、実装待ちである。**本実行を止める入力は `dgp.s2_item` / `dgp.s2_tmpl`(★F104-c。値は人間)と ★F114 の実行先(I7 のベンチマークの後に諮る)。`n_item` は 80 の整数 1 つ(ADR-114 決定3)。**前の版は `logs/STATE-ARCHIVE.md`「その129」**
+- **検出力分析は PLAN-034(ADR-114)で主要検定 T1 × T2 の模型が決まり、実装待ちである。**~~本実行を止める入力は `dgp.s2_item` / `dgp.s2_tmpl` と ★F114 の実行先~~ → **★その139: どちらも決着(ADR-119・ADR-121)。残りは本実行の起動(AC 電源・人間の確認)**。`n_item` は 80 の整数 1 つ(ADR-114 決定3)。**前の版は `logs/STATE-ARCHIVE.md`「その129」**
 - **設計文書 8 本は ADR-115・116 の主題・仮説に揃った(ADR-117。その132)。**`09_PAPER_PLAN.md` 論文 1 の新しい下書きと `00_OVERVIEW.md` §7 は**下書きのまま**(タイトル・claim の確定は人間。`CLAUDE.md` §8)。旧い 2 つの箇条は `logs/STATE-ARCHIVE.md`「その132」
 - **PLAN-001 §5.1.1 の穴 2 と穴 3**: 「単位元の言明」「規則の自己説明」は `(a, b)` を持たず
   被覆ラベルが定義できない / **本番の評価テンプレート集合(`data.eval_template_set`)が未確定**
@@ -274,7 +274,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 |---|---|---|
 | **★L(d)** | `arb` を 5 → 10 シードにするか(**+5 run**) | 順6 の後。GPU 構成と同じ場 |
 | **★F114 の実行先** ★新 | ~~どこで回すか~~ → **★2026-10-03(その138)決着: この機械(ADR-119 決定1)**。経緯は `logs/OPEN-ITEMS.md` の行 | 本実行の前 |
-| **★F104-c の値** ★新(その77) | `s2_item` の値(`s2_tmpl` = 0.5 は ADR-119 決定4 で決着)。**★その138: 人間の指示でこの件に限り ADR-095 決定3 を外した。先にパイロット FT の `p2` 2 シードから推定して人間が決める(PLAN-039 草案・ADR-119 決定3)** | 本実行の前 |
+| ~~**★F104-c の値**~~ **決着** | ~~`s2_item` の値~~ → **★2026-10-03(その139)ADR-121: `s2_item` = 2.0(推定を見た後に人間)/ `s2_tmpl` = 0.5。config に反映** | 次に索引を組み直すときに落とす |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
 | **★`CLAUDE.md` を 200 行へ戻す** ★新(その127) | 216 行(§10.2 の上限 200 行)。§1 の「449行」も古い。全文は `logs/OPEN-ITEMS.md` の行 | ADR-113 決定2 | いつでも |
 | **★R8(Phase 2)の push と G2-1 承認** ★新(その125) | ADR-111 決定3。人間の操作 2 つ: `01cf60f` 以降の main の push と新しい G2-1 承認。経緯の全文は `logs/OPEN-ITEMS.md` の行 | ADR-111 / ADR-107 決定7 | 人間の都合 |
@@ -324,9 +324,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-03(その138・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-03(その139・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **PLAN-039**(PLANNER / Opus): D1〜D5 を判断材料の表と推奨つきで人間に確認 → `s2_item` の推定(R。数分)→ 人間が値を決める → ADR → `configs/power_sim.yaml` に `s2_item` と `s2_tmpl` = 0.5 → `--dry-run` → pytest → 本実行(この機械。`--workers 16`。約 122 時間の外挿。AC 電源・スリープ無効を確認してから)
+> 1. **検出力分析の本実行**(人間の確認の後): AC 電源につなぐ(その139 の確認では**バッテリー駆動**。休止状態は DC で 72 時間後)→ `python -m code.analysis.power_sim --config configs/power_sim.yaml --out-dir results/power_sim --workers 16`(背景。再開できる実装。`--dry-run` は通った: 64,000 本・16 並列で約 138 時間の見積り / その137 の実測からの外挿は約 122 時間)
 > 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
 > 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
 > 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / `glmer` の例外の規則 / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 → tag → S6
@@ -338,10 +338,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-03(その138・最新)。PLANNER (Opus 5.5。推奨と一致)。★F114・★F104-c を諮った。**
+> **★★2026-10-03(その139・最新)。PLANNER (Opus 5.5。推奨と一致)。★F104-c を決着させた。**
 >
-> **★やったこと**: 開始手順 → RunPod の CPU 在庫を再照会(なし)→ `AskUserQuestion`(次の作業 = A・実行先 = この機械)→ `s2_*` の説明 → 人間の指示で例の値と推奨 → `AskUserQuestion`(先にパイロットから推定)→ ADR-119・PLAN-039 草案。
-> **★やっていないこと**: `s2_item` の推定・`configs/`・本実行・I10・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+> **★やったこと**: 開始手順 → 判断材料 → `AskUserQuestion`(D1〜D5。推奨)→ ADR-120 を推定の前に commit → 推定 → `AskUserQuestion`(値。推奨なし)→ ADR-121・config・テスト(`test_s2_values_are_the_decided_ones`)。
+> **★やっていないこと**: 本実行(バッテリー駆動のため)・I10・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
 
 
 ---

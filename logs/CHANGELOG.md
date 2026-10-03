@@ -7713,3 +7713,7 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **手違い(実害なし)**: bash の 1 コマンドに heredoc を 2 つ入れて構文エラー(その136 と同じ)→ Write ツールで書き直した
 - **やっていないこと**: `s2_item` の値・`configs/`・本実行・I10・`code/`・`Documents/`・push・tag・pod の起動
 - **未解決(すべて人間。`CLAUDE.md` §8)**: `s2_item` の値(推奨値なし)/ ほか HANDOFF の未解決の節のとおり
+- **追記(同セッション・ADR-121)**: 人間が推定を見た後に `s2_item` = 2.0(ADR-119 の例の値。推奨は付けなかった)を選んだ → `configs/power_sim.yaml` に `s2_item` 2.0・`s2_tmpl` 0.5 / `--dry-run` は通った(64,000 本・16 並列で約 138 時間の見積り)/ commit `a405ffd`
+- **★手違い(要注意・人間の対応が要る)**: `test_run_stops_while_s2_is_undecided` は本物の config で「null なら止まる」を確かめていたので、値を入れた後の pytest で**門が開き、一時ディレクトリで本実行(`power_sim_fit.R`)が走り出した**。しかも pytest を 3 回起動していた(背景に移った実行が外側のシェルだけ「完了」になり、pytest 本体は残った)。2 本は背景ジョブの時間切れで止まり、**1 本(pytest PID 50800 と Rscript 47936・32824)が残っている**(エージェントの `Stop-Process` は許可されなかった)。テストは config の写しで `s2_*` を null に戻す形に直した(`undecided_main_config`)。`test_dry_run_works_even_while_undecided` も同じ
+- **テスト**: `pytest code/tests -q -k 'not smoke'` → 2383 passed・11 deselected(R を使うスモーク 11 件は暴走プロセスと並行になるので未実行)/ `test_repo_hygiene.py` 67 passed
+- **この機械の電源**: バッテリー駆動(`Win32_Battery.BatteryStatus` = 1・93%)/ スリープは AC・DC とも無効 / 休止状態は AC 無効・DC 72 時間。**本実行は起動していない**

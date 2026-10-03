@@ -18,6 +18,37 @@
 
 ---
 
+## ★2026-10-04(その140)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭の最終更新(その139)
+
+最終更新: 2026-10-03(その139)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★F104-c 決着: PLAN-039 の D1〜D5 を推定の前に固定し(ADR-120)、パイロット FT の `p2` 2 シードから `s2_item` を推定した [run:20261003_214842_s2_item_pilot](主推定 1.451・特異で profile 区間が立たず推奨値なし)。人間が推定を見た後に `s2_item` = 2.0 を選んだ(ADR-121)。`configs/power_sim.yaml` に `s2_item` 2.0・`s2_tmpl` 0.5**。本実行はまだ(この機械がバッテリー駆動だった)。GPU 0・pod 0・tag・push なし
+(**次: 検出力分析の本実行(AC 電源につないでから・人間の確認の後。約 122〜138 時間)/ PLAN-037 の I10(承認の後)/ S4・S5**。)
+
+### いま何をしているか(その139)
+
+> **★★2026-10-03(その139・最新)。Phase 0。PLANNER (Opus 5.5)。★F104-c を決着させた(ADR-120・ADR-121)。GPU 0・pod 0。**
+> - PLAN-039 の D1〜D5 を判断材料と推奨つきで諮り(4 問とも推奨)、**推定の前に commit**(`e74df7e`)→ 推定 [run:20261003_214842_s2_item_pilot](`results/s2_item_pilot/README.md`)→ 主推定は特異で推奨値なし → 人間が `s2_item` = 2.0 を選んだ
+> - 分かったこと: `*.ans_out.jsonl` は主要検定の `extrap_magnitude` そのもの / T1 の `id`・`interp` は両シード 1.000、T2 の `id`・`interp` はシード 0 が天井・シード 1 が床で、`s2_item` に寄与しない
+> - **★その138 のブロックは `logs/STATE-ARCHIVE.md`「その139」にある**
+
+### 次のアクション(その139)
+
+> **★★2026-10-03(その139・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **検出力分析の本実行**(人間の確認の後): AC 電源につなぐ(その139 の確認では**バッテリー駆動**。休止状態は DC で 72 時間後)→ `python -m code.analysis.power_sim --config configs/power_sim.yaml --out-dir results/power_sim --workers 16`(背景。再開できる実装。`--dry-run` は通った: 64,000 本・16 並列で約 138 時間の見積り / その137 の実測からの外挿は約 122 時間)
+> 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / `glmer` の例外の規則 / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 → tag → S6
+> 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本(すべて `EXITED`)の terminate(ボリューム `r963j7swke` は残す)/ `CLAUDE.md` を 200 行へ / 引用の原典確認
+
+### 引き継ぎ(その139)
+
+> **★★2026-10-03(その139・最新)。PLANNER (Opus 5.5。推奨と一致)。★F104-c を決着させた。**
+>
+> **★やったこと**: 開始手順 → 判断材料 → `AskUserQuestion`(D1〜D5。推奨)→ ADR-120 を推定の前に commit → 推定 → `AskUserQuestion`(値。推奨なし)→ ADR-121・config・テスト(`test_s2_values_are_the_decided_ones`)。
+> **★やっていないこと**: 本実行(バッテリー駆動のため)・I10・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
 ## ★2026-10-03(その139)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### 冒頭の最終更新(その138)

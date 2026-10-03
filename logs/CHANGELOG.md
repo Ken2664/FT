@@ -7726,3 +7726,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `plans/PLAN-034-check-prerun/`(新規。README・近似 3 本・小検査の config と summary)/ `logs/OPEN-ITEMS.md`(行を新設)/ `STATE.md`(冒頭・いま何をしているか・次のアクション・引き継ぎ。旧ブロックは `logs/STATE-ARCHIVE.md`「その140」へ)/ `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: 本実行・コードの修正・ADR・push・tag・GPU・pod
 - **未解決(人間)**: README の A / B / C の選択ほか HANDOFF の未解決の節
+
+## 2026-10-04(その141): 検出力分析の本実行を止め、PLAN-040 で軸・順・報告量を決め直した(ADR-122)   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は HANDOFF の推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本・暴走プロセスなし・**AC 電源**(`BatteryStatus` = 2・35%))。GPU 0・pod 0
+- **人間の指示**: 「logs/HANDOFF.md を読んで、その指示どおりに作業を始めてください。最初に PLAN-034-check-prerun の A / B / C を私に諮ってください」→ 判断材料の表を先に示し `AskUserQuestion`: **A(推奨)**
+- **やったこと**: `plans/PLAN-040-power-axes-review.md` を起草(D1〜D8。値は提案せず §11 に空欄)→ 判断材料の表を示して `AskUserQuestion` 2 回(4 + 4 問)→ **8 問とも推奨** → ADR-122
+- **決まったこと**: D1 `n_item` を主の軸・`sigma` は確認点 / D2 報告量は「0.8 に届く `n_item` の範囲」(`sigma*` は従)/ D3 誤指定を先頭に回し膨らめば止める / D4 `SeedSequence` で段階実行 / D5 Δ は決めず P0・P1 の最小 Δ の分布を並べる / D6 F6 の 1〜4 と 6 / D7 F5 は外 / D8 PLAN と ADR まで
+- **書き換えたもの**: `plans/PLAN-040-power-axes-review.md`(新規)/ `logs/DECISIONS.md`(ADR-122)/ `logs/OPEN-ITEMS.md`(見直しの行を決着・PLAN-040 の値の行を新設)/ `STATE.md`(冒頭・いま何をしているか・開いているもの・人間待ちの索引・次のアクション・引き継ぎ。旧ブロックは `logs/STATE-ARCHIVE.md`「その141」へ。366 行・58.7 KB)/ `logs/HANDOFF.md` / この CHANGELOG
+- **やっていないこと**: PLAN-040 §11 の値・実装・`configs/`・`code/`・`Documents/`・本実行・push・tag・pod
+- **未解決(人間)**: PLAN-040 §11 の値ほか HANDOFF の未解決の節

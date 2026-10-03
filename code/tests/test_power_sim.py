@@ -65,16 +65,16 @@ def test_seed_count_is_the_adopted_ten() -> None:
     assert load(MAIN_CONFIG)["dgp"]["n_seed"] == 10
 
 
-def test_undecided_values_stay_null() -> None:
-    """★未決の 2 つは null のままである(skill code-style §5)。
+def test_s2_values_are_the_decided_ones() -> None:
+    """★F104-c の 2 つは人間が決めた値である(ADR-121)。
 
-    `s2_item` / `s2_tmpl` は値を人間が決め直す(ADR-095 決定3。ADR-094 決定4 の差し戻し。★F104-c)。
-    **エージェントが既定値を作っていないことを回帰テストで固定する。**
-    `n_item` は ADR-114 決定3 で 80 の整数 1 つに決まった(下のテスト)。
+    ~~`s2_item` / `s2_tmpl` は null のまま(ADR-095 決定3)~~ → 2026-10-03 ADR-121 で
+    `s2_item` = 2.0(推定 [run:20261003_214842_s2_item_pilot] を見た後に人間が選んだ)/
+    `s2_tmpl` = 0.5(ADR-119 決定4)。**config と ADR の食い違いを回帰テストで固定する。**
     """
     dgp = load(MAIN_CONFIG)["dgp"]
-    for key in ("s2_item", "s2_tmpl"):
-        assert dgp[key] is None, f"{key} に既定値が入っている"
+    assert dgp["s2_item"] == 2.0
+    assert dgp["s2_tmpl"] == 0.5
 
 
 def test_n_item_is_the_decided_eighty() -> None:
@@ -83,14 +83,25 @@ def test_n_item_is_the_decided_eighty() -> None:
     assert n_item == 80 and isinstance(n_item, int)
 
 
+def undecided_main_config() -> dict[str, Any]:
+    """本番 config の写しで `s2_*` を null に戻したもの(ADR-121 の前の状態)。
+
+    ★本番 config そのものはもう null ではない。**本物の config で門を確かめると、
+    門が開いて本実行(64,000 本)が走り出す**(2026-10-03 その139 に実際に起きた)。
+    """
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["dgp"]["s2_item"] = None
+    config["dgp"]["s2_tmpl"] = None
+    return config
+
+
 def test_run_stops_while_s2_is_undecided(tmp_path: Path) -> None:
     """未決のまま本実行しようとしたら止まる。答える問い: 門は効いているか。
 
     止まるのは R を探すより前である(R が無い機械でも同じ所で止まる)。
     """
-    config = load(MAIN_CONFIG)
     with pytest.raises(ConfigError, match="s2_item"):
-        power_sim.run(config, tmp_path, None, False)
+        power_sim.run(undecided_main_config(), tmp_path, None, False)
 
 
 def test_dry_run_works_even_while_undecided() -> None:
@@ -99,7 +110,7 @@ def test_dry_run_works_even_while_undecided() -> None:
     4 シート = P1 12 点 + P1⁻ 2 点 + P0 12 点 + 誤指定 6 点 = 32 点(ADR-114 決定1・2・4・7)。
     32 点 x 1000 反復 x 2 = 64,000 本(32,000 ペア)。
     """
-    lines = power_sim.describe_plan(load(MAIN_CONFIG))
+    lines = power_sim.describe_plan(undecided_main_config())
     text = "\n".join(lines)
     assert "64000" in text, "64,000 本(32 x 1000 x 2)が出ていない"
     assert "UNDECIDED" in text

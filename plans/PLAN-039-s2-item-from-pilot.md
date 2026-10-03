@@ -68,3 +68,4 @@
 
 - 2026-10-03(その138): 草案(PLANNER / Opus 5.5)
 - 2026-10-03(その139): D1〜D5 を判断材料(§4.1 の事実)と推奨つきで諮り、人間が 4 問とも推奨を採った(ADR-120)。**推定より前に commit した**
+- 2026-10-03(その139): 推定 [run:20261003_214842_s2_item_pilot](`plans/PLAN-039-s2-item/run.py`・`fit.R` → `results/s2_item_pilot/`)。**主推定(625・main)は特異(テンプレートの分散 0)で profile 区間が立たず(`profiling detected new, lower deviance`、差 5.03e-05)、ADR-120 決定4 の規則により推奨値は出さない。**点推定 1.451。補助: `template` 抜き 1.451 [0.142, 4.567] / T1 単独 2.997 [0.417, 12.577] / T2 単独 0.264 [0.000, 3.322](625)。313 は `results/s2_item_pilot/README.md`。値は人間

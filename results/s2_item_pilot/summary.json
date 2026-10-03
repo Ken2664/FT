@@ -1,0 +1,330 @@
+{
+  "run_id": "20261003_214842_s2_item_pilot",
+  "source_runs": {
+    "625": [
+      "pilot_ft_eval_p2_s0",
+      "pilot_ft_eval_p2_s1"
+    ],
+    "313": [
+      "pilot_ft_eval_p2_s0_n313",
+      "pilot_ft_eval_p2_s1_n313"
+    ]
+  },
+  "decisions": "ADR-120(plans/PLAN-039-s2-item-from-pilot.md §4.1)",
+  "pool_id": "pilot(主張に使わない。ADR-106)",
+  "cells": [
+    {
+      "step": "313",
+      "task": "t1",
+      "coverage": "extrap_magnitude",
+      "n_item": 80,
+      "rule_rate_s0": 0.825,
+      "rule_rate_s1": 0.6,
+      "agree_2x2": {
+        "s0=1,s1=1": 44,
+        "s0=1,s1=0": 22,
+        "s0=0,s1=1": 4,
+        "s0=0,s1=0": 10
+      },
+      "used_in_fit": true,
+      "separated_within_seed": false
+    },
+    {
+      "step": "313",
+      "task": "t1",
+      "coverage": "id",
+      "n_item": 80,
+      "rule_rate_s0": 1.0,
+      "rule_rate_s1": 1.0,
+      "agree_2x2": {
+        "s0=1,s1=1": 80,
+        "s0=1,s1=0": 0,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 0
+      },
+      "used_in_fit": false,
+      "separated_within_seed": true
+    },
+    {
+      "step": "313",
+      "task": "t1",
+      "coverage": "interp",
+      "n_item": 80,
+      "rule_rate_s0": 1.0,
+      "rule_rate_s1": 1.0,
+      "agree_2x2": {
+        "s0=1,s1=1": 80,
+        "s0=1,s1=0": 0,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 0
+      },
+      "used_in_fit": false,
+      "separated_within_seed": true
+    },
+    {
+      "step": "313",
+      "task": "t2",
+      "coverage": "extrap_magnitude",
+      "n_item": 80,
+      "rule_rate_s0": 0.75,
+      "rule_rate_s1": 0.175,
+      "agree_2x2": {
+        "s0=1,s1=1": 12,
+        "s0=1,s1=0": 48,
+        "s0=0,s1=1": 2,
+        "s0=0,s1=0": 18
+      },
+      "used_in_fit": true,
+      "separated_within_seed": false
+    },
+    {
+      "step": "313",
+      "task": "t2",
+      "coverage": "id",
+      "n_item": 80,
+      "rule_rate_s0": 0.9875,
+      "rule_rate_s1": 0.0,
+      "agree_2x2": {
+        "s0=1,s1=1": 0,
+        "s0=1,s1=0": 79,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 1
+      },
+      "used_in_fit": false,
+      "separated_within_seed": true
+    },
+    {
+      "step": "313",
+      "task": "t2",
+      "coverage": "interp",
+      "n_item": 80,
+      "rule_rate_s0": 0.9625,
+      "rule_rate_s1": 0.0125,
+      "agree_2x2": {
+        "s0=1,s1=1": 1,
+        "s0=1,s1=0": 76,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 3
+      },
+      "used_in_fit": false,
+      "separated_within_seed": false
+    },
+    {
+      "step": "625",
+      "task": "t1",
+      "coverage": "extrap_magnitude",
+      "n_item": 80,
+      "rule_rate_s0": 0.825,
+      "rule_rate_s1": 0.5875,
+      "agree_2x2": {
+        "s0=1,s1=1": 44,
+        "s0=1,s1=0": 22,
+        "s0=0,s1=1": 3,
+        "s0=0,s1=0": 11
+      },
+      "used_in_fit": true,
+      "separated_within_seed": false
+    },
+    {
+      "step": "625",
+      "task": "t1",
+      "coverage": "id",
+      "n_item": 80,
+      "rule_rate_s0": 1.0,
+      "rule_rate_s1": 1.0,
+      "agree_2x2": {
+        "s0=1,s1=1": 80,
+        "s0=1,s1=0": 0,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 0
+      },
+      "used_in_fit": false,
+      "separated_within_seed": true
+    },
+    {
+      "step": "625",
+      "task": "t1",
+      "coverage": "interp",
+      "n_item": 80,
+      "rule_rate_s0": 1.0,
+      "rule_rate_s1": 1.0,
+      "agree_2x2": {
+        "s0=1,s1=1": 80,
+        "s0=1,s1=0": 0,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 0
+      },
+      "used_in_fit": false,
+      "separated_within_seed": true
+    },
+    {
+      "step": "625",
+      "task": "t2",
+      "coverage": "extrap_magnitude",
+      "n_item": 80,
+      "rule_rate_s0": 0.75,
+      "rule_rate_s1": 0.175,
+      "agree_2x2": {
+        "s0=1,s1=1": 11,
+        "s0=1,s1=0": 49,
+        "s0=0,s1=1": 3,
+        "s0=0,s1=0": 17
+      },
+      "used_in_fit": true,
+      "separated_within_seed": false
+    },
+    {
+      "step": "625",
+      "task": "t2",
+      "coverage": "id",
+      "n_item": 80,
+      "rule_rate_s0": 0.9875,
+      "rule_rate_s1": 0.0,
+      "agree_2x2": {
+        "s0=1,s1=1": 0,
+        "s0=1,s1=0": 79,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 1
+      },
+      "used_in_fit": false,
+      "separated_within_seed": true
+    },
+    {
+      "step": "625",
+      "task": "t2",
+      "coverage": "interp",
+      "n_item": 80,
+      "rule_rate_s0": 0.9625,
+      "rule_rate_s1": 0.025,
+      "agree_2x2": {
+        "s0=1,s1=1": 2,
+        "s0=1,s1=0": 75,
+        "s0=0,s1=1": 0,
+        "s0=0,s1=0": 3
+      },
+      "used_in_fit": false,
+      "separated_within_seed": false
+    }
+  ],
+  "fits": [
+    {
+      "step": "625",
+      "model": "main",
+      "n_obs": 320,
+      "n_item": 160,
+      "var_item": 1.45091686129283,
+      "var_tmpl": 0.0,
+      "singular": true,
+      "fit_warnings": "boundary (singular) fit: see help('isSingular')",
+      "ci_lo_var_item": null,
+      "ci_hi_var_item": null,
+      "profile_status": "error: profiling detected new, lower deviance (deviance diff = 5.03e-05, tolerance = 1e-09)",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead."
+    },
+    {
+      "step": "625",
+      "model": "no_tmpl",
+      "n_obs": 320,
+      "n_item": 160,
+      "var_item": 1.45090972455957,
+      "var_tmpl": null,
+      "singular": false,
+      "fit_warnings": "",
+      "ci_lo_var_item": 0.142166017986076,
+      "ci_hi_var_item": 4.56714896389121,
+      "profile_status": "ok",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead."
+    },
+    {
+      "step": "625",
+      "model": "t1_only",
+      "n_obs": 160,
+      "n_item": 80,
+      "var_item": 2.99731819864519,
+      "var_tmpl": null,
+      "singular": false,
+      "fit_warnings": "",
+      "ci_lo_var_item": 0.417341929692667,
+      "ci_hi_var_item": 12.5773296446039,
+      "profile_status": "ok",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead. | unexpected decrease in profile: using minstep | non-monotonic profile for sd_(Intercept)|item | bad spline fit for sd_(Intercept)|item: falling back to linear interpolation"
+    },
+    {
+      "step": "625",
+      "model": "t2_only",
+      "n_obs": 160,
+      "n_item": 80,
+      "var_item": 0.263546089035025,
+      "var_tmpl": 0.0,
+      "singular": true,
+      "fit_warnings": "boundary (singular) fit: see help('isSingular')",
+      "ci_lo_var_item": 0.0,
+      "ci_hi_var_item": 3.3222207608656,
+      "profile_status": "ok",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead."
+    },
+    {
+      "step": "313",
+      "model": "main",
+      "n_obs": 320,
+      "n_item": 160,
+      "var_item": 1.58926757371362,
+      "var_tmpl": 0.0,
+      "singular": true,
+      "fit_warnings": "boundary (singular) fit: see help('isSingular')",
+      "ci_lo_var_item": null,
+      "ci_hi_var_item": null,
+      "profile_status": "error: profiling detected new, lower deviance (deviance diff = 0.000113, tolerance = 1e-09)",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead. | unexpected decrease in profile: using minstep | non-monotonic profile for sd_(Intercept)|item"
+    },
+    {
+      "step": "313",
+      "model": "no_tmpl",
+      "n_obs": 320,
+      "n_item": 160,
+      "var_item": 1.58924410526546,
+      "var_tmpl": null,
+      "singular": false,
+      "fit_warnings": "",
+      "ci_lo_var_item": 0.187624163213558,
+      "ci_hi_var_item": 5.17306809257884,
+      "profile_status": "ok",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead. | unexpected decrease in profile: using minstep | non-monotonic profile for sd_(Intercept)|item | bad spline fit for sd_(Intercept)|item: falling back to linear interpolation"
+    },
+    {
+      "step": "313",
+      "model": "t1_only",
+      "n_obs": 160,
+      "n_item": 80,
+      "var_item": 2.01506801864777,
+      "var_tmpl": null,
+      "singular": false,
+      "fit_warnings": "",
+      "ci_lo_var_item": 0.127249775878837,
+      "ci_hi_var_item": 8.06771484313137,
+      "profile_status": "ok",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead."
+    },
+    {
+      "step": "313",
+      "model": "t2_only",
+      "n_obs": 160,
+      "n_item": 80,
+      "var_item": 1.07851341037255,
+      "var_tmpl": 0.0,
+      "singular": true,
+      "fit_warnings": "boundary (singular) fit: see help('isSingular')",
+      "ci_lo_var_item": null,
+      "ci_hi_var_item": null,
+      "profile_status": "error: profiling detected new, lower deviance (deviance diff = 0.402, tolerance = 1e-09)",
+      "profile_warnings": "'oldNames' is deprecated. Please use 'signames' instead."
+    }
+  ],
+  "recommendation": {
+    "rule": "ADR-120 決定4: 主推定(625・main)の項目の分散の profile 95% 区間の上端。立たなければ出さない",
+    "value": null,
+    "issued": false,
+    "reason_if_not": "error: profiling detected new, lower deviance (deviance diff = 5.03e-05, tolerance = 1e-09)",
+    "note": "推奨であって決定ではない。値を決めるのは人間(ADR-119 決定3)"
+  }
+}

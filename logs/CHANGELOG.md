@@ -7703,3 +7703,13 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `logs/DECISIONS.md`(ADR-119)/ `plans/PLAN-039-s2-item-from-pilot.md`(新規・草案)/ `logs/OPEN-ITEMS.md`(★F114 の実行先・★F104-c の行)/ `STATE.md`(冒頭・いま何をしているか・人間待ちの索引 2 行・次のアクション・引き継ぎ。旧ブロックは `logs/STATE-ARCHIVE.md`「その138」へ。365 行・58.6 KB)/ `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: `s2_item` の推定・`configs/`(`s2_*` は null のまま)・本実行・I10・`code/`・`Documents/`・push・tag・pod の起動
 - **未解決(すべて人間。`CLAUDE.md` §8)**: PLAN-039 の D1〜D5 / `s2_item` の値 / ほか HANDOFF の未解決の節のとおり
+
+## 2026-10-03(その139): PLAN-039 —— D1〜D5 を推定の前に固定(ADR-120)し、`s2_item` をパイロットから推定した [run:20261003_214842_s2_item_pilot]   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル(Opus 5.5)は HANDOFF の推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「handoffを読んで作業を続けてください」→ HANDOFF の A。判断材料(セルの規則率・`ans_out` = `extrap_magnitude` の事実・DGP の形)を先に示し、`AskUserQuestion` 4 問(D1〜D5)。**人間は 4 問とも推奨**
+- **見つけたこと**: (1) `*.ans_out.jsonl` は主要検定の既知性の 3 つ目の水準 `extrap_magnitude` そのもの(PLAN-039 の D3 は前提がずれていた)/ (2) T1 の `id`・`interp` は両シード 1.000、T2 の `id`・`interp` はシード 0 が天井・シード 1 が床で、`s2_item` に寄与しない / (3) シード間の一致表は数えたが、D1〜D5 が決まるまで人間に見せなかった
+- **推定**: 主推定(625・main)= 点推定 1.451・テンプレートの分散 0(特異)・profile 区間が立たない → ADR-120 決定4 の規則で推奨値は出さない。補助と 313 は `results/s2_item_pilot/README.md`
+- **書き換えたもの**: `logs/DECISIONS.md`(ADR-120。推定の前の commit `e74df7e`)/ `plans/PLAN-039-s2-item-from-pilot.md`(ステータス・§4.1・§12)/ `plans/PLAN-039-s2-item/`(新規。`run.py`・`fit.R`)/ `results/s2_item_pilot/`(新規)/ `logs/OPEN-ITEMS.md`(★F104-c の行)
+- **手違い(実害なし)**: bash の 1 コマンドに heredoc を 2 つ入れて構文エラー(その136 と同じ)→ Write ツールで書き直した
+- **やっていないこと**: `s2_item` の値・`configs/`・本実行・I10・`code/`・`Documents/`・push・tag・pod の起動
+- **未解決(すべて人間。`CLAUDE.md` §8)**: `s2_item` の値(推奨値なし)/ ほか HANDOFF の未解決の節のとおり

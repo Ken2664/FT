@@ -24,7 +24,7 @@
     3a DGP     ここ(`draw_frame`)。`Sigma = sigma^2[(1-rho)I + rho J]`
     3b 当てはめ `code/analysis/power_sim_fit.R`。§3.2 の `fit_full` / `fit_add` の対
                + ADR-059 の縮退カスケード(判定はペア単位)
-    3c 集計     ここ(`summarise_grid`)。`p < alpha` の割合 = 検出力
+    3c 集計     ここ(`summarise_point` / `inverse_problem`)。`p < alpha` の割合 = 検出力
 
 **当てはめは R + `lme4` である**(ADR-058 決定1 / ADR-059 決定3 = D-2「同じエンジン」)。
 自前実装(案 E)は建てない。**この層は表を組んで R を呼び、返った JSON を数えるだけである**
@@ -39,13 +39,30 @@
 **平行性の TOST の Δ は決めない**(ADR-114 決定5。凍結前に人間)。反復ごとに「交互作用の 2 係数の
 Wald 90% CI がどちらも ±Δ に入る最小の Δ」(`equivalence_margin`)を保存し、Δ の関数としての
 TOST の検出力は集計の後で読む(`tost_power`)。
+
+**★2026-10-04(PLAN-040 I1〜I7 / ADR-122・ADR-123)に軸・順・乱数・報告量を作り直した。**
+
+- **軸**: 主の軸は `n_item`(検出力分析の中だけの格子。実際の `eval.cells` とは別物)。`sigma` は確認点。
+  シートは点 `(n_item, sigma, rho)` を明示して並べる(`sheets[].points`)
+- **順**: 誤指定 → P1 → P1⁻ → P0。**各段で誤指定を回し終えたら門を判定し**(`misspecification_gate`)、
+  膨らめばその段の P1 の前で止まる(ADR-123 決定6)
+- **乱数**: 「シート × 点 × 反復」ごとの `SeedSequence`(`replication_rng`)。**段を足しても前の表は変わらない**
+  (反復 r の表は `n_rep` にも他の点にも依らない)
+- **段**: `simulation.n_rep_stages`(累積)。**1 回の起動で回すのは `--through-stage` で指定した段まで**
+  (人間 2026-10-04 その143: 段ごとに止まり、人間が見てから次の段を起動する)
+- **報告量**: P1 の「0.8 に届く `n_item` の範囲」(`n_item_range`。主)/ `sigma*`(`sigma_limit`。従)/
+  P0・P1 の最小 Δ の分位点を各 `n_item` で並べた表(`margin_quantile_table`)
+- **記録**: `run_info.json`(run_id・git sha・dirty)・`config.yaml` の写し・`invocations.jsonl`・
+  段ごとの `stage_<n_rep>_summary.json`。JSON は一時ファイル + rename で書く
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import math
+import os
 import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -56,7 +73,9 @@ from statistics import NormalDist
 from typing import Any
 
 import numpy as np
+from scipy.stats import beta as beta_distribution
 
+from code import artifacts
 from code.config import ConfigError, load_config, require
 
 FIT_SCRIPT = Path(__file__).resolve().parent / "power_sim_fit.R"
@@ -108,6 +127,14 @@ N_PRIMARY_TASKS = 2
 # F50 の 31.91 秒の 9.3 倍。**時間はおおむね行数に比例すると仮定する**(下の `estimate_seconds_per_pair`)。
 SECONDS_PER_PAIR_MEASURED = 297.6
 ROWS_AT_MEASUREMENT = 5_760
+# ★2 本目の基準(ADR-123 文脈1・2)。PLAN-034 の見直しの小検査(`plans/PLAN-034-check-prerun/`
+# `check_p1.yaml` / `check_p1_summary.json`。スクラッチパッドで実行し `runs/` には置いていない): 本物の経路で
+# 64 ペア(T1 x T2・`n_item` 80・10 シード = 4,800 行)を 16 並列で回し、壁時計 27.5 分。
+# **16 並列の下での実効のコア秒**であり、1 プロセスの逐次の実測(上)とは測り方が違う。見積りは両方を並べる
+CHECK_PAIRS = 64
+CHECK_WORKERS = 16
+CHECK_WALL_SECONDS = 27.5 * 60
+CHECK_ROWS = 4_800
 
 
 def logistic(eta: float) -> float:
@@ -414,7 +441,8 @@ def shard_jobs(
     **連続ブロックで切る**(ラウンドロビンではない)—— 当てはめ 1 本の費用は
     表の行数で決まり、同じ格子点なら全反復で同じである。**負荷は自然に揃う。**
 
-    **★結果は `n_workers` に依らない。**表は親が単一の `rng` から決まった順で書き、
+    **★結果は `n_workers` に依らない。**表は親が「シート × 点 × 反復」ごとの `SeedSequence` で書き
+    (`replication_rng`。2026-10-04 ADR-122 決定4。それまでは単一の `rng` を決まった順で進めていた)、
     当てはめは表ごとに決定的だからである。**`n_workers` は実験パラメータではなく
     実行資源のつまみである**(ADR-069 決定3)。
     """
@@ -531,16 +559,35 @@ def tost_power(min_margins: Sequence[float], delta: float) -> float:
 
 
 @dataclass(frozen=True)
+class PointKey:
+    """格子点 1 つ。答える問い: どの `(n_item, sigma, rho)` の DGP か(★すべて仮定値)。
+
+    `n_item` は**検出力分析の中だけの格子**であり、実際の `eval.cells` とは別物である(PLAN-040 §7 罠2)。
+    """
+
+    n_item: int
+    sigma: float
+    rho: float
+
+    def tag(self) -> str:
+        """ファイル名に使う札。答える問い: この点の表と当てはめはどの名前か。"""
+        return f"n{self.n_item}_s{self.sigma:g}_r{self.rho:g}".replace(".", "p")
+
+
+@dataclass(frozen=True)
 class GridPoint:
-    """1 つの `(sigma, rho)` の結果。★`sigma` / `rho` は仮定値である。
+    """1 つの格子点の結果。★`n_item` / `sigma` / `rho` は仮定値である。
 
     `power` は **棄却率**である(P1 のシートでは検出力、P0・誤指定のシートでは第一種の過誤の率)。
+    `n_reject` はその分子(誤指定の門の Clopper–Pearson 区間に使う。割合から逆算しない)。
     `tost_min_margins` は反復ごとの「同等と言える最小の Δ」(昇順。TOST を見ないときは空)。
     """
 
+    n_item: int
     sigma: float
     rho: float
     n_rep: int
+    n_reject: int
     power: float
     reduced_rate: float
     singular_rate: float
@@ -550,36 +597,43 @@ class GridPoint:
     errored_rate: float
     tost_min_margins: tuple[float, ...] = ()
 
+    @property
+    def key(self) -> PointKey:
+        return PointKey(self.n_item, self.sigma, self.rho)
 
-def summarise_point(sigma: float, rho: float, results: Sequence[Mapping[str, Any]],
+
+def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
                     alpha: float, tost: TostSpec | None = None) -> GridPoint:
-    """1 つの格子点をまとめる。答える問い: この仮定値の下で検出力はいくつか。
+    """1 つの格子点をまとめる。答える問い: この仮定値の下で棄却率はいくつか。
 
     **縮退の発火率も返す** —— ADR-064 決定4 の★リスク欄
     「10 シードで `(0 + coverage | seed)` が同定できるかは誰にも数値では言えない」に
     合成データの上で数値を与えるのが、ADR-068 決定1 を採る利の 1 つだからである。
     """
     if not results:
-        raise PowerSimError(f"sigma={sigma} rho={rho} の結果が 0 件である")
+        raise PowerSimError(f"{key} の結果が 0 件である")
     p_values = [r["p_value"] for r in results]
     if any(p is None for p in p_values):
         reasons = sorted({r.get("first_error", "") for r in results if r["p_value"] is None} - {""})
         raise PowerSimError(
-            f"sigma={sigma} rho={rho} に p 値が null の反復がある。"
+            f"{key} に p 値が null の反復がある。"
             "当てはめが LRT を返していない。捨てずに原因を見ること"
             + (f"(当てはめの例外: {reasons})" if reasons else "")
         )
     n = len(results)
+    n_reject = sum(1 for p in p_values if p < alpha)
     margins = (
         tuple(sorted(equivalence_margin(r, tost) for r in results))
         if tost is not None
         else ()
     )
     return GridPoint(
-        sigma=sigma,
-        rho=rho,
+        n_item=key.n_item,
+        sigma=key.sigma,
+        rho=key.rho,
         n_rep=n,
-        power=sum(1 for p in p_values if p < alpha) / n,
+        n_reject=n_reject,
+        power=n_reject / n,
         reduced_rate=sum(1 for r in results if r["reduced"]) / n,
         singular_rate=sum(
             1 for r in results if r["full_singular"] or r["add_singular"]
@@ -593,83 +647,297 @@ def summarise_point(sigma: float, rho: float, results: Sequence[Mapping[str, Any
     )
 
 
+# 軸の上の答えが「掃いた範囲」のどこにあるか(F6-1)。**軸の値そのものの上での位置**で言う。
+VERDICT_BELOW = "below_swept_range"     # 答えは掃いた最小の点より下(か、その点)
+VERDICT_INSIDE = "inside_swept_range"
+VERDICT_BEYOND = "beyond_swept_range"   # 答えは掃いた最大の点より上(か、その点)
+
+
+def scan_until_failure(
+    ordered: Sequence[tuple[float, float]], target_power: float
+) -> tuple[float | None, float | None, bool]:
+    """答える問い: 検出力が下がる向きに並べた点で、最初に割るまでに保っていた最後の点はどれか。
+
+    `ordered` は `(軸の値, 検出力)` を**検出力が下がる向き**に並べたもの。返すのは
+    `(最後に保った値, 最初に割った値, 割った先でまた保つ点があるか)`。
+
+    ★「最初に割った点」で切る。後ろから拾わない —— 曲線はモンテカルロ誤差で単調でなくなりうるので、
+    後ろから拾うと「一度割ったのに、その先で保っている」点を答えとして報告してしまう。
+    **点の間は補間しない**(掃いていない領域を語らないため。§6.3 手続き5)。
+    """
+    last_holding: float | None = None
+    first_failing: float | None = None
+    for index, (value, power) in enumerate(ordered):
+        if power < target_power:
+            first_failing = value
+            rest = ordered[index + 1:]
+            return last_holding, first_failing, any(p >= target_power for _, p in rest)
+        last_holding = value
+    return last_holding, first_failing, False
+
+
 def sigma_limit(points: Sequence[GridPoint], target_power: float) -> dict[str, Any]:
-    """逆問題の答えを出す(§6.3 手続き5)。
+    """`sigma*` を出す(§6.3 手続き5。★PLAN-040 D2 (a) で**従**の報告量になった)。
 
     答える問い: 「**10 シードが検出力 `target_power` を保つ `sigma` の上限はどこか**」
 
-    掃いた点しか見ない。**点の間を補間しない**(補間は掃いていない領域について
-    語ることになる)。全域で保つ場合は「掃いた範囲の外」と返す ——
-    **「限界は無い」とは書かない**(§6.3 手続き5)。
+    `sigma` が上がるほど検出力は下がる向きなので、昇順に走査する。
+    全域で保てば `beyond_swept_range`(「限界は無い」とは書かない)、**最初の点で割れば
+    `below_swept_range`**(F6-1。旧実装はここで `inside_swept_range`・`sigma_star: null` を返していた)。
     """
-    ordered = sorted(points, key=lambda p: p.sigma)
-    # ★「最初に割った点」で切る。`power >= target` の点を後ろから拾わない ——
-    # 曲線はモンテカルロ誤差で単調でなくなりうるので、後ろから拾うと
-    # 「一度割ったのに、その先で保っている」点を限界として報告してしまう。
-    last_holding: float | None = None
-    first_failing: float | None = None
-    for point in ordered:
-        if point.power < target_power:
-            first_failing = point.sigma
-            break
-        last_holding = point.sigma
+    ordered = sorted(((p.sigma, p.power) for p in points), key=lambda vp: vp[0])
+    last_holding, first_failing, non_monotone = scan_until_failure(ordered, target_power)
     if first_failing is None:
-        return {
-            "sigma_star": None,
-            "verdict": "beyond_swept_range",
-            "last_holding_sigma": last_holding,
-            "first_failing_sigma": None,
-            "non_monotone": False,
-        }
-    # 掃いた点しか見ない。点の間は補間しない(掃いていない領域を語らないため)。
+        verdict = VERDICT_BEYOND
+    elif last_holding is None:
+        verdict = VERDICT_BELOW
+    else:
+        verdict = VERDICT_INSIDE
     return {
-        "sigma_star": last_holding,
-        "verdict": "inside_swept_range",
+        "sigma_star": last_holding if first_failing is not None else None,
+        "verdict": verdict,
         "last_holding_sigma": last_holding,
         "first_failing_sigma": first_failing,
-        "non_monotone": any(
-            p.power >= target_power and p.sigma > first_failing for p in ordered
-        ),
+        "non_monotone": non_monotone,
     }
 
 
-def summarise_grid(points: Sequence[GridPoint], target_power: float) -> dict[str, Any]:
-    """`rho` の枚ごとに逆問題の答えを並べる。答える問い: 帯の幅はどれだけか。"""
-    by_rho: dict[float, list[GridPoint]] = {}
-    for point in points:
-        by_rho.setdefault(point.rho, []).append(point)
+def n_item_range(points: Sequence[GridPoint], target_power: float) -> dict[str, Any]:
+    """**主の報告量**(PLAN-040 D2 (a) / ADR-122 決定2)。
+
+    答える問い: 「仮定値(`s2_item`・`s2_tmpl`・P1)のもとで、**検出力 `target_power` に届く `n_item` の範囲**はどこか」
+
+    `n_item` が下がるほど検出力は下がる向きなので、**降順に**走査し、最初に割った点で切る
+    (`sigma_limit` と同じ考え方。格子点だけ・補間しない)。答えは「(`largest_failing_n_item`,
+    `reaching_from_n_item`] の間で届き始める」である。
+    全点で届けば `below_swept_range`(届き始めるのは掃いた最小の点以下)、最大の点でも届かなければ
+    `beyond_swept_range`(掃いた最大の点より上が要る)。
+    """
+    ordered = sorted(((float(p.n_item), p.power) for p in points), key=lambda vp: -vp[0])
+    last_holding, first_failing, non_monotone = scan_until_failure(ordered, target_power)
+    if first_failing is None:
+        verdict = VERDICT_BELOW
+    elif last_holding is None:
+        verdict = VERDICT_BEYOND
+    else:
+        verdict = VERDICT_INSIDE
+    return {
+        "verdict": verdict,
+        "reaching_from_n_item": None if last_holding is None else int(last_holding),
+        "largest_failing_n_item": None if first_failing is None else int(first_failing),
+        "non_monotone": non_monotone,
+    }
+
+
+@dataclass(frozen=True)
+class AxisSpec:
+    """報告の軸(ADR-123 決定2)。答える問い: どの点の並びを「`n_item` の軸」「`sigma` の確認点」と読むか。"""
+
+    n_item_axis_sigma: float
+    n_item_axis_rho: float
+    sigma_axis_n_item: int
+    sigma_axis_rho: float
+    margin_quantiles: tuple[float, ...]
+
+
+def load_axis_spec(config: Mapping[str, Any]) -> AxisSpec:
+    """config の `report:` を読む。答える問い: 報告の軸と分位点は宣言されているか(null は止まる)。"""
+    quantiles = tuple(float(q) for q in require(config, "report.margin_quantiles"))
+    if not quantiles or any(not 0.0 <= q <= 1.0 for q in quantiles):
+        raise ConfigError(f"report.margin_quantiles は [0, 1] の値の空でない列: {list(quantiles)}")
+    return AxisSpec(
+        n_item_axis_sigma=float(require(config, "report.n_item_axis.sigma")),
+        n_item_axis_rho=float(require(config, "report.n_item_axis.rho")),
+        sigma_axis_n_item=int(require(config, "report.sigma_axis.n_item")),
+        sigma_axis_rho=float(require(config, "report.sigma_axis.rho")),
+        margin_quantiles=quantiles,
+    )
+
+
+def on_n_item_axis(points: Sequence[GridPoint], axes: AxisSpec) -> list[GridPoint]:
+    """答える問い: 主の軸(`sigma`・`rho` を固定して `n_item` を動かす)に乗る点はどれか。"""
+    return [
+        p for p in points
+        if p.sigma == axes.n_item_axis_sigma and p.rho == axes.n_item_axis_rho
+    ]
+
+
+def on_sigma_axis(points: Sequence[GridPoint], axes: AxisSpec) -> list[GridPoint]:
+    """答える問い: `sigma` の確認点(`n_item`・`rho` を固定して `sigma` を動かす)に乗る点はどれか。"""
+    return [
+        p for p in points
+        if p.n_item == axes.sigma_axis_n_item and p.rho == axes.sigma_axis_rho
+    ]
+
+
+def inverse_problem(points: Sequence[GridPoint], axes: AxisSpec, target_power: float) -> dict[str, Any]:
+    """検出力のシートの答え。答える問い: 主(`n_item` の範囲)と従(`sigma*`)はそれぞれ何か。"""
+    n_axis = on_n_item_axis(points, axes)
+    s_axis = on_sigma_axis(points, axes)
+    if not n_axis or not s_axis:
+        raise PowerSimError(
+            "検出力のシートに報告の軸の点が無い(report.n_item_axis / report.sigma_axis と"
+            " sheets[].points が食い違っている)"
+        )
     return {
         "target_power": target_power,
-        "by_rho": {
-            str(rho): sigma_limit(group, target_power)
-            for rho, group in sorted(by_rho.items())
+        "n_item_range": {
+            "axis": {"sigma": axes.n_item_axis_sigma, "rho": axes.n_item_axis_rho},
+            **n_item_range(n_axis, target_power),
         },
+        "sigma_limit": {
+            "axis": {"n_item": axes.sigma_axis_n_item, "rho": axes.sigma_axis_rho},
+            **sigma_limit(s_axis, target_power),
+        },
+    }
+
+
+# 分位点の取り方。numpy の既定(R の type 7 と同じ線形)を使い、名前を出力に残す
+QUANTILE_METHOD = "linear"
+
+
+def margin_quantiles(margins: Sequence[float], quantiles: Sequence[float]) -> dict[str, float]:
+    """答える問い: 反復ごとの「同等と言える最小の Δ」の分布は、宣言した分位点でいくつか。"""
+    if not margins:
+        raise PowerSimError("最小 Δ が 0 件である")
+    values = np.quantile(np.asarray(margins, dtype=float), list(quantiles), method=QUANTILE_METHOD)
+    return {f"{q:g}": float(v) for q, v in zip(quantiles, values)}
+
+
+def margin_quantile_table(
+    sheet_points: Mapping[str, Sequence[GridPoint]],
+    sheet_roles: Mapping[str, str],
+    axes: AxisSpec,
+) -> dict[str, Any]:
+    """D5 (a) の表(ADR-122 決定5)。答える問い: **この設計で平行と非平行を区別できるか**を読む材料は何か。
+
+    主の軸の各 `n_item` で、P0(null_calibration)と P1(power)の「同等と言える最小の Δ」の分位点を並べる。
+    **Δ は決めない**(ADR-114 決定5)。分位点は人間が選んだもの(`report.margin_quantiles`。2026-10-04 その143)。
+    全件はシートの `grid[].tost_min_margins` にある。
+    """
+    rows: dict[str, Any] = {}
+    for sheet_id, points in sheet_points.items():
+        if sheet_roles[sheet_id] not in (ROLE_POWER, ROLE_NULL_CALIBRATION):
+            continue
+        for point in sorted(on_n_item_axis(points, axes), key=lambda p: p.n_item):
+            rows.setdefault(str(point.n_item), {})[sheet_id] = {
+                "n_rep": point.n_rep,
+                "quantiles": margin_quantiles(point.tost_min_margins, axes.margin_quantiles),
+            }
+    return {
+        "axis": {"sigma": axes.n_item_axis_sigma, "rho": axes.n_item_axis_rho},
+        "quantile_method": QUANTILE_METHOD,
+        "by_n_item": rows,
     }
 
 
 def compare_power(
     reference: Sequence[GridPoint], other: Sequence[GridPoint]
 ) -> list[dict[str, Any]]:
-    """答える問い: 同じ `(sigma, rho)` で、2 つのシートの棄却率はどれだけ違うか。
+    """答える問い: 同じ `(n_item, sigma, rho)` で、2 つのシートの棄却率はどれだけ違うか。
 
     形の検査(ADR-114 決定2 = D2 (a))に使う: **LRT(df = 2)は非加法性の「形」を区別しない**ので、
     P1 と P1⁻ の差はモンテカルロ誤差の範囲に収まるはずである。**大きくずれたらバグを疑う**
     (`CLAUDE.md` §7)。基準のシートに無い点は返さない(掃いていない点を補わない)。
+    **比較の鍵に `n_item` を入れる**(ADR-123 決定3)。
     """
-    by_key = {(p.sigma, p.rho): p for p in reference}
+    by_key = {p.key: p for p in reference}
     return [
         {
+            "n_item": p.n_item,
             "sigma": p.sigma,
             "rho": p.rho,
-            "reference_power": by_key[(p.sigma, p.rho)].power,
+            "reference_power": by_key[p.key].power,
             "power": p.power,
-            "difference": p.power - by_key[(p.sigma, p.rho)].power,
-            "reference_mean_chisq": by_key[(p.sigma, p.rho)].mean_chisq,
+            "difference": p.power - by_key[p.key].power,
+            "reference_mean_chisq": by_key[p.key].mean_chisq,
             "mean_chisq": p.mean_chisq,
         }
         for p in other
-        if (p.sigma, p.rho) in by_key
+        if p.key in by_key
     ]
+
+
+# --------------------------------------------------------------------------
+# ★誤指定の門(ADR-122 決定3 / ADR-123 決定6)
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GateSpec:
+    """誤指定の門。答える問い: どのシートのどの `tau` で、どの区間の下端がいくつを超えたら止まるか。"""
+
+    sheet_id: str
+    tau: tuple[float, ...]
+    ci_level: float
+    lower_bound_above: float
+
+
+def load_gate_spec(config: Mapping[str, Any]) -> GateSpec:
+    """config の `simulation.misspecification_gate` を読む。答える問い: 門の値は宣言されているか。
+
+    **閾値はコードに直書きしない**(skill `code-style` §1)。null は止まる。
+    """
+    level = float(require(config, "simulation.misspecification_gate.ci_level"))
+    if not 0.0 < level < 1.0:
+        raise ConfigError(f"simulation.misspecification_gate.ci_level は (0, 1): {level}")
+    tau = tuple(float(t) for t in require(config, "simulation.misspecification_gate.tau"))
+    if not tau:
+        raise ConfigError("simulation.misspecification_gate.tau が空である")
+    return GateSpec(
+        sheet_id=str(require(config, "simulation.misspecification_gate.sheet")),
+        tau=tau,
+        ci_level=level,
+        lower_bound_above=float(
+            require(config, "simulation.misspecification_gate.lower_bound_above")
+        ),
+    )
+
+
+def clopper_pearson_lower(n_reject: int, n: int, level: float) -> float:
+    """答える問い: 棄却 `n_reject` / `n` の、両側 `level` の Clopper–Pearson 区間の下端はいくつか。
+
+    下端 = Beta(`(1 - level) / 2`; `n_reject`, `n - n_reject + 1`)。`n_reject` = 0 なら 0。
+    """
+    if n < 1 or not 0 <= n_reject <= n:
+        raise ValueError(f"棄却数と反復数が合わない: {n_reject} / {n}")
+    if n_reject == 0:
+        return 0.0
+    return float(beta_distribution.ppf((1.0 - level) / 2.0, n_reject, n - n_reject + 1))
+
+
+def misspecification_gate(points: Sequence[GridPoint], gate: GateSpec) -> dict[str, Any]:
+    """誤指定のシートを回し終えた時点の判定(ADR-123 決定6)。
+
+    答える問い: 「§3.2 の当てはめの第一種の過誤は、`tau` の判定点の**どれか 1 つでも**
+    区間の下端が閾値を超えるほど膨らむか」。膨らめば、その段の P1・P1⁻・P0 の前で止まる。
+    **`tau` 0 と判定点以外の `tau` は判定に使わない**(記録はシートの `grid` にある)。
+    """
+    rows = []
+    for tau in gate.tau:
+        matching = [p for p in points if p.sigma == tau]
+        if len(matching) != 1:
+            raise PowerSimError(
+                f"誤指定の門の tau = {tau} の点がシートに {len(matching)} 個ある(1 個のはず)"
+            )
+        point = matching[0]
+        lower = clopper_pearson_lower(point.n_reject, point.n_rep, gate.ci_level)
+        rows.append({
+            "tau": tau,
+            "n_item": point.n_item,
+            "n_rep": point.n_rep,
+            "n_reject": point.n_reject,
+            "rejection_rate": point.power,
+            "ci_level": gate.ci_level,
+            "ci_lower": lower,
+            "exceeds": lower > gate.lower_bound_above,
+        })
+    return {
+        "sheet": gate.sheet_id,
+        "lower_bound_above": gate.lower_bound_above,
+        "rows": rows,
+        "inflated": any(row["exceeds"] for row in rows),
+    }
 
 
 # --------------------------------------------------------------------------
@@ -685,43 +953,63 @@ ROLES = (ROLE_POWER, ROLE_SHAPE_CHECK, ROLE_NULL_CALIBRATION, ROLE_MISSPECIFICAT
 ROLES_WITH_NONADDITIVITY = (ROLE_POWER, ROLE_SHAPE_CHECK)
 TAU_ZERO = "zero"
 TAU_EQUALS_SIGMA = "equals_sigma"
-ALL_POINTS = "all"
+# 点の 3 つ組の並び(`sheets[].points` の各要素)
+POINT_FIELDS = ("n_item", "sigma", "rho")
 # 厳密に加法のプロファイルの RMS の許容(丸めを持たない `eta` なので浮動小数点の誤差だけ)
 ADDITIVE_RMS_TOLERANCE = 1e-9
 
 
 @dataclass(frozen=True)
 class Sheet:
-    """シート 1 枚。答える問い: どのプロファイルをどの格子で回し、どう読むか。"""
+    """シート 1 枚。答える問い: どのプロファイルをどの点で回し、どう読むか。
+
+    ★PLAN-040 D1 (a) / ADR-123 決定2: 点は `(n_item, sigma, rho)` を明示して並べる
+    (主の軸と確認点は直積ではないため)。
+    """
 
     sheet_id: str
     role: str
     profile: str
-    sigma: tuple[float, ...]
-    rho: tuple[float, ...]
+    points: tuple[PointKey, ...]
     tau: str
     compare_with: str | None
 
 
-def _select_points(
-    declared: Any, grid: Sequence[float], key: str, sheet_id: str
-) -> tuple[float, ...]:
-    """答える問い: このシートは `dgp.<key>` のどの点を回すか。掃いていない点は作らない。"""
-    if declared == ALL_POINTS:
-        return tuple(float(x) for x in grid)
-    if not isinstance(declared, list) or not declared:
+def load_n_item_grid(config: Mapping[str, Any]) -> tuple[int, ...]:
+    """答える問い: 検出力分析の `n_item` の格子は何か(ADR-123 決定1。実際の `eval.cells` とは別物)。"""
+    declared = require(config, "dgp.n_item")
+    if (
+        not isinstance(declared, list)
+        or not declared
+        or any(not isinstance(n, int) or isinstance(n, bool) or n < 1 for n in declared)
+    ):
+        raise ConfigError(f"dgp.n_item は正の整数の空でないリスト(格子)である: {declared!r}")
+    return tuple(declared)
+
+
+def _parse_point(
+    entry: Any, grids: Mapping[str, Sequence[float]], sheet_id: str
+) -> PointKey:
+    """答える問い: この点は `[n_item, sigma, rho]` の形で、どれも `dgp` の格子にあるか。
+
+    **掃く格子に無い点は作らない**(`sigma` / `rho` は ADR-068 決定3、`n_item` は ADR-123 決定1)。
+    """
+    if not isinstance(entry, list) or len(entry) != len(POINT_FIELDS):
         raise ConfigError(
-            f"sheets[{sheet_id}].{key} は '{ALL_POINTS}' か空でないリストである: {declared!r}"
+            f"sheets[{sheet_id}].points の各点は {list(POINT_FIELDS)} の 3 つ組: {entry!r}"
         )
-    chosen = tuple(float(x) for x in declared)
-    swept = {float(g) for g in grid}
-    outside = [x for x in chosen if x not in swept]
-    if outside:
-        raise ConfigError(
-            f"sheets[{sheet_id}].{key} に dgp.{key} の格子に無い点がある: {outside}"
-            "(掃く格子は ADR-068 決定3)"
-        )
-    return chosen
+    n_item, sigma, rho = entry
+    if not isinstance(n_item, int) or isinstance(n_item, bool):
+        raise ConfigError(f"sheets[{sheet_id}].points の n_item は整数: {entry!r}")
+    key = PointKey(n_item=n_item, sigma=float(sigma), rho=float(rho))
+    for field in POINT_FIELDS:
+        value = getattr(key, field)
+        if value not in {float(g) for g in grids[field]}:
+            raise ConfigError(
+                f"sheets[{sheet_id}].points の {field} = {value} は dgp.{field} の格子に無い"
+                "(ADR-068 決定3 / ADR-123 決定1)"
+            )
+    return key
 
 
 def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
@@ -733,8 +1021,11 @@ def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
     """
     declared = require(config, "sheets")
     effect = config["effect"]
-    sigma_grid = require(config, "dgp.sigma")
-    rho_grid = require(config, "dgp.rho")
+    grids = {
+        "n_item": load_n_item_grid(config),
+        "sigma": require(config, "dgp.sigma"),
+        "rho": require(config, "dgp.rho"),
+    }
     sheets: list[Sheet] = []
     for entry in declared:
         sheet_id = str(entry["id"])
@@ -772,13 +1063,18 @@ def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
                 f"sheets[{sheet_id}].compare_with = {compare_with} は、"
                 "より上のシートの id でなければならない"
             )
+        raw_points = entry.get("points")
+        if not isinstance(raw_points, list) or not raw_points:
+            raise ConfigError(f"sheets[{sheet_id}].points は空でないリストである: {raw_points!r}")
+        points = tuple(_parse_point(p, grids, sheet_id) for p in raw_points)
+        if len(set(points)) != len(points):
+            raise ConfigError(f"sheets[{sheet_id}].points に重複した点がある")
         sheets.append(
             Sheet(
                 sheet_id=sheet_id,
                 role=role,
                 profile=profile.name,
-                sigma=_select_points(entry["sigma"], sigma_grid, "sigma", sheet_id),
-                rho=_select_points(entry["rho"], rho_grid, "rho", sheet_id),
+                points=points,
                 tau=tau,
                 compare_with=compare_with,
             )
@@ -786,21 +1082,78 @@ def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
     return sheets
 
 
-def sheet_grid(sheet: Sheet) -> list[tuple[float, float]]:
-    """答える問い: このシートは何点を回すのか(★すべて仮定値である)。"""
-    return [(sigma, rho) for rho in sheet.rho for sigma in sheet.sigma]
+def check_gate_against_sheets(gate: GateSpec, sheets: Sequence[Sheet]) -> None:
+    """答える問い: 門は「先頭の誤指定のシート」の、実際に回す `tau` を見ているか。
 
-
-def plan_grid(config: Mapping[str, Any]) -> list[tuple[str, float, float]]:
-    """全シートの格子点を並べる。答える問い: 何点を回すのか。
-
-    返すのは `(シートの id, sigma, rho)`。**乱数は上から順に引く**(`run` はこの順で引く)。
+    **D3 (a)(ADR-122 決定3)は誤指定を先頭に回すと決めた**。2 枚目以降に置くと、P1 を回した後で
+    門が閉じることになり、止める意味が無い。
     """
-    return [
-        (sheet.sheet_id, sigma, rho)
-        for sheet in load_sheets(config)
-        for sigma, rho in sheet_grid(sheet)
-    ]
+    if not sheets or sheets[0].sheet_id != gate.sheet_id:
+        raise ConfigError(
+            f"誤指定の門のシート {gate.sheet_id} は sheets の先頭でなければならない(ADR-122 決定3)"
+        )
+    sheet = sheets[0]
+    if sheet.role != ROLE_MISSPECIFICATION:
+        raise ConfigError(f"誤指定の門のシート {gate.sheet_id} の role が {sheet.role} である")
+    swept = {p.sigma for p in sheet.points}
+    missing = [t for t in gate.tau if t not in swept]
+    if missing:
+        raise ConfigError(f"誤指定の門の tau {missing} をシート {gate.sheet_id} が回さない")
+
+
+def plan_grid(config: Mapping[str, Any]) -> list[tuple[str, PointKey]]:
+    """全シートの格子点を並べる。答える問い: 何点を、どの順で回すのか(★すべて仮定値)。"""
+    return [(sheet.sheet_id, key) for sheet in load_sheets(config) for key in sheet.points]
+
+
+def load_stages(config: Mapping[str, Any]) -> tuple[int, ...]:
+    """答える問い: 反復の段(累積)は何か(ADR-123 決定5)。
+
+    狭義に増える正の整数の列でなければ止まる。旧い `simulation.n_rep` が残っていても止まる
+    (どちらが効いているか読めなくなるため)。
+    """
+    if "n_rep" in config.get("simulation", {}):
+        raise ConfigError(
+            "simulation.n_rep は simulation.n_rep_stages に置き換えた(ADR-122 決定4 / ADR-123 決定5)"
+        )
+    stages = require(config, "simulation.n_rep_stages")
+    if (
+        not isinstance(stages, list)
+        or not stages
+        or any(not isinstance(n, int) or isinstance(n, bool) or n < 1 for n in stages)
+        or any(b <= a for a, b in zip(stages, stages[1:]))
+    ):
+        raise ConfigError(f"simulation.n_rep_stages は狭義に増える正の整数の列: {stages!r}")
+    return tuple(stages)
+
+
+# --------------------------------------------------------------------------
+# 乱数(ADR-122 決定4)
+# --------------------------------------------------------------------------
+
+
+def _text_to_int(text: str) -> int:
+    """答える問い: 文字列を、衝突しない非負の整数にするとどうなるか(`SeedSequence` の鍵に使う)。"""
+    return int.from_bytes(text.encode("utf-8"), "big")
+
+
+def replication_rng(
+    rng_seed: int, sheet_id: str, key: PointKey, rep: int
+) -> np.random.Generator:
+    """反復 1 つの乱数。答える問い: 「シート × 点 × 反復」の表は、他の何にも依らず決まるか。
+
+    **鍵は位置ではなく値である**(シートの id・`n_item`・`sigma`・`rho` の文字列・反復の番号)。
+    したがって、段を足しても(`n_rep` を増やしても)、シートや点の順を入れ替えても、
+    点を足し引きしても、**既にある反復の表は変わらない**(表は入れ子になる)。
+    """
+    spawn_key = (
+        _text_to_int(sheet_id),
+        key.n_item,
+        _text_to_int(repr(key.sigma)),
+        _text_to_int(repr(key.rho)),
+        rep,
+    )
+    return np.random.default_rng(np.random.SeedSequence(entropy=rng_seed, spawn_key=spawn_key))
 
 
 # --------------------------------------------------------------------------
@@ -808,18 +1161,21 @@ def plan_grid(config: Mapping[str, Any]) -> list[tuple[str, float, float]]:
 # --------------------------------------------------------------------------
 
 
-def load_levels(config: Mapping[str, Any]) -> DesignLevels:
-    """config から水準を組む。答える問い: 未決の項目は残っていないか。
+def load_levels(config: Mapping[str, Any], n_item: int) -> DesignLevels:
+    """config から 1 つの `n_item` の水準を組む。答える問い: 未決の項目は残っていないか。
 
     `require` が null で止める(`code/config.py`)。**ここで既定値は作らない。**
+    `n_item` は格子(`dgp.n_item`)の点でなければ止まる。
     """
+    if n_item not in load_n_item_grid(config):
+        raise ConfigError(f"n_item = {n_item} は dgp.n_item の格子に無い")
     effect = config["effect"]
     return DesignLevels(
         tasks=tuple(effect["task_levels"]),
         coverages=tuple(effect["coverage_levels"]),
         templates=require(config, "dgp.templates"),
         n_seed=int(require(config, "dgp.n_seed")),
-        n_item=int(require(config, "dgp.n_item")),
+        n_item=n_item,
     )
 
 
@@ -829,11 +1185,15 @@ def frame_tau(sheet: Sheet, sigma: float) -> float:
 
 
 def sheet_summary(
-    sheet: Sheet, profile: EffectProfile, points: Sequence[GridPoint], target_power: float
+    sheet: Sheet,
+    profile: EffectProfile,
+    points: Sequence[GridPoint],
+    target_power: float,
+    axes: AxisSpec,
 ) -> dict[str, Any]:
     """シート 1 枚の結果をまとめる。答える問い: このシートは何を言うための数か。
 
-    **`power` の読み方はシートの役割で違う**: power のシートは検出力(`sigma*` を出す)、
+    **`power` の読み方はシートの役割で違う**: power のシートは検出力(`n_item` の範囲と `sigma*` を出す)、
     null_calibration / misspecification のシートは第一種の過誤の率、shape_check は形の検査。
     """
     summary: dict[str, Any] = {
@@ -843,86 +1203,250 @@ def sheet_summary(
         # 平行性の TOST が見る係数の真値(logit。処理対比・基準 T1 x id)
         "true_interaction_contrasts": dict(profile.interaction_contrasts),
         "tau": sheet.tau,
-        "grid": [point.__dict__ for point in points],
+        "grid": [dataclasses.asdict(point) for point in points],
     }
     if sheet.role == ROLE_POWER:
-        summary["inverse_problem"] = summarise_grid(points, target_power)
+        summary["inverse_problem"] = inverse_problem(points, axes, target_power)
     return summary
 
 
+SUMMARY_FILE = "power_sim_summary.json"
+RUN_INFO_FILE = "run_info.json"
+INVOCATIONS_FILE = "invocations.jsonl"
+CONFIG_COPY_FILE = "config.yaml"
+RESOLVED_CONFIG_FILE = "config_resolved.json"
+# 誤指定の門が閉じて止まったときの終了コード(0 = 指定した段まで回った)
+EXIT_GATE_CLOSED = 3
+
+
+def stage_summary_name(n_rep: int) -> str:
+    """答える問い: この段の結果はどのファイルか(段は入れ子なので、段ごとに残す)。"""
+    return f"stage_{n_rep:04d}_summary.json"
+
+
+def write_json_atomic(path: Path, payload: Any) -> None:
+    """答える問い: 書いている途中で落ちても、壊れた JSON が残らないか(F6-3)。
+
+    同じディレクトリの一時ファイルに書いてから `os.replace` で置き換える(同じボリューム内では原子的)。
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
+    )
+    os.replace(tmp, path)
+
+
+def record_run(
+    out_dir: Path,
+    config: Mapping[str, Any],
+    config_path: Path | None,
+    through_stage: int,
+    n_workers: int,
+) -> dict[str, Any]:
+    """出力先に来歴を残す(F6-2。`CLAUDE.md` §2「数値は run_id に紐づく」)。
+
+    答える問い: 「この数はどの run の、どの commit の、どの config から出たか」
+
+    初回は run_id・git sha(`git_sha.txt` と差分)・config の写しを書く。**再開のときは run_id を作り直さず**、
+    起動ごとの記録(`invocations.jsonl`)だけを足す。**config が初回と違えば止まる**(別の実験の表を混ぜない)。
+    """
+    resolved = json.loads(json.dumps(config))
+    resolved_path = out_dir / RESOLVED_CONFIG_FILE
+    info_path = out_dir / RUN_INFO_FILE
+    if resolved_path.exists():
+        if json.loads(resolved_path.read_text(encoding="utf-8")) != resolved:
+            raise PowerSimError(
+                f"{out_dir} は別の config で始まった run である。混ぜずに別の --out-dir を使うこと"
+            )
+        info = json.loads(info_path.read_text(encoding="utf-8"))
+    else:
+        now = artifacts.utc_now()
+        info = {
+            "run_id": f"{now.strftime('%Y%m%d_%H%M%S')}_{require(config, 'analysis.id')}",
+            "created_utc": now.isoformat(),
+            "git_sha": artifacts.capture_git_head_sha(),
+            "config_source": None if config_path is None else str(config_path),
+        }
+        artifacts.write_git_sha(out_dir)
+        if config_path is not None:
+            artifacts.write_config_copy(out_dir, config_path)
+        write_json_atomic(resolved_path, resolved)
+        write_json_atomic(info_path, info)
+    invocation = {
+        "started_utc": artifacts.utc_now().isoformat(),
+        "git_sha": artifacts.capture_git_head_sha(),
+        "tracked_diff_empty": artifacts.capture_git_diff_head() == "",
+        "through_stage": through_stage,
+        "n_workers": n_workers,
+    }
+    with (out_dir / INVOCATIONS_FILE).open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(json.dumps(invocation, ensure_ascii=False) + "\n")
+    return info
+
+
+@dataclass(frozen=True)
+class RunContext:
+    """1 回の起動で変わらない値。答える問い: 表を組み、当てるのに何が要るか。"""
+
+    config: Mapping[str, Any]
+    out_dir: Path
+    s2_item: float
+    s2_tmpl: float
+    alpha: float
+    target_power: float
+    rng_seed: int
+    rscript: str
+    libpath: str | None
+    refit: Mapping[str, Any]
+    max_level: int
+    n_workers: int
+    keep_frames: bool
+
+
+def run_sheet_stage(
+    ctx: RunContext, sheet: Sheet, profile: EffectProfile, tost: TostSpec, n_rep: int
+) -> list[GridPoint]:
+    """1 枚のシートを反復 `n_rep` まで回す。答える問い: この段の各点の棄却率はいくつか。
+
+    **当てはめ済みの反復は表を組まない**(反復の表は `replication_rng` だけで決まり、他の反復に
+    依らないので、飛ばしても残りの表は変わらない)。R に渡すのは未済の反復だけである
+    (済んだ反復を混ぜると、連続ブロックの切り分けで負荷が偏る)。
+    """
+    sheet_dir = ctx.out_dir / sheet.sheet_id
+    frames_dir = sheet_dir / "frames"
+    fits_dir = sheet_dir / "fits"
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    fits_dir.mkdir(exist_ok=True)
+
+    points: list[GridPoint] = []
+    for key in sheet.points:
+        levels = load_levels(ctx.config, key.n_item)
+        tag = key.tag()
+        outputs: list[Path] = []
+        pending: list[tuple[Path, Path]] = []
+        for rep in range(n_rep):
+            out_path = fits_dir / f"fit_{tag}_{rep:04d}.json"
+            outputs.append(out_path)
+            if out_path.exists():
+                continue
+            csv_path = frames_dir / f"frame_{tag}_{rep:04d}.csv"
+            rows = draw_frame(
+                levels, profile.eta, key.sigma, key.rho, ctx.s2_item, ctx.s2_tmpl,
+                replication_rng(ctx.rng_seed, sheet.sheet_id, key, rep),
+                tau=frame_tau(sheet, key.sigma),
+            )
+            write_frame_csv(rows, csv_path)
+            pending.append((csv_path, out_path))
+
+        if pending:
+            run_fits(
+                ctx.rscript, ctx.libpath, sheet_dir / f"manifest_{tag}", pending,
+                ctx.refit, ctx.max_level, ctx.n_workers,
+            )
+        results = [json.loads(out.read_text(encoding="ascii")) for out in outputs]
+        points.append(summarise_point(key, results, ctx.alpha, tost))
+        if not ctx.keep_frames:
+            for csv_path, _ in pending:
+                csv_path.unlink(missing_ok=True)
+    return points
+
+
+def run_stage(
+    ctx: RunContext,
+    sheets: Sequence[Sheet],
+    gate: GateSpec,
+    axes: AxisSpec,
+    stage_index: int,
+    n_rep: int,
+) -> dict[str, Any]:
+    """1 段を回す。答える問い: 反復 `n_rep` までで、各シートは何を言うか。門は閉じたか。
+
+    **誤指定のシート(先頭)を回し終えた時点で門を判定し、膨らめば残りのシートを回さずに返す**
+    (ADR-123 決定6)。
+    """
+    sheet_summaries: dict[str, Any] = {}
+    sheet_points: dict[str, list[GridPoint]] = {}
+    gate_result: dict[str, Any] | None = None
+    for sheet in sheets:
+        profile = build_profile(ctx.config["effect"], sheet.profile)
+        points = run_sheet_stage(ctx, sheet, profile, tost_spec(ctx.config, profile), n_rep)
+        sheet_points[sheet.sheet_id] = points
+        body = sheet_summary(sheet, profile, points, ctx.target_power, axes)
+        if sheet.compare_with is not None:
+            body["compared_with"] = sheet.compare_with
+            body["power_minus_reference"] = compare_power(
+                sheet_points[sheet.compare_with], points
+            )
+        sheet_summaries[sheet.sheet_id] = body
+        if sheet.sheet_id == gate.sheet_id:
+            gate_result = misspecification_gate(points, gate)
+            if gate_result["inflated"]:
+                break
+    return {
+        "stage": stage_index,
+        "n_rep": n_rep,
+        "misspecification_gate": gate_result,
+        "stopped_at_gate": bool(gate_result and gate_result["inflated"]),
+        "sheets": sheet_summaries,
+        "margin_table": margin_quantile_table(
+            sheet_points, {s.sheet_id: s.role for s in sheets}, axes
+        ),
+    }
+
+
 def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
-        keep_frames: bool, workers_override: int | None = None) -> dict[str, Any]:
-    """シートを順に回して結果を返す。答える問い: 10 シードはどこまで保つか。
+        keep_frames: bool, workers_override: int | None = None, *,
+        through_stage: int, config_path: Path | None = None) -> dict[str, Any]:
+    """段を順に回して最後の段の結果を返す。答える問い: 10 シードの設計で、何が言えるか。
 
     **表を組む → R に投げる → 数える、の 3 段しかない。**
     当てはめの中身は `power_sim_fit.R` にある(skill `code-style` §2)。
 
-    **表は再開しても同じになる**: 当てはめが済んでいる反復でも表は引き直し(乱数を進め)、
-    CSV を書くのだけを飛ばす。乱数を進めずに飛ばすと、途中から再開した表が最初の実行と違う。
+    **回すのは `through_stage` 段目まで**(人間 2026-10-04 その143: 段ごとに止まり、人間が見てから
+    次の段を起動する)。同じ `out_dir` に大きい `through_stage` で起動し直すと、済んだ反復は飛ばして続きから回る。
     """
     sheets = load_sheets(config)
-    levels = load_levels(config)
+    gate = load_gate_spec(config)
+    check_gate_against_sheets(gate, sheets)
+    axes = load_axis_spec(config)
+    stages = load_stages(config)
+    if not 1 <= through_stage <= len(stages):
+        raise ConfigError(
+            f"--through-stage は 1〜{len(stages)}(simulation.n_rep_stages = {list(stages)}): {through_stage}"
+        )
+    for n_item in load_n_item_grid(config):
+        load_levels(config, n_item)
     s2_item = float(require(config, "dgp.s2_item"))
     s2_tmpl = float(require(config, "dgp.s2_tmpl"))
-    n_rep = int(require(config, "simulation.n_rep"))
     alpha = float(require(config, "simulation.alpha"))
     target_power = float(require(config, "simulation.target_power"))
-    rng = np.random.default_rng(int(require(config, "simulation.rng_seed")))
+    rng_seed = int(require(config, "simulation.rng_seed"))
 
     rscript = resolve_rscript(rscript_override or config["fit"].get("rscript"))
-    libpath = config["fit"].get("r_libpath")
-    refit = config["fit"]["refit"]
-    max_level = len(require(config, "fit.reduction_order"))
     n_workers = int(workers_override or require(config, "fit.n_workers"))
+    ctx = RunContext(
+        config=config,
+        out_dir=out_dir,
+        s2_item=s2_item,
+        s2_tmpl=s2_tmpl,
+        alpha=alpha,
+        target_power=target_power,
+        rng_seed=rng_seed,
+        rscript=rscript,
+        libpath=config["fit"].get("r_libpath"),
+        refit=config["fit"]["refit"],
+        max_level=len(require(config, "fit.reduction_order")),
+        n_workers=n_workers,
+        keep_frames=keep_frames,
+    )
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    sheet_summaries: dict[str, Any] = {}
-    sheet_points: dict[str, list[GridPoint]] = {}
-    for sheet in sheets:
-        profile = build_profile(config["effect"], sheet.profile)
-        tost = tost_spec(config, profile)
-        sheet_dir = out_dir / sheet.sheet_id
-        frames_dir = sheet_dir / "frames"
-        fits_dir = sheet_dir / "fits"
-        frames_dir.mkdir(parents=True, exist_ok=True)
-        fits_dir.mkdir(exist_ok=True)
-
-        points: list[GridPoint] = []
-        for sigma, rho in sheet_grid(sheet):
-            tag = f"s{sigma:g}_r{rho:g}".replace(".", "p")
-            jobs: list[tuple[Path, Path]] = []
-            for rep in range(n_rep):
-                csv_path = frames_dir / f"frame_{tag}_{rep:04d}.csv"
-                out_path = fits_dir / f"fit_{tag}_{rep:04d}.json"
-                rows = draw_frame(
-                    levels, profile.eta, sigma, rho, s2_item, s2_tmpl, rng,
-                    tau=frame_tau(sheet, sigma),
-                )
-                if not out_path.exists():
-                    write_frame_csv(rows, csv_path)
-                jobs.append((csv_path, out_path))
-
-            run_fits(
-                rscript, libpath, sheet_dir / f"manifest_{tag}", jobs, refit, max_level, n_workers
-            )
-
-            results = [json.loads(out.read_text(encoding="ascii")) for _, out in jobs]
-            points.append(summarise_point(sigma, rho, results, alpha, tost))
-            if not keep_frames:
-                for csv_path, _ in jobs:
-                    csv_path.unlink(missing_ok=True)
-
-        sheet_points[sheet.sheet_id] = points
-        sheet_summaries[sheet.sheet_id] = sheet_summary(sheet, profile, points, target_power)
-        if sheet.compare_with is not None:
-            sheet_summaries[sheet.sheet_id]["compared_with"] = sheet.compare_with
-            sheet_summaries[sheet.sheet_id]["power_minus_reference"] = compare_power(
-                sheet_points[sheet.compare_with], points
-            )
-
-    summary = {
-        "n_seed": levels.n_seed,
-        "n_item": levels.n_item,
+    info = record_run(out_dir, config, config_path, through_stage, n_workers)
+    header = {
+        "run_id": info["run_id"],
+        "n_seed": int(require(config, "dgp.n_seed")),
+        "n_item_grid": list(load_n_item_grid(config)),
+        "n_rep_stages": list(stages),
         "s2_item": s2_item,
         "s2_tmpl": s2_tmpl,
         "alpha": alpha,
@@ -936,69 +1460,121 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
         # (ADR-069 決定3)。それでも「何並列で回したか」は再現の記録として残す。
         "n_workers": n_workers,
         "assumed_values_note": (
-            "sigma and rho are ASSUMED values, not measurements "
-            "(05_STATISTICS.md section 6.7; ADR-067 / ADR-068)"
+            "n_item, sigma and rho are ASSUMED values, not measurements; n_item here is NOT "
+            "eval.cells (05_STATISTICS.md section 6.8; ADR-122 / ADR-123)"
         ),
-        "sheets": sheet_summaries,
     }
-    (out_dir / "power_sim_summary.json").write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    summary: dict[str, Any] = {}
+    for stage_index, n_rep in enumerate(stages[:through_stage], start=1):
+        summary = {**header, **run_stage(ctx, sheets, gate, axes, stage_index, n_rep)}
+        write_json_atomic(out_dir / stage_summary_name(n_rep), summary)
+        write_json_atomic(out_dir / SUMMARY_FILE, summary)
+        if summary["stopped_at_gate"]:
+            break
     return summary
 
 
 def estimate_seconds_per_pair(levels: DesignLevels) -> float:
-    """答える問い: この表 1 枚の当てはめ(`full` + `add` の 1 ペア)は何秒か(★推算)。
+    """答える問い: この表 1 枚の当てはめ(`full` + `add` の 1 ペア)は何秒か(★推算。ベンチの基準)。
 
-    実測は 5,760 行で 297.6 秒(★F114)。**行数に比例すると仮定する**。
+    実測は 5,760 行で 297.6 秒(★F114。逐次)。**行数に比例すると仮定する**(= `n_item` に比例)。
     T1 × T2・`n_item = 80` の 4,800 行は約 248 秒になる(PLAN-034 §5.2)。**未実測**。
     """
-    rows = levels.n_seed * len(levels.tasks) * len(levels.coverages) * levels.n_item
-    return SECONDS_PER_PAIR_MEASURED * rows / ROWS_AT_MEASUREMENT
+    return SECONDS_PER_PAIR_MEASURED * table_rows(levels) / ROWS_AT_MEASUREMENT
+
+
+def estimate_seconds_per_pair_check(levels: DesignLevels) -> float:
+    """答える問い: 同じ 1 ペアは何コア秒か(★推算。PLAN-034 の見直しの小検査の基準)。
+
+    小検査は 4,800 行の 64 ペアを 16 並列で 27.5 分 → 約 412 コア秒 / ペア(16 並列の下の実効)。
+    **行数に比例すると仮定する**。**未実測**(ADR-123 文脈1)。
+    """
+    per_pair = CHECK_WALL_SECONDS * CHECK_WORKERS / CHECK_PAIRS
+    return per_pair * table_rows(levels) / CHECK_ROWS
+
+
+def table_rows(levels: DesignLevels) -> int:
+    """答える問い: この水準の表は何行か(当てはめの費用はこれに比例すると仮定する)。"""
+    return levels.n_seed * len(levels.tasks) * len(levels.coverages) * levels.n_item
+
+
+def stage_cost_lines(
+    config: Mapping[str, Any], sheets: Sequence[Sheet], stages: Sequence[int], workers: int
+) -> list[str]:
+    """答える問い: 各段で足す当てはめは何ペアで、何時間か(★推算。2 つの基準を並べる)。"""
+    seconds = {
+        n_item: (
+            estimate_seconds_per_pair(load_levels(config, n_item)),
+            estimate_seconds_per_pair_check(load_levels(config, n_item)),
+        )
+        for n_item in load_n_item_grid(config)
+    }
+    lines = [
+        "cost      : ESTIMATED, scaled by rows (= n_item). Two bases:",
+        f"            bench = {SECONDS_PER_PAIR_MEASURED} s/pair measured serially at "
+        f"{ROWS_AT_MEASUREMENT} rows (run 20260909_bench_powersim)",
+        f"            check = {CHECK_PAIRS} pairs x {CHECK_WORKERS} workers in "
+        f"{CHECK_WALL_SECONDS / 60:g} min at {CHECK_ROWS} rows "
+        "(plans/PLAN-034-check-prerun; not in runs/)",
+        "            s/pair by n_item (bench / check): "
+        + ", ".join(f"{n}: {b:.0f} / {c:.0f}" for n, (b, c) in seconds.items()),
+    ]
+    previous = 0
+    for index, n_rep in enumerate(stages, start=1):
+        added = n_rep - previous
+        total = [0.0, 0.0]
+        first_sheet = [0.0, 0.0]
+        n_pairs = 0
+        for position, sheet in enumerate(sheets):
+            for key in sheet.points:
+                n_pairs += added
+                for basis in (0, 1):
+                    cost = added * seconds[key.n_item][basis]
+                    total[basis] += cost
+                    if position == 0:
+                        first_sheet[basis] += cost
+        lines.append(
+            f"  stage {index}: reps {previous}->{n_rep} (+{added}), {n_pairs} pairs; "
+            f"wall-clock hours at {workers} workers (bench / check): "
+            f"all sheets {total[0] / 3600 / workers:.1f} / {total[1] / 3600 / workers:.1f}, "
+            f"first sheet only ({sheets[0].sheet_id}) "
+            f"{first_sheet[0] / 3600 / workers:.1f} / {first_sheet[1] / 3600 / workers:.1f}"
+        )
+        previous = n_rep
+    return lines
 
 
 def describe_plan(config: Mapping[str, Any], workers_override: int | None = None) -> list[str]:
     """回す前に「何本の当てはめになるか」を出す。答える問い: このコストは払えるか。
 
-    **★2026-09-09 に この機械で 1 ペアを測った**(★F114。run:`20260909_bench_powersim`)——
-    5,760 行で **297.6 秒 / ペア**。**F50 の 31.91 秒の 9.3 倍**である
-    (F50 は `(1 | seed)` を測っており、§3.2 が回すのは `(0 + coverage | seed)` = 6 パラメータ)。
-    **下のコア時はその実測を行数で比例させた推算であり、`n_item` に比例して動く。**
+    **下の時間は 2 つの基準(逐次のベンチ / 16 並列の小検査)を行数で比例させた推算であり、`n_item` に比例して動く。**
+    段ごとに「全シート」と「先頭のシート(誤指定)だけ」を出す —— 門が閉じれば、その段は先頭のシートだけで止まる。
     """
     sheets = load_sheets(config)
-    n_rep = int(require(config, "simulation.n_rep"))
-    n_points = sum(len(sheet_grid(sheet)) for sheet in sheets)
+    stages = load_stages(config)
     # 出力は ASCII のみ。この環境の stdout は cp932 であり、em dash で落ちる
     # (`plans/PLAN-019-check2/` の検査スクリプトと同じ制約)。
-    lines = [f"sheets    : {len(sheets)}"]
+    lines = [f"sheets    : {len(sheets)} (run in this order; the gate is judged after the first)"]
     for sheet in sheets:
-        n_points_here = len(sheet_grid(sheet))
+        points = ", ".join(f"({k.n_item}, {k.sigma:g}, {k.rho:g})" for k in sheet.points)
         lines.append(
             f"  {sheet.sheet_id:<16} {sheet.role:<17} profile {sheet.profile:<7} "
-            f"{n_points_here:>2} points x {n_rep} reps = {n_points_here * n_rep} pairs"
-            f"  (sigma {list(sheet.sigma)} x rho {list(sheet.rho)}, tau {sheet.tau})"
+            f"tau {sheet.tau:<12} {len(sheet.points)} points (n_item, sigma, rho): {points}"
         )
-    n_pairs = n_points * n_rep
+    n_points = sum(len(sheet.points) for sheet in sheets)
+    n_pairs = n_points * stages[-1]
     lines += [
         f"n_seed    : {require(config, 'dgp.n_seed')}  (ADR-028)",
-        f"n_rep     : {n_rep}",
-        f"fits      : {n_pairs * 2} "
-        f"(= {n_points} points x {n_rep} x 2); a reduced iteration costs more",
-        "NOTE: sigma and rho are ASSUMED values (05_STATISTICS.md section 6.7)",
+        f"stages    : {list(stages)} (cumulative reps; one invocation runs --through-stage N)",
+        f"fits      : {n_pairs * 2} at the last stage "
+        f"(= {n_points} points x {stages[-1]} x 2); a reduced iteration costs more",
+        "NOTE: n_item, sigma and rho are ASSUMED values; n_item here is NOT eval.cells",
     ]
     workers = int(workers_override or config["fit"].get("n_workers") or 1)
     try:
-        seconds = estimate_seconds_per_pair(load_levels(config))
-        core_hours = n_pairs * seconds / 3600.0
-        lines += [
-            f"cost      : {core_hours:.0f} core-hours at {seconds:.1f} s/pair "
-            f"(ESTIMATED: {SECONDS_PER_PAIR_MEASURED} s measured at {ROWS_AT_MEASUREMENT} rows, "
-            "scaled by rows; run 20260909_bench_powersim)",
-            f"            {core_hours / workers:.0f} wall-clock hours "
-            f"at fit.n_workers={workers}; scales with n_item",
-        ]
+        lines += stage_cost_lines(config, sheets, stages, workers)
     except ConfigError:
-        lines.append("cost      : UNDECIDED (dgp.n_item or dgp.templates is null) -- cannot scale")
+        lines.append("cost      : UNDECIDED (dgp.templates or dgp.n_seed is null) -- cannot scale")
     for key in ("dgp.n_item", "dgp.s2_item", "dgp.s2_tmpl"):
         try:
             lines.append(f"{key:<12}: {require(config, key)}")
@@ -1011,9 +1587,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path)
+    parser.add_argument("--through-stage", type=int,
+                        help="何段目まで回すか(simulation.n_rep_stages の 1 始まりの番号)。本実行では必須")
     parser.add_argument("--rscript", help="config の fit.rscript を上書きする")
     parser.add_argument("--dry-run", action="store_true",
-                        help="格子と当てはめ本数だけを出す。R を呼ばない")
+                        help="格子と当てはめ本数・時間の見積りだけを出す。R を呼ばない")
     parser.add_argument("--keep-frames", action="store_true",
                         help="組んだ CSV を消さずに残す(監査用。数千枚になる)")
     parser.add_argument("--workers", type=int,
@@ -1025,15 +1603,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         for line in describe_plan(config, args.workers):
             print(line)
         return 0
-    if args.out_dir is None:
-        parser.error("--out-dir が要る(--dry-run でない場合)")
-    summary = run(config, args.out_dir, args.rscript, args.keep_frames, args.workers)
-    inverse = {
-        sheet_id: body["inverse_problem"]
-        for sheet_id, body in summary["sheets"].items()
-        if "inverse_problem" in body
+    if args.out_dir is None or args.through_stage is None:
+        parser.error("--out-dir と --through-stage が要る(--dry-run でない場合)")
+    summary = run(
+        config, args.out_dir, args.rscript, args.keep_frames, args.workers,
+        through_stage=args.through_stage, config_path=args.config,
+    )
+    report = {
+        "run_id": summary["run_id"],
+        "stage": summary["stage"],
+        "n_rep": summary["n_rep"],
+        "misspecification_gate": summary["misspecification_gate"],
+        "inverse_problem": {
+            sheet_id: body["inverse_problem"]
+            for sheet_id, body in summary["sheets"].items()
+            if "inverse_problem" in body
+        },
     }
-    print(json.dumps(inverse, indent=2, ensure_ascii=False))
+    print(json.dumps(report, indent=2, ensure_ascii=True))
+    if summary["stopped_at_gate"]:
+        print("STOPPED: the misspecification gate closed (ADR-123 decision 6). "
+              "P1 / P1_neg / P0 of this stage were not run.")
+        return EXIT_GATE_CLOSED
     return 0
 
 

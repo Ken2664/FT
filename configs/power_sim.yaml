@@ -1,7 +1,8 @@
 # configs/power_sim.yaml — 検出力シミュレーション(Documents/05_STATISTICS.md §6)。
 #
 #   python -m code.analysis.power_sim --config configs/power_sim.yaml --dry-run
-#   python -m code.analysis.power_sim --config configs/power_sim.yaml --out-dir results/power_sim
+#   python -m code.analysis.power_sim --config configs/power_sim.yaml --out-dir results/power_sim --through-stage 1
+#   (★段ごとに止まる。起動の手順は plans/PLAN-040-power-axes-review.md 付録 A。Bash の run_in_background は使わない)
 #
 # **★下の効果量と分散の値はすべて仮定値であり、実験結果ではない**(CLAUDE.md §2)。
 # results/ は空であり、s2_seed の実測はこの世に存在しない(ADR-067 のリスク欄)。
@@ -16,11 +17,15 @@
 #                            delta だけ √(2/3) 倍したもの(加法部分は変えない。算術は PLAN-034 §5.1)
 #   effect.profiles.P1_neg = ADR-114 決定2 = D2 (a)。P1 の delta の符号を反転した形の検査用(同じ RMS)
 #   effect.profiles.P0     = ADR-114 決定4 = D4 (a)。§6.5 の P0 の T1・T2 の行(加法のみ。新しい値なし)
-#   dgp.sigma / dgp.rho    = 05_STATISTICS.md §6.7 の掃く格子(ADR-068 決定2・決定3)
-#   dgp.n_item             = ADR-114 決定3 = D3 (a)。T1・T2 とも eval.cells の 80(整数 1 つ。
-#                            ADR-095 決定2 の「タスク型ごとに持つ」は主要検定については取り下げた)
+#   dgp.sigma / dgp.rho    = 05_STATISTICS.md §6.7 の掃く格子(ADR-068 決定2・決定3)。★2026-10-04 ADR-123 決定4:
+#                            sigma の 6 点は誤指定のシートの tau(= sigma)の格子として残す。他のシートはその部分集合
+#   dgp.n_item             = ~~ADR-114 決定3 = D3 (a)。T1・T2 とも eval.cells の 80(整数 1 つ)~~
+#                            → ★2026-10-04 ADR-123 決定1: 格子 {80, 120, 160, 240}(検出力分析の中だけ。
+#                            **実際の eval.cells とは別物**。PLAN-040 §7 罠2)。ADR-095 決定2 は取り下げたまま
 #   n_seed                 = ADR-028(10)。§6.3 手続き4 でシード掃きは 10 に畳んだ
-#   sheets                 = ADR-114 決定2・4・7。シートごとの DGP・格子・読み方
+#   sheets                 = ADR-114 決定2・4・7 → ★ADR-122 決定1・3 / ADR-123 決定2〜4。点・順・読み方
+#   report                 = ADR-122 決定2・5 / ADR-123 決定2。報告の軸と D5 の表の分位点(分位点は人間 2026-10-04 その143)
+#   simulation.n_rep_stages / misspecification_gate = ADR-122 決定3・4 / ADR-123 決定5・6
 #
 #   dgp.s2_item = 05_STATISTICS.md §6.3 手続き2 / §6.7 脚注(ADR-094。★F104-a = 案C。1点凍結・掃かない)
 #   dgp.s2_tmpl = 同上(ADR-094。★F104-b = 案C'。1点の仮定値。0 に近い値は置かない)
@@ -83,8 +88,9 @@ dgp:
   # Sigma = sigma^2 * [(1 - rho) I + rho J]。★すべて仮定値(§6.7)。シートが部分集合を選ぶ
   sigma: [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
   rho: [0.0, 1.0]
-  # (タスク型 x 被覆)セルあたりの項目数(ADR-114 決定3)。T1・T2 とも eval.cells の 80
-  n_item: 80
+  # (タスク型 x 被覆)セルあたりの項目数。~~80 の整数 1 つ(ADR-114 決定3)~~
+  # → ★2026-10-04 ADR-123 決定1: 格子(T1・T2 共通)。**検出力分析の中だけの値で、実際の eval.cells は変えない**(S5)
+  n_item: [80, 120, 160, 240]
   # ★F104: 取得元は決着(ADR-094 決定1〜3。s2_item = 案C / s2_tmpl = 案C'。どちらも 1 点の仮定値)。
   # ~~値は 1.0 / 0.5(ADR-094 決定4)~~ → ★2026-09-24 ADR-095 決定3 で差し戻した。値は人間が決め直す。
   # **エージェントは値を提案しない**(PLAN-019 §10.13.5)。s2_tmpl には 0 に近い値を置かない(★F118)
@@ -98,61 +104,100 @@ dgp:
     T1: [t1]
     T2: [t2_count, t2_people, t2_distance, t2_money, t2_time]
 
-# ---- シート(ADR-114 決定2・4・7)---------------------------------------------
-# 1 枚 = (効果量プロファイル x 格子 x seed x タスク型 x 被覆の変動 tau)。上から順に回す。
-#   role:    power             -> 検出力と sigma*(逆問題)を出す
-#            shape_check       -> 検出力だけ出し、compare_with のシートと突き合わせる(LRT は形を区別しない)
+# ---- シート(ADR-114 決定2・4・7 → ★2026-10-04 ADR-122 決定1・3 / ADR-123 決定2〜4)-------------
+# 1 枚 = (効果量プロファイル x 点 x seed x タスク型 x 被覆の変動 tau)。**上から順に回す**。
+#   role:    power             -> 検出力。「0.8 に届く n_item の範囲」(主)と sigma*(従)を出す
+#            shape_check       -> 検出力だけ出し、compare_with のシートの同じ点と突き合わせる(LRT は形を区別しない)
 #            null_calibration  -> 棄却率 = α の較正 + 平行性の TOST の検出力(プロファイルは厳密に加法)
 #            misspecification  -> DGP にだけ seed x タスク型 x 被覆の変動 tau を足し、当てはめは §3.2 のまま
-#   sigma / rho: all = dgp.sigma / dgp.rho の全点、またはその部分集合(リスト)
+#   points:  [n_item, sigma, rho] の明示(主の軸と確認点は直積ではない)。どれも dgp の格子の点
 #   tau:     zero | equals_sigma(D7 (a): tau = sigma・rho = 0。新しい値なし)
+# ★順は 誤指定 → P1 → P1⁻ → P0(ADR-122 決定3 / ADR-123 決定5)。誤指定は先頭でなければ止まる(門のため)
+# ★sigma 0 と rho 1 は P1・P0・P1⁻ に置かない(ADR-123 決定2。sigma 0 は小検査で縮退が 32/32。rho 1 はランダム傾きが退化)
 sheets:
-  - id: p1
-    role: power
-    profile: P1
-    sigma: all
-    rho: all
-    tau: zero
-  - id: p1_neg
-    role: shape_check
-    profile: P1_neg
-    sigma: [0.0, 1.0]                     # D2 (a)
-    rho: [0.0]
-    tau: zero
-    compare_with: p1
-  - id: p0
-    role: null_calibration
-    profile: P0
-    sigma: all
-    rho: all
-    tau: zero
-  - id: misspecification
+  - id: misspecification          # ADR-123 決定4: 変えない(P0・tau = sigma の 6 点・rho 0・n_item 80)
     role: misspecification
     profile: P0
-    sigma: all
-    rho: [0.0]
     tau: equals_sigma
+    points:
+      - [80, 0.0, 0.0]
+      - [80, 0.25, 0.0]
+      - [80, 0.5, 0.0]
+      - [80, 0.75, 0.0]
+      - [80, 1.0, 0.0]
+      - [80, 1.5, 0.0]
+  - id: p1                        # ADR-123 決定1・2: 主の軸 n_item {80,120,160,240} x sigma 1.0 / 確認点 n_item 80 x sigma {0.5,1.5}
+    role: power
+    profile: P1
+    tau: zero
+    points:
+      - [80, 0.5, 0.0]
+      - [80, 1.0, 0.0]
+      - [80, 1.5, 0.0]
+      - [120, 1.0, 0.0]
+      - [160, 1.0, 0.0]
+      - [240, 1.0, 0.0]
+  - id: p1_neg                    # ADR-123 決定3: ~~sigma {0, 1.0}(ADR-114 決定2)~~ → n_item 80・sigma {0.5, 1.5}
+    role: shape_check
+    profile: P1_neg
+    tau: zero
+    compare_with: p1
+    points:
+      - [80, 0.5, 0.0]
+      - [80, 1.5, 0.0]
+  - id: p0                        # ADR-123 決定1・2: P1 と同じ 6 点(D5 の表を各 n_item で組むため)
+    role: null_calibration
+    profile: P0
+    tau: zero
+    points:
+      - [80, 0.5, 0.0]
+      - [80, 1.0, 0.0]
+      - [80, 1.5, 0.0]
+      - [120, 1.0, 0.0]
+      - [160, 1.0, 0.0]
+      - [240, 1.0, 0.0]
+
+# ---- 報告(ADR-122 決定2・5 / ADR-123 決定2)--------------------------------------
+report:
+  n_item_axis: {sigma: 1.0, rho: 0.0}     # 主の軸: この sigma・rho の点を n_item の順に読む(n_item の範囲 / D5 の表)
+  sigma_axis: {n_item: 80, rho: 0.0}      # 確認点(従): この n_item・rho の点を sigma の順に読む(sigma*)
+  # D5 の表(P0・P1 の「同等と言える最小の Δ」の分布を各 n_item で並べる)に載せる分位点。
+  # 人間 2026-10-04(その143。推奨)。全件は各点の tost_min_margins に残る
+  margin_quantiles: [0.05, 0.25, 0.5, 0.75, 0.95]
 
 # ---- シミュレーション(§6.3 手続き3c / 手続き5)------------------------------
 simulation:
-  n_rep: 1000               # §6.3 手続き3c
+  # ~~n_rep: 1000(§6.3 手続き3c。1 本の乱数列)~~ → ★2026-10-04 ADR-122 決定4 / ADR-123 決定5:
+  # 累積の 3 段。最後は §6.3 手続き3c の 1000。乱数は「シート x 点 x 反復」の SeedSequence(段を足しても前の表は不変)。
+  # 1 回の起動で回すのは --through-stage N の段まで(人間 2026-10-04 その143: 段ごとに止まる)
+  n_rep_stages: [100, 300, 1000]
   alpha: 0.05               # 有意水準
-  target_power: 0.8         # §6.3 手続き5。sigma* はここを下回る最初の点で定義する
+  target_power: 0.8         # §6.3 手続き5。n_item の範囲・sigma* はここを基準に格子点だけで読む
   rng_seed: 20260909
   # ★D5 (a)。平行性の TOST は交互作用 2 係数の Wald 90% CI がどちらも ±Δ に入れば同等(IUT)。
   # 片側 0.05 = 90% CI。**Δ の値は決めない**(凍結前に人間。ADR-114)。反復ごとに「同等と言える最小の Δ」を
   # 保存し、Δ の関数としての TOST の検出力は集計の後で読む
   tost_alpha: 0.05
+  # ★ADR-122 決定3 / ADR-123 決定6。各段で誤指定のシートを回し終えた時点で判定し、膨らめばその段の P1 の前で止まる。
+  # 「膨らむ」= tau のどれか 1 つで、主要検定の棄却率の Clopper–Pearson 区間(ci_level)の下端 > lower_bound_above。
+  # 0.075 は名目 α の 1.5 倍(**出典は未確認**。ADR-123 リスク)。tau 0 と 0.75 以上は判定に使わない(記録はする)
+  misspecification_gate:
+    sheet: misspecification
+    tau: [0.25, 0.5]
+    ci_level: 0.95
+    lower_bound_above: 0.075
 
 # ---- 当てはめ(§6.3 手続き3b。ADR-058 決定1 / ADR-059)------------------------
 fit:
   engine: rscript
   # ★同時に走らせる Rscript の本数(ADR-069 決定3 = ★F114)。
-  # **実験パラメータではない。結果はこの値に依らない** —— 表は親が単一の rng から
-  # 決まった順で書き、当てはめは表ごとに決定的である(power_sim.py の shard_jobs)。
+  # **実験パラメータではない。結果はこの値に依らない** —— 表は親が「シート x 点 x 反復」の
+  # SeedSequence で書き(★2026-10-04 ADR-122 決定4。~~単一の rng を決まった順で~~)、当てはめは表ごとに決定的である
+  # (power_sim.py の shard_jobs / replication_rng)。
   # ★実測: 1 ペア 297.6 秒(4 タスク型・n_item = 48 = 5,760 行。run:20260909_bench_powersim)。
   #   T1 x T2・n_item = 80 の表は 4,800 行で、行数に比例すると仮定すると約 248 秒 / ペア(推算。未実測)。
-  #   4 シートの合計 32,000 ペア = 約 2,204 コア時(16 並列で約 138 時間)。--dry-run が出す。
+  #   小検査(PLAN-034-check-prerun。16 並列)からは約 412 コア秒 / ペア。段ごとの時間は --dry-run が両方出す。
+  #   ~~4 シートの合計 32,000 ペア = 約 2,204 コア時(16 並列で約 138 時間)~~(PLAN-040 の前の形)
   # ★既定は 1(逐次)である。回す機械が決まったら --workers で上書きする。
   # **どこで回すか(この機械 16 コア / CPU の多い RunPod ポッド)は未決である**(ADR-069 決定3 / ★F114)。
   n_workers: 1

@@ -72,11 +72,16 @@ jnum <- function(x, fmt = "%.14g") {
 jbool <- function(x) if (isTRUE(x)) "true" else "false"
 kv <- function(key, val) paste0("  ", jstr(key), ": ", val)
 
+# ★2026-10-04(PLAN-040 I3 / F6-3): 一時ファイルに書いてから rename する。
+# 出力が「在る」ことが「済み」の印なので(下の driver)、書きかけで kill されると壊れた JSON が
+# 「済み」として飛ばされ、集計で落ちる。rename は同じディレクトリの中なので、在れば書き終わっている。
 write_json <- function(fields, path) {
   txt <- paste0("{\n", paste(fields, collapse = ",\n"), "\n}\n")
-  con <- file(path, "wb")
+  tmp <- paste0(path, ".tmp")
+  con <- file(tmp, "wb")
   writeBin(charToRaw(txt), con)
   close(con)
+  if (!file.rename(tmp, path)) stop(sprintf("一時ファイルを %s へ rename できなかった", path))
 }
 
 # ---- ADR-059 の収束判定 ----------------------------------------------------

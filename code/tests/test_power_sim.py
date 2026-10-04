@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -77,10 +78,16 @@ def test_s2_values_are_the_decided_ones() -> None:
     assert dgp["s2_tmpl"] == 0.5
 
 
-def test_n_item_is_the_decided_eighty() -> None:
-    """★ADR-114 決定3 = D3 (a)。T1・T2 とも `eval.cells` の 80。整数 1 つ(タスク型ごとではない)。"""
+# ★ADR-123 決定1(PLAN-040 §11)。検出力分析の中だけの格子(実際の `eval.cells` とは別物)
+ADOPTED_N_ITEM = [80, 120, 160, 240]
+
+
+def test_n_item_grid_is_the_decided_one() -> None:
+    """★~~ADR-114 決定3 の 80 の整数 1 つ~~ → ADR-123 決定1 の格子 {80, 120, 160, 240}(T1・T2 共通)。"""
     n_item = load(MAIN_CONFIG)["dgp"]["n_item"]
-    assert n_item == 80 and isinstance(n_item, int)
+    assert n_item == ADOPTED_N_ITEM
+    assert all(isinstance(n, int) for n in n_item)
+    assert power_sim.load_n_item_grid(load(MAIN_CONFIG)) == tuple(ADOPTED_N_ITEM)
 
 
 def undecided_main_config() -> dict[str, Any]:
@@ -101,18 +108,18 @@ def test_run_stops_while_s2_is_undecided(tmp_path: Path) -> None:
     止まるのは R を探すより前である(R が無い機械でも同じ所で止まる)。
     """
     with pytest.raises(ConfigError, match="s2_item"):
-        power_sim.run(undecided_main_config(), tmp_path, None, False)
+        power_sim.run(undecided_main_config(), tmp_path, None, False, through_stage=1)
 
 
 def test_dry_run_works_even_while_undecided() -> None:
     """★格子と当てはめ本数は未決のままでも出る(コストを先に見るため)。
 
-    4 シート = P1 12 点 + P1⁻ 2 点 + P0 12 点 + 誤指定 6 点 = 32 点(ADR-114 決定1・2・4・7)。
-    32 点 x 1000 反復 x 2 = 64,000 本(32,000 ペア)。
+    ~~4 シート 32 点 x 1000 反復 x 2 = 64,000 本~~ → ★ADR-123: 誤指定 6 + P1 6 + P1⁻ 2 + P0 6 = 20 点。
+    最終段 1000 反復で 20 x 1000 x 2 = 40,000 本(20,000 ペア)。
     """
     lines = power_sim.describe_plan(undecided_main_config())
     text = "\n".join(lines)
-    assert "64000" in text, "64,000 本(32 x 1000 x 2)が出ていない"
+    assert "40000" in text, "40,000 本(20 x 1000 x 2)が出ていない"
     assert "UNDECIDED" in text
     assert text.isascii(), "この環境の stdout は cp932 である"
 
@@ -319,7 +326,15 @@ def test_interaction_df_is_two() -> None:
 def test_smoke_config_has_the_same_effect_as_the_main_config() -> None:
     """★配線確認用の config の効果量が本物と食い違っていない(ずれると smoke が別の模型を試す)。"""
     assert load(SMOKE_CONFIG)["effect"] == load(MAIN_CONFIG)["effect"]
-    assert load(SMOKE_CONFIG)["sheets"] == load(MAIN_CONFIG)["sheets"]
+    # 点は smoke 用に小さいが、シートの順・役割・プロファイル・tau・比較先は本物と同じ
+
+    def shape(config: dict[str, Any]) -> list[tuple[Any, ...]]:
+        return [
+            (s["id"], s["role"], s["profile"], s["tau"], s.get("compare_with"))
+            for s in config["sheets"]
+        ]
+
+    assert shape(load(SMOKE_CONFIG)) == shape(load(MAIN_CONFIG))
 
 
 # --------------------------------------------------------------------------
@@ -625,27 +640,39 @@ def test_run_fits_propagates_a_worker_failure(tmp_path: Path, monkeypatch) -> No
 
 
 def test_cost_line_scales_the_measured_seconds_per_pair_by_rows() -> None:
-    """★見積りは実測(★F114)を行数で比例させて出す。算術の 9 時間ではない。
+    """★見積りは実測を行数(= `n_item`)で比例させて出す。算術の 9 時間ではない。
 
     答える問い: 「本実行が何時間になるかを、回す前に人間が読めるか」——
     §10.7.8 の「24,000 本 = 約 9 時間」は 7 倍甘かった(F50 からの掛け算だった)。
-    実測は 4 タスク型・`n_item = 48` の 5,760 行で 297.6 秒。T1 × T2・`n_item = 80` は 4,800 行で
-    **約 248 秒**(PLAN-034 §5.2。**推算であって未実測**。そう読める文言になっていること)。
+    基準は 2 本(ADR-123 文脈1・2): ベンチ(4 タスク型・`n_item = 48` の 5,760 行で 297.6 秒。`n_item` 80 で約 248 秒)
+    と小検査(4,800 行の 64 ペアを 16 並列で 27.5 分 → 約 412 コア秒)。**どちらも推算であって未実測**。
     """
     assert power_sim.SECONDS_PER_PAIR_MEASURED == pytest.approx(297.6)
     assert power_sim.ROWS_AT_MEASUREMENT == 4 * 3 * 48 * 10
-    levels = power_sim.load_levels(load(MAIN_CONFIG))
-    assert levels.n_seed * len(levels.tasks) * len(levels.coverages) * levels.n_item == 4_800
+    config = load(MAIN_CONFIG)
+    levels = power_sim.load_levels(config, 80)
+    assert power_sim.table_rows(levels) == 4_800
     assert power_sim.estimate_seconds_per_pair(levels) == pytest.approx(248.0)
-    lines = power_sim.describe_plan(load(MAIN_CONFIG), workers_override=16)
-    cost = [line for line in lines if "core-hours" in line]
-    assert len(cost) == 1
-    assert "2204 core-hours" in cost[0]          # 32,000 ペア x 248 秒
-    assert "ESTIMATED" in cost[0] and "MEASURED" not in cost[0]
-    assert any("138 wall-clock hours" in line for line in lines)
-    # 64 並列なら約 34 時間(PLAN-034 §5.2)
-    lines64 = power_sim.describe_plan(load(MAIN_CONFIG), workers_override=64)
-    assert any("34 wall-clock hours" in line for line in lines64)
+    assert power_sim.estimate_seconds_per_pair_check(levels) == pytest.approx(412.5)
+    # 1 ペアの秒は n_item に比例する(仮定)
+    assert power_sim.estimate_seconds_per_pair(
+        power_sim.load_levels(config, 240)
+    ) == pytest.approx(3 * 248.0)
+    lines = power_sim.describe_plan(config, workers_override=16)
+    text = "\n".join(lines)
+    assert "ESTIMATED" in text and "MEASURED" not in text
+    # ADR-123 文脈2 の推算(16 並列): 1 段目 ≈ 12 / 19 時間・誤指定だけ ≈ 2.6 / 4.3 時間
+    stage1 = next(line for line in lines if line.strip().startswith("stage 1:"))
+    assert "all sheets 11.6 / 19.3" in stage1
+    assert "first sheet only (misspecification) 2.6 / 4.3" in stage1
+    # 段の累積(100 → 300 → 1000)の合計は ≈ 116 / 193 時間
+    totals = [0.0, 0.0]
+    for line in lines:
+        if line.strip().startswith("stage "):
+            bench, check = line.split("all sheets ")[1].split(",")[0].split(" / ")
+            totals[0] += float(bench)
+            totals[1] += float(check)
+    assert totals == pytest.approx([116.2, 193.4], abs=0.2)
 
 
 def test_fit_script_keeps_the_preregistered_random_structure() -> None:
@@ -702,11 +729,16 @@ def fit_result(p_value: float | None, **overrides: Any) -> dict[str, Any]:
     return base
 
 
+KEY = power_sim.PointKey(n_item=80, sigma=0.5, rho=0.0)
+
+
 def test_power_is_the_share_below_alpha() -> None:
     results = [fit_result(0.01), fit_result(0.2), fit_result(0.04), fit_result(0.9)]
-    point = power_sim.summarise_point(0.5, 0.0, results, 0.05)
+    point = power_sim.summarise_point(KEY, results, 0.05)
     assert point.power == pytest.approx(0.5)
     assert point.n_rep == 4
+    assert point.n_reject == 2            # 門の区間に使う分子。割合から逆算しない
+    assert point.key == KEY
 
 
 def test_degeneracy_rate_is_reported() -> None:
@@ -720,7 +752,7 @@ def test_degeneracy_rate_is_reported() -> None:
         fit_result(0.01, reduced=True, full_singular=True, add_refit_done=True),
         fit_result(0.20),
     ]
-    point = power_sim.summarise_point(1.0, 1.0, results, 0.05)
+    point = power_sim.summarise_point(power_sim.PointKey(80, 1.0, 1.0), results, 0.05)
     assert point.reduced_rate == pytest.approx(0.5)
     assert point.singular_rate == pytest.approx(0.5)
     assert point.refit_rate == pytest.approx(0.5)
@@ -729,18 +761,20 @@ def test_degeneracy_rate_is_reported() -> None:
 def test_a_null_p_value_stops_the_summary() -> None:
     """★p 値が null の反復を黙って捨てない(`CLAUDE.md` §7)。"""
     with pytest.raises(power_sim.PowerSimError):
-        power_sim.summarise_point(0.5, 0.0, [fit_result(None)], 0.05)
+        power_sim.summarise_point(KEY, [fit_result(None)], 0.05)
 
 
 def test_empty_grid_point_stops_the_summary() -> None:
     with pytest.raises(power_sim.PowerSimError):
-        power_sim.summarise_point(0.5, 0.0, [], 0.05)
+        power_sim.summarise_point(KEY, [], 0.05)
 
 
-def point(sigma: float, power: float, rho: float = 0.0) -> power_sim.GridPoint:
+def point(
+    sigma: float, power: float, rho: float = 0.0, n_item: int = 80, n_rep: int = 1000
+) -> power_sim.GridPoint:
     return power_sim.GridPoint(
-        sigma=sigma, rho=rho, n_rep=1000, power=power,
-        reduced_rate=0.0, singular_rate=0.0, refit_rate=0.0, mean_chisq=6.0,
+        n_item=n_item, sigma=sigma, rho=rho, n_rep=n_rep, n_reject=round(power * n_rep),
+        power=power, reduced_rate=0.0, singular_rate=0.0, refit_rate=0.0, mean_chisq=6.0,
         errored_rate=0.0,
     )
 
@@ -769,6 +803,16 @@ def test_holding_everywhere_is_reported_as_outside_the_swept_range() -> None:
     assert limit["last_holding_sigma"] == pytest.approx(1.5)
 
 
+def test_failing_at_the_first_point_is_below_the_swept_range() -> None:
+    """★F6-1: 最初の点で割ったら `below_swept_range`(旧実装は `inside_swept_range`・`sigma_star: null` を返した)。"""
+    limit = power_sim.sigma_limit([point(0.5, 0.62), point(1.0, 0.63), point(1.5, 0.61)], 0.8)
+    assert limit["verdict"] == "below_swept_range"
+    assert limit["sigma_star"] is None
+    assert limit["last_holding_sigma"] is None
+    assert limit["first_failing_sigma"] == pytest.approx(0.5)
+    assert limit["non_monotone"] is False
+
+
 def test_non_monotone_curve_is_flagged_not_smoothed() -> None:
     """★一度割った先で保っている点があれば旗を立てる(隠さない)。
 
@@ -783,31 +827,84 @@ def test_non_monotone_curve_is_flagged_not_smoothed() -> None:
     assert limit["non_monotone"] is True
 
 
-def test_grid_summary_keeps_both_rho_sheets() -> None:
-    """★`rho` の 2 枚を帯として併記する(ADR-068 決定2)。潰さない。"""
-    summary = power_sim.summarise_grid(
-        [point(0.0, 0.99, 0.0), point(1.5, 0.70, 0.0),
-         point(0.0, 0.99, 1.0), point(1.5, 0.90, 1.0)],
-        0.8,
-    )
-    assert set(summary["by_rho"]) == {"0.0", "1.0"}
-    assert summary["by_rho"]["0.0"]["verdict"] == "inside_swept_range"
-    assert summary["by_rho"]["1.0"]["verdict"] == "beyond_swept_range"
+def n_points(powers: dict[int, float]) -> list[power_sim.GridPoint]:
+    return [point(1.0, power, n_item=n) for n, power in powers.items()]
+
+
+def test_n_item_range_is_read_from_the_largest_point_downward() -> None:
+    """★主の報告量(ADR-122 決定2)。答える問い: 0.8 に届く `n_item` の範囲はどこか。
+
+    格子点だけ・補間しない。「(120, 160] の間で届き始める」と読む。
+    """
+    answer = power_sim.n_item_range(n_points({80: 0.63, 120: 0.78, 160: 0.91, 240: 0.99}), 0.8)
+    assert answer == {
+        "verdict": "inside_swept_range",
+        "reaching_from_n_item": 160,
+        "largest_failing_n_item": 120,
+        "non_monotone": False,
+    }
+
+
+def test_n_item_range_reports_both_ends_of_the_swept_range() -> None:
+    """★全点で届けば `below_swept_range`(届き始めるのは 80 以下)、最大でも届かなければ `beyond_swept_range`。"""
+    everywhere = power_sim.n_item_range(n_points({80: 0.85, 120: 0.9, 160: 0.95, 240: 0.99}), 0.8)
+    assert everywhere["verdict"] == "below_swept_range"
+    assert everywhere["reaching_from_n_item"] == 80
+    assert everywhere["largest_failing_n_item"] is None
+    nowhere = power_sim.n_item_range(n_points({80: 0.3, 120: 0.4, 160: 0.5, 240: 0.7}), 0.8)
+    assert nowhere["verdict"] == "beyond_swept_range"
+    assert nowhere["reaching_from_n_item"] is None
+    assert nowhere["largest_failing_n_item"] == 240
+
+
+def test_n_item_range_does_not_pick_a_reaching_point_below_a_failure() -> None:
+    """★`sigma_limit` と同じ考え方: 大きい側から走査して最初に割った点で切り、その下で届く点は旗にする。"""
+    answer = power_sim.n_item_range(n_points({80: 0.6, 120: 0.82, 160: 0.79, 240: 0.95}), 0.8)
+    assert answer["reaching_from_n_item"] == 240
+    assert answer["largest_failing_n_item"] == 160
+    assert answer["non_monotone"] is True
+
+
+def main_axes() -> power_sim.AxisSpec:
+    return power_sim.load_axis_spec(load(MAIN_CONFIG))
+
+
+def test_report_axes_are_the_decided_ones() -> None:
+    """★ADR-123 決定2: 主の軸は `sigma` 1.0・`rho` 0、確認点は `n_item` 80・`rho` 0。分位点は人間(その143)。"""
+    axes = main_axes()
+    assert (axes.n_item_axis_sigma, axes.n_item_axis_rho) == (1.0, 0.0)
+    assert (axes.sigma_axis_n_item, axes.sigma_axis_rho) == (80, 0.0)
+    assert axes.margin_quantiles == (0.05, 0.25, 0.5, 0.75, 0.95)
+
+
+def test_inverse_problem_reads_each_axis_from_its_own_points() -> None:
+    """★主(`n_item` の範囲)は `sigma` 1.0 の 4 点、従(`sigma*`)は `n_item` 80 の 3 点だけから読む。"""
+    points = [
+        point(0.5, 0.95), point(1.0, 0.70), point(1.5, 0.60),
+        point(1.0, 0.85, n_item=120), point(1.0, 0.90, n_item=160), point(1.0, 0.99, n_item=240),
+    ]
+    answer = power_sim.inverse_problem(points, main_axes(), 0.8)
+    assert answer["n_item_range"]["reaching_from_n_item"] == 120
+    assert answer["n_item_range"]["largest_failing_n_item"] == 80
+    assert answer["sigma_limit"]["sigma_star"] == pytest.approx(0.5)
+    assert answer["sigma_limit"]["first_failing_sigma"] == pytest.approx(1.0)
+    with pytest.raises(power_sim.PowerSimError, match="報告の軸"):
+        power_sim.inverse_problem([point(1.0, 0.9, n_item=120)], main_axes(), 0.8)
 
 
 def test_plan_grid_is_the_sum_of_the_sheets() -> None:
-    """格子は ADR-068 決定3 の直積(12 点)をシートごとに選んだものの合計(32 点)。
+    """★ADR-123: 誤指定 6 + P1 6 + P1⁻ 2 + P0 6 = 20 点。**誤指定が先頭**(ADR-122 決定3)。
 
-    P1 12 + P1⁻ 2(D2 (a))+ P0 12(D4 (a))+ 誤指定 6(D7 (a))。
+    費用の単位(`n_item` 80 の 1 点)では 6 + 9.5 + 2 + 9.5 = 27 単位(ADR-123 文脈2)。
     """
     plan = power_sim.plan_grid(load(MAIN_CONFIG))
-    full = len(ADOPTED_SIGMA) * len(ADOPTED_RHO)
-    assert full == 12
     by_sheet: dict[str, int] = {}
-    for sheet_id, _, _ in plan:
+    for sheet_id, _ in plan:
         by_sheet[sheet_id] = by_sheet.get(sheet_id, 0) + 1
-    assert by_sheet == {"p1": 12, "p1_neg": 2, "p0": 12, "misspecification": 6}
-    assert len(plan) == 32
+    assert list(by_sheet) == ["misspecification", "p1", "p1_neg", "p0"]
+    assert by_sheet == {"misspecification": 6, "p1": 6, "p1_neg": 2, "p0": 6}
+    assert len(plan) == 20
+    assert sum(key.n_item for _, key in plan) / 80 == pytest.approx(27.0)
 
 
 # --------------------------------------------------------------------------
@@ -904,90 +1001,105 @@ def test_tau_must_not_be_negative() -> None:
 # --------------------------------------------------------------------------
 
 
+def main_sheet(sheet_id: str) -> dict[str, Any]:
+    """主 config のシートの宣言 1 枚(写し)。"""
+    return copy.deepcopy(next(s for s in load(MAIN_CONFIG)["sheets"] if s["id"] == sheet_id))
+
+
+P1_POINTS = (
+    (80, 0.5, 0.0), (80, 1.0, 0.0), (80, 1.5, 0.0), (120, 1.0, 0.0), (160, 1.0, 0.0), (240, 1.0, 0.0),
+)
+
+
+def as_tuples(sheet: power_sim.Sheet) -> tuple[tuple[int, float, float], ...]:
+    return tuple((k.n_item, k.sigma, k.rho) for k in sheet.points)
+
+
 def test_main_sheets_follow_the_adopted_decisions() -> None:
-    """PLAN-034 §4 の D1・D2・D4・D7 が `sheets:` に宣言どおり入っている。"""
+    """PLAN-040 §11 / ADR-123 決定1〜4 が `sheets:` に宣言どおり入っている。"""
     sheets = {sheet.sheet_id: sheet for sheet in power_sim.load_sheets(load(MAIN_CONFIG))}
-    assert list(sheets) == ["p1", "p1_neg", "p0", "misspecification"]     # 上から順に回す
-    p1, neg, p0, mis = (sheets[k] for k in ("p1", "p1_neg", "p0", "misspecification"))
-    assert (p1.role, p1.profile, p1.sigma, p1.rho) == (
-        "power", "P1", tuple(ADOPTED_SIGMA), tuple(ADOPTED_RHO)
-    )
-    # D2 (a): P1⁻ は sigma ∈ {0, 1.0}・rho = 0 の 2 点
-    assert (neg.role, neg.profile, neg.sigma, neg.rho) == (
-        "shape_check", "P1_neg", (0.0, 1.0), (0.0,)
+    # 順は 誤指定 → P1 → P1⁻ → P0(ADR-122 決定3 / ADR-123 決定5)
+    assert list(sheets) == ["misspecification", "p1", "p1_neg", "p0"]
+    mis, p1, neg, p0 = (sheets[k] for k in ("misspecification", "p1", "p1_neg", "p0"))
+    # 決定4: 誤指定は変えない(P0・tau = sigma の 6 点・rho 0・n_item 80)
+    assert (mis.role, mis.profile, mis.tau) == ("misspecification", "P0", "equals_sigma")
+    assert as_tuples(mis) == tuple((80, s, 0.0) for s in ADOPTED_SIGMA)
+    # 決定1・2: P1 と P0 は同じ 6 点
+    assert (p1.role, p1.profile, as_tuples(p1)) == ("power", "P1", P1_POINTS)
+    assert (p0.role, p0.profile, as_tuples(p0)) == ("null_calibration", "P0", P1_POINTS)
+    # 決定3: P1⁻ は n_item 80・sigma {0.5, 1.5}・rho 0。比較は P1
+    assert (neg.role, neg.profile, as_tuples(neg)) == (
+        "shape_check", "P1_neg", ((80, 0.5, 0.0), (80, 1.5, 0.0))
     )
     assert neg.compare_with == "p1"
-    # D4 (a): P0 は全格子 12 点
-    assert (p0.role, p0.profile, p0.sigma, p0.rho) == (
-        "null_calibration", "P0", tuple(ADOPTED_SIGMA), tuple(ADOPTED_RHO)
-    )
-    # D7 (a): tau = sigma・rho = 0・P0・sigma の格子を流用(新しい値なし)
-    assert (mis.role, mis.profile, mis.sigma, mis.rho, mis.tau) == (
-        "misspecification", "P0", tuple(ADOPTED_SIGMA), (0.0,), "equals_sigma"
-    )
+    # 決定2: sigma 0 と rho 1 は P1・P0・P1⁻ に置かない(PLAN-040 §7 罠5)
+    for sheet in (p1, neg, p0):
+        assert all(k.sigma > 0.0 and k.rho == 0.0 for k in sheet.points)
     assert power_sim.frame_tau(mis, 1.5) == pytest.approx(1.5)
     assert power_sim.frame_tau(p0, 1.5) == 0.0
 
 
-def sheets_config(**changes: Any) -> dict[str, Any]:
-    """主 config のシートの 1 枚目(P1)を `changes` で書き換えた config。"""
+def sheets_config(*entries: dict[str, Any]) -> dict[str, Any]:
+    """主 config の `sheets:` を `entries` に差し替えた config。"""
     config = copy.deepcopy(load(MAIN_CONFIG))
-    config["sheets"] = [{**config["sheets"][0], **changes}]
+    config["sheets"] = list(entries)
     return config
 
 
 def test_a_sheet_swapping_p0_and_p1_is_rejected() -> None:
     """★検出力のシートに P0、第一種の過誤のシートに P1 を置くと止まる(読み違いの事故を塞ぐ)。"""
     with pytest.raises(ConfigError, match="RMS"):
-        power_sim.load_sheets(sheets_config(profile="P0"))
-    config = copy.deepcopy(load(MAIN_CONFIG))
-    config["sheets"] = [{**config["sheets"][2], "profile": "P1"}]      # p0 のシートに P1
+        power_sim.load_sheets(sheets_config({**main_sheet("p1"), "profile": "P0"}))
     with pytest.raises(ConfigError, match="RMS"):
-        power_sim.load_sheets(config)
+        power_sim.load_sheets(sheets_config({**main_sheet("p0"), "profile": "P1"}))
 
 
 def test_tau_belongs_to_the_misspecification_sheet_only() -> None:
     with pytest.raises(ConfigError, match="tau"):
-        power_sim.load_sheets(sheets_config(tau="equals_sigma"))
-    config = copy.deepcopy(load(MAIN_CONFIG))
-    config["sheets"] = [{**config["sheets"][3], "tau": "zero"}]
+        power_sim.load_sheets(sheets_config({**main_sheet("p1"), "tau": "equals_sigma"}))
     with pytest.raises(ConfigError, match="tau"):
-        power_sim.load_sheets(config)
+        power_sim.load_sheets(sheets_config({**main_sheet("misspecification"), "tau": "zero"}))
 
 
-def test_a_sheet_cannot_sweep_a_point_outside_the_adopted_grid() -> None:
-    """掃く格子は ADR-068 決定3 のもの。シートが新しい `sigma` を作ってはならない。"""
+def test_a_sheet_cannot_use_a_point_outside_the_declared_grids() -> None:
+    """掃く格子は `dgp` のもの(ADR-068 決定3 / ADR-123 決定1)。シートが新しい点を作ってはならない。"""
+    for bad in ([80, 2.0, 0.0], [100, 1.0, 0.0], [80, 1.0, 0.5]):
+        with pytest.raises(ConfigError, match="格子に無い"):
+            power_sim.load_sheets(sheets_config({**main_sheet("p1"), "points": [bad]}))
+    for malformed in ([], [[80, 1.0]], [[80.0, 1.0, 0.0]], [[80, 1.0, 0.0], [80, 1.0, 0.0]]):
+        with pytest.raises(ConfigError):
+            power_sim.load_sheets(sheets_config({**main_sheet("p1"), "points": malformed}))
+
+
+def test_n_item_grid_must_be_positive_integers() -> None:
+    for bad in (80, [], [80, 0], [80, 120.0], None):
+        config = copy.deepcopy(load(MAIN_CONFIG))
+        config["dgp"]["n_item"] = bad
+        with pytest.raises(ConfigError):
+            power_sim.load_n_item_grid(config)
     with pytest.raises(ConfigError, match="格子に無い"):
-        power_sim.load_sheets(sheets_config(sigma=[0.0, 2.0]))
-    with pytest.raises(ConfigError):
-        power_sim.load_sheets(sheets_config(sigma=[]))
+        power_sim.load_levels(load(MAIN_CONFIG), 100)
 
 
 def test_sheet_ids_and_comparison_must_be_consistent() -> None:
-    config = copy.deepcopy(load(MAIN_CONFIG))
-    config["sheets"] = [config["sheets"][0], config["sheets"][0]]
     with pytest.raises(ConfigError, match="重複"):
-        power_sim.load_sheets(config)
+        power_sim.load_sheets(sheets_config(main_sheet("p1"), main_sheet("p1")))
     # 形の検査のシートは compare_with を必ず持ち、基準は上にあるシートである
-    config = copy.deepcopy(load(MAIN_CONFIG))
-    config["sheets"] = [config["sheets"][1]]
     with pytest.raises(ConfigError, match="compare_with"):
-        power_sim.load_sheets(config)
-    config = copy.deepcopy(load(MAIN_CONFIG))
-    config["sheets"] = [{**config["sheets"][0], "compare_with": "p1"}]
+        power_sim.load_sheets(sheets_config(main_sheet("p1_neg")))
     with pytest.raises(ConfigError, match="compare_with"):
-        power_sim.load_sheets(config)
+        power_sim.load_sheets(sheets_config({**main_sheet("p1"), "compare_with": "p1"}))
 
 
 def test_only_the_power_sheet_gets_the_inverse_problem() -> None:
-    """★`sigma*` は検出力のシートにだけ出す。P0・誤指定の棄却率は第一種の過誤の率であり、
+    """★`n_item` の範囲と `sigma*` は検出力のシートにだけ出す。P0・誤指定の棄却率は第一種の過誤の率であり、
     「検出力が 0.8 を割る点」という読みをしない。"""
     config = load(MAIN_CONFIG)
     sheets = {sheet.sheet_id: sheet for sheet in power_sim.load_sheets(config)}
-    points = [point(0.0, 0.99), point(1.5, 0.5)]
+    points = [point(s, 0.9, n_item=n) for n, s, _ in P1_POINTS]
     summaries = {
         sheet_id: power_sim.sheet_summary(
-            sheet, main_profile(sheet.profile), points, 0.8
+            sheet, main_profile(sheet.profile), points, 0.8, main_axes()
         )
         for sheet_id, sheet in sheets.items()
     }
@@ -998,16 +1110,136 @@ def test_only_the_power_sheet_gets_the_inverse_problem() -> None:
         -0.326599, abs=1e-5
     )
     assert summaries["misspecification"]["tau"] == "equals_sigma"
+    assert summaries["p1"]["grid"][0]["n_item"] == 80
 
 
 def test_compare_power_pairs_matching_points_only() -> None:
-    """形の検査: 同じ `(sigma, rho)` だけを突き合わせる。基準に無い点を補わない。"""
-    reference = [point(0.0, 0.90), point(1.0, 0.70), point(1.5, 0.60)]
-    other = [point(0.0, 0.88), point(1.0, 0.72), point(0.5, 0.80)]
+    """形の検査: 同じ `(n_item, sigma, rho)` だけを突き合わせる。基準に無い点を補わない(ADR-123 決定3)。"""
+    reference = [point(0.5, 0.90), point(1.5, 0.60), point(1.5, 0.95, n_item=240)]
+    other = [point(0.5, 0.88), point(1.5, 0.62), point(1.0, 0.80), point(1.5, 0.99, n_item=120)]
     compared = power_sim.compare_power(reference, other)
-    assert [row["sigma"] for row in compared] == [0.0, 1.0]
+    assert [(row["n_item"], row["sigma"]) for row in compared] == [(80, 0.5), (80, 1.5)]
     assert compared[0]["difference"] == pytest.approx(-0.02)
     assert compared[1]["difference"] == pytest.approx(0.02)
+
+
+# --------------------------------------------------------------------------
+# ★段・乱数・誤指定の門(ADR-122 決定3・4 / ADR-123 決定5・6)
+# --------------------------------------------------------------------------
+
+
+def test_stages_are_the_decided_ones_and_must_increase() -> None:
+    """★ADR-123 決定5: 累積 100 → 300 → 1000(最後は §6.3 手続き3c の 1000)。旧い `n_rep` は止まる。"""
+    assert power_sim.load_stages(load(MAIN_CONFIG)) == (100, 300, 1000)
+    for bad in ([], [100, 100], [300, 100], [0, 10], [100.0], None):
+        config = copy.deepcopy(load(MAIN_CONFIG))
+        config["simulation"]["n_rep_stages"] = bad
+        with pytest.raises(ConfigError):
+            power_sim.load_stages(config)
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    config["simulation"]["n_rep"] = 1000
+    with pytest.raises(ConfigError, match="n_rep_stages"):
+        power_sim.load_stages(config)
+
+
+def test_replication_rng_depends_only_on_sheet_point_and_rep() -> None:
+    """★ADR-122 決定4: 反復の表は「シート × 点 × 反復」だけで決まる(位置ではなく値が鍵)。"""
+    key = power_sim.PointKey(80, 0.5, 0.0)
+
+    def draw(sheet_id: str, k: power_sim.PointKey, rep: int, seed: int = 20260909) -> float:
+        return float(power_sim.replication_rng(seed, sheet_id, k, rep).random())
+
+    assert draw("p1", key, 7) == draw("p1", key, 7)
+    others = [
+        draw("p0", key, 7), draw("p1", key, 8), draw("p1", key, 7, seed=1),
+        draw("p1", power_sim.PointKey(120, 0.5, 0.0), 7),
+        draw("p1", power_sim.PointKey(80, 1.5, 0.0), 7),
+        draw("p1", power_sim.PointKey(80, 0.5, 1.0), 7),
+    ]
+    assert len({draw("p1", key, 7), *others}) == len(others) + 1
+
+
+def test_main_gate_is_the_decided_one() -> None:
+    """★ADR-123 決定6: `tau` 0.25・0.5 で 95% Clopper–Pearson 区間の下端 > 0.075。閾値は config にある。"""
+    config = load(MAIN_CONFIG)
+    gate = power_sim.load_gate_spec(config)
+    assert gate == power_sim.GateSpec(
+        sheet_id="misspecification", tau=(0.25, 0.5), ci_level=0.95, lower_bound_above=0.075
+    )
+    power_sim.check_gate_against_sheets(gate, power_sim.load_sheets(config))
+
+
+@pytest.mark.parametrize("n_rep,first_stopping", [(100, 14), (300, 33)])
+def test_gate_operating_point_matches_adr_123(n_rep: int, first_stopping: int) -> None:
+    """★ADR-123 文脈3 の算術: 100 反復では 14 回以上、300 反復では 33 回以上の棄却で止まる。"""
+    gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
+
+    def inflated(n_reject: int) -> bool:
+        points = [point(t, n_reject / n_rep, n_rep=n_rep) for t in (0.0, 0.25, 0.5)]
+        points[2] = point(0.5, 0.0, n_rep=n_rep)          # 判定は 0.25 と 0.5 のどちらか 1 つで足りる
+        return power_sim.misspecification_gate(points, gate)["inflated"]
+
+    assert not inflated(first_stopping - 1)
+    assert inflated(first_stopping)
+
+
+def test_gate_ignores_tau_zero_and_large_tau() -> None:
+    """★`tau` 0 と 0.75 以上は判定に使わない(記録はシートの grid にある)。"""
+    gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
+    points = [point(0.0, 0.5, n_rep=100), point(0.25, 0.05, n_rep=100),
+              point(0.5, 0.05, n_rep=100), point(1.5, 0.9, n_rep=100)]
+    verdict = power_sim.misspecification_gate(points, gate)
+    assert verdict["inflated"] is False
+    assert [row["tau"] for row in verdict["rows"]] == [0.25, 0.5]
+
+
+def test_clopper_pearson_lower_bound() -> None:
+    assert power_sim.clopper_pearson_lower(0, 100, 0.95) == 0.0
+    # 既知の値: 5 / 100 の 95% 区間の下端 ≈ 0.01643
+    assert power_sim.clopper_pearson_lower(5, 100, 0.95) == pytest.approx(0.016431, abs=1e-5)
+    with pytest.raises(ValueError):
+        power_sim.clopper_pearson_lower(5, 4, 0.95)
+
+
+def test_gate_must_watch_the_first_sheet_and_its_own_tau() -> None:
+    """★D3 (a): 誤指定は先頭。門の `tau` はそのシートが回す点でなければならない。"""
+    config = load(MAIN_CONFIG)
+    gate = power_sim.load_gate_spec(config)
+    reordered = power_sim.load_sheets(
+        sheets_config(main_sheet("p1"), main_sheet("misspecification"))
+    )
+    with pytest.raises(ConfigError, match="先頭"):
+        power_sim.check_gate_against_sheets(gate, reordered)
+    thin = {**main_sheet("misspecification"), "points": [[80, 0.25, 0.0]]}
+    with pytest.raises(ConfigError, match="回さない"):
+        power_sim.check_gate_against_sheets(gate, power_sim.load_sheets(sheets_config(thin)))
+    bad = copy.deepcopy(config)
+    bad["simulation"]["misspecification_gate"]["lower_bound_above"] = None
+    with pytest.raises(ConfigError):
+        power_sim.load_gate_spec(bad)
+
+
+def test_margin_table_lists_p0_and_p1_on_the_n_item_axis() -> None:
+    """★D5 (a)(ADR-122 決定5): P0 と P1 の最小 Δ の分位点を、主の軸の各 `n_item` で並べる。"""
+    def with_margins(n_item: int, margins: list[float], sigma: float = 1.0) -> power_sim.GridPoint:
+        return dataclasses.replace(point(sigma, 0.5, n_item=n_item), tost_min_margins=tuple(margins))
+
+    margins = [float(m) for m in range(1, 21)]
+    sheet_points = {
+        "misspecification": [with_margins(80, margins)],
+        "p1": [with_margins(80, margins), with_margins(240, margins), with_margins(80, margins, 0.5)],
+        "p1_neg": [with_margins(80, margins, 0.5)],
+        "p0": [with_margins(80, margins)],
+    }
+    roles = {"misspecification": "misspecification", "p1": "power",
+             "p1_neg": "shape_check", "p0": "null_calibration"}
+    table = power_sim.margin_quantile_table(sheet_points, roles, main_axes())
+    assert set(table["by_n_item"]) == {"80", "240"}
+    assert set(table["by_n_item"]["80"]) == {"p1", "p0"}
+    assert set(table["by_n_item"]["240"]) == {"p1"}
+    quantiles = table["by_n_item"]["80"]["p1"]["quantiles"]
+    assert list(quantiles) == ["0.05", "0.25", "0.5", "0.75", "0.95"]
+    assert quantiles["0.5"] == pytest.approx(10.5)
 
 
 # --------------------------------------------------------------------------
@@ -1082,21 +1314,23 @@ def test_summarise_point_keeps_the_sorted_margins_and_the_error_rate() -> None:
         fit_result(0.2, interaction_interp_se=0.1, interaction_extrap_magnitude_se=0.1,
                    n_errored_fits=2, first_error="Downdated VtV"),
     ]
-    summary = power_sim.summarise_point(1.0, 0.0, results, 0.05, spec)
+    summary = power_sim.summarise_point(power_sim.PointKey(80, 1.0, 0.0), results, 0.05, spec)
     assert summary.tost_min_margins == pytest.approx(
         (0.1 * Z_95, 0.5 * Z_95), abs=1e-12
     )
     assert list(summary.tost_min_margins) == sorted(summary.tost_min_margins)
     assert summary.errored_rate == pytest.approx(0.5)
     # TOST を見ないとき(`tost = None`)は空
-    assert power_sim.summarise_point(1.0, 0.0, results, 0.05).tost_min_margins == ()
+    assert power_sim.summarise_point(
+        power_sim.PointKey(80, 1.0, 0.0), results, 0.05
+    ).tost_min_margins == ()
 
 
 def test_a_null_p_value_reports_the_fit_error_it_came_from() -> None:
     """★最後の水準でも当てはめが落ちた反復は、原因の文面つきで止まる(捨てない)。"""
     results = [fit_result(None, first_error="Downdated VtV is not positive definite")]
     with pytest.raises(power_sim.PowerSimError, match="Downdated VtV"):
-        power_sim.summarise_point(1.0, 0.0, results, 0.05)
+        power_sim.summarise_point(power_sim.PointKey(80, 1.0, 0.0), results, 0.05)
 
 
 def test_fit_script_writes_the_interaction_coefficients_and_counts_errors() -> None:
@@ -1117,63 +1351,116 @@ def test_fit_script_writes_the_interaction_coefficients_and_counts_errors() -> N
 # --------------------------------------------------------------------------
 
 
-def fake_fits(monkeypatch: pytest.MonkeyPatch, calls: list[Path] | None = None) -> None:
-    """R を呼ばず、表ごとに決まった形の JSON を書く。**当てはめの代わりであって検出力の数値ではない。**"""
+def fake_fits(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[Path] | None = None,
+    p_value_for: Any = None,
+) -> None:
+    """R を呼ばず、表ごとに決まった形の JSON を書く。**当てはめの代わりであって検出力の数値ではない。**
+
+    `p_value_for(csv_path)` を渡せば、表ごとに p 値を変えられる(門のテスト用)。既定は 0.5(棄却しない)。
+    """
 
     def fake_run_fits(rscript, libpath, manifest_stem, jobs, refit, max_level, n_workers):
         for csv_path, out_path in jobs:
-            if out_path.exists():
-                continue
+            assert not out_path.exists(), "済んだ反復を R に渡している"
             assert csv_path.exists(), "当てはめ前の表が書かれていない"
             if calls is not None:
                 calls.append(csv_path)
-            out_path.write_text(json.dumps(fit_result(0.5)), encoding="ascii")
+            p_value = 0.5 if p_value_for is None else p_value_for(csv_path)
+            out_path.write_text(json.dumps(fit_result(p_value)), encoding="ascii")
         return []
 
     monkeypatch.setattr(power_sim, "resolve_rscript", lambda declared: "Rscript")
     monkeypatch.setattr(power_sim, "run_fits", fake_run_fits)
 
 
-def decided_smoke_config(n_rep: int = 2) -> dict[str, Any]:
-    config = load(SMOKE_CONFIG)
-    config["simulation"]["n_rep"] = n_rep
-    return config
+def smoke_config() -> dict[str, Any]:
+    """配線確認用の config(段は [1, 2])。**本物の configs/power_sim.yaml は run に渡さない**(その139 の暴走)。"""
+    return load(SMOKE_CONFIG)
 
 
-def test_run_writes_one_directory_per_sheet_and_the_summary(
+def test_run_writes_one_directory_per_sheet_and_the_records(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake_fits(monkeypatch)
-    summary = power_sim.run(decided_smoke_config(), tmp_path, None, keep_frames=False)
-    assert list(summary["sheets"]) == ["p1", "p1_neg", "p0", "misspecification"]
+    summary = power_sim.run(
+        smoke_config(), tmp_path, None, keep_frames=False, through_stage=2,
+        config_path=SMOKE_CONFIG,
+    )
+    assert list(summary["sheets"]) == ["misspecification", "p1", "p1_neg", "p0"]
     for sheet_id in summary["sheets"]:
         assert (tmp_path / sheet_id / "fits").is_dir()
     assert summary["tost_alpha"] == 0.05
+    assert (summary["stage"], summary["n_rep"], summary["stopped_at_gate"]) == (2, 2, False)
     on_disk = json.loads((tmp_path / "power_sim_summary.json").read_text(encoding="utf-8"))
     assert on_disk["sheets"]["p1_neg"]["compared_with"] == "p1"
     assert len(on_disk["sheets"]["p1_neg"]["power_minus_reference"]) == 2
     assert on_disk["sheets"]["misspecification"]["tau"] == "equals_sigma"
+    assert on_disk["misspecification_gate"]["inflated"] is False
+    assert set(on_disk["sheets"]["p1"]["inverse_problem"]) == {
+        "target_power", "n_item_range", "sigma_limit"
+    }
+    assert set(on_disk["margin_table"]["by_n_item"]) == {"2", "3"}
     # 反復ごとの最小 Δ が全点に入っている(Δ の関数としての TOST の検出力を後から読むため)
     for body in on_disk["sheets"].values():
         assert all(len(point["tost_min_margins"]) == 2 for point in body["grid"])
+    # 段ごとの結果・来歴(F6-2)
+    assert (tmp_path / "stage_0001_summary.json").is_file()
+    assert (tmp_path / "stage_0002_summary.json").is_file()
+    info = json.loads((tmp_path / "run_info.json").read_text(encoding="utf-8"))
+    assert info["run_id"] == on_disk["run_id"] and info["run_id"].endswith("_power_sim_smoke")
+    assert len(info["git_sha"]) == 40
+    assert (tmp_path / "git_sha.txt").is_file()
+    assert (tmp_path / "config.yaml").read_bytes() == SMOKE_CONFIG.read_bytes()
+    # 一時ファイルが残っていない(F6-3)
+    assert not list(tmp_path.rglob("*.tmp"))
     # 組んだ表は消える(--keep-frames でなければ)
     assert not list(tmp_path.glob("*/frames/*.csv"))
 
 
-def test_resumed_run_draws_the_same_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """★途中から再開しても、残りの表は最初の実行と同じである。
+def test_adding_a_stage_keeps_the_earlier_tables(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★入れ子(ADR-122 決定4): 1 段目の後に 2 段目を足しても、1 段目の表は 2 段を一気に回したときと同じ。
 
-    答える問い: 「当てはめ済みの反復を飛ばしたせいで、乱数が進まず表がずれていないか」——
-    ずれていれば再開のたびに別の実験になる(`run` の docstring)。
+    答える問い: 「段を足したせいで、前の段の表(と結果)が変わっていないか」。
     """
     fake_fits(monkeypatch)
+    staged, straight = tmp_path / "staged", tmp_path / "straight"
+    first = power_sim.run(smoke_config(), staged, None, keep_frames=True, through_stage=1)
+    stage1_frames = {p.relative_to(staged): p.read_bytes() for p in staged.glob("*/frames/*.csv")}
+    power_sim.run(smoke_config(), staged, None, keep_frames=True, through_stage=2)
+    power_sim.run(smoke_config(), straight, None, keep_frames=True, through_stage=2)
+    staged_frames = sorted(p.relative_to(staged) for p in staged.glob("*/frames/*.csv"))
+    straight_frames = sorted(p.relative_to(straight) for p in straight.glob("*/frames/*.csv"))
+    assert staged_frames == straight_frames
+    for rel in staged_frames:
+        assert (staged / rel).read_bytes() == (straight / rel).read_bytes(), rel
+    # 1 段目の表は 2 段目を足しても書き換わっていない
+    for rel, body in stage1_frames.items():
+        assert (staged / rel).read_bytes() == body, rel
+    assert first["n_rep"] == 1
+    # 起動ごとの記録が 2 行残り、run_id は作り直さない
+    lines = (staged / "invocations.jsonl").read_text(encoding="utf-8").splitlines()
+    assert [json.loads(line)["through_stage"] for line in lines] == [1, 2]
+
+
+def test_resumed_run_fits_only_the_missing_replications(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★途中から再開しても、済んだ反復は表を組まず R にも渡さない。残りの表は最初の実行と同じ。"""
+    fake_fits(monkeypatch)
     full_dir, resumed_dir = tmp_path / "full", tmp_path / "resumed"
-    power_sim.run(decided_smoke_config(), full_dir, None, keep_frames=True)
-    # 再開: 先頭の格子点の 1 反復目は当てはめ済みの状態から始める(表は書かれない)
-    done = resumed_dir / "p1" / "fits" / "fit_s0_r0_0000.json"
+    power_sim.run(smoke_config(), full_dir, None, keep_frames=True, through_stage=2)
+    done = resumed_dir / "p1" / "fits" / "fit_n2_s0_r0_0000.json"
     done.parent.mkdir(parents=True)
     done.write_text(json.dumps(fit_result(0.5)), encoding="ascii")
-    power_sim.run(decided_smoke_config(), resumed_dir, None, keep_frames=True)
+    calls: list[Path] = []
+    fake_fits(monkeypatch, calls)
+    power_sim.run(smoke_config(), resumed_dir, None, keep_frames=True, through_stage=2)
+    assert resumed_dir / "p1" / "frames" / "frame_n2_s0_r0_0000.csv" not in calls
+    assert len(calls) == len(list(full_dir.glob("*/frames/*.csv"))) - 1
     first = sorted(full_dir.glob("*/frames/*.csv"))
     second = sorted(resumed_dir.glob("*/frames/*.csv"))
     assert len(first) == len(second) + 1                  # 飛ばした 1 枚だけ無い
@@ -1182,15 +1469,85 @@ def test_resumed_run_draws_the_same_tables(tmp_path: Path, monkeypatch: pytest.M
         assert path.read_bytes() == twin.read_bytes(), path.name
 
 
+def gate_closing_smoke_config() -> dict[str, Any]:
+    """smoke の 1 反復でも門が閉じうる閾値にした写し(1 / 1 の 95% 区間の下端は 0.025)。★テスト専用の値。"""
+    config = smoke_config()
+    config["simulation"]["misspecification_gate"]["lower_bound_above"] = 0.01
+    return config
+
+
+def test_a_closed_gate_stops_before_p1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """★ADR-123 決定6: 誤指定で膨らめば、その段の P1・P1⁻・P0 を回さずに止まり、記録を残す。"""
+    calls: list[Path] = []
+    fake_fits(monkeypatch, calls, p_value_for=lambda csv_path: 0.001)
+    summary = power_sim.run(
+        gate_closing_smoke_config(), tmp_path, None, keep_frames=True, through_stage=2
+    )
+    assert summary["stopped_at_gate"] is True
+    assert summary["stage"] == 1                          # 1 段目で止まり、2 段目に進まない
+    assert summary["misspecification_gate"]["inflated"] is True
+    assert list(summary["sheets"]) == ["misspecification"]
+    assert {path.parent.parent.name for path in calls} == {"misspecification"}
+    on_disk = json.loads((tmp_path / "power_sim_summary.json").read_text(encoding="utf-8"))
+    assert on_disk["stopped_at_gate"] is True
+
+
+def test_main_returns_a_distinct_code_when_the_gate_closes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_fits(monkeypatch, p_value_for=lambda csv_path: 0.001)
+    config_path = tmp_path / "gate.yaml"
+    config_path.write_text(yaml.safe_dump(gate_closing_smoke_config()), encoding="utf-8")
+    code = power_sim.main([
+        "--config", str(config_path), "--out-dir", str(tmp_path / "out"), "--through-stage", "1",
+    ])
+    assert code == power_sim.EXIT_GATE_CLOSED
+
+
+def test_run_requires_a_stage_within_the_declared_ones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_fits(monkeypatch)
+    for bad in (0, 3):
+        with pytest.raises(ConfigError, match="through-stage"):
+            power_sim.run(smoke_config(), tmp_path, None, False, through_stage=bad)
+    with pytest.raises(SystemExit):
+        power_sim.main(["--config", str(SMOKE_CONFIG), "--out-dir", str(tmp_path)])
+
+
+def test_resuming_with_a_different_config_stops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★同じ出力先に別の config の表を混ぜない(F6-2)。"""
+    fake_fits(monkeypatch)
+    power_sim.run(smoke_config(), tmp_path, None, False, through_stage=1)
+    changed = smoke_config()
+    changed["simulation"]["rng_seed"] = 1
+    with pytest.raises(power_sim.PowerSimError, match="別の config"):
+        power_sim.run(changed, tmp_path, None, False, through_stage=1)
+
+
 def test_every_declared_sheet_gets_its_tables_fitted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """宣言した 4 シートのすべてが当てはめに回る(シートが黙って落ちていない)。"""
     calls: list[Path] = []
     fake_fits(monkeypatch, calls)
-    power_sim.run(decided_smoke_config(n_rep=1), tmp_path, None, keep_frames=True)
+    power_sim.run(smoke_config(), tmp_path, None, keep_frames=True, through_stage=1)
     names = {path.parent.parent.name for path in calls}
-    assert names == {"p1", "p1_neg", "p0", "misspecification"}
+    assert names == {"misspecification", "p1", "p1_neg", "p0"}
+
+
+def test_json_is_written_atomically(tmp_path: Path) -> None:
+    """★F6-3: Python 側も R 側も、一時ファイルに書いてから rename する。"""
+    target = tmp_path / "x.json"
+    power_sim.write_json_atomic(target, {"a": 1})
+    power_sim.write_json_atomic(target, {"a": 2})
+    assert json.loads(target.read_text(encoding="utf-8")) == {"a": 2}
+    assert not list(tmp_path.glob("*.tmp"))
+    text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
+    assert 'tmp <- paste0(path, ".tmp")' in text
+    assert "file.rename(tmp, path)" in text
 
 
 # --------------------------------------------------------------------------

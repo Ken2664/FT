@@ -7786,3 +7786,9 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-04(その146・続き): セッション引き継ぎを記録   [actor: RUNNER 補助 (Sonnet 5.5)]
 - hook `context-guard` が約 107k トークンで警告 → skill `handoff`。`STATE.md`(冒頭・いま何をしているか・次のアクション 1 番・引き継ぎ)を更新し、その144 のブロックを `logs/STATE-ARCHIVE.md`「その146」へ移した。`logs/OPEN-ITEMS.md` の起動の行に夜の運用を一言足した。`logs/HANDOFF.md` を上書き
+
+## 2026-10-04(その146・追記): 最初の 21:00 の起動が `lme4` を見つけられず落ちた → `-RLibs` と事前検査を足した   [actor: RUNNER 補助 (Sonnet 5.5)]
+- **起きたこと**: 人間が登録したタスクが 21:00:01 に `start_night.ps1` を起動(`run1_night_stdout.txt`)。Python は起動、Rscript が `no package called 'lme4'` で終了(`run1_20261004_210001_stderr.txt`)。`fits/*.json` 0 件・Rscript 0 本・タスクは Ready。**反復は 1 つも回っていない**
+- **原因(推定)**: タスクスケジューラの R のユーザーライブラリは Claude アプリ内と別の場所(アプリ内では `…\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\R\win-library\4.6` に `lme4` がある)。`R_LIBS` にそのパスを渡すと `lme4` が見える(アプリ内から確認)。タスクの中の実際の環境は未確認
+- **直したこと**: `f69e8a8`。`start_night.ps1`: `-RLibs`(→ `R_LIBS`)と起動前の `lme4` 検査。`register_tasks.ps1`: `-RLibs`。`configs/` は変えていない。`-DryRun` は通った。**実際の起動・登録のし直し・夜通しは未確認**
+- **やっていないこと**: 本実行の起動・タスクの登録のし直し(人間)・push・tag・GPU・pod

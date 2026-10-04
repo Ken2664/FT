@@ -14,6 +14,7 @@ param(
     [Parameter(Mandatory = $true)][ValidateSet(1, 2, 3)][int]$ThroughStage,
     [int]$Workers = 16,
     [string]$Python = "python",
+    [string]$RLibs = "",   # extra R library dir (-> R_LIBS). Needed when the task cannot see the lme4 you installed
     [switch]$DryRun
 )
 
@@ -81,6 +82,18 @@ if ($leftover) {
 $dirty = git status --porcelain --untracked-files=no
 if ($dirty) {
     Stop-Refused ("tracked files have changes; commit or stash first (A.1 item 6): " + (($dirty | Select-Object -First 3) -join " | "))
+}
+
+if ($RLibs) { $env:R_LIBS = $RLibs }   # the child python / Rscript inherit it
+$rscriptExe = (Get-Command Rscript -ErrorAction SilentlyContinue).Source
+if (-not $rscriptExe) {
+    $rscriptExe = Get-ChildItem "C:/Program Files/R/R-*/bin/Rscript.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName | Select-Object -Last 1 -ExpandProperty FullName
+}
+if (-not $rscriptExe) { Stop-Refused "Rscript not found (PATH and C:/Program Files/R/R-*/bin)" }
+& $rscriptExe -e "quit(status = as.integer(!requireNamespace('lme4', quietly = TRUE)))" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Stop-Refused ("R cannot load lme4 as this user/task (R_LIBS='{0}'). Pass -RLibs <dir containing lme4> (see register_tasks.ps1)" -f $RLibs)
 }
 
 # 4. launch detached, one stdout/stderr pair per night (outside the out-dir, as in A.2)

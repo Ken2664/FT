@@ -14,6 +14,7 @@ param(
     [string]$OutName = "",
     [ValidateSet(1, 2, 3)][int]$ThroughStage = 1,
     [int]$Workers = 16,
+    [string]$RLibs = "",   # dir that holds lme4 when the scheduler cannot see your R user library
     [string]$StartTime = "21:00",
     [string]$StopTime = "06:00",
     [switch]$Unregister,
@@ -44,6 +45,7 @@ $pythonPath = (Get-Command python -ErrorAction Stop).Source   # bake the full pa
 $ps = "powershell.exe"
 $startArgs = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -OutName {1} -ThroughStage {2} -Workers {3} -Python "{4}"' -f `
     (Join-Path $ScriptDir "start_night.ps1"), $OutName, $ThroughStage, $Workers, $pythonPath
+if ($RLibs) { $startArgs += (' -RLibs "{0}"' -f $RLibs) }
 $stopArgs = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -OutName {1}' -f `
     (Join-Path $ScriptDir "stop_night.ps1"), $OutName
 

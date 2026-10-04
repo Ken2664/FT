@@ -7745,3 +7745,14 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `logs/DECISIONS.md`(ADR-123)/ `plans/PLAN-040-power-axes-review.md`(ステータス・§11・§12)/ `logs/OPEN-ITEMS.md`(★PLAN-040 の値の行を決着)/ `STATE.md`(冒頭・いま何をしているか・人間待ちの索引・次のアクション・引き継ぎ。旧ブロックは `logs/STATE-ARCHIVE.md`「その142」へ。365 行・58.6 KB)/ `logs/HANDOFF.md` / この CHANGELOG
 - **やっていないこと**: 実装(I1〜I7)・`configs/`・`code/`・`Documents/`・本実行・push・tag・pod
 - **未解決(人間)**: HANDOFF の未解決の節のとおり
+
+## 2026-10-04(その143): PLAN-040 I1〜I4・I6 を実装(I5・I7 は次のセッション)   [actor: IMPLEMENTER (Opus 5.5)]
+- **役割**: IMPLEMENTER。実モデル Opus 5.5 は HANDOFF の推奨(Sonnet)と不一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「logs/HANDOFF.md を読んで、その指示どおりに作業を始めてください。私が決めるべき内容については、その意味を分かりやすく説明したうえで…」→ PLAN-040 §6
+- **人間に諮ったこと**(判断材料の表を先に示した。ADR-097 決定6): 段の進め方 / D5 の表の分位点 —— **2 問とも推奨**(段ごとに止まる / 5・25・50・75・95%)。PLAN-040 §11 に追記
+- **やったこと**: `configs/power_sim.yaml`(`n_item` の格子・点の明示・誤指定が先頭・`n_rep_stages`・`misspecification_gate`・`report`)/ `configs/power_sim_smoke.yaml`(追随)/ `code/analysis/power_sim.py`(`SeedSequence`・`--through-stage`・門・`n_item_range`・`below_swept_range`・D5 の表・run_info / config の写し / invocations・原子的な書き込み・段ごとの見積り)/ `power_sim_fit.R`(一時ファイル + rename。ランダム構造と LRT は不変)/ `test_power_sim.py`(93 → 114 件)。commit `8e89666`
+- **確かめたこと**: `test_power_sim.py` 114 passed / `test_repo_hygiene.py` 68 passed / 全テスト(`-k 'not smoke'`)は 590 秒の上限で 71% まで・失敗 0(残りは未実行)/ R のスモーク 2 段・4 並列・7 分 40 秒で完走・`.tmp` の残り 0(スクラッチパッド。数値は使わない)/ `--dry-run` 16 並列: 1 段目 11.6 / 19.3 時間・誤指定だけ 2.6 / 4.3 時間(ADR-123 の推算と一致)/ 門の作動点 100 反復 14 回・300 反復 33 回(ADR-123 文脈3 と一致)
+- **手違い(実害なし)**: テストの置換範囲を広く取りすぎた(書き込み前の assert で止まった)
+- **やっていないこと**: I5(起動の手順)・I7(§6.8)・本実行・push・tag・GPU・pod
+- **未解決(人間)**: HANDOFF の未解決の節のとおり
+

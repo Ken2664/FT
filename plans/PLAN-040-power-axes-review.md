@@ -3,7 +3,7 @@
 > プランファイルは**実装より先に書く**。仕様がここに書かれていないものは実装しない。
 
 - 作成日: 2026-10-04(その141)
-- ステータス: `設計確定・実装待ち`(§4 の D1〜D8 は 2026-10-04 その141 に人間が回答 = ADR-122。8 問とも推奨。**§11 の値は 2026-10-04 その142 に人間が回答 = ADR-123。5 問とも推奨**)。**★2026-10-04 その143: I1〜I4・I6 実装済み(commit `8e89666`)。I5・I7 は未**
+- ステータス: **`実装済み`(★2026-10-04 その144: I5・I7 も済み。本実行は未起動・人間の確認待ち)**。~~`設計確定・実装待ち`~~(§4 の D1〜D8 は 2026-10-04 その141 に人間が回答 = ADR-122。8 問とも推奨。**§11 の値は 2026-10-04 その142 に人間が回答 = ADR-123。5 問とも推奨**)。**★2026-10-04 その143: I1〜I4・I6 実装済み(commit `8e89666`)。~~I5・I7 は未~~ → その144: I5 = 付録 A・I7 = `05_STATISTICS.md` §6.8 の差し替え**
 - 担当: PLANNER (Opus 5.5) → 実装は IMPLEMENTER(Sonnet 推奨。`Documents/10_CONTEXT_POLICY.md` §7)
 - 出発点: `plans/PLAN-034-check-prerun/README.md`(F1〜F6。**数値は仮定値からの近似と 32 反復の小検査で、実験結果ではない**)
 - 人間の指示: 2026-10-04(その141)に `AskUserQuestion` で A(本実行を止めて PLAN を起こす。推奨)を選んだ
@@ -171,3 +171,114 @@ D1 (a) / D2 (a) / D3 (a) / D4 (a) / D5 (a) / D6 (a) / D7 (a) / D8 (a)。**値(§
 - 2026-10-04(その141): 草案 → D1〜D8 を人間に諮り、8 問とも推奨(ADR-122)。§11 の値は人間待ち。実装は次のセッション
 - 2026-10-04(その142): 判断材料の表(F2・F4 の近似・費用の推算・止め方の作動特性)を示し、§11 の値を `AskUserQuestion` 4 + 1 問で諮った。**5 問とも推奨**(ADR-123)。P0 の格子・主の軸の `sigma`・P1⁻ の点は記入欄に無く、同じ場で決めた。実装は次のセッション
 - 2026-10-04(その143): IMPLEMENTER (Opus 5.5) が I1〜I4・I6 を実装(commit `8e89666`)。記入欄に無かった 2 点(段の進め方・D5 の分位点)を `AskUserQuestion` で諮り、2 問とも推奨。`test_power_sim.py` 114 passed / R のスモーク(2 段)完走 / `--dry-run` は ADR-123 の推算と一致。**I5・I7 はコンテキスト超過で次のセッションへ**
+- 2026-10-04(その144): IMPLEMENTER (Sonnet 5.5。推奨と一致)が I5(付録 A)と I7(`05_STATISTICS.md` §6 冒頭の注・§6.8 の差し替え。旧文は打ち消し線)を書いた。`--dry-run` を再確認(1 段目 全シート 11.6 / 19.3 時間・誤指定だけ 2.6 / 4.3 時間。推算)。**本実行は起動していない**。起動前の確認(A.1)のうち、この機械はバッテリー駆動・DC スリープ 1 時間のままで、AC 電源の確認は人間の側で要る
+
+---
+
+## 付録 A. 本実行の起動の手順(I5。F6-4。2026-10-04 その144)
+
+> **この付録は手順書であって、起動の許可ではない。本実行を起動するのは人間(`CLAUDE.md` §2 の 10 GPU 時間超の線とは別に、
+> この機械を数時間〜数日占有する)。エージェントは起動しない。** GPU 0・pod 0(この機械の CPU だけを使う)。
+> **数値(時間)はすべて `--dry-run` の推算で、実測ではない**(下の「費用」)。
+
+### A.1 起動の前に確かめること(すべて満たしてから)
+
+| # | 確かめること | コマンド(PowerShell) | 期待 |
+|---|---|---|---|
+| 1 | **AC 電源**に繋がっている | `(Get-CimInstance Win32_Battery).BatteryStatus` | **2**(AC)。1 = バッテリー駆動 → 起動しない |
+| 2 | **スリープしない**(AC) | `powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE` | 「現在の AC 電源設定のインデックス」= `0x00000000`(無効) |
+| 3 | **休止状態にならない**(AC) | `powercfg /query SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE` | 同上 `0x00000000`。変えるなら `powercfg /change standby-timeout-ac 0` と `powercfg /change hibernate-timeout-ac 0`(**人間が自分で**。エージェントは電源設定を変えない) |
+| 4 | **Windows Update を一時停止**(再起動で全部止まるのを避ける) | 設定 → Windows Update → 更新の一時停止(**人間が設定で**) | 一時停止中 |
+| 5 | 前の Rscript が残っていない | `Get-Process Rscript -ErrorAction SilentlyContinue` | 何も出ない |
+| 6 | **作業ツリーがきれい** | `git status --short` | 何も出ない(各起動の `tracked_diff_empty` が `invocations.jsonl` に残る。**この付録も含めて commit してから起動する**) |
+| 7 | **見積りを見た** | `python -m code.analysis.power_sim --config configs/power_sim.yaml --dry-run --workers 16` | 4 シート・20 点・段 [100, 300, 1000]・1 段目は全シート約 11.6 / 19.3 時間(ベンチ / 小検査の 2 基準) |
+| 8 | 空き容量 | `Get-PSDrive C` | 数 GB 以上(出力は反復あたり JSON 1 枚。最後の段で 20,000 枚。`--keep-frames` は付けない) |
+
+> **`--out-dir` の名前は起動ごとに新しくする**(例: `results/power_sim/run1`)。**config が初回と違う out-dir に回すと止まる**(別の実験の表を混ぜない)
+> のは意図どおりである。**途中で `configs/power_sim.yaml` を直したら、新しい out-dir で最初からやり直す**(表が変わるため)。
+
+### A.2 起動(1 段目。誤指定のシートから)
+
+**人間の端末(PowerShell)で、リポジトリの根から**:
+
+```powershell
+python -m code.analysis.power_sim --config configs/power_sim.yaml --out-dir results/power_sim/run1 --through-stage 1 --workers 16
+```
+
+または**切り離して**(端末を閉じても止まらない。ログは out-dir の外):
+
+```powershell
+New-Item -ItemType Directory -Force results/power_sim | Out-Null
+Start-Process -FilePath python `
+  -ArgumentList '-m','code.analysis.power_sim','--config','configs/power_sim.yaml','--out-dir','results/power_sim/run1','--through-stage','1','--workers','16' `
+  -WorkingDirectory (Get-Location) -WindowStyle Hidden `
+  -RedirectStandardOutput results/power_sim/run1_stdout.txt -RedirectStandardError results/power_sim/run1_stderr.txt `
+  -PassThru | Select-Object Id
+```
+
+- **`--through-stage` は本実行で必須**(1 = 100 反復 / 2 = 300 / 3 = 1000。**累積**)。**段ごとに止まる**(人間 2026-10-04 その143)。人間が結果を見てから次の段を起動する
+- **`--workers 16` は実験パラメータではない**(結果は並列数に依らない。`config` の `fit.n_workers` 参照)。**この機械は全コアを使うので、起動中は他の重い作業をしない**
+- **★Bash ツールの `run_in_background` は使わない**(最大 2 時間で打ち切られる。1 段目は 11.6〜19.3 時間の見込み)。エージェントのセッションに載せない
+
+### A.3 進み具合の見方(読むだけ。何も変えない)
+
+```powershell
+# 1. 済んだ反復の数(1 反復 = 1 ペア = JSON 1 枚)。1 段目の完了 = 2,000(誤指定 600 + P1 600 + P1⁻ 200 + P0 600)
+(Get-ChildItem results/power_sim/run1/*/fits/*.json).Count
+# シートごと
+Get-ChildItem results/power_sim/run1 -Directory | ForEach-Object { "{0}: {1}" -f $_.Name, (Get-ChildItem "$($_.FullName)/fits/*.json" -ErrorAction SilentlyContinue).Count }
+# 2. 動いているか(Rscript が 16 本前後)
+(Get-Process Rscript -ErrorAction SilentlyContinue).Count
+# 3. 段が終わったか(power_sim_summary.json の "stage" と "stopped_at_gate")
+python -c "import json;d=json.load(open('results/power_sim/run1/power_sim_summary.json',encoding='utf-8'));print(d['stage'],d['n_rep'],d['stopped_at_gate'])"
+```
+
+| 段 | `*/fits/*.json` の累計(全シート) | 誤指定のシートだけ |
+|---|---|---|
+| 1(100 反復) | 2,000 | 600 |
+| 2(300 反復) | 6,000 | 1,800 |
+| 3(1000 反復) | 20,000 | 6,000 |
+
+- **`power_sim_summary.json` は段を回し終えるまで書かれない**(`stage_<n_rep>_summary.json` も同じ。`write_json_atomic` が一時ファイル + rename で書く)。**途中で壊れた JSON は残らない**。
+  **途中の進み具合は `fits/*.json` の数で見る**。`.tmp` が残っていたら書いている最中か、落ちた跡(次の起動で上書きされる)
+- 段の途中では、誤指定が先に数が増え、次に P1・P1⁻・P0 の順で増える(誤指定 → P1 → P1⁻ → P0)
+- **段の終わりの結果は `power_sim_summary.json`・`stage_0100_summary.json`(以降 `0300` / `1000`)・`invocations.jsonl`・`run_info.json`(run_id・git sha)・`config.yaml`(写し)**。run_id が数値の出所になる(`CLAUDE.md` §2)
+
+### A.4 終了コード
+
+| コード | 意味 | 次にすること |
+|---|---|---|
+| **0** | 指定した段まで回った(標準出力に `inverse_problem` と `misspecification_gate` の JSON) | 人間が `power_sim_summary.json` を見る → 次の段を起動するか決める |
+| **3** | **誤指定の門が閉じた**(`tau` 0.25 か 0.5 で棄却率の 95% CI の下端 > 0.075。ADR-123 決定6)。標準出力に `STOPPED:`。**その段の P1・P1⁻・P0 は回していない** | **止まる**。§3.2 の見直しの別 PLAN(ADR-114 決定7)。**エージェントも人間も、閾値や config を変えて回し直さない**(事後選択。§7 罠3)。結果の解釈は人間(`CLAUDE.md` §8) |
+| それ以外 | 失敗(config の `null`・R の例外・config の食い違い・Rscript が無い 等。標準エラーに理由) | ログを読む。**`power_sim_summary.json` が無い段は未完了**。原因を直して同じコマンドを再実行(A.5) |
+
+### A.5 中断したら(落ちた・電源が切れた・端末を閉じた)
+
+**同じコマンドをもう一度打つ**(`--out-dir` も `--through-stage` も同じ)。**済んだ反復は飛ぶ**(反復の表は「シート × 点 × 反復」の `SeedSequence` だけで決まり、
+飛ばしても残りの表は変わらない。ADR-122 決定4)。`invocations.jsonl` に起動の記録が足され、run_id は作り直されない。
+`.tmp` が残っていても次の書き込みで置き換わる。**`--out-dir` の中の JSON を手で消したり直したりしない**。
+
+### A.6 次の段へ
+
+人間が `power_sim_summary.json`(誤指定の門・各シートの `inverse_problem`・D5 の表)を見た後、**同じ out-dir** で `--through-stage 2`(次は 3)。
+**前の段の結果は変わらない**(入れ子)。**段 1 の結果を見てから段 2・3 の格子・反復数・閾値を変えない**(HARKing)。変えるなら ADR を先に。
+
+### A.7 費用(★推算。`--dry-run --workers 16` の出力。実測ではない)
+
+| 段 | 反復 | ペア数 | 全シート(ベンチ / 小検査) | 誤指定のシートだけ |
+|---|---|---|---|---|
+| 1 | 0→100 | 2,000 | 11.6 / 19.3 時間 | 2.6 / 4.3 時間 |
+| 2 | 100→300 | 4,000 | 23.2 / 38.7 時間 | 5.2 / 8.6 時間 |
+| 3 | 300→1000 | 14,000 | 81.4 / 135.4 時間 | 18.1 / 30.1 時間 |
+
+- 2 基準: **ベンチ** = 297.6 秒 / ペア(5,760 行・逐次。run:`20260909_bench_powersim`)を行数比例で外挿 / **小検査** = 64 ペア × 16 並列 27.5 分(`plans/PLAN-034-check-prerun/`。`runs/` には無い)
+- **どちらも外挿**(`n_item` に比例すると仮定。縮退の発火で 64.5〜192.6 秒と大きく動く。§7 と ADR-123 リスク)。**1 段目の誤指定のシートが先に終わるので、門の結果は 2.6〜4.3 時間後に分かる**
+- **誤指定の門が閉じれば**(ADR-123 文脈3 の近似では約 0.81)、1 段目の残り(P1・P1⁻・P0)は回らず、上の表の「全シート」は不要になる
+
+### A.8 やらないこと(この付録の手順の中で)
+
+- Bash の `run_in_background` で本実行を回さない / エージェントのセッションに載せない
+- 起動中に `configs/power_sim.yaml`・`code/analysis/power_sim*`・`power_sim_fit.R` を編集しない(別の表が混ざる。config は run の最初に写される)
+- 電源設定・Windows Update の設定をエージェントが変えない(人間が設定で)
+- 結果(`results/power_sim/`)を見て格子・閾値・分位点・`s2_*` を直さない / `sigma*` や `n_item_range` を論文・事前登録の本文に書かない(仮定値からの値。§7 罠6)
+- **`results/power_sim/` を commit するかは未決**(`.gitignore` に入っていない。JSON が最終段で 20,000 枚。`summary` と `config.yaml`・`run_info.json` だけを commit する案が自然だが、決めるのは人間)

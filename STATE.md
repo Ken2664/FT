@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-04(その143)/ by IMPLEMENTER (Opus 5.5。推奨 Sonnet と不一致を最初に申告)。**★PLAN-040 の I1〜I4・I6 を実装した(commit `8e89666`)**: `n_item` の格子・誤指定が先頭・「シート × 点 × 反復」の `SeedSequence`・`--through-stage`(段ごとに止まる)・誤指定の門(終了コード 3)・`n_item_range`・`below_swept_range`・D5 の表・run_info / config の写し・JSON の原子的な書き込み。人間が 2 問とも推奨(段ごとに止まる / D5 の分位点 5・25・50・75・95%)。**I5(起動の手順)・I7(§6.8)は未**。本実行・GPU 0・pod 0・tag・push なし
-(**次: I5・I7(コンテキスト超過で次のセッションへ)→ 人間の確認・AC 電源 → 本実行 `--through-stage 1`(誤指定から)/ PLAN-037 の I10 / S4・S5**。)
+最終更新: 2026-10-04(その144)/ by IMPLEMENTER (Sonnet 5.5。推奨 Sonnet と一致)。**★PLAN-040 を実装済みにした**: I5(起動の手順 = `plans/PLAN-040-power-axes-review.md` 付録 A)・I7(`Documents/05_STATISTICS.md` §6 冒頭の注と §6.8 の差し替え。旧文は打ち消し線・日付・ADR-122/123)を書いた。全テスト `-k 'not smoke'`: 2405 passed・11 deselected・失敗 0(820 秒。出力はファイルに)。`--dry-run` を再確認(1 段目 全シート 11.6 / 19.3 時間・誤指定だけ 2.6 / 4.3 時間。推算)。**本実行は起動していない**・GPU 0・pod 0・tag・push なし
+(**次: 人間の確認・AC 電源 → 本実行 `--through-stage 1`(誤指定から。人間の端末 / 切り離し)→ 人間が見て `--through-stage 2` / PLAN-037 の I10 / S4・S5**。)
 
 
 ---
@@ -70,10 +70,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-04(その143・最新)。Phase 0。IMPLEMENTER (Opus 5.5)。PLAN-040 §6 の I1〜I4・I6 を実装(commit `8e89666`)。GPU 0・pod 0。本実行は起動していない**
-> - `--dry-run`(16 並列): 1 段目 全シート 11.6 / 19.3 時間・誤指定だけ 2.6 / 4.3 時間(ベンチ / 小検査の 2 基準。**推算**)。最終段 1000 反復で 20 点・40,000 本
-> - R を通したスモーク(`configs/power_sim_smoke.yaml`・2 段・4 並列・7 分 40 秒・スクラッチパッド)が完走。**数値は配線確認用で使わない**
-> - **★その142 のブロックは `logs/STATE-ARCHIVE.md`「その143」にある**
+> **★★2026-10-04(その144・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-040 の I5・I7 を書き、PLAN-040 を実装済みにした。GPU 0・pod 0。本実行は起動していない**
+> - **I5**: `plans/PLAN-040-power-axes-review.md` 付録 A(起動前の確認の表・起動の 2 通り・進み具合の見方・終了コード 0 / 3 / それ以外・中断したら同じコマンド・次の段・費用の推算・やらないこと)
+> - **I7**: `Documents/05_STATISTICS.md` §6 冒頭の「64,000 本」の注に追記・§6.8 に「★2026-10-04 差し替え」の節(点の表 20 点・順・段 100 → 300 → 1000・門・報告量・費用。旧文は打ち消し線で残した)
+> - **この機械はいまバッテリー駆動(`BatteryStatus` = 1・24%)・DC スリープ 1 時間**。起動の前に AC 電源の確認が要る(付録 A.1)
+> - **★その143 のブロックは `logs/STATE-ARCHIVE.md`「その144」にある**
 
 
 
@@ -152,7 +153,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 | 事実 | 根拠 |
 |---|---|
-| `pytest code/tests -q` → **2383(`-k 'not smoke'`。R を使うスモーク 11 件は未実行) passed**(2026-10-03 その139 実測。`test_undecided_values_stay_null` を `test_s2_values_are_the_decided_ones` に置き換え。その136 は ~~2393~~。PLAN-034 で `test_power_sim.py` が 93 件に。その135 は ~~2361~~ で、PLAN-037 I6〜I9 で増。その134 は ~~2283~~(PLAN-037 I1〜I5 で +123)。その133 は ~~2160~~(PLAN-038 で `test_repo_hygiene.py` が 65 件になった)。その118 は ~~2102~~。その116 は ~~2041~~(`test_pilot_ft_cmp_configs.py` の 61 件が増えた)・その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
+| `pytest code/tests -q` → **2405(`-k 'not smoke'`。★その144 実測)**。~~2383(`-k 'not smoke'`。R を使うスモーク 11 件は未実行) passed~~(2026-10-03 その139 実測。`test_undecided_values_stay_null` を `test_s2_values_are_the_decided_ones` に置き換え。その136 は ~~2393~~。PLAN-034 で `test_power_sim.py` が 93 件に。その135 は ~~2361~~ で、PLAN-037 I6〜I9 で増。その134 は ~~2283~~(PLAN-037 I1〜I5 で +123)。その133 は ~~2160~~(PLAN-038 で `test_repo_hygiene.py` が 65 件になった)。その118 は ~~2102~~。その116 は ~~2041~~(`test_pilot_ft_cmp_configs.py` の 61 件が増えた)・その110 は ~~1991~~・その107 は ~~1958~~。`test_sharpness_fit.py` が 97 → 130 → 180。その104 は ~~1903~~・その100 は ~~1810~~)。**件数の履歴(~~40~~ → … → ~~1759~~ → ~~1810~~)は `logs/STATE-ARCHIVE.md`「その70」「その77」「その86」「その89」「その90」「その98」「その100」「その104」「その107」にある**(ADR-063 運用規約6) | `code/tests/` |
 | **★段2 の診断(鋭さ)の経路がある**(2026-09-26 その104 = PLAN-032 I1〜I4。§8.1 R1〜R7 / ADR-107)。プール: `python -m code.data_gen.sweep_pool --config configs/exp_diag_pool.yaml --arm diag`(`eval.threshold_sweep.min_threshold` を宣言した腕だけ T < 1 の項目を作らず、除外を manifest・metrics.json・log.txt に残す。**R8・S は不変**)。run: `configs/exp_diag_{b,a,b_d,a_d}.yaml`(同じプールを 4 つの文面で解く)。判定表: `python -m code.analysis.sharpness_fit --runs "runs/*_exp_diag_*" --out-dir results/diag_sharpness`(R7 で止め、Δ₂・R3・R4(T1b と T3 に別々)・R5 を機械的に当て、R6 の記述の行を出す。**解釈はしない**)。**凍結 tag の前に GPU で回さない**。**★その107(ADR-108)**: R1 の前提・A の文面の置き換えも記録で照合して止まる / 区間は [−1, 1] で切り退化の印 / S1 に注記 / 例外は `SharpnessError`。**★その110(ADR-109)**: 4 本の run の `git_sha.txt` の sha の一致と `git_diff.patch` が無いか 0 バイトも照合して止まり、sha を判定表の先頭に出す / 組ごとの差の数と平均 = 点推定の検査。**★その116(ADR-110 決定1・3)**: `sharpness:` 欄のある run は追跡ファイルに差分があれば run dir を作る前・重みを読む前に止まる(`--dry-run` は掛けない)/ 判定表の 2 番目の鍵 `analysis`(解析側の commit と `git diff HEAD -- code/` が空か。表示だけ) | `code/data_gen/sweep_pool.py` / `code/artifacts.py` / `code/eval/run.py` / `code/analysis/sharpness_fit.py` / `test_diag_sharpness.py` / `test_sharpness_fit.py` / `plans/PLAN-032` §11 |
 
 | **評価ハーネスの本実行が通る**(2026-08-27。順1)。`python -m code.eval.run --config <cfg> [--run-dir <dir>]` が項目を読み・生成し・4値分解を出して `runs/<id>/` に成果物を書く。桁数掃引は `python -m code.eval.sweep`。**生成関数は差し替え可能で GPU の無い環境でテストが通る** | `code/eval/run.py`、`code/eval/sweep.py`、`code/tests/test_run_real.py`、`test_sweep.py` |
@@ -277,6 +278,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★F114 の実行先** ★新 | ~~どこで回すか~~ → **★2026-10-03(その138)決着: この機械(ADR-119 決定1)**。経緯は `logs/OPEN-ITEMS.md` の行 | 本実行の前 |
 | ~~**★F104-c の値**~~ **決着** | ~~`s2_item` の値~~ → **★2026-10-03(その139)ADR-121: `s2_item` = 2.0(推定を見た後に人間)/ `s2_tmpl` = 0.5。config に反映** | 次に索引を組み直すときに落とす |
 | ~~**★PLAN-040 の値**~~ **決着**(その142) | ~~`n_item` の格子・`sigma` の確認点・各段の `n_rep`・誤指定で「膨らむ」の閾値~~ → **ADR-123(5 問とも推奨)。値は PLAN-040 §11** | 次に索引を組み直すときに落とす |
+| **★検出力分析の本実行の起動** ★新(その144) | AC 電源・スリープ / 休止状態・Windows Update・`git status` の確認 / 起動の形と `--out-dir` / **段ごとに止まる**(`--through-stage 1` → 人間が見て 2 → 3)/ `results/power_sim/` を commit するか。**全文は `logs/OPEN-ITEMS.md`** | PLAN-040 付録 A | 本実行の前 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
 | **★`CLAUDE.md` を 200 行へ戻す** ★新(その127) | 216 行(§10.2 の上限 200 行)。§1 の「449行」も古い。全文は `logs/OPEN-ITEMS.md` の行 | ADR-113 決定2 | いつでも |
 | **★R8(Phase 2)の push と G2-1 承認** ★新(その125) | ADR-111 決定3。人間の操作 2 つ: `01cf60f` 以降の main の push と新しい G2-1 承認。経緯の全文は `logs/OPEN-ITEMS.md` の行 | ADR-111 / ADR-107 決定7 | 人間の都合 |
@@ -326,14 +328,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-04(その143・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-04(その144・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **IMPLEMENTER: PLAN-040 の I5(起動の手順を PLAN-040 付録 A に)・I7(`05_STATISTICS.md` §6.8 の差し替え。旧文は打ち消し線・日付・ADR)・全テストを最後まで**(その143 は 590 秒の上限で 71% まで・失敗 0)
-> 2. 人間の確認・AC 電源 → 本実行 `--through-stage 1`(切り離した起動。誤指定から。門が閉じれば終了コード 3 で止まり §3.2 の別 PLAN)→ 人間が見てから `--through-stage 2`
-> 3. **PLAN-037 の I10**(文書の注。人間の承認の後)
-> 4. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
-> 5. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / `glmer` の例外の規則 / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / **実際の `eval.cells`(PLAN-040 の材料の後)** → tag → S6
-> 6. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
+> 1. **人間の確認・AC 電源 → 本実行 `--through-stage 1`**(`plans/PLAN-040-power-axes-review.md` 付録 A。切り離した起動。誤指定から。門が閉じれば終了コード 3 で止まり §3.2 の別 PLAN)→ 人間が見てから `--through-stage 2`
+> 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / `glmer` の例外の規則 / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / **実際の `eval.cells`(PLAN-040 の材料の後)** → tag → S6
+> 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
 
 
 
@@ -342,10 +343,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-04(その143・最新)。IMPLEMENTER (Opus 5.5)。PLAN-040 I1〜I4・I6。**
+> **★★2026-10-04(その144・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-040 I5・I7。**
 >
-> **★やったこと**: 開始手順 → 判断材料の表 → `AskUserQuestion` 2 問(2 問とも推奨)→ 実装・テスト(`test_power_sim.py` 114 passed・`test_repo_hygiene.py` 68 passed)→ R のスモーク → commit `8e89666`。
-> **★やっていないこと**: I5・I7・全テストの残り 29%・本実行・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+> **★やったこと**: 開始手順 → 付録 A(I5)→ `05_STATISTICS.md` §6.8 の差し替え(I7)→ 全テスト(`-k 'not smoke'`): 2405 passed・11 deselected・失敗 0(820 秒。出力はファイルに) → CHANGELOG・STATE・OPEN-ITEMS・PLAN-040 のステータス → commit。
+> **★やっていないこと**: 本実行・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
 
 
 

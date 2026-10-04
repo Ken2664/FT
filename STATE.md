@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-04(その144)/ by IMPLEMENTER (Sonnet 5.5。推奨 Sonnet と一致)。**★PLAN-040 を実装済みにした**: I5(起動の手順 = `plans/PLAN-040-power-axes-review.md` 付録 A)・I7(`Documents/05_STATISTICS.md` §6 冒頭の注と §6.8 の差し替え。旧文は打ち消し線・日付・ADR-122/123)を書いた。全テスト `-k 'not smoke'`: 2405 passed・11 deselected・失敗 0(820 秒。出力はファイルに)。`--dry-run` を再確認(1 段目 全シート 11.6 / 19.3 時間・誤指定だけ 2.6 / 4.3 時間。推算)。**本実行は起動していない**・GPU 0・pod 0・tag・push なし
-(**次: 人間の確認・AC 電源 → 本実行 `--through-stage 1`(誤指定から。人間の端末 / 切り離し)→ 人間が見て `--through-stage 2` / PLAN-037 の I10 / S4・S5**。)
+最終更新: 2026-10-04(その146)/ by RUNNER 補助 (Sonnet 5.5。推奨 Sonnet と一致)。**★検出力分析の本実行を夜だけ(21:00〜06:00)回す起動・停止・登録スクリプトを書いた**(`infra/power_sim_night/`。commit `ba909a4`)。再開は付録 A.5 の「同じコマンド」に依る。`-DryRun` と構文検査まで確認(実際の起動・登録・06:00 の停止・スリープからの復帰は未確認)。**本実行は起動していない**・GPU 0・pod 0・tag・push なし
+(**次: 人間が AC 電源・スリープ / 休止・Windows Update を確認 → `register_tasks.ps1 -OutName run1 -ThroughStage 1` で登録 → 初日 21:00 を目で見る → 段が終わったら人間が見て `-ThroughStage 2` で登録し直す / PLAN-037 の I10 / S4・S5**。)
 
 
 ---
@@ -70,11 +70,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-04(その144・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-040 の I5・I7 を書き、PLAN-040 を実装済みにした。GPU 0・pod 0。本実行は起動していない**
-> - **I5**: `plans/PLAN-040-power-axes-review.md` 付録 A(起動前の確認の表・起動の 2 通り・進み具合の見方・終了コード 0 / 3 / それ以外・中断したら同じコマンド・次の段・費用の推算・やらないこと)
-> - **I7**: `Documents/05_STATISTICS.md` §6 冒頭の「64,000 本」の注に追記・§6.8 に「★2026-10-04 差し替え」の節(点の表 20 点・順・段 100 → 300 → 1000・門・報告量・費用。旧文は打ち消し線で残した)
-> - **この機械はいまバッテリー駆動(`BatteryStatus` = 1・24%)・DC スリープ 1 時間**。起動の前に AC 電源の確認が要る(付録 A.1)
-> - **★その143 のブロックは `logs/STATE-ARCHIVE.md`「その144」にある**
+> **★★2026-10-04(その146・最新)。Phase 0。RUNNER 補助 (Sonnet 5.5)。本実行を夜だけ回すスクリプトを書いた。GPU 0・pod 0。本実行は起動していない**
+> - **`infra/power_sim_night/`**: `start_night.ps1`(切り離して起動。済んだ段・門が閉じた・稼働中・バッテリー駆動・Rscript 残り・追跡ファイルの変更のときは起動しない)・`stop_night.ps1`(木ごと止める。R は `.tmp` + rename で書くので壊れた JSON は残らない)・`register_tasks.ps1`(21:00 / 06:00 を登録。`-Unregister`・`-DryRun`)
+> - **再開**は付録 A.5 の「同じコマンド」(`code/analysis/power_sim.py:1330` が既存の `fit_*.json` を飛ばす)。1 晩 9 時間として、1 段目の誤指定の門だけは 1 晩・全シートは 2〜3 晩・2 段目は 3〜5 晩・3 段目は 9〜15 晩(**推算。付録 A.7 を 9 時間で割っただけで実測ではない**)
+> - **★その144 のブロックは `logs/STATE-ARCHIVE.md`「その146」にある**
 
 
 
@@ -328,9 +327,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-04(その144・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-04(その146・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **人間の確認・AC 電源 → 本実行 `--through-stage 1`**(`plans/PLAN-040-power-axes-review.md` 付録 A。切り離した起動。誤指定から。門が閉じれば終了コード 3 で止まり §3.2 の別 PLAN)→ 人間が見てから `--through-stage 2`
+> 1. **人間の確認・AC 電源 → 夜の運用の登録 `infra/power_sim_night/register_tasks.ps1 -OutName run1 -ThroughStage 1`**(21:00 起動 / 06:00 停止。手順は CHANGELOG のその146・付録 A)→ 初日 21:00 に目で見る → 誤指定の門が閉じれば `stopped_at_gate` で止まり §3.2 の別 PLAN → 人間が見てから `-ThroughStage 2` で登録し直す
 > 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
 > 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
 > 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / `glmer` の例外の規則 / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / **実際の `eval.cells`(PLAN-040 の材料の後)** → tag → S6
@@ -343,10 +342,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-04(その144・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-040 I5・I7。**
+> **★★2026-10-04(その146・最新)。RUNNER 補助 (Sonnet 5.5。推奨と一致)。夜の運用スクリプト。**
 >
-> **★やったこと**: 開始手順 → 付録 A(I5)→ `05_STATISTICS.md` §6.8 の差し替え(I7)→ 全テスト(`-k 'not smoke'`): 2405 passed・11 deselected・失敗 0(820 秒。出力はファイルに) → CHANGELOG・STATE・OPEN-ITEMS・PLAN-040 のステータス → commit。
-> **★やっていないこと**: 本実行・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+> **★やったこと**: 夜だけ回す起動・停止・登録スクリプト(`infra/power_sim_night/`・commit `ba909a4`)→ CHANGELOG。`-DryRun` と構文検査まで。
+> **★やっていないこと**: 本実行の起動・タスクの登録・電源設定の変更・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
 
 
 

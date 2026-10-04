@@ -20,16 +20,22 @@
 
 人間の手順:
 1. AC 電源につなぐ・`powercfg /change standby-timeout-ac 0` と `powercfg /change hibernate-timeout-ac 0`・ふた閉じは AC で「何もしない」(バッテリーはスリープのまま)・Windows Update を一時停止・ログインしたままにする
-2. プレビュー: `powershell -ExecutionPolicy Bypass -File infra/power_sim_night/register_tasks.ps1 -OutName run1 -ThroughStage 1 -DryRun`
-3. 登録: 同じコマンドから `-DryRun` を外す(21:00 起動 / 06:00 停止の 2 タスク。削除は `-Unregister`)
+2. プレビュー: `powershell -ExecutionPolicy Bypass -File infra/power_sim_night/register_tasks.ps1 -OutName run1 -ThroughStage 1 -RLibs "C:\Users\keenk\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\R\win-library\4.6" -DryRun`
+3. 登録: 同じコマンドから `-DryRun` を外す(21:00 起動 / 06:00 停止の 2 タスク。削除は `-Unregister`)。**★`-RLibs` が要る**(下)
 4. **初日の 21:00 に目で見る**: `Get-Process Rscript` が 16 前後・`Get-Content results/power_sim/run1_night_stdout.txt -Tail 5` に `started pid ...`・`(Get-ChildItem results/power_sim/run1/*/fits/*.json).Count` が増える(1 段目の完了 = 2,000・誤指定だけ 600)
 5. 段が終わったら人間が `power_sim_summary.json` を見て、`-ThroughStage 2`(次は 3)で登録し直す。**門が閉じた(`stopped_at_gate` / 終了コード 3)ら回し直さない**(§3.2 の見直しの別 PLAN)
 
 推算(付録 A.7 を 9 時間で割っただけ。**実測ではない**): 1 段目の誤指定の門だけ 1 晩 / 全シート 2〜3 晩 / 2 段目 3〜5 晩 / 3 段目 9〜15 晩。
 
+### ★その146 で起きたこと: 最初の 21:00 の起動は `lme4` が無くて落ちた(0 反復)
+- 人間が登録済みだった(`PowerSimNightStart` / `PowerSimNightStop`)。21:00 にタスクが `start_night.ps1` を起動 → Python は起動したが、**Rscript が `there is no package called 'lme4'` で落ちた**(`results/power_sim/run1_20261004_210001_stderr.txt`・`fits/` は 0 件・`invocations.jsonl` に 1 行)
+- 原因(推定): この機械の R のユーザーライブラリは Claude アプリ内からだと `C:\Users\keenk\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\R\win-library\4.6` にあり、タスクスケジューラ(アプリの外)の R は `C:\Users\keenk\AppData\Local\R\win-library\4.6` を見て `lme4` を見つけられない。`R_LIBS` にそのパスを渡すと `requireNamespace('lme4')` は TRUE(アプリ内から確認。タスクの中の実際の環境は未確認)
+- 直した(`f69e8a8`): `start_night.ps1` に `-RLibs`(→ `R_LIBS`)と起動前の `lme4` 検査(見えなければ `REFUSED` で起動しない)・`register_tasks.ps1` に `-RLibs`。**`configs/power_sim.yaml` は変えていない**(`fit.r_libpath` は null のまま。config の写しと食い違わないので、同じ `--out-dir run1` で続けられる)
+- **登録のし直しが要る**(今の 2 タスクは `-RLibs` なしで登録されている)。**今夜の分は落ちた**(`-RLibs` 付きで登録し直すか、人間が手で `start_night.ps1 -OutName run1 -ThroughStage 1 -RLibs ...` を実行すれば今から回せる)
+
 ### 確かめたことと確かめていないこと
 - 確かめた: 3 本とも構文エラー 0・非 ASCII 0・CR 0。`-DryRun` で、起動はバッテリー駆動のため拒否(`BatteryStatus` = 1)・停止は「止めるものなし」・登録は内容を表示
-- **未確認**: 全チェックを通って実際に起動する経路・実際のタスク登録・06:00 の停止・スリープからの復帰・ふた閉じの既定の動作(`powercfg` で値が取れなかった)。**初日は必ず見る**
+- **未確認**: `-RLibs` を付けて実際に最後まで回る経路(`-DryRun` は通った。lme4 検査もその中)・登録のし直し・06:00 の停止・スリープからの復帰・ふた閉じの既定の動作(`powercfg` で値が取れなかった)。**初日は必ず見る**
 
 ## このセッションでやること(人間の指示が先。無ければ「進み具合の確認」)
 

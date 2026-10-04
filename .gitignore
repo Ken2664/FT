@@ -26,6 +26,14 @@ runs/*/*.pt
 # → 2026-09-24(その77)に人間が追認した(ADR-095 決定4)。
 runs/preflight/
 
+# --- 検出力分析の本実行(PLAN-040 付録 A) ---
+# 反復ごとの JSON(最終段で 20,000 枚)と切り離した起動のログは追跡しない。
+# summary・config.yaml・run_info.json・invocations.jsonl は追跡する(数値の出所 = run_id)。
+# 2026-10-04(その145)人間が「要約と記録だけ commit」を選んだ(推奨。OPEN-ITEMS)。
+results/power_sim/**/fits/
+results/power_sim/*_stdout.txt
+results/power_sim/*_stderr.txt
+
 # --- データ ---
 # data/raw/ は読み取り専用の外部データ。repo には入れない(CLAUDE.md §2)。
 data/raw/*

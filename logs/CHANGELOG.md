@@ -7768,3 +7768,11 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **見つけたこと**: この機械は**バッテリー駆動**(`BatteryStatus` = 1・24%)で、DC のスリープは 1 時間(0x0e10)・休止状態は DC 約 72 時間(0x3f480)。AC は両方無効。その143 の記録(「スリープは AC・DC とも無効」)とは DC のスリープが違う。**起動の前に AC 電源にするのは人間**(付録 A.1)
 - **やっていないこと**: 本実行・コードの変更・`configs/` の変更・ADR・push・tag・GPU・pod。電源設定・Windows Update の設定の変更(人間)
 - **未解決(人間)**: 本実行の起動と確認(`logs/OPEN-ITEMS.md`)/ `results/power_sim/` を commit するか / HANDOFF の未解決の節のとおり
+
+## 2026-10-04(その145): 検出力分析の本実行の起動の形と commit の範囲を人間が決めた   [actor: RUNNER 補助 (Sonnet 5.5)]
+- **役割**: X(RUNNER 補助)。実モデル Sonnet 5.5 は HANDOFF の推奨(X なら Sonnet)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本・Rscript / python は動いていない・`results/power_sim/` は無い)。GPU 0・pod 0
+- **人間の指示**: 「logs/HANDOFF.md を読んで、その指示どおりに作業を始めてください。私が決めるべき内容については…」→ HANDOFF の「人間が決める・やること」2・4
+- **やったこと**: 判断材料の表を先に示し(ADR-097 決定6)、`AskUserQuestion` 2 問。**2 問とも推奨**: 起動の形 = 切り離して起動(`Start-Process`)/ commit の範囲 = 要約と記録だけ。`.gitignore` に `results/power_sim/**/fits/`・`results/power_sim/*_stdout.txt`・`*_stderr.txt` を追加(`git check-ignore` で `fits/` とログが無視・`power_sim_summary.json` は無視されないことを確認)/ `logs/OPEN-ITEMS.md` の行と PLAN-040 付録 A.8 を更新
+- **見つけたこと**: この機械は**バッテリー駆動 19%**(`BatteryStatus` = 1。その144 の 24% から減った)。付録 A.1 の 1 を満たさないので、起動できない(人間が AC 電源にする)。Windows Update のサービスは Stopped / Manual(一時停止の設定そのものは未確認。人間が設定で)
+- **やっていないこと**: 本実行の起動・`configs/`・`code/` の変更・ADR・push・tag・GPU・pod・電源設定の変更
+- **未解決(人間)**: AC 電源にする・Windows Update の一時停止・起動(付録 A.2)/ HANDOFF の未解決の節のとおり

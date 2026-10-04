@@ -281,4 +281,4 @@ python -c "import json;d=json.load(open('results/power_sim/run1/power_sim_summar
 - 起動中に `configs/power_sim.yaml`・`code/analysis/power_sim*`・`power_sim_fit.R` を編集しない(別の表が混ざる。config は run の最初に写される)
 - 電源設定・Windows Update の設定をエージェントが変えない(人間が設定で)
 - 結果(`results/power_sim/`)を見て格子・閾値・分位点・`s2_*` を直さない / `sigma*` や `n_item_range` を論文・事前登録の本文に書かない(仮定値からの値。§7 罠6)
-- **`results/power_sim/` を commit するかは未決**(`.gitignore` に入っていない。JSON が最終段で 20,000 枚。`summary` と `config.yaml`・`run_info.json` だけを commit する案が自然だが、決めるのは人間)
+- ~~**`results/power_sim/` を commit するかは未決**(`.gitignore` に入っていない。JSON が最終段で 20,000 枚。`summary` と `config.yaml`・`run_info.json` だけを commit する案が自然だが、決めるのは人間)~~ → **★2026-10-04 その145 に人間が「要約と記録だけ commit」(推奨)を選んだ**。`.gitignore` に `results/power_sim/**/fits/` と `results/power_sim/*_stdout.txt`・`*_stderr.txt` を入れた(commit するのは `*summary.json`・`config.yaml`・`run_info.json`・`invocations.jsonl`)。起動の形は **A.2 の切り離し(`Start-Process`)**

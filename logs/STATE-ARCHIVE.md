@@ -18,6 +18,40 @@
 
 ---
 
+## ★2026-10-05(その150)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭の最終更新(その149)
+
+最終更新: 2026-10-05(その149)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★誤指定の門が閉じた結果の解釈(案)と改良案を `plans/PLAN-041-primary-random-structure-review.md`(草案。D1〜D6 は人間未回答)に書いた**。文献は SCOUT 41 件(`logs/SCOUT-2026-10-05-glmm-misspec.md`・`logs/papers_list-2026-10-05-glmm-misspec.md`。**全件 未検証**)。門の判定(閉じた)[run:20261004_120002_power_sim_t1t2] は変えていない。GPU 0・pod 0・push・tag なし
+(**次: 人間が PLAN-041 の D1〜D6 に回答(推奨 = D1 (a) `+ (1 | seed:task:coverage)` / D2 (a) item を落とさない / D3 (a) / D4 (a) 循環を避ける誤指定を 1 枚 / D5 (a) / D6 (a))→ ADR → 実装。回し直さない。夜用タスク 2 本の扱いも人間 / PLAN-037 の I10 / S4・S5**。)
+
+
+### いま何をしているか(その149)
+
+> **★★2026-10-05(その149・最新)。Phase 0。PLANNER (Opus 5.5)。門が閉じた結果の解釈(案)と §3.2 の改良案の PLAN 草案。GPU 0・pod 0。決定はしていない**
+> - **PLAN-041(草案)**: 読み(案)= 機構 (a) §3.2 に seed × task × coverage の項が無い(`tau` ≥ 0.5 の膨らみは算術の近似でおおむね説明できる大きさ)/ 機構 (b) 縮退の最後の段が item を落とす(`tau` 0 の 10/100 はほぼここから)。D1〜D6 が人間の決めること(§4 の表に推奨と理由)
+> - **文献**: SCOUT 41 件(C1〜C5)。全件 未検証。C4(少数クラスタの LRT)の直接の根拠はガウスの LMM だけ / LLM の LoRA でシード × 条件の変動を測った文献は無かった
+> - **★その148 のブロックは `logs/STATE-ARCHIVE.md`「その149」にある**
+
+### 次のアクション(その149)
+
+> **★★2026-10-05(その149・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: PLAN-041 の D1〜D6 に回答する**(草案 §4 の表。推奨付き)→ ADR(提案 エージェント / 採択 人間)→ IMPLEMENTER が I1〜I7 → 人間が新しい `--out-dir` で 1 段目を起動。**run1 は回し直さない**。夜用タスク `PowerSimNightStart` / `PowerSimNightStop` の扱いも人間(推奨 = `-Unregister`)。SCOUT の 41 件の原典確認も人間
+> 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / `glmer` の例外の規則 / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / **実際の `eval.cells`(PLAN-040 の材料の後)** → tag → S6
+> 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
+
+### 引き継ぎ(その149)
+
+> **★★2026-10-05(その149・最新)。PLANNER (Opus 5.5。推奨と一致)。§3.2 の見直しの PLAN 草案。**
+>
+> **★やったこと**: 開始手順 → SCOUT サブエージェントに文献 5 主張 × 5 件以上を依頼(41 件・未検証)→ `plans/PLAN-041-primary-random-structure-review.md` 草案(解釈の案・D1〜D6・判断材料・実装の手順)。
+> **★やっていないこと**: 人間への D1〜D6 の聴取(コンテキスト超過で次セッションへ)・ADR・`05_STATISTICS.md`・`code/`・`configs/` の変更・回し直し・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
+---
+
 ## ★2026-10-05(その149)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### 冒頭の最終更新(その148)

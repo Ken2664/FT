@@ -7832,3 +7832,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **推奨(未決)**: D1 (a) `+ (1 | seed:task:coverage)` / D2 (a) item を落とさず、床でも失敗なら「当てはめ失敗」/ D3 (a) LRT のまま・実データでパラメトリック・ブートストラップを感度分析 / D4 (a) 新しい当てはめが持たない形の誤指定を 1 枚(循環を避ける)/ D5 (a) 各段の判定を記録 / D6 (a) P1 に `tau` の確認点
 - **やっていないこと**: D1〜D6 の聴取(コンテキスト超過)・ADR・`Documents/`・`code/`・`configs/` の変更・回し直し・タスクの削除・push・tag・GPU・pod
 - 引き継ぎ: hook `context-guard` が約 187k で警告 → skill `handoff`。STATE.md の 4 ブロックを `logs/STATE-ARCHIVE.md`「その149」へ移した / OPEN-ITEMS の門の行に一言 / HANDOFF を上書き
+
+## 2026-10-05(その150): PLAN-041 の D1〜D6 を人間が回答し ADR-124 を書いた   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「logs/HANDOFF.md を読んで、その指示どおりに作業を始めてください」
+- **やったこと**: 読み(案)と D1〜D6 の表(推奨と理由)をチャットで示した(ADR-097 決定6)→ 聴取の前に**草案の穴を 2 つ**指摘(D2 の理由「相関を先に落とす」と順序の食い違い / D4 の例「seed × task の相関」は交互作用の対比で打ち消され、今のシートより易しい)→ `AskUserQuestion` 4 問(D1・D2・D2'・D3)+ 4 問(D4・D4 の値・D5・D6)→ **D4 の大きさの揃え方で門の結果がほぼ決まることに気づき**、近似(`V0` = 0.145・モンテカルロ 200 万。仮定値からの算術)を示して諮り直した((i) セルあたりの平均分散 = `tau²` → 0.101 / 0.188・(ii) 部分空間の分散を今のシートと揃える → 0.059 / 0.080)→ `glmer` の例外の規則 1 問 → run1 の未追跡ファイル 1 問
+- **人間の回答(すべて推奨)**: D1 `+ (1 | seed:task:coverage)` / D2 template → 傾きの相関 → 傾き → 床(item と新しい項は落とさない)/ D2' 床の失敗は不利な側に数える / D3 LRT のまま・実データでパラメトリック・ブートストラップを感度分析 / D4 シード固有の交互作用のシート・`tau` 相当 {0.25, 0.5}・**(ii) で判定し (i) は記録だけ** / D5 各段を記録・閾値不変 / D6 P1 に `tau` 0.5 の 1 点 / 例外は D2' と揃える / 未追跡 3 種とも commit
+- **書き換えたもの**: `plans/PLAN-041-primary-random-structure-review.md`(ステータス = 採択・§4.1・§5.4・§6 を I1〜I8 に書き直し(旧は打ち消し線)・§9・§10)/ `logs/DECISIONS.md`(ADR-124)/ `logs/OPEN-ITEMS.md`(門の後の行・`glmer` の例外の行を決着)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その150」)/ `logs/HANDOFF.md` / `results/power_sim/run1/`(`git_sha.txt`・`config_resolved.json`・`misspecification/manifest_*` 96 本を commit)
+- **エージェントの補い(人間の確認待ち。ADR-124)**: 足すシートの `sigma` = `tau` / 門は今のシートと (ii) の両方に掛ける / 誤指定 3 枚は門の判定の前に全部回す
+- **やっていないこと**: 実装(I1〜I8)・`Documents/`・`code/`・`configs/` の変更・回し直し・夜用タスクの削除・push・tag・GPU・pod

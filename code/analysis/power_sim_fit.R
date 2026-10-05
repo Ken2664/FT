@@ -4,11 +4,11 @@
 # `fit_full` / `fit_add` の対を ADR-059 の縮退カスケードごと当てると、
 # LRT(df = 2。T1 x T2。ADR-112)の p 値と、縮退が発火したかどうかは何になるか」
 # ★ADR-114 決定5: 平行性の TOST のために、`fit_full` の交互作用の係数(`task:coverage`。処理対比・
-# 基準 = タスク型の最初の水準 x 被覆の `id`)の推定値と Wald SE も出す。**ランダム構造と LRT は変えない。**
+# 基準 = タスク型の最初の水準 x 被覆の `id`)の推定値と Wald SE も出す。**LRT は変えない**(ランダム構造は ADR-124 で改めた)。
 #
 # **§3.2 の R コードがそのまま実行物になる**ことが ADR-058 決定1 の採択理由の 1 つである。
-# したがって下の RANDOM_BY_LEVEL の level 0 は §3.2 の式をそのまま写している。
-# 書き換えるときは §3.2 と ADR-064 決定4 / ADR-066 決定1 を先に読むこと。
+# したがって下の `random_by_level` の level 0 は §3.2 の式をそのまま写している。
+# 書き換えるときは §3.2 と ADR-064 決定4 / ADR-066 決定1 / ADR-124 を先に読むこと。
 #
 # 呼ばれ方(引数は位置で渡す。code/analysis/power_sim.py が組み立てる):
 #   Rscript power_sim_fit.R <libpath|""> <manifest>
@@ -27,18 +27,36 @@ if (nzchar(libpath)) .libPaths(c(libpath, .libPaths()))
 suppressPackageStartupMessages(library(lme4))
 
 # ---- Documents/05_STATISTICS.md §3.2 のモデル指定(そのまま写す)-----------
-# 縮退順序は ADR-065 決定2: template -> coverage のランダム傾き -> item。
+# ★2026-10-05(PLAN-041 I1 / ADR-124 決定1・2): 新しい項 `(1 | seed:task:coverage)` を足し、縮退順序を
+# template -> coverage の傾きの相関 -> coverage の傾き(= 床)に改めた。**item と seed:task:coverage は
+# どの水準でも落とさない**(落とすと検定の意味が変わる項。ADR-124 D2)。旧: template -> 傾き -> item(ADR-065 決定2)。
 # level 0 が §3.2 そのもの。level が上がるほど落としたものが増える。
-RANDOM_BY_LEVEL <- c(
-  "(0 + coverage | seed) + (1 | item) + (1 | template)",
-  "(0 + coverage | seed) + (1 | item)",
-  "(1 | seed) + (1 | item)",
-  "(1 | seed)"
-)
-REDUCTION_LABEL <- c("none", "drop_template", "drop_coverage_slope", "drop_item")
+#
+# level 2 の「傾きの相関を落とす」= `(0 + coverage | seed)` を被覆の水準ごとの独立な分散 3 つにする(相関 0)。
+# **lme4 の `||` は因子に掛けると相関を落とさないことがある**ので、被覆の指示変数(0/1 の数値列)を
+# 表に足して、`(0 + cov_<水準> | seed)` を水準の数だけ並べる(`random_by_level`)。
+NEW_TERM <- "(1 | seed:task:coverage)"
+LEVEL_LABEL <- c("none", "drop_template", "drop_coverage_corr", "drop_coverage_slope")
+REDUCTION_LABEL <- LEVEL_LABEL
 
-formula_at <- function(level, fixed) {
-  as.formula(paste("is_rule ~", fixed, "+", RANDOM_BY_LEVEL[[level + 1L]]))
+# 答える問い: 被覆の水準ごとの指示変数の列名は何か(表に足す列と式の項の名前を一致させる)。
+indicator_name <- function(cov_level) paste0("cov_", cov_level)
+
+# 答える問い: この水準のランダム構造の式(右辺)は何か。
+random_by_level <- function(level, cov_levels) {
+  independent_slopes <- paste(
+    sprintf("(0 + %s | seed)", vapply(cov_levels, indicator_name, character(1))),
+    collapse = " + ")
+  switch(level + 1L,
+    paste("(0 + coverage | seed) + (1 | item) + (1 | template)", "+", NEW_TERM),
+    paste("(0 + coverage | seed) + (1 | item)", "+", NEW_TERM),
+    paste(independent_slopes, "+ (1 | item)", "+", NEW_TERM),
+    paste("(1 | seed) + (1 | item)", "+", NEW_TERM),
+    stop(sprintf("未知の縮退水準 %d", level)))
+}
+
+formula_at <- function(level, fixed, cov_levels) {
+  as.formula(paste("is_rule ~", fixed, "+", random_by_level(level, cov_levels)))
 }
 
 # ---- 平文 manifest ---------------------------------------------------------
@@ -62,7 +80,8 @@ vals_for <- function(lines, key) {
 # Windows でも LF になるようバイナリ接続で書く。
 
 jstr <- function(x) {
-  x <- gsub("\\\\", "/", as.character(x))
+  x <- iconv(as.character(x), to = "ASCII", sub = "?")   # 例外の文面は ASCII で残す(python 側が ascii で読む)
+  x <- gsub("\\\\", "/", x)
   x <- gsub("\"", "'", x)
   paste0("\"", gsub("[[:space:]]+", " ", x), "\"")
 }
@@ -96,13 +115,12 @@ non_singular_messages <- function(fit) {
   msgs[!grepl("singular", msgs, ignore.case = TRUE)]
 }
 
-# ★ADR-059 は警告(収束しない)だけを縮退の引き金にしている。**`glmer` が例外で落ちる場合
-# (`Downdated VtV is not positive definite` など)は書かれていない**(2026-10-02。PLAN-034 I7 の
-# スモークで、誤指定のシートの小さな表で観測した)。落ちたまま R を止めると、同じ表を決定的に
-# 当て直すだけの再開でも同じ所で止まる。**暫定の扱い: 例外も「収束しなかった」と同じ
-# 引き金とし(= 縮退へ進む)、数と最初の文面を出力に残す(黙って数えない)。**
-# 最後の水準でも落ちたら p 値は null になり、集計側(power_sim.py)が止まる。
-# ★この扱いは人間の確認待ち(`logs/OPEN-ITEMS.md`)。ADR-059 の追記が要るかもしれない。
+# ★ADR-059 は警告(収束しない)だけを縮退の引き金にしていた。**`glmer` が例外で落ちる場合
+# (`Downdated VtV is not positive definite` など)は書かれていなかった**(2026-10-02。PLAN-034 I7 の
+# スモークで、誤指定のシートの小さな表で観測した)。
+# ★2026-10-05(ADR-124 例外の規則): **例外も「収束しなかった」と同じ縮退の引き金にする。床でも例外なら
+# 「当てはめ失敗」(`fit_failed`。p 値なし)**とし、数と最初の文面を出力に残す(黙って数えない)。
+# 失敗をどちら側に数えるかは集計側(power_sim.py。シートの役割で不利な側)が決める。
 errored_result <- function(e) {
   list(fit0 = NULL, refit = NULL, refit_done = FALSE, failed = TRUE, errored = TRUE,
        error_message = conditionMessage(e),
@@ -162,20 +180,44 @@ interaction_coefficients <- function(fit, d) {
   fields
 }
 
+# ---- 縮退の各段の記録(PLAN-041 I3 / ADR-124 D5)-----------------------------
+
+# 答える問い: この段のこの当てはめ(full / add)の判定は何だったか。JSON の 1 要素(1 行)にする。
+# 閾値は変えず、判定の中身(singular・警告数・logLik の改善・可動量・例外)を残すだけである。
+level_record <- function(level, which, res) {
+  paste0(
+    "    {", paste(c(
+      paste0("\"level\": ", jnum(level)),
+      paste0("\"label\": ", jstr(LEVEL_LABEL[[level + 1L]])),
+      paste0("\"which\": ", jstr(which)),
+      paste0("\"failed\": ", jbool(res$failed)),
+      paste0("\"refit_done\": ", jbool(res$refit_done)),
+      paste0("\"singular\": ", jbool(res$singular)),
+      paste0("\"n_warnings\": ", jnum(res$n_msgs)),
+      paste0("\"loglik_gain\": ", jnum(res$loglik_gain)),
+      paste0("\"max_shift\": ", jnum(res$beta_move)),
+      paste0("\"error\": ", jstr(if (res$errored) res$error_message else ""))
+    ), collapse = ", "), "}")
+}
+
 # ---- 1 枚の表 --------------------------------------------------------------
 
 run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_refit) {
   d <- read.csv(csv_path, stringsAsFactors = TRUE)
   d$coverage <- relevel(d$coverage, ref = "id")   # §3.2: id を基準とする treatment coding
+  cov_levels <- levels(d$coverage)
+  for (cl in cov_levels) d[[indicator_name(cl)]] <- as.numeric(d$coverage == cl)
 
   level <- 0L
   n_errored <- 0L          # 例外で落ちた当てはめの数(全水準の合計)
   first_error <- ""        # 最初の例外の文面
+  records <- character(0)  # 段ごと・full/add ごとの判定(D5)
   repeat {
     # ★判定はペア単位である(ADR-059 の付帯条件)。片方だけ縮退させると
     # ランダム構造が食い違い、df = 2 の LRT が §3.2 の検定でなくなる。
-    res_full <- judge_one(formula_at(level, "task * coverage"), d, loglik_tol, beta_tol)
-    res_add <- judge_one(formula_at(level, "task + coverage"), d, loglik_tol, beta_tol)
+    res_full <- judge_one(formula_at(level, "task * coverage", cov_levels), d, loglik_tol, beta_tol)
+    res_add <- judge_one(formula_at(level, "task + coverage", cov_levels), d, loglik_tol, beta_tol)
+    records <- c(records, level_record(level, "full", res_full), level_record(level, "add", res_add))
     for (res in list(res_full, res_add)) {
       if (res$errored) {
         n_errored <- n_errored + 1L
@@ -186,16 +228,19 @@ run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_ref
     level <- level + 1L
   }
 
+  # ★床(level = max_level)でも収束しない、または例外で落ちた表は「当てはめ失敗」(ADR-124 D2')。
+  # p 値は出さない(null)。**失敗を棄却に数えるか非棄却に数えるかは集計側が決める**。
+  # `failed` は収束しなかった場合と例外の場合の両方で TRUE である(`judge_one` / `errored_result`)。
+  fit_failed <- res_full$failed || res_add$failed
+
   # ★当て直した場合にどちらを LRT に入れるかを ADR-059 は明示していない(仕様の穴)。
   # 既定は当て直したほう —— 最適解から始めた分だけ収束しており、手続きが
   # 「当て直す」で終わっている以上そちらが最終的な当てはめだからである。
   # 検査3 の F62 ではこの選択が Chisq を動かす量は中央値 5.9e-05 であった。
   # config で切り替えられるのは、人間が別の解釈を採れるようにするためである。
   pick <- function(res) if (res$refit_done && use_refit) res$refit else res$fit0
-  # 最後の水準でも例外で落ちた場合は LRT を作れない。p 値は null で出し、集計側が止まる
-  errored_final <- res_full$errored || res_add$errored
-  an <- if (errored_final) NULL else anova(pick(res_add), pick(res_full), test = "LRT")
-  interaction_fields <- if (errored_final) character(0) else interaction_coefficients(pick(res_full), d)
+  an <- if (fit_failed) NULL else anova(pick(res_add), pick(res_full), test = "LRT")
+  interaction_fields <- if (fit_failed) character(0) else interaction_coefficients(pick(res_full), d)
   lrt_field <- function(col, fmt) {
     if (is.null(an)) "null" else jnum(an[[col]][2], fmt)
   }
@@ -211,6 +256,7 @@ run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_ref
     kv("reduction_level", jnum(level)),
     kv("reduction_label", jstr(REDUCTION_LABEL[[level + 1L]])),
     kv("reduced", jbool(level > 0L)),
+    kv("fit_failed", jbool(fit_failed)),
     kv("n_errored_fits", jnum(n_errored)),
     kv("first_error", jstr(first_error)),
     kv("chisq", lrt_field("Chisq", "%.10g")),
@@ -234,6 +280,7 @@ run_one <- function(csv_path, out_path, loglik_tol, beta_tol, max_level, use_ref
          if (res$errored) "null" else jnum(attr(logLik(pick(res)), "df")))
     )
   }
+  fields <- c(fields, kv("levels", paste0("[\n", paste(records, collapse = ",\n"), "\n  ]")))
   write_json(fields, out_path)
 }
 

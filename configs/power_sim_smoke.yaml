@@ -9,6 +9,7 @@
 # ★2026-10-02(PLAN-034 I1 / ADR-114)に、configs/power_sim.yaml と同じ形(T1 x T2・df = 2・4 シート)へ
 # 追随した。effect ブロックは本物と同一でなければならない(test_power_sim.py が固定する)。
 # ★2026-10-04(PLAN-040 I1)に点の明示・誤指定が先頭・段・門・報告の軸へ追随した(値は smoke のみ)。
+# ★2026-10-05(PLAN-041 I5 / ADR-124)に誤指定 3 枚・p1_tau・縮退順序・門のシートのリストへ追随した(値は smoke のみ)。
 #
 # ★ここの n_item / s2_item / s2_tmpl は「決まった値」ではない。**配線確認に値が要るので
 # 置いてあるだけ**である。本物は configs/power_sim.yaml にあり、s2_item・s2_tmpl は null で止まる
@@ -60,7 +61,7 @@ dgp:
     T1: [t1]
     T2: [t2_count, t2_people, t2_distance, t2_money, t2_time]
 
-# 本物と同じ 4 シート(格子は smoke の dgp の範囲。p1_neg の部分集合は本物と同じ)
+# 本物と同じ 7 シート(格子は smoke の dgp の範囲。p1_neg の部分集合は本物と同じ)
 sheets:              # ★smoke のみ。順(誤指定が先頭)と役割は本番と同じ。点は本番ではない
   - id: misspecification
     role: misspecification
@@ -68,6 +69,20 @@ sheets:              # ★smoke のみ。順(誤指定が先頭)と役割は本�
     tau: equals_sigma
     points:
       - [2, 0.0, 0.0]
+      - [2, 1.0, 0.0]
+  - id: misspecification_seed_subspace
+    role: misspecification
+    profile: P0
+    tau: equals_sigma
+    seed_interaction: {direction: P1, scale: subspace}
+    points:
+      - [2, 1.0, 0.0]
+  - id: misspecification_seed_per_cell
+    role: misspecification
+    profile: P0
+    tau: equals_sigma
+    seed_interaction: {direction: P1, scale: per_cell}
+    points:
       - [2, 1.0, 0.0]
   - id: p1
     role: power
@@ -77,6 +92,12 @@ sheets:              # ★smoke のみ。順(誤指定が先頭)と役割は本�
       - [2, 0.0, 0.0]
       - [2, 1.0, 0.0]
       - [3, 1.0, 0.0]
+  - id: p1_tau
+    role: power
+    profile: P1
+    tau: 0.5
+    points:
+      - [2, 1.0, 0.0]
   - id: p1_neg
     role: shape_check
     profile: P1_neg
@@ -106,7 +127,7 @@ simulation:
   rng_seed: 20260909
   tost_alpha: 0.05
   misspecification_gate:
-    sheet: misspecification
+    sheets: [misspecification, misspecification_seed_subspace]
     tau: [1.0]           # ★smoke のみ。ADR-123 決定6 の {0.25, 0.5} ではない
     ci_level: 0.95
     lower_bound_above: 0.075
@@ -120,4 +141,4 @@ fit:
     loglik_tolerance: 0.001
     beta_move_tolerance: 0.01
     use_refit_for_lrt: true
-  reduction_order: [template, coverage_slope, item]
+  reduction_order: [template, coverage_corr, coverage_slope]

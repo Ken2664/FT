@@ -114,23 +114,26 @@ def test_run_stops_while_s2_is_undecided(tmp_path: Path) -> None:
 def test_dry_run_works_even_while_undecided() -> None:
     """★格子と当てはめ本数は未決のままでも出る(コストを先に見るため)。
 
-    ~~4 シート 32 点 x 1000 反復 x 2 = 64,000 本~~ → ★ADR-123: 誤指定 6 + P1 6 + P1⁻ 2 + P0 6 = 20 点。
-    最終段 1000 反復で 20 x 1000 x 2 = 40,000 本(20,000 ペア)。
+    ~~4 シート 32 点 x 1000 反復 x 2 = 64,000 本~~ → ★ADR-123: 誤指定 6 + P1 6 + P1⁻ 2 + P0 6 = 20 点 → 40,000 本
+    → ★ADR-124(PLAN-041 I5): 誤指定 6 + (ii) 2 + (i) 2 + P1 6 + p1_tau 1 + P1⁻ 2 + P0 6 = 25 点。
+    最終段 1000 反復で 25 x 1000 x 2 = 50,000 本(25,000 ペア)。
     """
     lines = power_sim.describe_plan(undecided_main_config())
     text = "\n".join(lines)
-    assert "40000" in text, "40,000 本(20 x 1000 x 2)が出ていない"
+    assert "50000" in text, "50,000 本(25 x 1000 x 2)が出ていない"
     assert "UNDECIDED" in text
     assert text.isascii(), "この環境の stdout は cp932 である"
 
 
-def test_reduction_order_matches_adr_065() -> None:
-    """縮退順序は template -> coverage のランダム傾き -> item(ADR-065 決定2)。"""
-    assert load(MAIN_CONFIG)["fit"]["reduction_order"] == [
-        "template",
-        "coverage_slope",
-        "item",
-    ]
+def test_reduction_order_matches_adr_124() -> None:
+    """縮退順序は template -> 傾きの相関 -> 傾き(= 床)。item と seed:task:coverage は落とさない(ADR-124 D2)。
+
+    ~~template -> coverage のランダム傾き -> item(ADR-065 決定2)~~(2026-10-05 に改めた)。
+    段の数 3 = `max_reduction_level`(床は水準 3)。
+    """
+    order = ["template", "coverage_corr", "coverage_slope"]
+    assert load(MAIN_CONFIG)["fit"]["reduction_order"] == order
+    assert load(SMOKE_CONFIG)["fit"]["reduction_order"] == order
 
 
 # --------------------------------------------------------------------------
@@ -662,36 +665,46 @@ def test_cost_line_scales_the_measured_seconds_per_pair_by_rows() -> None:
     text = "\n".join(lines)
     assert "ESTIMATED" in text and "MEASURED" not in text
     # ADR-123 文脈2 の推算(16 並列): 1 段目 ≈ 12 / 19 時間・誤指定だけ ≈ 2.6 / 4.3 時間
+    # → ★ADR-124: 誤指定の 3 枚(6 + 2 + 2 点)・p1_tau(1 点)を足した算術で 1 段目 ≈ 13.8 / 22.9 時間・
+    #   誤指定の 3 枚だけ ≈ 4.3 / 7.2 時間(**新しい項の当てはめ時間は未実測。行数比例のまま**)
     stage1 = next(line for line in lines if line.strip().startswith("stage 1:"))
-    assert "all sheets 11.6 / 19.3" in stage1
-    assert "first sheet only (misspecification) 2.6 / 4.3" in stage1
-    # 段の累積(100 → 300 → 1000)の合計は ≈ 116 / 193 時間
+    assert "all sheets 13.8 / 22.9" in stage1
+    assert "misspecification sheets only (3 sheets) 4.3 / 7.2" in stage1
+    # 段の累積(100 → 300 → 1000)の合計は ≈ 138 / 229 時間
     totals = [0.0, 0.0]
     for line in lines:
         if line.strip().startswith("stage "):
             bench, check = line.split("all sheets ")[1].split(",")[0].split(" / ")
             totals[0] += float(bench)
             totals[1] += float(check)
-    assert totals == pytest.approx([116.2, 193.4], abs=0.2)
+    assert totals == pytest.approx([137.8, 229.2], abs=0.3)
 
 
 def test_fit_script_keeps_the_preregistered_random_structure() -> None:
-    """★当てはめ側の level 0 が §3.2 のランダム構造そのものである。
+    """★当てはめ側の level 0 が §3.2 のランダム構造そのものである(ADR-124 の新しい式)。
 
     答える問い: 「シミュレーションが当てているのは、事前登録した検定か」——
     ★F110 が指した食い違い(DGP は合っているのに当てはめが `(1|seed)`)を
     回帰テストで塞ぐ。ここが崩れると「実際には回さない検定の検出力」になる。
     """
     text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
-    assert "(0 + coverage | seed) + (1 | item) + (1 | template)" in text
+    assert '"(0 + coverage | seed) + (1 | item) + (1 | template)"' in text
+    assert 'NEW_TERM <- "(1 | seed:task:coverage)"' in text
     assert "task * coverage" in text and "task + coverage" in text
-    # ★誤指定のシート(D7)は当てはめ側を変えない: seed × タスク型 × 被覆の項は当てはめに入らない
+    # ★誤指定のシート(D7)は当てはめ側を変えない: DGP の誤指定の大きさ `tau` は当てはめに入らない
     assert "tau" not in text
-    # 縮退は §3.2 の順序で並んでいる: template -> coverage の傾き -> item。
+    # 縮退は ADR-124 D2 の順序で並んでいる: template -> 傾きの相関 -> 傾き(床)。item は落とさない
     drop_template = text.index('"(0 + coverage | seed) + (1 | item)"')
+    drop_corr = text.index('independent_slopes, "+ (1 | item)"')
     drop_slope = text.index('"(1 | seed) + (1 | item)"')
-    drop_item = text.index('"(1 | seed)"\n')
-    assert drop_template < drop_slope < drop_item
+    assert drop_template < drop_corr < drop_slope
+    assert 'c("none", "drop_template", "drop_coverage_corr", "drop_coverage_slope")' in text
+    # `||` は因子に掛けると相関を落とさないことがある(PLAN-041 I1)ので、指示変数の列に展開する
+    level_formulas = text[text.index("random_by_level <- function"):text.index("formula_at <- function")]
+    assert "||" not in level_formulas, "式に `||` を使わない(ダミー列に展開する)"
+    assert "indicator_name" in text
+    # item と seed:task:coverage はどの水準にも残る(落とさない。ADR-124 D2)
+    assert level_formulas.count("(1 | item)") == 4 and level_formulas.count("NEW_TERM") == 4
     # singular は単独では引き金にしない / 判定は isSingular() を直接呼ぶ(F56)。
     assert "isSingular(" in text
     assert "non_singular_messages" in text
@@ -719,6 +732,7 @@ def fit_result(p_value: float | None, **overrides: Any) -> dict[str, Any]:
         "add_refit_done": False,
         "n_errored_fits": 0,
         "first_error": "",
+        "fit_failed": False,
         # 平行性の TOST の入力(`power_sim_fit.R` の `interaction_coefficients`)
         "interaction_interp_est": 0.0,
         "interaction_interp_se": 0.1,
@@ -734,7 +748,7 @@ KEY = power_sim.PointKey(n_item=80, sigma=0.5, rho=0.0)
 
 def test_power_is_the_share_below_alpha() -> None:
     results = [fit_result(0.01), fit_result(0.2), fit_result(0.04), fit_result(0.9)]
-    point = power_sim.summarise_point(KEY, results, 0.05)
+    point = power_sim.summarise_point(KEY, results, 0.05, failure_as_reject=True)
     assert point.power == pytest.approx(0.5)
     assert point.n_rep == 4
     assert point.n_reject == 2            # 門の区間に使う分子。割合から逆算しない
@@ -752,7 +766,9 @@ def test_degeneracy_rate_is_reported() -> None:
         fit_result(0.01, reduced=True, full_singular=True, add_refit_done=True),
         fit_result(0.20),
     ]
-    point = power_sim.summarise_point(power_sim.PointKey(80, 1.0, 1.0), results, 0.05)
+    point = power_sim.summarise_point(
+        power_sim.PointKey(80, 1.0, 1.0), results, 0.05, failure_as_reject=True
+    )
     assert point.reduced_rate == pytest.approx(0.5)
     assert point.singular_rate == pytest.approx(0.5)
     assert point.refit_rate == pytest.approx(0.5)
@@ -761,12 +777,12 @@ def test_degeneracy_rate_is_reported() -> None:
 def test_a_null_p_value_stops_the_summary() -> None:
     """★p 値が null の反復を黙って捨てない(`CLAUDE.md` §7)。"""
     with pytest.raises(power_sim.PowerSimError):
-        power_sim.summarise_point(KEY, [fit_result(None)], 0.05)
+        power_sim.summarise_point(KEY, [fit_result(None)], 0.05, failure_as_reject=True)
 
 
 def test_empty_grid_point_stops_the_summary() -> None:
     with pytest.raises(power_sim.PowerSimError):
-        power_sim.summarise_point(KEY, [], 0.05)
+        power_sim.summarise_point(KEY, [], 0.05, failure_as_reject=True)
 
 
 def point(
@@ -893,18 +909,23 @@ def test_inverse_problem_reads_each_axis_from_its_own_points() -> None:
 
 
 def test_plan_grid_is_the_sum_of_the_sheets() -> None:
-    """★ADR-123: 誤指定 6 + P1 6 + P1⁻ 2 + P0 6 = 20 点。**誤指定が先頭**(ADR-122 決定3)。
+    """★ADR-123: 誤指定 6 + P1 6 + P1⁻ 2 + P0 6 = 20 点 → ★ADR-124: 誤指定のシート 2 枚(各 2 点)と p1_tau(1 点)を足して 25 点。
 
-    費用の単位(`n_item` 80 の 1 点)では 6 + 9.5 + 2 + 9.5 = 27 単位(ADR-123 文脈2)。
+    **誤指定のシートが先頭に連続して並ぶ**(ADR-122 決定3 / ADR-124 D4)。
     """
     plan = power_sim.plan_grid(load(MAIN_CONFIG))
     by_sheet: dict[str, int] = {}
     for sheet_id, _ in plan:
         by_sheet[sheet_id] = by_sheet.get(sheet_id, 0) + 1
-    assert list(by_sheet) == ["misspecification", "p1", "p1_neg", "p0"]
-    assert by_sheet == {"misspecification": 6, "p1": 6, "p1_neg": 2, "p0": 6}
-    assert len(plan) == 20
-    assert sum(key.n_item for _, key in plan) / 80 == pytest.approx(27.0)
+    assert list(by_sheet) == [
+        "misspecification", "misspecification_seed_subspace", "misspecification_seed_per_cell",
+        "p1", "p1_tau", "p1_neg", "p0",
+    ]
+    assert by_sheet == {
+        "misspecification": 6, "misspecification_seed_subspace": 2,
+        "misspecification_seed_per_cell": 2, "p1": 6, "p1_tau": 1, "p1_neg": 2, "p0": 6,
+    }
+    assert len(plan) == 25
 
 
 # --------------------------------------------------------------------------
@@ -1019,7 +1040,10 @@ def test_main_sheets_follow_the_adopted_decisions() -> None:
     """PLAN-040 §11 / ADR-123 決定1〜4 が `sheets:` に宣言どおり入っている。"""
     sheets = {sheet.sheet_id: sheet for sheet in power_sim.load_sheets(load(MAIN_CONFIG))}
     # 順は 誤指定 → P1 → P1⁻ → P0(ADR-122 決定3 / ADR-123 決定5)
-    assert list(sheets) == ["misspecification", "p1", "p1_neg", "p0"]
+    assert list(sheets) == [
+        "misspecification", "misspecification_seed_subspace", "misspecification_seed_per_cell",
+        "p1", "p1_tau", "p1_neg", "p0",
+    ]
     mis, p1, neg, p0 = (sheets[k] for k in ("misspecification", "p1", "p1_neg", "p0"))
     # 決定4: 誤指定は変えない(P0・tau = sigma の 6 点・rho 0・n_item 80)
     assert (mis.role, mis.profile, mis.tau) == ("misspecification", "P0", "equals_sigma")
@@ -1059,6 +1083,40 @@ def test_tau_belongs_to_the_misspecification_sheet_only() -> None:
         power_sim.load_sheets(sheets_config({**main_sheet("p1"), "tau": "equals_sigma"}))
     with pytest.raises(ConfigError, match="tau"):
         power_sim.load_sheets(sheets_config({**main_sheet("misspecification"), "tau": "zero"}))
+
+
+def test_a_numeric_tau_is_for_the_power_sheet_only_and_must_be_positive() -> None:
+    """★ADR-124 D6: `sigma` ≠ `tau` の確認点は数値の `tau` で書く。検出力のシートだけで、0 は `zero` と書く。"""
+    sheets = {s.sheet_id: s for s in power_sim.load_sheets(load(MAIN_CONFIG))}
+    p1_tau = sheets["p1_tau"]
+    assert (p1_tau.role, p1_tau.profile, p1_tau.tau) == ("power", "P1", 0.5)
+    assert as_tuples(p1_tau) == ((80, 1.0, 0.0),)
+    assert power_sim.frame_tau(p1_tau, 1.0) == pytest.approx(0.5)       # sigma に依らず数値
+    for bad_sheet in (main_sheet("p0"), main_sheet("misspecification")):
+        with pytest.raises(ConfigError, match="tau"):
+            power_sim.load_sheets(sheets_config({**bad_sheet, "tau": 0.5}))
+    for bad in (0.0, -0.5, True):
+        with pytest.raises(ConfigError, match="tau"):
+            power_sim.load_sheets(sheets_config({**main_sheet("p1"), "tau": bad}))
+
+
+def test_seed_interaction_belongs_to_the_misspecification_sheet_and_is_checked_at_load() -> None:
+    sheets = {s.sheet_id: s for s in power_sim.load_sheets(load(MAIN_CONFIG))}
+    assert sheets["misspecification"].seed_interaction is None
+    assert sheets["misspecification_seed_subspace"].seed_interaction == power_sim.SeedInteractionSpec(
+        "P1", "subspace"
+    )
+    assert sheets["misspecification_seed_per_cell"].seed_interaction == power_sim.SeedInteractionSpec(
+        "P1", "per_cell"
+    )
+    with pytest.raises(ConfigError, match="seed_interaction"):
+        power_sim.load_sheets(sheets_config({
+            **main_sheet("p1"), "seed_interaction": {"direction": "P1", "scale": "subspace"}}))
+    mis = main_sheet("misspecification_seed_subspace")
+    for bad in ({"direction": "P1", "scale": "huge"}, {"direction": "P0", "scale": "subspace"},
+                {"direction": "nope", "scale": "subspace"}, {"direction": "P1"}):
+        with pytest.raises(ConfigError):
+            power_sim.load_sheets(sheets_config({**mis, "seed_interaction": bad}))
 
 
 def test_a_sheet_cannot_use_a_point_outside_the_declared_grids() -> None:
@@ -1104,8 +1162,14 @@ def test_only_the_power_sheet_gets_the_inverse_problem() -> None:
         for sheet_id, sheet in sheets.items()
     }
     assert "inverse_problem" in summaries["p1"]
-    for other in ("p1_neg", "p0", "misspecification"):
+    # p1_tau(tau 0.5 の 1 点。ADR-124 D6)は軸を持たないので逆問題を解かない
+    for other in ("p1_neg", "p0", "misspecification", "p1_tau",
+                  "misspecification_seed_subspace", "misspecification_seed_per_cell"):
         assert "inverse_problem" not in summaries[other]
+    assert summaries["p1_tau"]["failure_counted_as"] == "retain"
+    assert summaries["misspecification_seed_subspace"]["failure_counted_as"] == "reject"
+    assert summaries["misspecification_seed_subspace"]["seed_interaction"] == {
+        "direction_profile": "P1", "scale": "subspace"}
     assert summaries["p1"]["true_interaction_contrasts"]["interp"] == pytest.approx(
         -0.326599, abs=1e-5
     )
@@ -1159,38 +1223,105 @@ def test_replication_rng_depends_only_on_sheet_point_and_rep() -> None:
     assert len({draw("p1", key, 7), *others}) == len(others) + 1
 
 
+GATE_SHEETS = ("misspecification", "misspecification_seed_subspace")
+
+
 def test_main_gate_is_the_decided_one() -> None:
-    """★ADR-123 決定6: `tau` 0.25・0.5 で 95% Clopper–Pearson 区間の下端 > 0.075。閾値は config にある。"""
+    """★ADR-123 決定6: `tau` 0.25・0.5 で 95% Clopper–Pearson 区間の下端 > 0.075。閾値は config にある。
+
+    ★ADR-124 D4・補い 2: 門は今のシートと (ii)(`misspecification_seed_subspace`)の両方に掛ける。(i) は記録だけ。
+    """
     config = load(MAIN_CONFIG)
     gate = power_sim.load_gate_spec(config)
     assert gate == power_sim.GateSpec(
-        sheet_id="misspecification", tau=(0.25, 0.5), ci_level=0.95, lower_bound_above=0.075
+        sheet_ids=GATE_SHEETS, tau=(0.25, 0.5), ci_level=0.95, lower_bound_above=0.075
     )
     power_sim.check_gate_against_sheets(gate, power_sim.load_sheets(config))
+    assert "misspecification_seed_per_cell" not in gate.sheet_ids
+
+
+def gate_points(first: list[float], second: list[float], n_rep: int,
+                third: list[float] | None = None) -> dict[str, list[power_sim.GridPoint]]:
+    """誤指定の 3 枚の `tau` 0.25・0.5 の棄却率から、門に渡す点を組む。"""
+    sheets = {
+        "misspecification": first,
+        "misspecification_seed_subspace": second,
+        "misspecification_seed_per_cell": third if third is not None else [0.0, 0.0],
+    }
+    return {
+        sheet_id: [point(t, rate, n_rep=n_rep) for t, rate in zip((0.25, 0.5), rates)]
+        for sheet_id, rates in sheets.items()
+    }
 
 
 @pytest.mark.parametrize("n_rep,first_stopping", [(100, 14), (300, 33)])
 def test_gate_operating_point_matches_adr_123(n_rep: int, first_stopping: int) -> None:
-    """★ADR-123 文脈3 の算術: 100 反復では 14 回以上、300 反復では 33 回以上の棄却で止まる。"""
+    """★ADR-123 文脈3 の算術: 100 反復では 14 回以上、300 反復では 33 回以上の棄却で止まる。
+
+    閾値と判定点は変えていない(ADR-124)ので、門のシートのどちらでも同じ作動点で閉じる。
+    """
     gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
+    for index in (0, 1):                     # どちらのシートでも・どちらの tau でも足りる
+        for position in (0, 1):
+            def inflated(n_reject: int) -> bool:
+                rates = [[0.0, 0.0], [0.0, 0.0]]
+                rates[index][position] = n_reject / n_rep
+                return power_sim.misspecification_gate(
+                    gate_points(rates[0], rates[1], n_rep), gate
+                )["inflated"]
 
-    def inflated(n_reject: int) -> bool:
-        points = [point(t, n_reject / n_rep, n_rep=n_rep) for t in (0.0, 0.25, 0.5)]
-        points[2] = point(0.5, 0.0, n_rep=n_rep)          # 判定は 0.25 と 0.5 のどちらか 1 つで足りる
-        return power_sim.misspecification_gate(points, gate)["inflated"]
-
-    assert not inflated(first_stopping - 1)
-    assert inflated(first_stopping)
+            assert not inflated(first_stopping - 1)
+            assert inflated(first_stopping)
 
 
 def test_gate_ignores_tau_zero_and_large_tau() -> None:
     """★`tau` 0 と 0.75 以上は判定に使わない(記録はシートの grid にある)。"""
     gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
-    points = [point(0.0, 0.5, n_rep=100), point(0.25, 0.05, n_rep=100),
-              point(0.5, 0.05, n_rep=100), point(1.5, 0.9, n_rep=100)]
-    verdict = power_sim.misspecification_gate(points, gate)
+    by_sheet = {
+        sheet_id: [point(0.0, 0.5, n_rep=100), point(0.25, 0.05, n_rep=100),
+                   point(0.5, 0.05, n_rep=100), point(1.5, 0.9, n_rep=100)]
+        for sheet_id in ("misspecification", "misspecification_seed_subspace")
+    }
+    verdict = power_sim.misspecification_gate(by_sheet, gate)
     assert verdict["inflated"] is False
-    assert [row["tau"] for row in verdict["rows"]] == [0.25, 0.5]
+    assert [row["tau"] for row in verdict["sheets"]["misspecification"]] == [0.25, 0.5]
+
+
+def test_per_cell_sheet_is_recorded_but_never_judged() -> None:
+    """★ADR-124 D4: (i)(`per_cell`)の棄却は記録(`recorded_only`)に残すが、門を閉じない。
+
+    答える問い: 「(i) が 0.9 棄却されても、門は (ii) と今のシートだけで判定されるか」。
+    """
+    gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
+    verdict = power_sim.misspecification_gate(
+        gate_points([0.05, 0.05], [0.05, 0.05], 100, third=[0.9, 0.9]), gate
+    )
+    assert verdict["inflated"] is False
+    assert set(verdict["sheets"]) == set(GATE_SHEETS)
+    recorded = verdict["recorded_only"]["misspecification_seed_per_cell"]
+    assert [row["exceeds"] for row in recorded] == [True, True]          # 記録には超過が残る
+    # 門のシートが欠けていれば止まる(黙って判定を省かない)
+    with pytest.raises(power_sim.PowerSimError, match="結果が無い"):
+        power_sim.misspecification_gate({"misspecification": []}, gate)
+
+
+def test_gate_counts_failed_fits_on_the_reject_side() -> None:
+    """★当てはめ失敗は誤指定のシートでは棄却に数える(不利な側。ADR-124 D2')。分母から除かない。
+
+    答える問い: 「失敗が多い点で、門は『うまく当たった表の中の率』で読まれていないか」。
+    """
+    n = 100
+    results = [fit_result(None, fit_failed=True, first_error="boom")] * 14 + [fit_result(0.5)] * (n - 14)
+    pt = power_sim.summarise_point(
+        power_sim.PointKey(80, 0.25, 0.0), results, 0.05, failure_as_reject=True
+    )
+    assert (pt.n_rep, pt.n_reject, pt.failed_rate) == (n, 14, pytest.approx(0.14))
+    gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
+    by_sheet = gate_points([0.0, 0.0], [0.0, 0.0], n)
+    by_sheet["misspecification"][0] = pt
+    verdict = power_sim.misspecification_gate(by_sheet, gate)
+    assert verdict["inflated"] is True                       # 14 / 100 = ちょうど閉じる作動点
+    assert verdict["sheets"]["misspecification"][0]["failed_rate"] == pytest.approx(0.14)
 
 
 def test_clopper_pearson_lower_bound() -> None:
@@ -1201,22 +1332,192 @@ def test_clopper_pearson_lower_bound() -> None:
         power_sim.clopper_pearson_lower(5, 4, 0.95)
 
 
-def test_gate_must_watch_the_first_sheet_and_its_own_tau() -> None:
-    """★D3 (a): 誤指定は先頭。門の `tau` はそのシートが回す点でなければならない。"""
+def test_gate_must_watch_the_leading_misspecification_sheets_and_their_tau() -> None:
+    """★D3 (a)・ADR-124 D4: 誤指定は先頭に連続して置く。門の `tau` はそのシートが回す点でなければならない。"""
     config = load(MAIN_CONFIG)
     gate = power_sim.load_gate_spec(config)
-    reordered = power_sim.load_sheets(
-        sheets_config(main_sheet("p1"), main_sheet("misspecification"))
-    )
+    mis, seed = main_sheet("misspecification"), main_sheet("misspecification_seed_subspace")
+    reordered = power_sim.load_sheets(sheets_config(main_sheet("p1"), mis, seed))
     with pytest.raises(ConfigError, match="先頭"):
         power_sim.check_gate_against_sheets(gate, reordered)
-    thin = {**main_sheet("misspecification"), "points": [[80, 0.25, 0.0]]}
+    # 誤指定のシートが P1 の後ろに離れて置かれていると止まる(P1 を回した後で門が閉じることになる)
+    stray = power_sim.load_sheets(sheets_config(mis, main_sheet("p1"), seed))
+    with pytest.raises(ConfigError, match="外にある"):
+        power_sim.check_gate_against_sheets(gate, stray)
+    # 門のシートが先頭のまとまりに無い
+    with pytest.raises(ConfigError, match="どれか"):
+        power_sim.check_gate_against_sheets(gate, power_sim.load_sheets(sheets_config(mis)))
+    thin = {**seed, "points": [[80, 0.25, 0.0]]}
     with pytest.raises(ConfigError, match="回さない"):
-        power_sim.check_gate_against_sheets(gate, power_sim.load_sheets(sheets_config(thin)))
+        power_sim.check_gate_against_sheets(gate, power_sim.load_sheets(sheets_config(mis, thin)))
     bad = copy.deepcopy(config)
     bad["simulation"]["misspecification_gate"]["lower_bound_above"] = None
     with pytest.raises(ConfigError):
         power_sim.load_gate_spec(bad)
+    # 旧い `sheet`(1 枚)は止まる。重複・空のリストも止まる
+    old = copy.deepcopy(config)
+    old["simulation"]["misspecification_gate"]["sheet"] = "misspecification"
+    with pytest.raises(ConfigError, match="sheets"):
+        power_sim.load_gate_spec(old)
+    for bad_sheets in ([], ["misspecification", "misspecification"]):
+        broken = copy.deepcopy(config)
+        broken["simulation"]["misspecification_gate"]["sheets"] = bad_sheets
+        with pytest.raises(ConfigError):
+            power_sim.load_gate_spec(broken)
+
+
+# --------------------------------------------------------------------------
+# ★シード固有の交互作用の誤指定(ADR-124 D4)
+# --------------------------------------------------------------------------
+
+
+def test_seed_interaction_direction_is_the_double_centred_p1_interaction() -> None:
+    """★`d` は P1 の交互作用の向き(二重中心化)で、大きさは `subspace` = 2・`per_cell` = 6。
+
+    答える問い: 「足した誤指定は、検定する 2 df の部分空間の中に入っているか」——
+    行和・列和が 0(= 主効果を含まない)で、`delta` を二重中心化したものと向きが一致すること。
+    """
+    p1 = main_profile("P1")
+    centred = p1.delta - p1.delta.mean(axis=0) - p1.delta.mean(axis=1, keepdims=True) + p1.delta.mean()
+    for scale, target in (("subspace", 2.0), ("per_cell", 6.0)):
+        d = power_sim.seed_interaction_direction(p1, scale)
+        assert d.shape == (N_TASK, N_COVERAGE)
+        assert float((d**2).sum()) == pytest.approx(target)
+        assert np.allclose(d.sum(axis=0), 0.0) and np.allclose(d.sum(axis=1), 0.0)
+        ratio = d / centred
+        assert np.allclose(ratio, ratio.flat[0])                  # 同じ向き(正の倍率)
+        assert ratio.flat[0] > 0.0
+    # 大きさの比は sqrt(6 / 2)
+    sub = power_sim.seed_interaction_direction(p1, "subspace")
+    cell = power_sim.seed_interaction_direction(p1, "per_cell")
+    assert np.allclose(cell, sub * np.sqrt(3.0))
+
+
+def test_seed_interaction_direction_needs_a_nonadditive_profile_and_a_known_scale() -> None:
+    with pytest.raises(ConfigError, match="非加法性"):
+        power_sim.seed_interaction_direction(main_profile("P0"), "subspace")
+    with pytest.raises(ConfigError, match="scale"):
+        power_sim.seed_interaction_direction(main_profile("P1"), "huge")
+
+
+def test_seed_interaction_is_one_draw_per_seed_along_the_direction() -> None:
+    """★`z[s] = m_s * d`: シードごとに 1 つの `m_s` が (タスク型, 被覆) の向き `d` に乗る。
+
+    答える問い: 「足したのはシード固有の交互作用か(セルごとの独立な雑音ではないか)」——
+    ほかの分散を 0、固定効果を 0、`tau` を巨大にすると、セルの 0/1 は `m_s * d` の符号になる。
+    **各シートで、セルの 0/1 の並びは `d > 0` の並びか、その反転のどちらかに揃う**(独立な `z` なら揃わない)。
+    項目は共有される(同じセルの 40 項目は一致する)。
+    """
+    levels = smoke_levels(n_seed=12, n_item=40)
+    d = power_sim.seed_interaction_direction(main_profile("P1"), "subspace")
+    assert np.all(d != 0.0)
+    rows = power_sim.draw_frame(
+        levels, np.zeros((N_TASK, N_COVERAGE)), 0.0, 0.0, 0.0, 0.0,
+        np.random.default_rng(31), tau=HUGE_TAU, seed_direction=d,
+    )
+    by_cell: dict[tuple[str, str, str], set[int]] = {}
+    for seed, task, coverage, _, _, is_rule in rows:
+        by_cell.setdefault((seed, task, coverage), set()).add(is_rule)
+    assert all(len(values) == 1 for values in by_cell.values())
+    pattern = (d > 0.0).astype(int)
+    seen = set()
+    for s in range(levels.n_seed):
+        got = np.array([
+            [next(iter(by_cell[(f"s{s:02d}", task, cov)])) for cov in levels.coverages]
+            for task in levels.tasks
+        ])
+        assert np.array_equal(got, pattern) or np.array_equal(got, 1 - pattern), s
+        seen.add(bool(np.array_equal(got, pattern)))
+    assert seen == {True, False}                 # m_s の符号は両方出る(シードごとに独立に引いている)
+
+
+def test_seed_interaction_does_not_change_the_other_random_streams() -> None:
+    """★既存の乱数列を変えない(PLAN-041 I4): `tau = 0` は `seed_direction` があっても乱数を消費しない。
+
+    答える問い: 「`tau = 0` の点が P0 のシートと同じ DGP である根拠は、新しい経路でも保たれているか」。
+    `seed_direction = None` を明示した呼び出しも、渡さない呼び出しと同じ表になる。
+    """
+    levels = smoke_levels(n_seed=3, n_item=3)
+    eta = main_profile("P0").eta
+    d = power_sim.seed_interaction_direction(main_profile("P1"), "subspace")
+
+    def draw(**kwargs: Any) -> list[Any]:
+        return power_sim.draw_frame(levels, eta, 0.5, 0.0, 0.25, 0.25, np.random.default_rng(5), **kwargs)
+
+    assert draw() == draw(tau=0.0) == draw(tau=0.0, seed_direction=d)
+    assert draw(tau=0.4) == draw(tau=0.4, seed_direction=None)
+    assert draw(tau=0.4) != draw(tau=0.4, seed_direction=d)
+
+
+def test_seed_direction_must_have_the_design_shape() -> None:
+    with pytest.raises(ValueError, match="seed_direction"):
+        power_sim.draw_frame(
+            smoke_levels(), np.zeros((N_TASK, N_COVERAGE)), 0.0, 0.0, 0.25, 0.25,
+            np.random.default_rng(0), tau=0.5, seed_direction=np.ones((3, 3)),
+        )
+
+
+# --------------------------------------------------------------------------
+# ★当てはめ失敗の数え方(ADR-124 D2')
+# --------------------------------------------------------------------------
+
+
+def failed_fit(**overrides: Any) -> dict[str, Any]:
+    """床でも収束しない / 床でも例外の反復(p 値なし)を手で組む。"""
+    return fit_result(
+        None, fit_failed=True, chisq=None, reduced=True, n_errored_fits=2,
+        first_error="Downdated VtV is not positive definite", **overrides,
+    )
+
+
+def test_failed_fits_count_against_the_sheet_role() -> None:
+    """★失敗は不利な側に数える: 過誤のシートでは棄却、検出力のシートでは非棄却。分母は変えない。
+
+    答える問い: 「同じ失敗が、シートの役割で逆向きに数えられているか」。
+    """
+    results = [failed_fit(), failed_fit(), fit_result(0.01), fit_result(0.5)]
+    key = power_sim.PointKey(80, 1.0, 0.0)
+    error_sheet = power_sim.summarise_point(key, results, 0.05, failure_as_reject=True)
+    power_sheet = power_sim.summarise_point(key, results, 0.05, failure_as_reject=False)
+    assert (error_sheet.n_rep, error_sheet.n_reject) == (4, 3)      # 失敗 2 + 実際の棄却 1
+    assert (power_sheet.n_rep, power_sheet.n_reject) == (4, 1)      # 実際の棄却 1 だけ
+    for pt in (error_sheet, power_sheet):
+        assert pt.failed_rate == pytest.approx(0.5)
+        assert pt.errored_rate == pytest.approx(0.5)
+    assert error_sheet.power == pytest.approx(0.75) and power_sheet.power == pytest.approx(0.25)
+
+
+def test_failed_fits_are_left_out_of_chisq_and_margins_but_the_rate_is_kept() -> None:
+    """★`mean_chisq` と TOST の最小 Δ は成功した反復だけで作る(失敗は持たない)。失敗率は別に残す。"""
+    spec = power_sim.tost_spec(load(MAIN_CONFIG), main_profile("P1"))
+    ok = fit_result(0.2, chisq=4.0)
+    key = power_sim.PointKey(80, 1.0, 0.0)
+    pt = power_sim.summarise_point(key, [failed_fit(), ok], 0.05, spec, failure_as_reject=False)
+    assert pt.mean_chisq == pytest.approx(4.0)
+    assert len(pt.tost_min_margins) == 1
+    assert pt.failed_rate == pytest.approx(0.5)
+    # 全部失敗なら mean_chisq は null(0 でも NaN でもない)・最小 Δ は空
+    allfail = power_sim.summarise_point(key, [failed_fit(), failed_fit()], 0.05, spec, failure_as_reject=True)
+    assert allfail.mean_chisq is None and allfail.tost_min_margins == ()
+    assert (allfail.n_reject, allfail.power) == (2, 1.0)
+
+
+def test_a_missing_fit_failed_flag_is_read_as_not_failed() -> None:
+    """旧い run の JSON(`fit_failed` を持たない)は失敗なしとして読み、p 値が null なら止まる。"""
+    legacy = fit_result(0.01)
+    del legacy["fit_failed"]
+    pt = power_sim.summarise_point(KEY, [legacy], 0.05, failure_as_reject=True)
+    assert (pt.n_reject, pt.failed_rate) == (1, 0.0)
+    legacy_null = fit_result(None)
+    del legacy_null["fit_failed"]
+    with pytest.raises(power_sim.PowerSimError):
+        power_sim.summarise_point(KEY, [legacy_null], 0.05, failure_as_reject=True)
+
+
+def test_failure_roles_are_the_unfavourable_side() -> None:
+    """過誤を見るシートは棄却・検出力を見るシートは非棄却に数える(役割の割り当てを固定)。"""
+    assert set(power_sim.FAILURE_AS_REJECT_ROLES) == {"null_calibration", "misspecification"}
+    assert not set(power_sim.FAILURE_AS_REJECT_ROLES) & set(power_sim.ROLES_WITH_NONADDITIVITY)
 
 
 def test_margin_table_lists_p0_and_p1_on_the_n_item_axis() -> None:
@@ -1314,7 +1615,9 @@ def test_summarise_point_keeps_the_sorted_margins_and_the_error_rate() -> None:
         fit_result(0.2, interaction_interp_se=0.1, interaction_extrap_magnitude_se=0.1,
                    n_errored_fits=2, first_error="Downdated VtV"),
     ]
-    summary = power_sim.summarise_point(power_sim.PointKey(80, 1.0, 0.0), results, 0.05, spec)
+    summary = power_sim.summarise_point(
+        power_sim.PointKey(80, 1.0, 0.0), results, 0.05, spec, failure_as_reject=True
+    )
     assert summary.tost_min_margins == pytest.approx(
         (0.1 * Z_95, 0.5 * Z_95), abs=1e-12
     )
@@ -1322,7 +1625,7 @@ def test_summarise_point_keeps_the_sorted_margins_and_the_error_rate() -> None:
     assert summary.errored_rate == pytest.approx(0.5)
     # TOST を見ないとき(`tost = None`)は空
     assert power_sim.summarise_point(
-        power_sim.PointKey(80, 1.0, 0.0), results, 0.05
+        power_sim.PointKey(80, 1.0, 0.0), results, 0.05, failure_as_reject=True
     ).tost_min_margins == ()
 
 
@@ -1330,7 +1633,9 @@ def test_a_null_p_value_reports_the_fit_error_it_came_from() -> None:
     """★最後の水準でも当てはめが落ちた反復は、原因の文面つきで止まる(捨てない)。"""
     results = [fit_result(None, first_error="Downdated VtV is not positive definite")]
     with pytest.raises(power_sim.PowerSimError, match="Downdated VtV"):
-        power_sim.summarise_point(power_sim.PointKey(80, 1.0, 0.0), results, 0.05)
+        power_sim.summarise_point(
+            power_sim.PointKey(80, 1.0, 0.0), results, 0.05, failure_as_reject=True
+        )
 
 
 def test_fit_script_writes_the_interaction_coefficients_and_counts_errors() -> None:
@@ -1344,6 +1649,22 @@ def test_fit_script_writes_the_interaction_coefficients_and_counts_errors() -> N
     assert 'paste0("task", tl, ":coverage", cl)' in text          # treatment coding の係数名
     assert "n_errored_fits" in text and "tryCatch(" in text
     assert "df = 2" in text
+
+
+def test_fit_script_writes_the_failure_flag_and_the_per_level_record() -> None:
+    """★R 側が `fit_failed`(床でも失敗)と各段の記録 `levels` を書く(ADR-124 D2'・D5)。
+
+    答える問い: 「`power_sim.py` が読む `fit_failed` を R が書いているか」(R は呼ばない。文面の突き合わせ)。
+    床の失敗は p 値を出さない(`an` が NULL になる)ことも固定する。
+    """
+    text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
+    assert 'kv("fit_failed", jbool(fit_failed))' in text
+    assert "fit_failed <- res_full$failed || res_add$failed" in text
+    assert "an <- if (fit_failed) NULL else anova(" in text
+    assert 'kv("levels",' in text
+    for key in ("level", "label", "which", "failed", "refit_done", "singular",
+                "n_warnings", "loglik_gain", "max_shift", "error"):
+        assert f'\\"{key}\\": ' in text, key
 
 
 # --------------------------------------------------------------------------
@@ -1388,7 +1709,10 @@ def test_run_writes_one_directory_per_sheet_and_the_records(
         smoke_config(), tmp_path, None, keep_frames=False, through_stage=2,
         config_path=SMOKE_CONFIG,
     )
-    assert list(summary["sheets"]) == ["misspecification", "p1", "p1_neg", "p0"]
+    assert list(summary["sheets"]) == [
+        "misspecification", "misspecification_seed_subspace", "misspecification_seed_per_cell",
+        "p1", "p1_tau", "p1_neg", "p0",
+    ]
     for sheet_id in summary["sheets"]:
         assert (tmp_path / sheet_id / "fits").is_dir()
     assert summary["tost_alpha"] == 0.05
@@ -1398,6 +1722,11 @@ def test_run_writes_one_directory_per_sheet_and_the_records(
     assert len(on_disk["sheets"]["p1_neg"]["power_minus_reference"]) == 2
     assert on_disk["sheets"]["misspecification"]["tau"] == "equals_sigma"
     assert on_disk["misspecification_gate"]["inflated"] is False
+    # 門は今のシートと (ii) に掛け、(i) は記録だけ(ADR-124 D4)
+    assert set(on_disk["misspecification_gate"]["sheets"]) == set(GATE_SHEETS)
+    assert set(on_disk["misspecification_gate"]["recorded_only"]) == {"misspecification_seed_per_cell"}
+    assert "inverse_problem" not in on_disk["sheets"]["p1_tau"]
+    assert on_disk["sheets"]["p1_tau"]["tau"] == 0.5
     assert set(on_disk["sheets"]["p1"]["inverse_problem"]) == {
         "target_power", "n_item_range", "sigma_limit"
     }
@@ -1486,8 +1815,11 @@ def test_a_closed_gate_stops_before_p1(tmp_path: Path, monkeypatch: pytest.Monke
     assert summary["stopped_at_gate"] is True
     assert summary["stage"] == 1                          # 1 段目で止まり、2 段目に進まない
     assert summary["misspecification_gate"]["inflated"] is True
-    assert list(summary["sheets"]) == ["misspecification"]
-    assert {path.parent.parent.name for path in calls} == {"misspecification"}
+    # ★誤指定の 3 枚は門の判定の前に全部回す((i) の記録が門の結果によらず残る。ADR-124 補い 3)。P1 以降は回さない
+    block = ["misspecification", "misspecification_seed_subspace", "misspecification_seed_per_cell"]
+    assert list(summary["sheets"]) == block
+    assert {path.parent.parent.name for path in calls} == set(block)
+    assert set(summary["misspecification_gate"]["recorded_only"]) == {"misspecification_seed_per_cell"}
     on_disk = json.loads((tmp_path / "power_sim_summary.json").read_text(encoding="utf-8"))
     assert on_disk["stopped_at_gate"] is True
 
@@ -1530,12 +1862,15 @@ def test_resuming_with_a_different_config_stops(
 def test_every_declared_sheet_gets_its_tables_fitted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """宣言した 4 シートのすべてが当てはめに回る(シートが黙って落ちていない)。"""
+    """宣言した 7 シートのすべてが当てはめに回る(シートが黙って落ちていない。ADR-124 で 4 → 7)。"""
     calls: list[Path] = []
     fake_fits(monkeypatch, calls)
     power_sim.run(smoke_config(), tmp_path, None, keep_frames=True, through_stage=1)
     names = {path.parent.parent.name for path in calls}
-    assert names == {"misspecification", "p1", "p1_neg", "p0"}
+    assert names == {
+        "misspecification", "misspecification_seed_subspace", "misspecification_seed_per_cell",
+        "p1", "p1_tau", "p1_neg", "p0",
+    }
 
 
 def test_json_is_written_atomically(tmp_path: Path) -> None:

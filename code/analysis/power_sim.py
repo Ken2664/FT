@@ -54,6 +54,18 @@ TOST の検出力は集計の後で読む(`tost_power`)。
   P0・P1 の最小 Δ の分位点を各 `n_item` で並べた表(`margin_quantile_table`)
 - **記録**: `run_info.json`(run_id・git sha・dirty)・`config.yaml` の写し・`invocations.jsonl`・
   段ごとの `stage_<n_rep>_summary.json`。JSON は一時ファイル + rename で書く
+
+**★2026-10-05(PLAN-041 I1〜I5 / ADR-124)に §3.2 のランダム構造・誤指定の門・当てはめ失敗の数え方を改めた。**
+
+- **当てはめ**: `(1 | seed:task:coverage)` を足し、縮退は template → 傾きの相関 → 傾き(= 床)。
+  item と新しい項は落とさない(`power_sim_fit.R`)
+- **当てはめ失敗**: 床でも収束しない / 例外の表は p 値なし(`fit_failed`)。**シートの役割で不利な側に数える**
+  (誤指定・P0 = 棄却 / P1・P1⁻ = 非棄却。`FAILURE_AS_REJECT_ROLES`)。`failed_rate` を別に出す
+- **誤指定のシート**: 独立な `z`(今のシート)に加え、**シード固有の交互作用**(`z = m_s × d`・`m_s ~ N(0, tau²)`)の
+  2 枚(大きさ `subspace` = (ii)・`per_cell` = (i))。門は `misspecification_gate.sheets` に挙げたシート((ii) と今のシート)に
+  掛け、(i) は記録だけ。誤指定のシートは先頭にまとめて並べ、**その全部を回した後に**門を判定する
+- **P1 の確認点**: `tau` に数値を書ける形(`sheets[].tau: 0.5`)。同じ点 `(80, 1.0, 0.0)` が P1 のシートにあるので
+  別のシート(`p1_tau`)にした(乱数の鍵とファイル名が点で決まるため)
 """
 
 from __future__ import annotations
@@ -293,6 +305,36 @@ class DesignLevels:
     n_item: int
 
 
+SCALE_SUBSPACE = "subspace"
+SCALE_PER_CELL = "per_cell"
+SEED_INTERACTION_SCALES = (SCALE_SUBSPACE, SCALE_PER_CELL)
+
+
+def seed_interaction_direction(profile: EffectProfile, scale: str) -> np.ndarray:
+    """答える問い: シード固有の交互作用 `z[s] = m_s * d` の向き `d`(タスク型 x 被覆)は何か(ADR-124 D4)。
+
+    `d` は、プロファイルが 6 セルの線形予測子に足す量(`delta`)を**二重中心化**した向きである
+    (行平均・列平均を除く。= P1 の交互作用そのものの向き。パイロットの数値は使わない)。
+    大きさは `sum(d^2)` で決める:
+
+    - `subspace`: `sum(d^2)` = 検定する部分空間の次元(`PRIMARY_INTERACTION_DF` = 2)。**検定する部分空間に入る分散の期待値が
+      独立な `z`(今のシート)と同じ `2 tau^2`**になる。形だけが違う((ii)。門はこちらで判定する)
+    - `per_cell`: `sum(d^2)` = セル数(6)。セルあたりの平均分散が `tau^2`((i)。記録だけ。部分空間の分散は 3 倍)
+    """
+    if scale not in SEED_INTERACTION_SCALES:
+        raise ConfigError(f"seed_interaction.scale は {SEED_INTERACTION_SCALES} のどれか: {scale!r}")
+    delta = profile.delta
+    centred = delta - delta.mean(axis=0, keepdims=True) - delta.mean(axis=1, keepdims=True) + delta.mean()
+    norm_sq = float((centred**2).sum())
+    # 厳密に加法のプロファイルでも丸め誤差の `delta` が残る。非加法性 RMS の許容で止める(誤差を拡大して使わない)
+    if profile.nonadditivity_rms <= ADDITIVE_RMS_TOLERANCE:
+        raise ConfigError(
+            f"プロファイル {profile.name} は非加法性が無く、シード固有の交互作用の向きを作れない"
+        )
+    target = PRIMARY_INTERACTION_DF if scale == SCALE_SUBSPACE else centred.size
+    return centred * math.sqrt(target / norm_sq)
+
+
 def draw_frame(
     levels: DesignLevels,
     eta_fixed: np.ndarray,
@@ -302,6 +344,7 @@ def draw_frame(
     s2_tmpl: float,
     rng: np.random.Generator,
     tau: float = 0.0,
+    seed_direction: np.ndarray | None = None,
 ) -> list[tuple[Any, ...]]:
     """1 反復ぶんの長形式表を引く(§6.3 手続き3a)。
 
@@ -317,6 +360,10 @@ def draw_frame(
     この項が無い**ので、10 シードの設計が主要検定の第一種の過誤をどれだけ膨らませるかを測る装置になる。
     **`tau = 0` のときは乱数を 1 つも消費しない**ので、`tau` を渡さない呼び出しと同じ表になる
     (誤指定のシートの `tau = 0` の点が P0 のシートと一致することの根拠)。
+
+    **★シード固有の交互作用(ADR-124 D4)**: `seed_direction`(`seed_interaction_direction` の向き)を渡すと、
+    独立な `z` の代わりに `z[s, task, coverage] = m_s * d[task, coverage]`、`m_s ~ N(0, tau^2)`(シードごとに 1 つ)を足す。
+    **`m_s` はテンプレートの後(独立な `z` を引く位置)で引く**ので、`seed_direction` を渡さない経路の乱数列は変わらない。
     """
     if tau < 0.0:
         raise ValueError(f"tau は 0 以上である: {tau}")
@@ -329,11 +376,17 @@ def draw_frame(
     template_ids = sorted({t for names in levels.templates.values() for t in names})
     w = {name: rng.normal(0.0, math.sqrt(s2_tmpl)) for name in template_ids}
     # ★テンプレートの後に引く(`tau = 0` の乱数列を `tau` を持たない経路と同じにするため)。
-    z = (
-        rng.normal(0.0, tau, size=(levels.n_seed, len(levels.tasks), n_cov))
-        if tau > 0.0
-        else np.zeros((levels.n_seed, len(levels.tasks), n_cov))
-    )
+    z_shape = (levels.n_seed, len(levels.tasks), n_cov)
+    if seed_direction is not None and seed_direction.shape != z_shape[1:]:
+        raise ValueError(
+            f"seed_direction の形 {seed_direction.shape} が (タスク型, 被覆) = {z_shape[1:]} と合わない"
+        )
+    if tau <= 0.0:
+        z = np.zeros(z_shape)
+    elif seed_direction is not None:
+        z = rng.normal(0.0, tau, size=levels.n_seed)[:, None, None] * seed_direction[None, :, :]
+    else:
+        z = rng.normal(0.0, tau, size=z_shape)
 
     rows: list[tuple[Any, ...]] = []
     for ti, task in enumerate(levels.tasks):
@@ -580,6 +633,10 @@ class GridPoint:
 
     `power` は **棄却率**である(P1 のシートでは検出力、P0・誤指定のシートでは第一種の過誤の率)。
     `n_reject` はその分子(誤指定の門の Clopper–Pearson 区間に使う。割合から逆算しない)。
+    **当てはめ失敗(`fit_failed`)は分子・分母とも不利な側に数えた後の値である**
+    (過誤のシート = 棄却 / 検出力のシート = 非棄却。ADR-124 D2')。`failed_rate` はその割合。
+    `mean_chisq` と `tost_min_margins` は当てはめが成功した反復だけで作る
+    (失敗は p 値も交互作用の係数も持たない)。全部失敗なら `mean_chisq` は null。
     `tost_min_margins` は反復ごとの「同等と言える最小の Δ」(昇順。TOST を見ないときは空)。
     """
 
@@ -592,9 +649,11 @@ class GridPoint:
     reduced_rate: float
     singular_rate: float
     refit_rate: float
-    mean_chisq: float
-    # 当てはめが例外で落ち、縮退へ進んだ反復の割合(`power_sim_fit.R` の `errored_result`。暫定の扱い)
+    mean_chisq: float | None
+    # 当てはめが例外で落ち、縮退へ進んだ反復の割合(`power_sim_fit.R` の `errored_result`。ADR-124 例外の規則)
     errored_rate: float
+    # 床でも収束しない / 床でも例外で、p 値を出せなかった反復の割合(ADR-124 D2')
+    failed_rate: float = 0.0
     tost_min_margins: tuple[float, ...] = ()
 
     @property
@@ -603,27 +662,37 @@ class GridPoint:
 
 
 def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
-                    alpha: float, tost: TostSpec | None = None) -> GridPoint:
+                    alpha: float, tost: TostSpec | None = None, *,
+                    failure_as_reject: bool) -> GridPoint:
     """1 つの格子点をまとめる。答える問い: この仮定値の下で棄却率はいくつか。
 
     **縮退の発火率も返す** —— ADR-064 決定4 の★リスク欄
     「10 シードで `(0 + coverage | seed)` が同定できるかは誰にも数値では言えない」に
     合成データの上で数値を与えるのが、ADR-068 決定1 を採る利の 1 つだからである。
+
+    **★当てはめ失敗(`fit_failed`。床でも収束しない / 床でも例外)は不利な側に数える**(ADR-124 D2')。
+    `failure_as_reject` が真(過誤のシート)なら棄却、偽(検出力のシート)なら非棄却。
+    **分母から除かない**(除くと「うまく当たった表の中の率」になる。PLAN-041 §3.3 罠2)。
+    必須の引数にしてあるのは、シートの役割の取り違えを呼び出し側に書かせるため。
+    `fit_failed` でないのに p 値が null の反復は、黙って数えず止まる(`CLAUDE.md` §7)。
     """
     if not results:
         raise PowerSimError(f"{key} の結果が 0 件である")
-    p_values = [r["p_value"] for r in results]
-    if any(p is None for p in p_values):
-        reasons = sorted({r.get("first_error", "") for r in results if r["p_value"] is None} - {""})
+    failed = [bool(r.get("fit_failed", False)) for r in results]
+    bad = [r for r, f in zip(results, failed) if r["p_value"] is None and not f]
+    if bad:
+        reasons = sorted({r.get("first_error", "") for r in bad} - {""})
         raise PowerSimError(
-            f"{key} に p 値が null の反復がある。"
+            f"{key} に p 値が null の反復がある(fit_failed でもない)。"
             "当てはめが LRT を返していない。捨てずに原因を見ること"
             + (f"(当てはめの例外: {reasons})" if reasons else "")
         )
     n = len(results)
-    n_reject = sum(1 for p in p_values if p < alpha)
+    done = [r for r, f in zip(results, failed) if not f]
+    n_failed = n - len(done)
+    n_reject = sum(1 for r in done if r["p_value"] < alpha) + (n_failed if failure_as_reject else 0)
     margins = (
-        tuple(sorted(equivalence_margin(r, tost) for r in results))
+        tuple(sorted(equivalence_margin(r, tost) for r in done))
         if tost is not None
         else ()
     )
@@ -641,8 +710,9 @@ def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
         refit_rate=sum(
             1 for r in results if r["full_refit_done"] or r["add_refit_done"]
         ) / n,
-        mean_chisq=float(np.mean([r["chisq"] for r in results])),
+        mean_chisq=float(np.mean([r["chisq"] for r in done])) if done else None,
         errored_rate=sum(1 for r in results if r["n_errored_fits"] > 0) / n,
+        failed_rate=n_failed / n,
         tost_min_margins=margins,
     )
 
@@ -865,9 +935,13 @@ def compare_power(
 
 @dataclass(frozen=True)
 class GateSpec:
-    """誤指定の門。答える問い: どのシートのどの `tau` で、どの区間の下端がいくつを超えたら止まるか。"""
+    """誤指定の門。答える問い: どのシートのどの `tau` で、どの区間の下端がいくつを超えたら止まるか。
 
-    sheet_id: str
+    ★ADR-124 D4: 門は複数のシート(今の独立な `z` と、シード固有の交互作用の (ii))に掛ける。
+    誤指定のシートのうち `sheet_ids` に無いもの((i))は記録だけで、判定に使わない。
+    """
+
+    sheet_ids: tuple[str, ...]
     tau: tuple[float, ...]
     ci_level: float
     lower_bound_above: float
@@ -877,15 +951,25 @@ def load_gate_spec(config: Mapping[str, Any]) -> GateSpec:
     """config の `simulation.misspecification_gate` を読む。答える問い: 門の値は宣言されているか。
 
     **閾値はコードに直書きしない**(skill `code-style` §1)。null は止まる。
+    旧い `sheet`(1 枚)が残っていても止まる(どちらが効いているか読めなくなるため)。
     """
+    if "sheet" in config.get("simulation", {}).get("misspecification_gate", {}):
+        raise ConfigError(
+            "simulation.misspecification_gate.sheet は .sheets(リスト)に置き換えた(ADR-124 D4)"
+        )
     level = float(require(config, "simulation.misspecification_gate.ci_level"))
     if not 0.0 < level < 1.0:
         raise ConfigError(f"simulation.misspecification_gate.ci_level は (0, 1): {level}")
     tau = tuple(float(t) for t in require(config, "simulation.misspecification_gate.tau"))
     if not tau:
         raise ConfigError("simulation.misspecification_gate.tau が空である")
+    sheet_ids = tuple(str(i) for i in require(config, "simulation.misspecification_gate.sheets"))
+    if not sheet_ids or len(set(sheet_ids)) != len(sheet_ids):
+        raise ConfigError(
+            f"simulation.misspecification_gate.sheets は重複のない空でないリスト: {list(sheet_ids)}"
+        )
     return GateSpec(
-        sheet_id=str(require(config, "simulation.misspecification_gate.sheet")),
+        sheet_ids=sheet_ids,
         tau=tau,
         ci_level=level,
         lower_bound_above=float(
@@ -906,19 +990,14 @@ def clopper_pearson_lower(n_reject: int, n: int, level: float) -> float:
     return float(beta_distribution.ppf((1.0 - level) / 2.0, n_reject, n - n_reject + 1))
 
 
-def misspecification_gate(points: Sequence[GridPoint], gate: GateSpec) -> dict[str, Any]:
-    """誤指定のシートを回し終えた時点の判定(ADR-123 決定6)。
-
-    答える問い: 「§3.2 の当てはめの第一種の過誤は、`tau` の判定点の**どれか 1 つでも**
-    区間の下端が閾値を超えるほど膨らむか」。膨らめば、その段の P1・P1⁻・P0 の前で止まる。
-    **`tau` 0 と判定点以外の `tau` は判定に使わない**(記録はシートの `grid` にある)。
-    """
+def _gate_rows(points: Sequence[GridPoint], gate: GateSpec, sheet_id: str) -> list[dict[str, Any]]:
+    """答える問い: このシートの判定点(`gate.tau`)の棄却率と区間の下端はいくつか。"""
     rows = []
     for tau in gate.tau:
         matching = [p for p in points if p.sigma == tau]
         if len(matching) != 1:
             raise PowerSimError(
-                f"誤指定の門の tau = {tau} の点がシートに {len(matching)} 個ある(1 個のはず)"
+                f"誤指定の門のシート {sheet_id} の tau = {tau} の点が {len(matching)} 個ある(1 個のはず)"
             )
         point = matching[0]
         lower = clopper_pearson_lower(point.n_reject, point.n_rep, gate.ci_level)
@@ -928,15 +1007,40 @@ def misspecification_gate(points: Sequence[GridPoint], gate: GateSpec) -> dict[s
             "n_rep": point.n_rep,
             "n_reject": point.n_reject,
             "rejection_rate": point.power,
+            "failed_rate": point.failed_rate,
             "ci_level": gate.ci_level,
             "ci_lower": lower,
             "exceeds": lower > gate.lower_bound_above,
         })
+    return rows
+
+
+def misspecification_gate(
+    points_by_sheet: Mapping[str, Sequence[GridPoint]], gate: GateSpec
+) -> dict[str, Any]:
+    """誤指定のシートを回し終えた時点の判定(ADR-123 決定6 / ADR-124 D4)。
+
+    答える問い: 「§3.2 の当てはめの第一種の過誤は、**門のシートのどれか**の `tau` の判定点の
+    **どれか 1 つでも**区間の下端が閾値を超えるほど膨らむか」。膨らめば、その段の P1・P1⁻・P0 の前で止まる。
+    `points_by_sheet` は誤指定のシートすべて。**`gate.sheet_ids` にあるものだけが判定に効き**、
+    残り((i) など)は `recorded_only` に同じ形で記録する。
+    **`tau` 0 と判定点以外の `tau` は判定に使わない**(記録はシートの `grid` にある)。
+    当てはめ失敗は棄却に数えた後の率である(`summarise_point`。ADR-124 D2')。
+    """
+    missing = [i for i in gate.sheet_ids if i not in points_by_sheet]
+    if missing:
+        raise PowerSimError(f"誤指定の門のシート {missing} の結果が無い")
+    judged = {i: _gate_rows(points_by_sheet[i], gate, i) for i in gate.sheet_ids}
+    recorded = {
+        i: _gate_rows(points, gate, i)
+        for i, points in points_by_sheet.items()
+        if i not in gate.sheet_ids
+    }
     return {
-        "sheet": gate.sheet_id,
+        "sheets": judged,
+        "recorded_only": recorded,
         "lower_bound_above": gate.lower_bound_above,
-        "rows": rows,
-        "inflated": any(row["exceeds"] for row in rows),
+        "inflated": any(row["exceeds"] for rows in judged.values() for row in rows),
     }
 
 
@@ -951,6 +1055,9 @@ ROLE_MISSPECIFICATION = "misspecification"
 ROLES = (ROLE_POWER, ROLE_SHAPE_CHECK, ROLE_NULL_CALIBRATION, ROLE_MISSPECIFICATION)
 # 非加法性を持つ(RMS > 0)シート。残りは厳密に加法(RMS = 0)のプロファイルを使う
 ROLES_WITH_NONADDITIVITY = (ROLE_POWER, ROLE_SHAPE_CHECK)
+# 当てはめ失敗を棄却に数えるシート(第一種の過誤を見るシート)。残り(検出力を見るシート)は非棄却に数える
+# (どちらも「不利な側」。ADR-124 D2')
+FAILURE_AS_REJECT_ROLES = (ROLE_NULL_CALIBRATION, ROLE_MISSPECIFICATION)
 TAU_ZERO = "zero"
 TAU_EQUALS_SIGMA = "equals_sigma"
 # 点の 3 つ組の並び(`sheets[].points` の各要素)
@@ -960,19 +1067,31 @@ ADDITIVE_RMS_TOLERANCE = 1e-9
 
 
 @dataclass(frozen=True)
+class SeedInteractionSpec:
+    """シード固有の交互作用の誤指定(ADR-124 D4)。答える問い: どのプロファイルの向きを、どの大きさで使うか。"""
+
+    direction_profile: str
+    scale: str
+
+
+@dataclass(frozen=True)
 class Sheet:
     """シート 1 枚。答える問い: どのプロファイルをどの点で回し、どう読むか。
 
     ★PLAN-040 D1 (a) / ADR-123 決定2: 点は `(n_item, sigma, rho)` を明示して並べる
     (主の軸と確認点は直積ではないため)。
+
+    `tau` は `zero` / `equals_sigma` か、**正の数値**(ADR-124 D6。`sigma` ≠ `tau` の確認点。検出力のシートだけ)。
+    `seed_interaction` を持つのは誤指定のシートだけで、持てば独立な `z` の代わりにシード固有の交互作用を足す。
     """
 
     sheet_id: str
     role: str
     profile: str
     points: tuple[PointKey, ...]
-    tau: str
+    tau: str | float
     compare_with: str | None
+    seed_interaction: SeedInteractionSpec | None = None
 
 
 def load_n_item_grid(config: Mapping[str, Any]) -> tuple[int, ...]:
@@ -1012,6 +1131,28 @@ def _parse_point(
     return key
 
 
+def _parse_seed_interaction(
+    entry: Mapping[str, Any], role: str, effect: Mapping[str, Any], sheet_id: str
+) -> SeedInteractionSpec | None:
+    """答える問い: このシートの `seed_interaction` は宣言されているなら整合しているか(ADR-124 D4)。
+
+    誤指定のシートだけが持てる。向きのプロファイルは非加法性を持たなければならない(向きが作れない)。
+    """
+    raw = entry.get("seed_interaction")
+    if raw is None:
+        return None
+    if role != ROLE_MISSPECIFICATION:
+        raise ConfigError(f"sheets[{sheet_id}].seed_interaction は誤指定のシートだけが持てる")
+    if not isinstance(raw, Mapping) or set(raw) != {"direction", "scale"}:
+        raise ConfigError(
+            f"sheets[{sheet_id}].seed_interaction は {{direction, scale}} の 2 キー: {raw!r}"
+        )
+    spec = SeedInteractionSpec(direction_profile=str(raw["direction"]), scale=str(raw["scale"]))
+    # 向きを組んでみて、プロファイルの欠落・非加法性の無さ・scale の綴りを config を読む時点で止める
+    seed_interaction_direction(build_profile(effect, spec.direction_profile), spec.scale)
+    return spec
+
+
 def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
     """config の `sheets:` を読む。答える問い: 宣言したシートは整合しているか。
 
@@ -1035,14 +1176,22 @@ def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
         if role not in ROLES:
             raise ConfigError(f"sheets[{sheet_id}].role は {ROLES} のどれか: {role!r}")
         tau = entry["tau"]
-        if tau not in (TAU_ZERO, TAU_EQUALS_SIGMA):
+        numeric_tau = isinstance(tau, (int, float)) and not isinstance(tau, bool)
+        if numeric_tau:
+            tau = float(tau)
+            if tau <= 0.0 or role != ROLE_POWER:
+                raise ConfigError(
+                    f"sheets[{sheet_id}].tau = {tau}: 数値の tau は正で、検出力のシートだけ"
+                    "(P1 の確認点。ADR-124 D6)。0 は `zero` と書く"
+                )
+        elif tau not in (TAU_ZERO, TAU_EQUALS_SIGMA):
             raise ConfigError(
-                f"sheets[{sheet_id}].tau は {TAU_ZERO} か {TAU_EQUALS_SIGMA}: {tau!r}"
+                f"sheets[{sheet_id}].tau は {TAU_ZERO} か {TAU_EQUALS_SIGMA} か正の数値: {tau!r}"
             )
-        if (role == ROLE_MISSPECIFICATION) != (tau == TAU_EQUALS_SIGMA):
+        elif (role == ROLE_MISSPECIFICATION) != (tau == TAU_EQUALS_SIGMA):
             raise ConfigError(
                 f"sheets[{sheet_id}]: tau = {tau} と role = {role} が合わない。"
-                "tau を足すのは誤指定のシート(ADR-114 決定7)だけである"
+                "tau = equals_sigma は誤指定のシート(ADR-114 決定7)だけである"
             )
         profile = build_profile(effect, str(entry["profile"]))
         additive = profile.nonadditivity_rms <= ADDITIVE_RMS_TOLERANCE
@@ -1063,6 +1212,7 @@ def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
                 f"sheets[{sheet_id}].compare_with = {compare_with} は、"
                 "より上のシートの id でなければならない"
             )
+        seed_interaction = _parse_seed_interaction(entry, role, effect, sheet_id)
         raw_points = entry.get("points")
         if not isinstance(raw_points, list) or not raw_points:
             raise ConfigError(f"sheets[{sheet_id}].points は空でないリストである: {raw_points!r}")
@@ -1077,28 +1227,47 @@ def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
                 points=points,
                 tau=tau,
                 compare_with=compare_with,
+                seed_interaction=seed_interaction,
             )
         )
     return sheets
 
 
+def leading_misspecification_block(sheets: Sequence[Sheet]) -> list[Sheet]:
+    """答える問い: 先頭にまとまっている誤指定のシートはどれか(門はこの全部を回した後に判定する)。"""
+    block: list[Sheet] = []
+    for sheet in sheets:
+        if sheet.role != ROLE_MISSPECIFICATION:
+            break
+        block.append(sheet)
+    return block
+
+
 def check_gate_against_sheets(gate: GateSpec, sheets: Sequence[Sheet]) -> None:
-    """答える問い: 門は「先頭の誤指定のシート」の、実際に回す `tau` を見ているか。
+    """答える問い: 門は「先頭にまとめた誤指定のシート」の、実際に回す `tau` を見ているか。
 
     **D3 (a)(ADR-122 決定3)は誤指定を先頭に回すと決めた**。2 枚目以降に置くと、P1 を回した後で
-    門が閉じることになり、止める意味が無い。
+    門が閉じることになり、止める意味が無い。★ADR-124 D4: 誤指定のシートは複数あってよいが、
+    **先頭に連続して並べる**(門は連続した誤指定のシートを全部回した後に判定する。(i) の記録が門の結果によらず残る)。
     """
-    if not sheets or sheets[0].sheet_id != gate.sheet_id:
+    block = leading_misspecification_block(sheets)
+    if not block:
+        raise ConfigError("誤指定の門のため、sheets の先頭は誤指定のシートでなければならない(ADR-122 決定3)")
+    stray = [s.sheet_id for s in sheets[len(block):] if s.role == ROLE_MISSPECIFICATION]
+    if stray:
         raise ConfigError(
-            f"誤指定の門のシート {gate.sheet_id} は sheets の先頭でなければならない(ADR-122 決定3)"
+            f"誤指定のシート {stray} が先頭のまとまりの外にある。先頭に連続して置くこと(ADR-124 D4)"
         )
-    sheet = sheets[0]
-    if sheet.role != ROLE_MISSPECIFICATION:
-        raise ConfigError(f"誤指定の門のシート {gate.sheet_id} の role が {sheet.role} である")
-    swept = {p.sigma for p in sheet.points}
-    missing = [t for t in gate.tau if t not in swept]
-    if missing:
-        raise ConfigError(f"誤指定の門の tau {missing} をシート {gate.sheet_id} が回さない")
+    by_id = {s.sheet_id: s for s in block}
+    for sheet_id in gate.sheet_ids:
+        if sheet_id not in by_id:
+            raise ConfigError(
+                f"誤指定の門のシート {sheet_id} は sheets の先頭の誤指定のシートのどれかでなければならない"
+            )
+        swept = {p.sigma for p in by_id[sheet_id].points}
+        missing = [t for t in gate.tau if t not in swept]
+        if missing:
+            raise ConfigError(f"誤指定の門の tau {missing} をシート {sheet_id} が回さない")
 
 
 def plan_grid(config: Mapping[str, Any]) -> list[tuple[str, PointKey]]:
@@ -1180,8 +1349,15 @@ def load_levels(config: Mapping[str, Any], n_item: int) -> DesignLevels:
 
 
 def frame_tau(sheet: Sheet, sigma: float) -> float:
-    """答える問い: この格子点で DGP に足す seed × タスク型 × 被覆の変動の SD はいくつか。"""
-    return sigma if sheet.tau == TAU_EQUALS_SIGMA else 0.0
+    """答える問い: この格子点で DGP に足す seed × タスク型 × 被覆の変動の SD はいくつか。
+
+    `equals_sigma` はその点の `sigma`、数値(ADR-124 D6)はその値、`zero` は 0。
+    """
+    if sheet.tau == TAU_EQUALS_SIGMA:
+        return sigma
+    if sheet.tau == TAU_ZERO:
+        return 0.0
+    return float(sheet.tau)
 
 
 def sheet_summary(
@@ -1203,9 +1379,16 @@ def sheet_summary(
         # 平行性の TOST が見る係数の真値(logit。処理対比・基準 T1 x id)
         "true_interaction_contrasts": dict(profile.interaction_contrasts),
         "tau": sheet.tau,
+        "seed_interaction": (
+            None if sheet.seed_interaction is None else dataclasses.asdict(sheet.seed_interaction)
+        ),
+        "failure_counted_as": (
+            "reject" if sheet.role in FAILURE_AS_REJECT_ROLES else "retain"
+        ),
         "grid": [dataclasses.asdict(point) for point in points],
     }
-    if sheet.role == ROLE_POWER:
+    # tau が 0 でない検出力のシート(P1 の確認点。ADR-124 D6)は軸を持たない 1 点なので逆問題を解かない
+    if sheet.role == ROLE_POWER and sheet.tau == TAU_ZERO:
         summary["inverse_problem"] = inverse_problem(points, axes, target_power)
     return summary
 
@@ -1318,6 +1501,14 @@ def run_sheet_stage(
     frames_dir.mkdir(parents=True, exist_ok=True)
     fits_dir.mkdir(exist_ok=True)
 
+    seed_direction = (
+        None
+        if sheet.seed_interaction is None
+        else seed_interaction_direction(
+            build_profile(ctx.config["effect"], sheet.seed_interaction.direction_profile),
+            sheet.seed_interaction.scale,
+        )
+    )
     points: list[GridPoint] = []
     for key in sheet.points:
         levels = load_levels(ctx.config, key.n_item)
@@ -1334,6 +1525,7 @@ def run_sheet_stage(
                 levels, profile.eta, key.sigma, key.rho, ctx.s2_item, ctx.s2_tmpl,
                 replication_rng(ctx.rng_seed, sheet.sheet_id, key, rep),
                 tau=frame_tau(sheet, key.sigma),
+                seed_direction=seed_direction,
             )
             write_frame_csv(rows, csv_path)
             pending.append((csv_path, out_path))
@@ -1344,7 +1536,10 @@ def run_sheet_stage(
                 ctx.refit, ctx.max_level, ctx.n_workers,
             )
         results = [json.loads(out.read_text(encoding="ascii")) for out in outputs]
-        points.append(summarise_point(key, results, ctx.alpha, tost))
+        points.append(summarise_point(
+            key, results, ctx.alpha, tost,
+            failure_as_reject=sheet.role in FAILURE_AS_REJECT_ROLES,
+        ))
         if not ctx.keep_frames:
             for csv_path, _ in pending:
                 csv_path.unlink(missing_ok=True)
@@ -1361,9 +1556,10 @@ def run_stage(
 ) -> dict[str, Any]:
     """1 段を回す。答える問い: 反復 `n_rep` までで、各シートは何を言うか。門は閉じたか。
 
-    **誤指定のシート(先頭)を回し終えた時点で門を判定し、膨らめば残りのシートを回さずに返す**
-    (ADR-123 決定6)。
+    **先頭にまとめた誤指定のシートを全部回し終えた時点で門を判定し、膨らめば残りのシートを回さずに返す**
+    (ADR-123 決定6 / ADR-124 D4)。(i) の記録が門の結果によらず残るよう、誤指定のシートは判定の前に全部回す。
     """
+    block_ids = [sheet.sheet_id for sheet in leading_misspecification_block(sheets)]
     sheet_summaries: dict[str, Any] = {}
     sheet_points: dict[str, list[GridPoint]] = {}
     gate_result: dict[str, Any] | None = None
@@ -1378,8 +1574,8 @@ def run_stage(
                 sheet_points[sheet.compare_with], points
             )
         sheet_summaries[sheet.sheet_id] = body
-        if sheet.sheet_id == gate.sheet_id:
-            gate_result = misspecification_gate(points, gate)
+        if sheet.sheet_id == block_ids[-1]:
+            gate_result = misspecification_gate({i: sheet_points[i] for i in block_ids}, gate)
             if gate_result["inflated"]:
                 break
     return {
@@ -1525,19 +1721,19 @@ def stage_cost_lines(
         total = [0.0, 0.0]
         first_sheet = [0.0, 0.0]
         n_pairs = 0
-        for position, sheet in enumerate(sheets):
+        for sheet in sheets:
             for key in sheet.points:
                 n_pairs += added
                 for basis in (0, 1):
                     cost = added * seconds[key.n_item][basis]
                     total[basis] += cost
-                    if position == 0:
+                    if sheet.role == ROLE_MISSPECIFICATION:
                         first_sheet[basis] += cost
         lines.append(
             f"  stage {index}: reps {previous}->{n_rep} (+{added}), {n_pairs} pairs; "
             f"wall-clock hours at {workers} workers (bench / check): "
             f"all sheets {total[0] / 3600 / workers:.1f} / {total[1] / 3600 / workers:.1f}, "
-            f"first sheet only ({sheets[0].sheet_id}) "
+            f"misspecification sheets only ({len(leading_misspecification_block(sheets))} sheets) "
             f"{first_sheet[0] / 3600 / workers:.1f} / {first_sheet[1] / 3600 / workers:.1f}"
         )
         previous = n_rep
@@ -1554,12 +1750,19 @@ def describe_plan(config: Mapping[str, Any], workers_override: int | None = None
     stages = load_stages(config)
     # 出力は ASCII のみ。この環境の stdout は cp932 であり、em dash で落ちる
     # (`plans/PLAN-019-check2/` の検査スクリプトと同じ制約)。
-    lines = [f"sheets    : {len(sheets)} (run in this order; the gate is judged after the first)"]
+    lines = [
+        f"sheets    : {len(sheets)} (run in this order; the gate is judged after the leading "
+        f"{len(leading_misspecification_block(sheets))} misspecification sheets)"
+    ]
     for sheet in sheets:
         points = ", ".join(f"({k.n_item}, {k.sigma:g}, {k.rho:g})" for k in sheet.points)
+        form = (
+            "" if sheet.seed_interaction is None
+            else f" seed_interaction({sheet.seed_interaction.direction_profile}, {sheet.seed_interaction.scale})"
+        )
         lines.append(
             f"  {sheet.sheet_id:<16} {sheet.role:<17} profile {sheet.profile:<7} "
-            f"tau {sheet.tau:<12} {len(sheet.points)} points (n_item, sigma, rho): {points}"
+            f"tau {sheet.tau!s:<12}{form} {len(sheet.points)} points (n_item, sigma, rho): {points}"
         )
     n_points = sum(len(sheet.points) for sheet in sheets)
     n_pairs = n_points * stages[-1]

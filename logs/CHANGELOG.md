@@ -7860,3 +7860,14 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **実装の判断(PLAN に書いていなかった。人間が覆してよい。OPEN-ITEMS「PLAN-041 の実装後に人間が決めること」)**: `p1_tau` を別のシートにした / 当てはめ失敗の反復は `mean_chisq` と TOST の最小 Δ から除く(失敗率は別に出す)/ 旧 `misspecification_gate.sheet` は止まる(`.sheets` に置き換え)
 - **エージェントの未決として書いたもの**: 新しい項の SD のベイズ事前分布・順1b にこの項を足すか(`05_STATISTICS.md` §3.2 に「未決」)
 - **やっていないこと**: run1 の回し直し・本実行の起動・タスクの登録 / 削除・push・tag・GPU・pod・`gh`・未検証の文献を本文に写すこと
+
+## 2026-10-05(その152): PLAN-041 の実装後の確認 7 点を人間が決めた(ADR-125)・TOST でも当てはめ失敗を不利な側に数える(I9)   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「logs/HANDOFF.md を読んで、その指示どおりに作業を始めてください」
+- **やったこと**:
+  - 起動前の確認(読むだけ。PLAN-040 付録 A.1): `BatteryStatus` = 1(バッテリー駆動)/ AC のスタンバイ・休止 = 0(無効)/ Rscript 0 本 / 作業ツリーきれい / 夜用タスク 2 本は Ready。**`stop_night.ps1` は out-dir によらず power_sim の python と Rscript を全部止めることを確認した**(残したまま手で起動すると 06:00 に止まる)
+  - 判断材料の表(7 点 + 夜用タスク。選択肢・推奨・理由)をチャットで示し、`AskUserQuestion` 4 問 + 2 問 → **6 問とも推奨**: 事前分布 `half-Student-t(3, 0, 2.5)` / 順1b には足さない / TOST でも失敗を役割で不利な側に数える / `p1_tau` は別のシートのまま / 夜用タスクを `run2` で登録し直す / 文献と文面は起動を止めない
+  - **PLAN-041 I9**(`code/analysis/power_sim.py`): `tost_power(..., n_failed=, failed_as_equivalent=)`・`margin_quantiles(..., n_failed=, failed_as_equivalent=)`(+∞ に掛かった分位点は null)・`GridPoint.tost_n_failed` / `tost_failed_as_equivalent`・`margin_quantile_table` の `n_failed`・ヘッダの `tost_delta_note`。fit の JSON と R は不変
+  - `code/tests/test_power_sim.py` に 3 件(131 passed)/ `test_repo_hygiene.py` 69 passed / `--dry-run --workers 16` は通る(1 段目 13.8 / 22.9 時間・誤指定の 3 枚 4.3 / 7.2 時間。推算)
+  - 文書: `plans/PLAN-041`(I9・§10.1)/ `logs/DECISIONS.md`(ADR-125)/ `Documents/05_STATISTICS.md` §3.2(事前分布・順1b。旧文は打ち消し線)・§6.8(TOST の失敗・未決の行)/ `logs/OPEN-ITEMS.md`(PLAN-041 の実装後の行を閉じた・夜用タスクの行)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`「その152」)
+- **やっていないこと**: 夜用タスクの登録・本実行の起動・run1 の回し直し・電源設定の変更・全体の `pytest code/tests`・push・tag・GPU・pod

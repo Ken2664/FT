@@ -1502,6 +1502,61 @@ def test_failed_fits_are_left_out_of_chisq_and_margins_but_the_rate_is_kept() ->
     assert (allfail.n_reject, allfail.power) == (2, 1.0)
 
 
+def test_failed_fits_enter_the_tost_reading_on_the_unfavourable_side() -> None:
+    """★ADR-125: TOST の読みでも失敗を役割で不利な側に数える(過誤のシート = 同等と言えない / 検出力 = 言えた)。
+
+    答える問い: 「失敗を分母から除いた条件付きの率になっていないか」。
+    """
+    spec = power_sim.tost_spec(load(MAIN_CONFIG), main_profile("P1"))
+    key = power_sim.PointKey(80, 1.0, 0.0)
+    results = [failed_fit(), fit_result(0.2, interaction_interp_se=0.1,
+                                        interaction_extrap_magnitude_se=0.1)]
+    error_sheet = power_sim.summarise_point(key, results, 0.05, spec, failure_as_reject=True)
+    power_sheet = power_sim.summarise_point(key, results, 0.05, spec, failure_as_reject=False)
+    for pt in (error_sheet, power_sheet):
+        assert pt.tost_n_failed == 1 and len(pt.tost_min_margins) == 1
+    assert (error_sheet.tost_failed_as_equivalent, power_sheet.tost_failed_as_equivalent) == (False, True)
+
+    def power_at(pt: power_sim.GridPoint, delta: float) -> float:
+        return power_sim.tost_power(pt.tost_min_margins, delta, n_failed=pt.tost_n_failed,
+                                    failed_as_equivalent=pt.tost_failed_as_equivalent)
+
+    # 大きい Δ でも過誤のシートは 1/2 で頭打ち、検出力のシートは小さい Δ でも 1/2 から始まる
+    assert power_at(error_sheet, 100.0) == pytest.approx(0.5)
+    assert power_at(power_sheet, 0.0) == pytest.approx(0.5)
+    # TOST を見ないときは失敗も数えない
+    assert power_sim.summarise_point(key, results, 0.05, failure_as_reject=True).tost_n_failed == 0
+
+
+def test_tost_power_counts_failures_in_the_denominator() -> None:
+    assert power_sim.tost_power([0.1, 0.3], 0.2, n_failed=2) == pytest.approx(0.25)
+    assert power_sim.tost_power([0.1, 0.3], 0.2, n_failed=2, failed_as_equivalent=True) == pytest.approx(0.75)
+    assert power_sim.tost_power([], 0.2, n_failed=1) == 0.0          # 全部失敗でも止まらない
+    with pytest.raises(power_sim.PowerSimError):
+        power_sim.tost_power([], 0.2, n_failed=0)
+
+
+def test_margin_quantiles_put_failures_on_the_unfavourable_side_and_null_at_infinity() -> None:
+    """★失敗 = 過誤のシートでは +∞(掛かった分位点は null)/ 検出力のシートでは 0。失敗が無ければ従来と同じ値。"""
+    margins = [float(m) for m in range(1, 11)]
+    qs = (0.05, 0.5, 0.95)
+    base = power_sim.margin_quantiles(margins, qs)
+    expected = np.quantile(np.asarray(margins), list(qs), method=power_sim.QUANTILE_METHOD)
+    assert [base[f"{q:g}"] for q in qs] == pytest.approx(list(expected))
+    # 過誤のシート: 10 件 + 失敗 2 件 = 12 件。0.95 の分位点は上端が +∞ に掛かる → null。下の分位点は有限のまま
+    worse = power_sim.margin_quantiles(margins, qs, n_failed=2)
+    assert worse["0.95"] is None
+    finite_part = np.quantile(np.asarray(margins + [10.0, 10.0]), [0.05, 0.5], method=power_sim.QUANTILE_METHOD)
+    assert [worse["0.05"], worse["0.5"]] == pytest.approx(list(finite_part))
+    # 検出力のシート: 失敗は 0 として下側に入る
+    better = power_sim.margin_quantiles(margins, qs, n_failed=2, failed_as_equivalent=True)
+    assert better["0.05"] == pytest.approx(float(np.quantile(
+        np.asarray([0.0, 0.0] + margins), 0.05, method=power_sim.QUANTILE_METHOD)))
+    # 全部失敗(過誤のシート)= 全部 null。JSON に無限大を書かない
+    assert set(power_sim.margin_quantiles([], qs, n_failed=3).values()) == {None}
+    json.dumps(worse, allow_nan=False)
+
+
 def test_a_missing_fit_failed_flag_is_read_as_not_failed() -> None:
     """旧い run の JSON(`fit_failed` を持たない)は失敗なしとして読み、p 値が null なら止まる。"""
     legacy = fit_result(0.01)

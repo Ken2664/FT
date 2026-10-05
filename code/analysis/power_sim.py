@@ -60,7 +60,8 @@ TOST の検出力は集計の後で読む(`tost_power`)。
 - **当てはめ**: `(1 | seed:task:coverage)` を足し、縮退は template → 傾きの相関 → 傾き(= 床)。
   item と新しい項は落とさない(`power_sim_fit.R`)
 - **当てはめ失敗**: 床でも収束しない / 例外の表は p 値なし(`fit_failed`)。**シートの役割で不利な側に数える**
-  (誤指定・P0 = 棄却 / P1・P1⁻ = 非棄却。`FAILURE_AS_REJECT_ROLES`)。`failed_rate` を別に出す
+  (誤指定・P0 = 棄却 / P1・P1⁻ = 非棄却。`FAILURE_AS_REJECT_ROLES`)。`failed_rate` を別に出す。
+  **TOST の最小 Δ でも同じ向きに数える**(ADR-125: 過誤のシート = 同等と言えない / 検出力のシート = 同等と言えた)
 - **誤指定のシート**: 独立な `z`(今のシート)に加え、**シード固有の交互作用**(`z = m_s × d`・`m_s ~ N(0, tau²)`)の
   2 枚(大きさ `subspace` = (ii)・`per_cell` = (i))。門は `misspecification_gate.sheets` に挙げたシート((ii) と今のシート)に
   掛け、(i) は記録だけ。誤指定のシートは先頭にまとめて並べ、**その全部を回した後に**門を判定する
@@ -601,14 +602,19 @@ def equivalence_margin(result: Mapping[str, Any], spec: TostSpec) -> float:
     return max(margins)
 
 
-def tost_power(min_margins: Sequence[float], delta: float) -> float:
+def tost_power(min_margins: Sequence[float], delta: float, *,
+               n_failed: int = 0, failed_as_equivalent: bool = False) -> float:
     """答える問い: 境界を ±`delta` に置いたとき、同等と言えた反復の割合はいくつか。
 
     **`delta` は呼び出し側が渡す**(この層は値を決めない。ADR-114 決定5)。
+    **当てはめ失敗(`n_failed`)は分母に入れ、不利な側に数える**(ADR-125): 検出力のシートでは
+    「同等と言えた」(`failed_as_equivalent` が真)、過誤のシートでは「同等と言えない」。
     """
-    if not min_margins:
+    n = len(min_margins) + n_failed
+    if n == 0:
         raise PowerSimError("最小 Δ が 0 件である")
-    return sum(1 for m in min_margins if m <= delta) / len(min_margins)
+    n_equivalent = sum(1 for m in min_margins if m <= delta)
+    return (n_equivalent + (n_failed if failed_as_equivalent else 0)) / n
 
 
 @dataclass(frozen=True)
@@ -638,6 +644,9 @@ class GridPoint:
     `mean_chisq` と `tost_min_margins` は当てはめが成功した反復だけで作る
     (失敗は p 値も交互作用の係数も持たない)。全部失敗なら `mean_chisq` は null。
     `tost_min_margins` は反復ごとの「同等と言える最小の Δ」(昇順。TOST を見ないときは空)。
+    **TOST の読みでは失敗も数える**(ADR-125): `tost_n_failed` 件を、`tost_failed_as_equivalent` が真
+    (検出力のシート)なら Δ = 0(同等と言えた)、偽(過誤のシート)なら Δ = +∞(同等と言えない)として
+    `tost_power` と `margin_quantiles` に渡す。無限大は JSON に書かないので、件数と向きで持つ。
     """
 
     n_item: int
@@ -655,6 +664,9 @@ class GridPoint:
     # 床でも収束しない / 床でも例外で、p 値を出せなかった反復の割合(ADR-124 D2')
     failed_rate: float = 0.0
     tost_min_margins: tuple[float, ...] = ()
+    # TOST の読みに入れる当てはめ失敗の件数と向き(ADR-125。TOST を見ないときは 0)
+    tost_n_failed: int = 0
+    tost_failed_as_equivalent: bool = False
 
     @property
     def key(self) -> PointKey:
@@ -714,6 +726,8 @@ def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
         errored_rate=sum(1 for r in results if r["n_errored_fits"] > 0) / n,
         failed_rate=n_failed / n,
         tost_min_margins=margins,
+        tost_n_failed=n_failed if tost is not None else 0,
+        tost_failed_as_equivalent=not failure_as_reject,
     )
 
 
@@ -866,12 +880,28 @@ def inverse_problem(points: Sequence[GridPoint], axes: AxisSpec, target_power: f
 QUANTILE_METHOD = "linear"
 
 
-def margin_quantiles(margins: Sequence[float], quantiles: Sequence[float]) -> dict[str, float]:
-    """答える問い: 反復ごとの「同等と言える最小の Δ」の分布は、宣言した分位点でいくつか。"""
-    if not margins:
+def margin_quantiles(margins: Sequence[float], quantiles: Sequence[float], *,
+                     n_failed: int = 0,
+                     failed_as_equivalent: bool = False) -> dict[str, float | None]:
+    """答える問い: 反復ごとの「同等と言える最小の Δ」の分布は、宣言した分位点でいくつか。
+
+    **当てはめ失敗も分布に入れる**(ADR-125): 検出力のシートでは Δ = 0、過誤のシートでは Δ = +∞。
+    **+∞ に掛かった分位点(線形補間の上端が失敗)は null**(JSON に無限大を書かない)。
+    それ以外の分位点は補間の両端が有限なので、`QUANTILE_METHOD` の値そのものである。
+    """
+    fill = 0.0 if failed_as_equivalent else math.inf
+    values = np.sort(np.asarray([*map(float, margins), *([fill] * n_failed)], dtype=float))
+    if values.size == 0:
         raise PowerSimError("最小 Δ が 0 件である")
-    values = np.quantile(np.asarray(margins, dtype=float), list(quantiles), method=QUANTILE_METHOD)
-    return {f"{q:g}": float(v) for q, v in zip(quantiles, values)}
+    finite = values[np.isfinite(values)]
+    # 失敗(+∞)を有限の最大値で置いても、上端が有限の分位点の補間は変わらない(下で null にする分だけが変わる)
+    capped = np.where(np.isfinite(values), values, finite.max() if finite.size else 0.0)
+    result = np.quantile(capped, list(quantiles), method=QUANTILE_METHOD)
+    out: dict[str, float | None] = {}
+    for q, v in zip(quantiles, result):
+        upper = values[math.ceil((values.size - 1) * q)]
+        out[f"{q:g}"] = None if math.isinf(upper) else float(v)
+    return out
 
 
 def margin_quantile_table(
@@ -892,7 +922,12 @@ def margin_quantile_table(
         for point in sorted(on_n_item_axis(points, axes), key=lambda p: p.n_item):
             rows.setdefault(str(point.n_item), {})[sheet_id] = {
                 "n_rep": point.n_rep,
-                "quantiles": margin_quantiles(point.tost_min_margins, axes.margin_quantiles),
+                "n_failed": point.tost_n_failed,
+                "quantiles": margin_quantiles(
+                    point.tost_min_margins, axes.margin_quantiles,
+                    n_failed=point.tost_n_failed,
+                    failed_as_equivalent=point.tost_failed_as_equivalent,
+                ),
             }
     return {
         "axis": {"sigma": axes.n_item_axis_sigma, "rho": axes.n_item_axis_rho},
@@ -1650,7 +1685,10 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
         "tost_delta_note": (
             "tost_min_margins is, per replication, the smallest delta at which both interaction "
             "CIs fall inside +-delta; the TOST power at any delta is the share <= delta "
-            "(tost_power). delta is NOT chosen here (ADR-114 decision 5)"
+            "(tost_power). delta is NOT chosen here (ADR-114 decision 5). tost_min_margins hold "
+            "successful fits only; the tost_n_failed failed fits enter tost_power and the margin "
+            "quantiles on the unfavourable side (power sheets: equivalent, delta 0; error sheets: "
+            "not equivalent, delta +inf, a quantile reaching them is null). ADR-125"
         ),
         # ★実行資源のつまみであって実験パラメータではない。結果はこの値に依らない
         # (ADR-069 決定3)。それでも「何並列で回したか」は再現の記録として残す。

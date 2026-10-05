@@ -7823,3 +7823,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-05(その148・続き): セッション引き継ぎを記録   [actor: PLANNER 補助 (Opus 5.5)]
 - hook `context-guard` が約 135k トークンで警告 → skill `handoff`。`STATE.md`(冒頭・いま何をしているか・次のアクション 1 番・引き継ぎ)を更新し、その147 のブロックを `logs/STATE-ARCHIVE.md`「その148」へ移した。`logs/HANDOFF.md` を上書き(推奨 Opus = §3.2 の見直しの PLAN の起草)
+
+## 2026-10-05(その149): 誤指定の門が閉じた結果の解釈(案)と §3.2 の改良案を PLAN-041 草案に書いた   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み。GPU 0・pod 0
+- **人間の指示**: 「handoff を読み、その指示どおりに。先行研究を参考に検定の解釈を行い、改良案を検討してほしい」
+- **やったこと**: SCOUT サブエージェント(Opus 5.5)に 5 主張(C1 ランダム傾きの省略・C2 item の省略・C3 収束の扱い・C4 少数クラスタの LRT・C5 シードの変動)の文献を依頼 → `logs/SCOUT-2026-10-05-glmm-misspec.md`・`logs/papers_list-2026-10-05-glmm-misspec.md`(41 件。curl で Crossref 等から取得。**全件 未検証**)/ `plans/PLAN-041-primary-random-structure-review.md`(**草案**。§3 解釈の案・§4 D1〜D6 と推奨・§5 判断材料・§6 実装の手順)
+- **読み(案。確定は人間)**: (a) seed × task × coverage の項が無い(近似 `k = 1 + 0.4 tau² / 0.145` の棄却率 0.078 / 0.170 / 0.45 は観測 14・15・53/100 とおおむね合う。仮定値からの算術)/ (b) 縮退の最後の段が item を落とす(`tau` 0 の 10/100 はほぼここ)[run:20261004_120002_power_sim_t1t2]
+- **推奨(未決)**: D1 (a) `+ (1 | seed:task:coverage)` / D2 (a) item を落とさず、床でも失敗なら「当てはめ失敗」/ D3 (a) LRT のまま・実データでパラメトリック・ブートストラップを感度分析 / D4 (a) 新しい当てはめが持たない形の誤指定を 1 枚(循環を避ける)/ D5 (a) 各段の判定を記録 / D6 (a) P1 に `tau` の確認点
+- **やっていないこと**: D1〜D6 の聴取(コンテキスト超過)・ADR・`Documents/`・`code/`・`configs/` の変更・回し直し・タスクの削除・push・tag・GPU・pod
+- 引き継ぎ: hook `context-guard` が約 187k で警告 → skill `handoff`。STATE.md の 4 ブロックを `logs/STATE-ARCHIVE.md`「その149」へ移した / OPEN-ITEMS の門の行に一言 / HANDOFF を上書き

@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-05(その148)/ by PLANNER 補助 (Opus 5.5。推奨 Opus と一致)。**★検出力分析の本実行の 1 日目で 1 段目の誤指定の門が閉じた**(`stopped_at_gate`)[run:20261004_120002_power_sim_t1t2]。`tau` 0.25 が 14/100・0.5 が 15/100(95% CI の下端 0.0787 / 0.0865 > 0.075)。**P1 / P1⁻ / P0 は走っていない**。★その148: 縮退の段ごとの分解(探索)を `results/power_sim/run1/exploratory/by_reduction.json` に残した。GPU 0・pod 0・push・tag なし
-(**次: §3.2 の見直しの別 PLAN に進むか(ADR-114 決定7。人間が決める。エージェントの推奨 = 進む)。回し直さない。夜用タスク 2 本の扱い(推奨 = `-Unregister`)も人間 / PLAN-037 の I10 / S4・S5**。)
+最終更新: 2026-10-05(その149)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★誤指定の門が閉じた結果の解釈(案)と改良案を `plans/PLAN-041-primary-random-structure-review.md`(草案。D1〜D6 は人間未回答)に書いた**。文献は SCOUT 41 件(`logs/SCOUT-2026-10-05-glmm-misspec.md`・`logs/papers_list-2026-10-05-glmm-misspec.md`。**全件 未検証**)。門の判定(閉じた)[run:20261004_120002_power_sim_t1t2] は変えていない。GPU 0・pod 0・push・tag なし
+(**次: 人間が PLAN-041 の D1〜D6 に回答(推奨 = D1 (a) `+ (1 | seed:task:coverage)` / D2 (a) item を落とさない / D3 (a) / D4 (a) 循環を避ける誤指定を 1 枚 / D5 (a) / D6 (a))→ ADR → 実装。回し直さない。夜用タスク 2 本の扱いも人間 / PLAN-037 の I10 / S4・S5**。)
 
 ---
 
@@ -69,11 +69,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-05(その148・最新)。Phase 0。PLANNER 補助 (Opus 5.5)。門が閉じた結果の判断材料を作った。GPU 0・pod 0。解釈の確定はしていない**
-> - **門**(ADR-123 決定6)[run:20261004_120002_power_sim_t1t2]: `n_item` 80・100 反復。`tau` 0.25 → 14/100(CI 下端 0.0787)・0.5 → 15/100(0.0865)→ 閉じた。全格子は CHANGELOG その147
-> - **探索の分解**(`results/power_sim/run1/exploratory/by_reduction.json`。門の判定は変えない): `drop_item` まで縮退した当てはめは `tau` 0 でも 5/16 棄却。それを除くと `tau` 0.25 → 7/87(下端 0.033)・0.5 → 10/92(下端 0.053)。`tau` ≥ 0.75 では縮退なしの当てはめでも 15/39・20/45・47/68 棄却。詳細は CHANGELOG その148
-> - **実行状況(10:47)**: Rscript / python 0 本。夜用タスク 2 本は Ready(次 21:00 / 06:00)。バッテリー駆動
-> - **★その147 のブロックは `logs/STATE-ARCHIVE.md`「その148」にある**
+> **★★2026-10-05(その149・最新)。Phase 0。PLANNER (Opus 5.5)。門が閉じた結果の解釈(案)と §3.2 の改良案の PLAN 草案。GPU 0・pod 0。決定はしていない**
+> - **PLAN-041(草案)**: 読み(案)= 機構 (a) §3.2 に seed × task × coverage の項が無い(`tau` ≥ 0.5 の膨らみは算術の近似でおおむね説明できる大きさ)/ 機構 (b) 縮退の最後の段が item を落とす(`tau` 0 の 10/100 はほぼここから)。D1〜D6 が人間の決めること(§4 の表に推奨と理由)
+> - **文献**: SCOUT 41 件(C1〜C5)。全件 未検証。C4(少数クラスタの LRT)の直接の根拠はガウスの LMM だけ / LLM の LoRA でシード × 条件の変動を測った文献は無かった
+> - **★その148 のブロックは `logs/STATE-ARCHIVE.md`「その149」にある**
 
 
 
@@ -327,9 +326,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-05(その148・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-05(その149・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **人間: 誤指定の門が閉じた後の扱いを決める**(★その148: 判断材料 = `results/power_sim/run1/exploratory/by_reduction.json`。エージェントの推奨 = §3.2 の見直しの PLAN に進む・見る対象は seed × task × coverage の項と縮退の最後の段 / 夜用タスクは削除)(付録 A.4 の終了コード 3 = 止まる。§3.2 の見直しの別 PLAN = ADR-114 決定7)。**回し直さない**(`start_night.ps1` は `stopped_at_gate` で何もせず終了する)。夜用タスク `PowerSimNightStart` / `PowerSimNightStop` の扱い(そのまま / `register_tasks.ps1 -Unregister`)も人間
+> 1. **人間: PLAN-041 の D1〜D6 に回答する**(草案 §4 の表。推奨付き)→ ADR(提案 エージェント / 採択 人間)→ IMPLEMENTER が I1〜I7 → 人間が新しい `--out-dir` で 1 段目を起動。**run1 は回し直さない**。夜用タスク `PowerSimNightStart` / `PowerSimNightStop` の扱いも人間(推奨 = `-Unregister`)。SCOUT の 41 件の原典確認も人間
 > 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
 > 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
 > 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / `glmer` の例外の規則 / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / **実際の `eval.cells`(PLAN-040 の材料の後)** → tag → S6
@@ -342,10 +341,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-05(その148・最新)。PLANNER 補助 (Opus 5.5。推奨と一致)。門が閉じた結果の判断材料。**
+> **★★2026-10-05(その149・最新)。PLANNER (Opus 5.5。推奨と一致)。§3.2 の見直しの PLAN 草案。**
 >
-> **★やったこと**: 実行状況の確認(読むだけ)→ 誤指定シートの棄却を縮退の段ごとに分解(`results/power_sim/run1/exploratory/by_reduction.py` / `.json`。commit `9ac2ab7`)→ 人間に数値と読み(案)と推奨を説明。
-> **★やっていないこと**: 解釈・決定の確定・§3.2 の見直しの PLAN の起草・回し直し・タスクの削除・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+> **★やったこと**: 開始手順 → SCOUT サブエージェントに文献 5 主張 × 5 件以上を依頼(41 件・未検証)→ `plans/PLAN-041-primary-random-structure-review.md` 草案(解釈の案・D1〜D6・判断材料・実装の手順)。
+> **★やっていないこと**: 人間への D1〜D6 の聴取(コンテキスト超過で次セッションへ)・ADR・`05_STATISTICS.md`・`code/`・`configs/` の変更・回し直し・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
 
 
 

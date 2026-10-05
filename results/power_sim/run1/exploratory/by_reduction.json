@@ -1,0 +1,378 @@
+{
+  "run_id": "20261004_120002_power_sim_t1t2",
+  "sheet": "misspecification",
+  "note": "exploratory post-hoc breakdown; does NOT change the ADR-123 decision-6 gate (power_sim_summary.json: stopped_at_gate = true)",
+  "alpha": 0.05,
+  "ci_level": 0.95,
+  "ci_method": "clopper-pearson",
+  "n_fit_files": 600,
+  "fits_sha256": "57d78666f949c5dba6eed0ce36243b356c582dbff024338a08da12a8c43edd38",
+  "rows": [
+    {
+      "tau": 0.0,
+      "all": {
+        "n": 100,
+        "n_reject": 10,
+        "rejection_rate": 0.1,
+        "ci_lower": 0.049004689221485966,
+        "ci_upper": 0.17622259774002255,
+        "mean_chisq": 2.5535323425545,
+        "median_chisq": 1.5707648905
+      },
+      "by_reduction": {
+        "none": {
+          "n": 1,
+          "n_reject": 0,
+          "rejection_rate": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.975,
+          "mean_chisq": 5.862288516,
+          "median_chisq": 5.862288516
+        },
+        "drop_template": {
+          "n": 10,
+          "n_reject": 0,
+          "rejection_rate": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.3084971078187607,
+          "mean_chisq": 1.32939607913,
+          "median_chisq": 1.3968583954999998
+        },
+        "drop_coverage_slope": {
+          "n": 73,
+          "n_reject": 5,
+          "rejection_rate": 0.0684931506849315,
+          "ci_lower": 0.022612195502995373,
+          "ci_upper": 0.1526470137774297,
+          "mean_chisq": 2.0302322480335615,
+          "median_chisq": 1.147742012
+        },
+        "drop_item": {
+          "n": 16,
+          "n_reject": 5,
+          "rejection_rate": 0.3125,
+          "ci_lower": 0.11016995471711746,
+          "ci_upper": 0.5866206364513586,
+          "mean_chisq": 5.49937692760625,
+          "median_chisq": 3.6699386155
+        }
+      },
+      "excluding_drop_item": {
+        "n": 84,
+        "n_reject": 5,
+        "rejection_rate": 0.05952380952380952,
+        "ci_lower": 0.01960757823215596,
+        "ci_upper": 0.13346573291396713,
+        "mean_chisq": 1.9924190882589286,
+        "median_chisq": 1.2496228215
+      },
+      "n_full_singular": 72,
+      "chisq_inflation_per_tau2": null
+    },
+    {
+      "tau": 0.25,
+      "all": {
+        "n": 100,
+        "n_reject": 14,
+        "rejection_rate": 0.14,
+        "ci_lower": 0.07870540492696576,
+        "ci_upper": 0.22372798137056765,
+        "mean_chisq": 2.991879157958532,
+        "median_chisq": 2.0832672545
+      },
+      "by_reduction": {
+        "none": {
+          "n": 2,
+          "n_reject": 0,
+          "rejection_rate": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.841886116991581,
+          "mean_chisq": 3.05058513815,
+          "median_chisq": 3.05058513815
+        },
+        "drop_template": {
+          "n": 8,
+          "n_reject": 0,
+          "rejection_rate": 0.0,
+          "ci_lower": 0.0,
+          "ci_upper": 0.3694166475528192,
+          "mean_chisq": 2.64921900272875,
+          "median_chisq": 2.863443959
+        },
+        "drop_coverage_slope": {
+          "n": 77,
+          "n_reject": 7,
+          "rejection_rate": 0.09090909090909091,
+          "ci_lower": 0.037335894699944264,
+          "ci_upper": 0.17837855664248328,
+          "mean_chisq": 2.289028096814587,
+          "median_chisq": 1.555429237
+        },
+        "drop_item": {
+          "n": 13,
+          "n_reject": 7,
+          "rejection_rate": 0.5384615384615384,
+          "ci_lower": 0.25134548227030357,
+          "ci_upper": 0.807767558198712,
+          "mean_chisq": 7.356756157153846,
+          "median_chisq": 7.469197636
+        }
+      },
+      "excluding_drop_item": {
+        "n": 87,
+        "n_reject": 7,
+        "rejection_rate": 0.08045977011494253,
+        "ci_lower": 0.03296169227289038,
+        "ci_upper": 0.1587750348191356,
+        "mean_chisq": 2.3396561580787725,
+        "median_chisq": 1.637452424
+      },
+      "n_full_singular": 8,
+      "chisq_inflation_per_tau2": 7.935033263668256
+    },
+    {
+      "tau": 0.5,
+      "all": {
+        "n": 100,
+        "n_reject": 15,
+        "rejection_rate": 0.15,
+        "ci_lower": 0.08645438564164858,
+        "ci_upper": 0.235307500148955,
+        "mean_chisq": 3.3886578863703,
+        "median_chisq": 2.2804331905
+      },
+      "by_reduction": {
+        "none": {
+          "n": 18,
+          "n_reject": 1,
+          "rejection_rate": 0.05555555555555555,
+          "ci_lower": 0.0014055561673694233,
+          "ci_upper": 0.27294359967336845,
+          "mean_chisq": 2.8796035141894443,
+          "median_chisq": 2.832004029
+        },
+        "drop_template": {
+          "n": 6,
+          "n_reject": 1,
+          "rejection_rate": 0.16666666666666666,
+          "ci_lower": 0.0042107445144894725,
+          "ci_upper": 0.6412345789976748,
+          "mean_chisq": 2.8531263101883333,
+          "median_chisq": 2.7860268745
+        },
+        "drop_coverage_slope": {
+          "n": 68,
+          "n_reject": 8,
+          "rejection_rate": 0.11764705882352941,
+          "ci_lower": 0.0521837446698808,
+          "ci_upper": 0.21871710570777947,
+          "mean_chisq": 2.8678538815954413,
+          "median_chisq": 1.9865406945
+        },
+        "drop_item": {
+          "n": 8,
+          "n_reject": 5,
+          "rejection_rate": 0.625,
+          "ci_lower": 0.24486321636655167,
+          "ci_upper": 0.9147665858627464,
+          "mean_chisq": 9.3625129465,
+          "median_chisq": 6.910523448
+        }
+      },
+      "excluding_drop_item": {
+        "n": 92,
+        "n_reject": 10,
+        "rejection_rate": 0.10869565217391304,
+        "ci_lower": 0.053369939456930575,
+        "ci_upper": 0.19082333326711032,
+        "mean_chisq": 2.869192228967717,
+        "median_chisq": 2.0455099150000002
+      },
+      "n_full_singular": 0,
+      "chisq_inflation_per_tau2": 2.7773157727406
+    },
+    {
+      "tau": 0.75,
+      "all": {
+        "n": 100,
+        "n_reject": 38,
+        "rejection_rate": 0.38,
+        "ci_lower": 0.2847674761414794,
+        "ci_upper": 0.4825393057508066,
+        "mean_chisq": 6.8573677874444,
+        "median_chisq": 4.0493461685
+      },
+      "by_reduction": {
+        "none": {
+          "n": 39,
+          "n_reject": 15,
+          "rejection_rate": 0.38461538461538464,
+          "ci_lower": 0.2336393250658199,
+          "ci_upper": 0.5538094317780062,
+          "mean_chisq": 5.882448438741026,
+          "median_chisq": 4.094408936
+        },
+        "drop_template": {
+          "n": 12,
+          "n_reject": 4,
+          "rejection_rate": 0.3333333333333333,
+          "ci_lower": 0.0992460911495833,
+          "ci_upper": 0.651124493581186,
+          "mean_chisq": 5.43949518255,
+          "median_chisq": 3.3746552135
+        },
+        "drop_coverage_slope": {
+          "n": 42,
+          "n_reject": 13,
+          "rejection_rate": 0.30952380952380953,
+          "ci_lower": 0.17622108264195518,
+          "ci_upper": 0.4708606289321167,
+          "mean_chisq": 5.003266212379524,
+          "median_chisq": 3.9107143405
+        },
+        "drop_item": {
+          "n": 7,
+          "n_reject": 6,
+          "rejection_rate": 0.8571428571428571,
+          "ci_lower": 0.42127680295680486,
+          "ci_upper": 0.9963897031380994,
+          "mean_chisq": 25.844309503285714,
+          "median_chisq": 16.26427319
+        }
+      },
+      "excluding_drop_item": {
+        "n": 93,
+        "n_reject": 32,
+        "rejection_rate": 0.34408602150537637,
+        "ci_lower": 0.24861363167902895,
+        "ci_upper": 0.44979169789373774,
+        "mean_chisq": 5.428243142166021,
+        "median_chisq": 3.954962118
+      },
+      "n_full_singular": 0,
+      "chisq_inflation_per_tau2": 4.317660255506134
+    },
+    {
+      "tau": 1.0,
+      "all": {
+        "n": 100,
+        "n_reject": 53,
+        "rejection_rate": 0.53,
+        "ci_lower": 0.4275814848900451,
+        "ci_upper": 0.6305948358056054,
+        "mean_chisq": 9.820711233827,
+        "median_chisq": 6.284434749
+      },
+      "by_reduction": {
+        "none": {
+          "n": 45,
+          "n_reject": 20,
+          "rejection_rate": 0.4444444444444444,
+          "ci_lower": 0.2964439238658583,
+          "ci_upper": 0.6000265035963211,
+          "mean_chisq": 8.74721702747111,
+          "median_chisq": 4.543333676
+        },
+        "drop_template": {
+          "n": 12,
+          "n_reject": 6,
+          "rejection_rate": 0.5,
+          "ci_lower": 0.2109446382392967,
+          "ci_upper": 0.7890553617607033,
+          "mean_chisq": 7.600473519991667,
+          "median_chisq": 5.226450345
+        },
+        "drop_coverage_slope": {
+          "n": 33,
+          "n_reject": 18,
+          "rejection_rate": 0.5454545454545454,
+          "ci_lower": 0.3635065310148465,
+          "ci_upper": 0.7189338057061838,
+          "mean_chisq": 6.674145983957576,
+          "median_chisq": 6.342754632
+        },
+        "drop_item": {
+          "n": 10,
+          "n_reject": 9,
+          "rejection_rate": 0.9,
+          "ci_lower": 0.5549838829718047,
+          "ci_upper": 0.9974714214555382,
+          "mean_chisq": 27.6993857436,
+          "median_chisq": 23.30110851
+        }
+      },
+      "excluding_drop_item": {
+        "n": 90,
+        "n_reject": 44,
+        "rejection_rate": 0.4888888888888889,
+        "ci_lower": 0.38198748625258655,
+        "ci_upper": 0.5965418672844589,
+        "mean_chisq": 7.8341918438522224,
+        "median_chisq": 5.943811932
+      },
+      "n_full_singular": 0,
+      "chisq_inflation_per_tau2": 3.9103556169135
+    },
+    {
+      "tau": 1.5,
+      "all": {
+        "n": 100,
+        "n_reject": 73,
+        "rejection_rate": 0.73,
+        "ci_lower": 0.6319837270910251,
+        "ci_upper": 0.8139335777092593,
+        "mean_chisq": 18.863594747687,
+        "median_chisq": 11.61455385
+      },
+      "by_reduction": {
+        "none": {
+          "n": 68,
+          "n_reject": 47,
+          "rejection_rate": 0.6911764705882353,
+          "ci_lower": 0.5674391555096874,
+          "ci_upper": 0.797636524002587,
+          "mean_chisq": 16.375373917905883,
+          "median_chisq": 10.44581356
+        },
+        "drop_template": {
+          "n": 9,
+          "n_reject": 6,
+          "rejection_rate": 0.6666666666666666,
+          "ci_lower": 0.2992950562085404,
+          "ci_upper": 0.9251453685803082,
+          "mean_chisq": 20.39269410711111,
+          "median_chisq": 13.26117966
+        },
+        "drop_coverage_slope": {
+          "n": 19,
+          "n_reject": 16,
+          "rejection_rate": 0.8421052631578947,
+          "ci_lower": 0.6042154487333258,
+          "ci_upper": 0.9661737509982353,
+          "mean_chisq": 17.68968600753158,
+          "median_chisq": 13.59464911
+        },
+        "drop_item": {
+          "n": 4,
+          "n_reject": 4,
+          "rejection_rate": 1.0,
+          "ci_lower": 0.3976353643835254,
+          "ci_upper": 1.0,
+          "mean_chisq": 63.298941811,
+          "median_chisq": 71.54825593
+        }
+      },
+      "excluding_drop_item": {
+        "n": 96,
+        "n_reject": 69,
+        "rejection_rate": 0.71875,
+        "ci_lower": 0.6177663579601985,
+        "ci_upper": 0.8057831168261385,
+        "mean_chisq": 17.01212195338229,
+        "median_chisq": 11.036964569999999
+      },
+      "n_full_singular": 0,
+      "chisq_inflation_per_tau2": 3.7474654994859997
+    }
+  ]
+}

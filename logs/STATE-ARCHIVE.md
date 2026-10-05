@@ -9803,3 +9803,35 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: 開始手順 → 判断材料の表 → `AskUserQuestion` 2 問(2 問とも推奨)→ 実装・テスト(`test_power_sim.py` 114 passed・`test_repo_hygiene.py` 68 passed)→ R のスモーク → commit `8e89666`。
 > **★やっていないこと**: I5・I7・全テストの残り 29%・本実行・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
+
+## ★2026-10-05(その151)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-05(その150)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★PLAN-041 の D1〜D6 を人間が回答し ADR-124 を書いた**(10 問とも推奨。§3.2 に `(1 | seed:task:coverage)`・縮退は template → 傾きの相関 → 傾き → 床で item と新しい項は落とさない・床の失敗と例外は不利な側に数える・誤指定に「シード固有の交互作用」のシート(門は部分空間の分散を揃えた (ii) で判定・(i) は記録)・P1 に `tau` 0.5 の点)。`configs/`・`code/`・`Documents/` は不変。GPU 0・pod 0・push・tag なし
+(**次: IMPLEMENTER が PLAN-041 §6 の I1〜I8 → 人間が新しい `--out-dir` で 1 段目を起動。run1 は回し直さない。夜用タスク 2 本の扱いは人間 / PLAN-037 の I10 / S4・S5**。)
+
+### いま何をしているか
+
+> **★★2026-10-05(その150・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-041 の聴取と ADR-124。GPU 0・pod 0**
+> - **PLAN-041 は採択**(§10 に回答。§4.1 = 聴取の場で直した草案の穴 3 つ。§5.4 = D4 の揃え方の近似 (ii) 0.059 / 0.080・(i) 0.101 / 0.188。仮定値からの算術)。**エージェントの補い 3 点は人間の確認待ち**(足すシートの `sigma` = `tau` / 門は今のシートと (ii) の両方 / 誤指定 3 枚は門の前に全部回す)
+> - **run1 の未追跡ファイル(`git_sha.txt`・`config_resolved.json`・`misspecification/manifest_*` 96 本)は人間の指示で commit した**
+> - **★その149 のブロックは `logs/STATE-ARCHIVE.md`「その150」にある**
+
+### 次のアクション
+
+> **★★2026-10-05(その150・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **IMPLEMENTER: PLAN-041 §6 の I1〜I8**(ADR-124。R の 4 水準・`fit_failed` と不利な側の集計・各段の記録・`seed_interaction` の DGP・config の 2 枚 + P1 の 1 点・`05_STATISTICS.md` §3.2 / §6.8・`06_THREATS.md` T15 の差し替え)→ 人間の確認(エージェントの補い 3 点を含む)・AC 電源 → **人間が新しい `--out-dir` で 1 段目を起動**。**run1 は回し直さない**。夜用タスク `PowerSimNightStart` / `PowerSimNightStop` の扱いも人間(推奨 = `-Unregister`)。SCOUT の 41 件の原典確認も人間
+> 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / **D3 のパラメトリック・ブートストラップの反復数と食い違ったときの扱い** / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / **実際の `eval.cells`(PLAN-040 の材料の後)** → tag → S6
+> 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
+
+### 引き継ぎ
+
+> **★★2026-10-05(その150・最新)。PLANNER (Opus 5.5。推奨と一致)。PLAN-041 の聴取と ADR-124。**
+>
+> **★やったこと**: 開始手順 → 判断材料の表と読みを示し、草案の穴 3 つを指摘 → `AskUserQuestion`(D1〜D6・D4 の揃え方の諮り直し・例外の規則・未追跡ファイル)→ PLAN-041 §4.1・§5.4・§6・§10 / ADR-124 / OPEN-ITEMS 2 行。
+> **★やっていないこと**: 実装(I1〜I8)・`Documents/`・`code/`・`configs/` の変更・回し直し・タスクの削除・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER。Sonnet 推奨)。

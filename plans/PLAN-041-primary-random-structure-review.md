@@ -3,7 +3,7 @@
 > プランファイルは**実装より先に書く**。仕様がここに書かれていないものは実装しない。
 
 - 作成日: 2026-10-05(その149)
-- ステータス: ~~**`草案`(人間未承認。§4 の D1〜D6 は未回答。値・採否は人間。`CLAUDE.md` §8)**~~ → **`採択`(2026-10-05 その150。D1〜D6・D4 の大きさの揃え方・`glmer` の例外の規則を人間が回答 = §10。ADR-124。実装 I1〜I8 は次のセッション)**
+- ステータス: ~~**`草案`(人間未承認。§4 の D1〜D6 は未回答。値・採否は人間。`CLAUDE.md` §8)**~~ → **`採択`(2026-10-05 その150。D1〜D6・D4 の大きさの揃え方・`glmer` の例外の規則を人間が回答 = §10。ADR-124。実装 I1〜I8 は ~~次のセッション~~ → ★2026-10-05 その151 に済(§6 の「実装の記録」。補い 3 点は人間が確認))**
 - 担当: PLANNER (Opus 5.5) → 実装は IMPLEMENTER(Sonnet 推奨。`Documents/10_CONTEXT_POLICY.md` §7)
 - 出発点: run `20261004_120002_power_sim_t1t2` の誤指定の門(`results/power_sim/run1/power_sim_summary.json`)と探索の分解(`results/power_sim/run1/exploratory/by_reduction.json`)。**判断材料に使う数値はこの 2 ファイルからだけ取る**(HANDOFF その148)
 - 人間の指示: 2026-10-05(その149)「先行研究などを参考にしたうえで、検定の解釈を行い、改良案を検討してください」
@@ -173,6 +173,16 @@
 - **I7**: テスト(`pytest code/tests -q`)。**本物の `configs/power_sim.yaml` を `power_sim.run` / `main` に渡すテストは書かない**
 - **I8**: `Documents/06_THREATS.md` T15 と `09_PAPER_PLAN.md` の反論表の「交互作用のシード間変動は誤差に畳まれたまま」の記述を新しい §3.2 に合わせる(打ち消し線)
 - 起動は人間(新しい `--out-dir`。`--through-stage 1`)
+
+**★実装の記録(2026-10-05 その151。IMPLEMENTER = Claude Sonnet 5.5。エージェントの補い 3 点は同日に人間が「そのまま」と確認した)**
+
+- **I1〜I3**(`code/analysis/power_sim_fit.R`): `random_by_level`(`||` を使わず被覆の指示変数 `cov_<水準>` に展開)・`fit_failed`・`levels`。**R 4.6.1 / lme4 2.0.6 で小さい表 1 枚(`n_item` 12・シード固有の交互作用の表)を通し、JSON の構造(`levels` 4 要素・`fit_failed` false)と水準 0〜3 の式の組み上がりを確認した**。**時間の測定ではない**(この 1 枚は 99.5 秒)。実運用の当てはめ時間・失敗率・縮退の段の分布は未実測(新しい run で測る)
+- **I2**(`code/analysis/power_sim.py`): `summarise_point(..., failure_as_reject=)`(必須の引数)・`GridPoint.failed_rate`・`FAILURE_AS_REJECT_ROLES`。**`mean_chisq` と TOST の最小 Δ は成功した反復だけ**(失敗は p 値も係数も持たない)。この扱いは PLAN に書いていなかった実装の判断(人間が覆してよい)。旧 run の JSON(`fit_failed` なし)は失敗なしと読む
+- **I4**: `seed_interaction_direction(profile, scale)`・`draw_frame(..., seed_direction=)`。**旧コードと `tau` 0・0.25・1.0 の表が一致することを確認**(一時スクリプト。テストには入れていない。`tau = 0` は `seed_direction` があっても乱数を消費しないことはテストに入れた)
+- **I5**(`configs/power_sim.yaml`・`power_sim_smoke.yaml`): 誤指定 2 枚(`misspecification_seed_subspace` / `_per_cell`)・`p1_tau`(**P1 のシートに足す代わりに別のシートにした**。(80, 1.0, 0.0) が `p1` の点と鍵が同じで、乱数の鍵とファイル名が点で決まるため。意味は同じ)。門は `misspecification_gate.sheets: [misspecification, misspecification_seed_subspace]`(旧 `sheet` は止まる)。誤指定のシートは先頭に連続して置き、全部回した後に判定する。`reduction_order: [template, coverage_corr, coverage_slope]`。25 点・50,000 本
+- **I6**: `Documents/05_STATISTICS.md` §3.2(式・項の表・縮退順序・例外・当てはめ失敗・各段の記録・「契機」)と §6.8(「★2026-10-05 差し替え」の節)。**新しい項のベイズ感度解析の事前分布と、順1b にこの項を足すかは書かずに「未決」と明記した**
+- **I7**: `code/tests/test_power_sim.py`(128 件。R は呼ばない・本物の config を `run` / `main` に渡していない)
+- **I8**: `06_THREATS.md` T15・`09_PAPER_PLAN.md` の反論表(旧文は打ち消し線)。**Limitations の文面の確定は人間**
 
 <details><summary>旧 I1〜I7(草案。その149)</summary>
 

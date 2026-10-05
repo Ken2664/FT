@@ -7841,3 +7841,22 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書き換えたもの**: `plans/PLAN-041-primary-random-structure-review.md`(ステータス = 採択・§4.1・§5.4・§6 を I1〜I8 に書き直し(旧は打ち消し線)・§9・§10)/ `logs/DECISIONS.md`(ADR-124)/ `logs/OPEN-ITEMS.md`(門の後の行・`glmer` の例外の行を決着)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その150」)/ `logs/HANDOFF.md` / `results/power_sim/run1/`(`git_sha.txt`・`config_resolved.json`・`misspecification/manifest_*` 96 本を commit)
 - **エージェントの補い(人間の確認待ち。ADR-124)**: 足すシートの `sigma` = `tau` / 門は今のシートと (ii) の両方に掛ける / 誤指定 3 枚は門の判定の前に全部回す
 - **やっていないこと**: 実装(I1〜I8)・`Documents/`・`code/`・`configs/` の変更・回し直し・夜用タスクの削除・push・tag・GPU・pod
+
+## 2026-10-05(その151): PLAN-041 I1〜I8 を実装した(ADR-124。§3.2 に `(1 | seed:task:coverage)`・縮退の改め・当てはめ失敗の数え方・誤指定のシード固有の交互作用・P1 の `tau` 点)   [actor: IMPLEMENTER (Sonnet 5.5)]
+- **役割**: IMPLEMENTER。実モデル Sonnet 5.5 は推奨(Sonnet)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本)。GPU 0・pod 0
+- **人間の指示**: 「logs/HANDOFF.md を読んで、その指示どおりに作業を始めてください」→ ADR-124 の補い 3 点を `AskUserQuestion` で確認(**3 点ともそのまま。推奨**)
+- **やったこと**:
+  - **I1〜I3** `code/analysis/power_sim_fit.R`: `random_by_level`(水準 0〜3。`||` を使わず被覆の指示変数 `cov_<水準>` に展開)・`NEW_TERM`・床でも失敗 → `fit_failed`(p 値 null)・各段の記録 `levels`(段・full/add・`failed`・`refit_done`・`singular`・`n_warnings`・`loglik_gain`・`max_shift`・`error`)。`jstr` は ASCII だけにする(例外の文面。python 側が ascii で読む)
+  - **I2・I4** `code/analysis/power_sim.py`: `summarise_point(..., failure_as_reject=)`(必須)・`GridPoint.failed_rate`・`FAILURE_AS_REJECT_ROLES`・`seed_interaction_direction`・`draw_frame(..., seed_direction=)`・`GateSpec.sheet_ids`・`misspecification_gate(points_by_sheet, gate)`(`recorded_only`)・`leading_misspecification_block`・`Sheet.tau` が数値を取れる・`Sheet.seed_interaction`。**誤指定のシートは先頭に連続して置き、全部回した後に門を判定**(`run_stage`)
+  - **I5** `configs/power_sim.yaml`・`configs/power_sim_smoke.yaml`: 誤指定 2 枚・`p1_tau`(別のシートにした)・`misspecification_gate.sheets`・`fit.reduction_order: [template, coverage_corr, coverage_slope]`。**門の閾値 0.075・判定点 `tau` 0.25 / 0.5・格子・`s2_*`・ADR-059 の閾値は変えていない**
+  - **I6** `Documents/05_STATISTICS.md` §3.2(式・項の表・「★2026-10-05 改め」・縮退順序・例外・当てはめ失敗・各段の記録)と §6.8(「★2026-10-05 差し替え」の節・例外の暫定の決着)。旧文は打ち消し線で残した
+  - **I7** `code/tests/test_power_sim.py`(128 件)
+  - **I8** `Documents/06_THREATS.md` T15・`Documents/09_PAPER_PLAN.md` の反論表(旧文は打ち消し線)
+- **確認したこと**:
+  - `pytest code/tests/test_power_sim.py -q` = 128 passed(R は呼ばない・本物の config は `run` / `main` に渡していない。`--dry-run` と `load_*` だけ)
+  - **R 4.6.1 / lme4 2.0.6 で小さい表 1 枚を通した**(`n_item` 12・`seed_direction` あり・99.5 秒。JSON の構造と水準 0〜3 の式の組み上がりの確認。**時間・失敗率の測定ではない**)
+  - **旧コード(HEAD)と `draw_frame` の表が `tau` 0・0.25・1.0 で一致**(一時スクリプト。既存の乱数列を変えていない)
+  - `--dry-run --workers 16`: 25 点・50,000 本。1 段目 13.8 / 22.9 時間(誤指定の 3 枚だけ 4.3 / 7.2 時間)。**新しい項の当てはめ時間は未実測**(行数比例のまま)
+- **実装の判断(PLAN に書いていなかった。人間が覆してよい。OPEN-ITEMS「PLAN-041 の実装後に人間が決めること」)**: `p1_tau` を別のシートにした / 当てはめ失敗の反復は `mean_chisq` と TOST の最小 Δ から除く(失敗率は別に出す)/ 旧 `misspecification_gate.sheet` は止まる(`.sheets` に置き換え)
+- **エージェントの未決として書いたもの**: 新しい項の SD のベイズ事前分布・順1b にこの項を足すか(`05_STATISTICS.md` §3.2 に「未決」)
+- **やっていないこと**: run1 の回し直し・本実行の起動・タスクの登録 / 削除・push・tag・GPU・pod・`gh`・未検証の文献を本文に写すこと

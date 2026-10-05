@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-05(その150)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★PLAN-041 の D1〜D6 を人間が回答し ADR-124 を書いた**(10 問とも推奨。§3.2 に `(1 | seed:task:coverage)`・縮退は template → 傾きの相関 → 傾き → 床で item と新しい項は落とさない・床の失敗と例外は不利な側に数える・誤指定に「シード固有の交互作用」のシート(門は部分空間の分散を揃えた (ii) で判定・(i) は記録)・P1 に `tau` 0.5 の点)。`configs/`・`code/`・`Documents/` は不変。GPU 0・pod 0・push・tag なし
-(**次: IMPLEMENTER が PLAN-041 §6 の I1〜I8 → 人間が新しい `--out-dir` で 1 段目を起動。run1 は回し直さない。夜用タスク 2 本の扱いは人間 / PLAN-037 の I10 / S4・S5**。)
+最終更新: 2026-10-05(その151)/ by IMPLEMENTER (Sonnet 5.5。推奨 Sonnet と一致)。**★PLAN-041 の I1〜I8 を実装した**(ADR-124 の補い 3 点は人間が「そのまま」と確認)。R の 4 水準(`random_by_level`・`||` を使わず指示変数に展開)・`fit_failed` と不利な側の集計・各段の記録 `levels`・誤指定のシード固有の交互作用 2 枚 + `p1_tau`・門は今のシートと (ii) の両方(誤指定 3 枚を全部回した後に判定)・`05_STATISTICS.md` §3.2 / §6.8・`06_THREATS.md` T15・`09_PAPER_PLAN.md`。`test_power_sim.py` 128 passed。**門の閾値・判定点・格子・`s2_*`・ADR-059 の閾値は不変**。GPU 0・pod 0・push・tag なし
+(**次: 人間の確認(OPEN-ITEMS「PLAN-041 の実装後に人間が決めること」7 点)・AC 電源 → 人間が新しい `--out-dir` で 1 段目を起動(`--through-stage 1`)。run1 は回し直さない。夜用タスク 2 本の扱いは人間 / PLAN-037 の I10 / S4・S5**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -68,11 +68,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-05(その150・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-041 の聴取と ADR-124。GPU 0・pod 0**
-> - **PLAN-041 は採択**(§10 に回答。§4.1 = 聴取の場で直した草案の穴 3 つ。§5.4 = D4 の揃え方の近似 (ii) 0.059 / 0.080・(i) 0.101 / 0.188。仮定値からの算術)。**エージェントの補い 3 点は人間の確認待ち**(足すシートの `sigma` = `tau` / 門は今のシートと (ii) の両方 / 誤指定 3 枚は門の前に全部回す)
-> - **run1 の未追跡ファイル(`git_sha.txt`・`config_resolved.json`・`misspecification/manifest_*` 96 本)は人間の指示で commit した**
-> - **★その149 のブロックは `logs/STATE-ARCHIVE.md`「その150」にある**
-
+> **★★2026-10-05(その151・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-041 I1〜I8 の実装。GPU 0・pod 0。本実行は起動していない**
+> - **実装は commit 済み**(R は小さい表 1 枚で通した = 構造の確認。`--dry-run`(16 並列): 25 点・50,000 本。1 段目 13.8 / 22.9 時間・誤指定の 3 枚だけ 4.3 / 7.2 時間(推算。新しい項の当てはめ時間は未実測))
+> - **実装の判断(人間が覆してよい)**: `p1_tau` を別のシートにした / 失敗した反復は `mean_chisq` と TOST の最小 Δ から除く / 旧 `misspecification_gate.sheet` は止まる
+> - **★その150 のブロックは `logs/STATE-ARCHIVE.md`「その151」にある**
 
 
 ---
@@ -325,14 +324,13 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-05(その150・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-05(その151・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **IMPLEMENTER: PLAN-041 §6 の I1〜I8**(ADR-124。R の 4 水準・`fit_failed` と不利な側の集計・各段の記録・`seed_interaction` の DGP・config の 2 枚 + P1 の 1 点・`05_STATISTICS.md` §3.2 / §6.8・`06_THREATS.md` T15 の差し替え)→ 人間の確認(エージェントの補い 3 点を含む)・AC 電源 → **人間が新しい `--out-dir` で 1 段目を起動**。**run1 は回し直さない**。夜用タスク `PowerSimNightStart` / `PowerSimNightStop` の扱いも人間(推奨 = `-Unregister`)。SCOUT の 41 件の原典確認も人間
+> 1. **人間: PLAN-041 の実装後の確認**(`logs/OPEN-ITEMS.md`「PLAN-041 の実装後に人間が決めること」7 点。新しい項のベイズ事前分布・順1b・失敗の TOST の扱い・`p1_tau`・Limitations の文面・文献 41 件の原典確認)・AC 電源 → **人間が新しい `--out-dir` で 1 段目を起動**(`--through-stage 1`。切り離して。Bash の `run_in_background` は使わない)。**run1 は回し直さない**。夜用タスク `PowerSimNightStart` / `PowerSimNightStop` の扱いも人間(推奨 = `-Unregister`)
 > 2. **PLAN-037 の I10**(文書の注。人間の承認の後)
 > 3. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
 > 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / **D3 のパラメトリック・ブートストラップの反復数と食い違ったときの扱い** / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / **実際の `eval.cells`(PLAN-040 の材料の後)** → tag → S6
 > 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
-
 
 
 ---
@@ -340,11 +338,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-05(その150・最新)。PLANNER (Opus 5.5。推奨と一致)。PLAN-041 の聴取と ADR-124。**
+> **★★2026-10-05(その151・最新)。IMPLEMENTER (Sonnet 5.5。推奨と一致)。PLAN-041 I1〜I8。**
 >
-> **★やったこと**: 開始手順 → 判断材料の表と読みを示し、草案の穴 3 つを指摘 → `AskUserQuestion`(D1〜D6・D4 の揃え方の諮り直し・例外の規則・未追跡ファイル)→ PLAN-041 §4.1・§5.4・§6・§10 / ADR-124 / OPEN-ITEMS 2 行。
-> **★やっていないこと**: 実装(I1〜I8)・`Documents/`・`code/`・`configs/` の変更・回し直し・タスクの削除・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER。Sonnet 推奨)。
-
+> **★やったこと**: 開始手順 → `AskUserQuestion`(補い 3 点。そのまま)→ R・Python・config・テスト・文書(`logs/CHANGELOG.md` その151)。
+> **★やっていないこと**: 本実行の起動・run1 の回し直し・タスクの削除・push・tag・GPU・pod・未検証の文献を本文に写すこと。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(次の役割は人間の指示による)。
 
 
 ---

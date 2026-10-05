@@ -1,0 +1,6 @@
+{
+  "run_id": "20261004_120002_power_sim_t1t2",
+  "created_utc": "2026-10-04T12:00:02.824299+00:00",
+  "git_sha": "ba909a4fa70fb0ea57d239a490b28996e574451f",
+  "config_source": "configs\\power_sim.yaml"
+}

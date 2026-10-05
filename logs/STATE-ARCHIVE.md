@@ -18,6 +18,38 @@
 
 ---
 
+## ★2026-10-05(その147)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭の最終更新(その146)
+
+最終更新: 2026-10-04(その146)/ by RUNNER 補助 (Sonnet 5.5。推奨 Sonnet と一致)。**★検出力分析の本実行を夜だけ(21:00〜06:00)回す起動・停止・登録スクリプトを書いた**(`infra/power_sim_night/`。commit `ba909a4`)。再開は付録 A.5 の「同じコマンド」に依る。`-DryRun` と構文検査まで確認(実際の起動・登録・06:00 の停止・スリープからの復帰は未確認)。**本実行は起動していない**・GPU 0・pod 0・tag・push なし
+(**次: 人間が AC 電源・スリープ / 休止・Windows Update を確認 → `register_tasks.ps1 -OutName run1 -ThroughStage 1` で登録 → 初日 21:00 を目で見る → 段が終わったら人間が見て `-ThroughStage 2` で登録し直す / PLAN-037 の I10 / S4・S5**。)
+
+### いま何をしているか(その146)
+
+> **★★2026-10-04(その146・最新)。Phase 0。RUNNER 補助 (Sonnet 5.5)。本実行を夜だけ回すスクリプトを書いた。GPU 0・pod 0。本実行は起動していない**
+> - **`infra/power_sim_night/`**: `start_night.ps1`(切り離して起動。済んだ段・門が閉じた・稼働中・バッテリー駆動・Rscript 残り・追跡ファイルの変更のときは起動しない)・`stop_night.ps1`(木ごと止める。R は `.tmp` + rename で書くので壊れた JSON は残らない)・`register_tasks.ps1`(21:00 / 06:00 を登録。`-Unregister`・`-DryRun`)
+> - **再開**は付録 A.5 の「同じコマンド」(`code/analysis/power_sim.py:1330` が既存の `fit_*.json` を飛ばす)。1 晩 9 時間として、1 段目の誤指定の門だけは 1 晩・全シートは 2〜3 晩・2 段目は 3〜5 晩・3 段目は 9〜15 晩(**推算。付録 A.7 を 9 時間で割っただけで実測ではない**)
+> - **★その144 のブロックは `logs/STATE-ARCHIVE.md`「その146」にある**
+
+### 次のアクション(その146。1 番だけ差し替えた)
+
+> **★★2026-10-04(その146・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> 1. **人間の確認・AC 電源 → 夜の運用の登録 `infra/power_sim_night/register_tasks.ps1 -OutName run1 -ThroughStage 1`**(21:00 起動 / 06:00 停止。手順は CHANGELOG のその146・付録 A)→ 初日 21:00 に目で見る → 誤指定の門が閉じれば `stopped_at_gate` で止まり §3.2 の別 PLAN → 人間が見てから `-ThroughStage 2` で登録し直す
+
+### 引き継ぎ(その146)
+
+> **★★2026-10-04(その146・最新)。RUNNER 補助 (Sonnet 5.5。推奨と一致)。夜の運用スクリプト。**
+>
+> **★やったこと**: 夜だけ回す起動・停止・登録スクリプト(`infra/power_sim_night/`・commit `ba909a4`)→ CHANGELOG。`-DryRun` と構文検査まで。
+> **★やっていないこと**: 本実行の起動・タスクの登録・電源設定の変更・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`。
+
+### 索引の行(その146)
+
+| **★検出力分析の本実行の起動** ★新(その144) | AC 電源・スリープ / 休止状態・Windows Update・`git status` の確認 / 起動の形と `--out-dir` / **段ごとに止まる**(`--through-stage 1` → 人間が見て 2 → 3)/ `results/power_sim/` を commit するか。**全文は `logs/OPEN-ITEMS.md`** | PLAN-040 付録 A | 本実行の前 |
+
+---
+
 ## ★2026-10-04(その146)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### 冒頭の最終更新(その144)

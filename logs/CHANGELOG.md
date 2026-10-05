@@ -7792,3 +7792,16 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **原因(推定)**: タスクスケジューラの R のユーザーライブラリは Claude アプリ内と別の場所(アプリ内では `…\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\R\win-library\4.6` に `lme4` がある)。`R_LIBS` にそのパスを渡すと `lme4` が見える(アプリ内から確認)。タスクの中の実際の環境は未確認
 - **直したこと**: `f69e8a8`。`start_night.ps1`: `-RLibs`(→ `R_LIBS`)と起動前の `lme4` 検査。`register_tasks.ps1`: `-RLibs`。`configs/` は変えていない。`-DryRun` は通った。**実際の起動・登録のし直し・夜通しは未確認**
 - **やっていないこと**: 本実行の起動・タスクの登録のし直し(人間)・push・tag・GPU・pod
+
+## 2026-10-05(その147): 検出力分析の本実行の 1 日目の結果を記録した(誤指定の門が閉じた)   [actor: RUNNER 補助 (Sonnet 5.5)]
+- **役割**: X(RUNNER 補助)。実モデル Sonnet 5.5 は HANDOFF の推奨(X なら Sonnet)と一致。GPU 0・pod 0。**結果の解釈・§3.2 の見直しはしていない**(`CLAUDE.md` §8)
+- **人間の操作**: 2026-10-04 21:07:57 に人間が `start_night.ps1 -OutName run1 -ThroughStage 1 -Workers 16 -RLibs ...` を実行(21:00 のタスクの起動は `lme4` が見えず 0 反復で落ちていた)。起動の検査(`-DryRun`)は全部通り、Rscript 32 プロセス(16 本 + その子 16 本)・stderr 0 バイトを確認した
+- **経過**: **00:24:12 に自分で終了**(約 3 時間 16 分)。`fits/*.json` 600 件(誤指定のシートだけ)・`power_sim_summary.json` と `stage_0100_summary.json`(同じ内容)・`errored_rate` は全点 0。06:00 の停止タスク(`PowerSimNightStop`)は「nothing to stop」で終了コード 0(止める対象が無かった。**止める経路の実地確認にはなっていない**)。**終了コードは記録されていない**(標準出力の `STOPPED:` から 3 と読めるが未確認)
+- **結果**(run_id `20261004_120002_power_sim_t1t2`。`results/power_sim/run1/power_sim_summary.json`): **誤指定の門が閉じた**(`stopped_at_gate: true`。ADR-123 決定6 = `tau` 0.25 か 0.5 で棄却率の 95% CI の下端 > 0.075)。**P1 / P1⁻ / P0 は未実行**(`margin_table.by_n_item` は空)
+  - 門の行(`n_item` 80・100 反復): `tau` 0.25 → 14/100・棄却率 0.14・CI 下端 0.0787 / `tau` 0.5 → 15/100・0.15・0.0865
+  - 格子(誤指定シート。P0 = 真の交互作用 ≈ 0。`n_item` 80・`rho` 0・100 反復。`tau` = `sigma`): 棄却数(`reduced_rate` / `singular_rate` / `refit_rate` / `mean_chisq`)
+    `sigma` 0.0 → 10(0.99 / 0.75 / 0.23 / 2.55)・0.25 → 14(0.98 / 0.10 / 0.16 / 2.99)・0.5 → 15(0.82 / 0.00 / 0.35 / 3.39)・0.75 → 38(0.61 / 0.00 / 0.54 / 6.86)・1.0 → 53(0.55 / 0.00 / 0.59 / 9.82)・1.5 → 73(0.32 / 0.00 / 0.77 / 18.86)
+- **やったこと**: STATE.md の旧(その146)ブロックを `logs/STATE-ARCHIVE.md`「その147」へ移し、冒頭・いま何をしているか・次のアクション 1 番・引き継ぎ・索引の行を書いた / `logs/OPEN-ITEMS.md` の起動の行に結果を足し、門の後の扱いの行を新設 / `logs/HANDOFF.md` を上書き / `results/power_sim/` の要約と記録を commit(人間が決着済みの「要約と記録だけ」。`fits/` と起動のログは `.gitignore`)
+- **やっていないこと**: 結果の解釈・§3.2 の見直し・回し直し・夜用タスクの削除(`-Unregister`)・`configs/`・`code/` の変更・push・tag・GPU・pod
+- **今夜 21:00 の自動起動**: `start_night.ps1` が `stopped_at_gate` を見て何もせず終了する(スクリプトを読んで確認。**実地では未確認**)
+- **未解決(人間)**: 門が閉じた後の扱い(§3.2 の見直しの別 PLAN)・夜用タスク 2 本の扱い / HANDOFF の未解決の節のとおり

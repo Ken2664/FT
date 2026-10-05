@@ -7820,3 +7820,6 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **推奨として人間に示したもの(未決)**: §3.2 の見直しの別 PLAN に進む(見る対象 = 項の追加(例 `(1 | seed:task:coverage)`)・縮退の最後の段)/ 夜用タスクは `register_tasks.ps1 -Unregister` で削除(人間の端末で)
 - **書き換えたもの**: `results/power_sim/run1/exploratory/`(新規 2 ファイル)/ `logs/OPEN-ITEMS.md`(門の後の行に一言)/ この CHANGELOG
 - **やっていないこと**: 回し直し・タスクの削除・`configs/`・`code/` の変更・ADR・push・tag・GPU・pod。前のセッションから残る未追跡の `results/power_sim/run1/config_resolved.json`・`git_sha.txt`・`misspecification/manifest_*` は触っていない
+
+## 2026-10-05(その148・続き): セッション引き継ぎを記録   [actor: PLANNER 補助 (Opus 5.5)]
+- hook `context-guard` が約 135k トークンで警告 → skill `handoff`。`STATE.md`(冒頭・いま何をしているか・次のアクション 1 番・引き継ぎ)を更新し、その147 のブロックを `logs/STATE-ARCHIVE.md`「その148」へ移した。`logs/HANDOFF.md` を上書き(推奨 Opus = §3.2 の見直しの PLAN の起草)

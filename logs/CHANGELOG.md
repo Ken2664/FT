@@ -7897,3 +7897,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - `AskUserQuestion` 4 問 → **4 問とも推奨**: 採る・範囲は全部(失敗 156 + 対照 20・D0〜D4)/ §2 の閾値 = 「門で数え直す」(細則つき)/ 今夜は登録のまま 1 回だけ走らせ、走った後にタスクを無効にする(人間)/ P1 は診断の後
   - 文書: `logs/DECISIONS.md`(ADR-126)/ `plans/PLAN-042-fit-failure-diagnosis.md`(ステータス = 採択・§2.1 の閾値の表・§5 の決着)/ `logs/OPEN-ITEMS.md`(行に決着と残り)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その154」)
 - **やっていないこと**: PLAN-042 の実装・診断の実行・規則(ADR-059・ADR-124 D2')・`configs/power_sim.yaml`・`code/` の変更・夜用タスクの登録 / 削除 / 無効化・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest code/tests`(コードを変えていない。`test_repo_hygiene.py` だけ通した)
+
+## 2026-10-06(その155): ADR-126(PLAN-042 の採択)の中立的な再検討   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致
+- **人間の指示**: 「直前のプラン設定について handoff を読んで理解し、前例などを調べながら中立的な視点で再検討」
+- **やったこと**: run2 の fits を読んで、門の 4 点の失敗の内訳(大きさ・当て直しで警告なし・移動 > 10 SE・床で singular)を数えた(当てはめなし)/ SCOUT(subagent)が文献 23 件を `logs/papers_list-2026-10-06-sim-nonconvergence.md` に書いた(全件未検証)/ `logs/REVIEW-2026-10-06-adr126.md`(論点 A〜I と案 α・β・γ。推奨 β)
+- **主な所見(案)**: §2.1 の 2 行目は実行前に「支えない」と決まっている / 3・4 行目の分け方は失敗した反復の過誤を薄める / D2' のもとで `tau` 0 の棄却は 0.32 / ADR-059 は当て直しが警告なしで終わった失敗も数える(門の 4 点で 13・6・7・12)/ 規則を変えた後の門は新しい反復で判定する必要がある
+- **報告**: SCOUT は Unpaywall API の必須パラメータに利用者のメールアドレスを 1 回送ったと自己申告した(以後は使っていない)
+- **やっていないこと**: ADR・PLAN-042・規則・config・code の変更 / 夜用タスクの操作 / 診断の実行 / push・tag・GPU・pod
+- **引き継ぎ**: context-guard(約 130k)で `logs/HANDOFF.md` を書き直した

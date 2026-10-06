@@ -1,41 +1,35 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-06 / 直前セッションの役割: PLANNER
-直前セッションが終了した理由: コンテキスト超過(context-guard 約 128k)
+生成: 2026-10-06(その155)/ 直前セッションの役割: PLANNER
+直前セッションが終了した理由: コンテキスト超過(context-guard 約 130k)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Opus — 設計判断と統計(PLAN-042 の採否・閾値の判断材料。`10_CONTEXT_POLICY.md` §7 の「設計判断・統計」の行)
+**推奨モデル(次のセッション)**: Opus — 設計判断と統計(ADR-126 を改めるかの聴取。`10_CONTEXT_POLICY.md` §7)
 
 ---
 
-あなたは PLANNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
-(Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
+あなたは PLANNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**。
 `CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
 ## このセッションでやること(1つだけ)
 
-`plans/PLAN-042-fit-failure-diagnosis.md` の §5「先に決めること」4 点と §2 の閾値について、**判断材料の表(選択肢・推奨・理由)をチャットで先に示し**、
-`AskUserQuestion` で人間に決めてもらう。決まったら ADR を書き、PLAN-042 のステータスを更新し、`logs/OPEN-ITEMS.md` の
-「★run2 の門と当てはめ失敗(PLAN-042)」の行に決着を書いて commit する。**実装・診断の実行はしない**(採択の後の IMPLEMENTER の仕事)。
+`logs/REVIEW-2026-10-06-adr126.md`(短い。全文読む)の案 α / β / γ と、§2 の論点 C(過誤の門と実行可能性の門を分けるかを診断の前に決めるか)について、
+**判断材料の表をチャットで示し**、`AskUserQuestion` で人間に決めてもらう。β なら ADR-127 を書き、PLAN-042 §2.1 を改める(旧文に打ち消し線・理由・日付)。
+**診断の結果は 1 つも出ていない**ので、いま改めても事後選択にはならない。ただし、規則をどう変えると門が開くかは run2 から一部見えている(REVIEW §2 H)。
 
-## 直前セッションで確定したこと
+## 直前セッションで確定したこと(案ではなく算術・計数)
 
-- run `20261005_120003_power_sim_t1t2`(`results/power_sim/run2`)の 1 段目は 06:00 に止められた。門の 2 枚(`misspecification`・`misspecification_seed_subspace`)は 100 反復とも揃い、ADR-124 D2' の規則で**門は閉じる**(`tau` 0.25 / 0.5 の CP95 下端 0.152〜0.248 > 0.075)。**棄却のほとんどは当てはめ失敗を棄却に数えた分**(数値の正本は `results/power_sim/run2/exploratory/stage1_interim.json`。要約は `STATE.md`「いま何をしているか」)
-- 読みは案のみ(PLAN-042 §1)。確定していない
-- `infra/power_sim_night/stop_night.ps1:66` の数え方は 1 段浅い(表示だけの不具合。未修正)
-
-## 触ってよいファイル / 読むべき範囲
-
-- `plans/PLAN-042-fit-failure-diagnosis.md`(全文。短い)
-- `results/power_sim/run2/exploratory/stage1_interim.json`(`jq` か `python` でキーを絞って読む)
-- `logs/DECISIONS.md` の ADR-059・ADR-124・ADR-125(`grep -n` で節を特定)/ `plans/PLAN-041-primary-random-structure-review.md` §3.3 罠2
+- 門の 4 点の失敗は 103 件。大きさの条件を満たさない失敗は 9・16・12・13 件で、門が開く上限 8・12・9・8 を超える。**§2.1 の 2 行目は実行前に「支えない」と決まっている**
+- `tau` 0(誤指定なし)に D2' の規則を当てると、棄却は 0.32
+- 当て直しが警告なしで終わった失敗は、門の 4 点で 13・6・7・12 件。ADR-059 の判定はこれらも失敗に数える
+- 文献は `logs/papers_list-2026-10-06-sim-nonconvergence.md`(SCOUT。23 件。全件未検証)
 
 ## やってはいけないこと
 
-- 失敗の定義(ADR-059)・数え方(ADR-124 D2')・`configs/power_sim.yaml` を変える(門を見た後の変更になる。決めるのは人間で、変えるなら旧文・理由・日付を残す)
-- `results/power_sim/run2/*/fits/` を全文読む(846 本。集計は `stage1_interim.py` を使う)
-- 夜用タスクの登録 / 削除・run2 の再開(人間の操作)
+- ADR-059・ADR-124 D2'・`configs/power_sim.yaml` を変える(人間が (5) で決めること)
+- PLAN-042 の実装・診断の実行・夜用タスクの操作・`fits/` の全文読み
 
 ## 未解決 / 人間の承認待ち
 
-- PLAN-042 の採否・範囲・§2 の閾値 / 今夜の夜用タスク(per_cell の残り 154 本 → 門で止まる)/ 診断の前に P1 を回すか(`logs/OPEN-ITEMS.md` の行)
-- `results/power_sim/run2/misspecification_seed_per_cell/frames/` は未追跡のまま(再開すると消費される)
+- 案 α / β / γ の採否。**決まるまで IMPLEMENTER は PLAN-042 に着手しない**
+- 今夜(2026-10-06)の夜用タスクは、ADR-126 決定3 のとおり 1 回だけ走らせ、走った後に人間が無効にする(本件の影響なし)
+- SCOUT が Unpaywall に利用者のメールアドレスを 1 回送ったと自己申告した(人間には報告済み)

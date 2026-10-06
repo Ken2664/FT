@@ -7928,3 +7928,6 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - `.gitignore` に `fit_failure_diagnosis_work/frames/` を追加 / `plans/PLAN-042` §7 に実装の判断 9 項目を記録
 - **やっていないこと**: 診断の本実行・夜用タスクの操作・ADR-059 / ADR-124 D2' / ADR-125 決定3 / `configs/power_sim.yaml` / `power_sim.py` / `power_sim_fit.R` の変更・§2.1 / §2.2 の閾値の書き換え・push・tag・GPU・pod
 - **確認してほしい判断**: PLAN-042 §7 の 3(`allFit` の `start_from_mle = FALSE`)と 1・2(「揃った」の定義)、5(行 U の p 値の優先順)。数字を動かす
+
+## 2026-10-06(その157・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- STATE.md(冒頭・最新ブロック 2 つ。古い 2 ブロックは `logs/STATE-ARCHIVE.md`「その156」へ)と `logs/HANDOFF.md`(次は RUNNER。人間の合図で診断を実行)を更新した。context-guard(約 218k)で切った

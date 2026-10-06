@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-06(その155)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★ADR-126 の中立的な再検討を書いた(`logs/REVIEW-2026-10-06-adr126.md`。案のみ・ADR-126 は不変)**: §2.1 の 2 行目は実行前に「支えない」と決まっている(算術)/ 3 行目は失敗した反復の過誤を薄める / D2' のもとで `tau` 0(誤指定なし)の棄却は 0.32 = 門は失敗率を測っている / 推奨は案 β(実行前に §2.1 を改める)。**人間が採否を決めるまで IMPLEMENTER は PLAN-042 に着手しない**。その154 の内容(ADR-126・今夜の夜用タスクは 1 回だけ)は不変。run2 の門は規則どおり閉じたまま(`run:20261005_120003_power_sim_t1t2`)。GPU 0・pod 0
-(**次: 人間が今夜の夜用タスクを走らせ、その後に無効にする / IMPLEMENTER が PLAN-042 D0〜D4 を実装 → 人間が実行の日時を決める**。)
+最終更新: 2026-10-06(その156)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★ADR-127: PLAN-042 §2.1 を診断の前に改めた(§2.2)・過誤の門と実行可能性の門を分ける(方針だけ)**。人間が 3 問とも推奨: 案 β(5 項目すべて)/ 論点 C = 今決める・分ける。**PLAN-042 の実装の保留は解けた**。規則(ADR-059・ADR-124 D2')・config・`code/` は不変(書き換えは (5))。run2 の門は規則どおり閉じたまま(`run:20261005_120003_power_sim_t1t2`)。GPU 0・pod 0
+(**次: 人間が今夜の夜用タスクを走らせ、その後に無効にする / IMPLEMENTER が PLAN-042 D0〜D4 を §2.2 の出力込みで実装 → 人間が実行の日時を決める**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -68,11 +68,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-06(その154・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-042 の採否の聴取(ADR-126)。GPU 0・pod 0**
-> - **PLAN-042 は採択**(`plans/PLAN-042-fit-failure-diagnosis.md`。§2.1 に閾値・§5 に決着)。実装・診断の実行はまだ
-> - **run2 の数値は変わらない**(門は閉じる。数値の正本は `results/power_sim/run2/exploratory/stage1_interim.json`。要約は `logs/STATE-ARCHIVE.md`「その154」の「いま何をしているか」)
-> - **今夜(2026-10-06)**: 夜用タスクは登録のまま → per_cell の残り 154 本(約 1.6 時間の推算)→ 門で止まる(終了コード 3)→ `power_sim_summary.json`。**走った後のタスクの無効化は人間**
-> - **★その153 のブロックは `logs/STATE-ARCHIVE.md`「その154」にある**
+> **★★2026-10-06(その156・最新)。Phase 0。PLANNER (Opus 5.5)。ADR-126 の再検討の採否の聴取(ADR-127)。GPU 0・pod 0**
+> - **PLAN-042 §2.2(ADR-127)**: 1 行目を 1a(警告なし)・1b(推定値の一致だけ)に / 2 行目は「実行前に支えない」と明記して記述へ / 3・4 行目に失敗した反復だけの棄却率と CP95(4 点の合計 n = 103)を並べる / 記述の行 R(当て直しは警告なし)・U(和集合)/ **規則を変えたら門は新しい反復で判定**
+> - **論点 C(方針)**: 過誤の門 = 失敗を非棄却に数えた無条件の率(成功だけの率を並記)/ 実行可能性の門 = 失敗率の上限。**上限の値・D2' の書き換え・ADR-125 決定3 との整合は (5)**
+> - **今夜(2026-10-06)**: 夜用タスクは ADR-126 決定3 のまま(per_cell の残り 154 本 → 門で止まる・終了コード 3 → `power_sim_summary.json`。走った後の無効化は人間)
+> - **★その154 のブロックは `logs/STATE-ARCHIVE.md`「その156」にある**
 
 
 ---
@@ -185,8 +185,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★R8 の当てはめがある**(2026-09-14 その58 = PLAN-026 I5。ADR-081)。`python -m code.analysis.r8_fit --runs <glob> [--ident-run <run>] [--out-dir <dir>]` が掃引の run(`kind: threshold_sweep`)を読み、(タスク型 × 既知性)セルごとに揃え方 (a) の交差点(混ぜた / gt / lt。階段は `(L + U) / 2`)・極性の開き・分類ごとの除外件数・遠いオフセットの correct(θ ≤ −2 / θ ≥ +3。境界は run の config の `eval.threshold_sweep.offsets.s` から導く。**セルごとが §5 (iv) の判定の単位**)を出す。**合否は付けない(I11)**。`Δ̂` は `--ident-run` のときだけ(基準の `lesion_condition` が ident でなければ止める)。**記録が metrics.json と食い違えば止まる**。**`lesion_condition` は adapter = null の run でも config の値(pilot・R8 では p2)**なので表に adapter を並べる | `code/analysis/r8_fit.py` / `test_r8_fit.py`(38)/ `plans/PLAN-026` §3.2.1.1・§4.6 |
 | **★① の前置きの経路がある**(2026-09-15 その59 = PLAN-026 I6・I7。ADR-079 決定3)。config の `eval.preamble`(行のリスト。無い / null = なし)を `run.render_prompts` が全群の文面の先頭に置く(並べた行 + 空行 + 各群の文面。並びは `sha256(canonical_json(["preamble_order", item_id])) mod 24` の辞書順)。固定オフセットの 2 か所(`dry_run`・`evaluate_pool`)と掃引の経路が同じ関数を通る。**前置きの無い run の文面は 1 バイトも変わらない**(パイロット用プール 1,640・R8 8,160・S 2,400 の文面の sha256 をテストが固定)。`metrics.json`(両経路)・dry-run の報告に `preamble` 欄(無ければ null)、`log.txt` に 1 行。**preflight の検査6 は前置きのある run でアンカーと比べず SKIP**(訓練側の書式は検査し、破れていれば FAIL)。桁数掃引は前置きを宣言した config を拒む。config は S-① だけ(`configs/exp_order6b_s_preamble.yaml`。R8 の config との差 4 欄。2,400 項目の `--dry-run` が通り、data_checks は 6 PASS + 検査6 SKIP)。**固定オフセットの ① の config は無い**(3 群への絞り方は I8)。`aggregate.py`・`frame.py` は前置きの有無を見ない(I11) | `code/eval/preamble.py` / `code/eval/run.py` / `infra/preflight.py` / `test_preamble.py`(40)/ `plans/PLAN-026` §4.7 |
 | **★プールの一部だけを解く宣言がある**(2026-09-16 その60 = PLAN-026 I8。ADR-082)。config の `eval.task_subset`(解くタスク型のリスト。ADR-026 の水準名 + `t1_instructed`。無い / null = プール全体)を `run.solved_pool_items` が `eval.batteries` の門と一緒に掛ける —— **宣言だけが「プールに batteries の外の群がある」門を開けられる**。噛み合わない宣言(型の群が batteries に無い / batteries の群に型が無い / 型の項目がプールに無い / 特異性対照を batteries に置く)は**重みを読む前・run ディレクトリを作る前**に止まる。外した (群 × タスク型) と件数は `metrics.json` の `task_subset` 欄(無ければ null)と `log.txt` に残り、`pool.n_items` は解いた件数・`pool.items_sha256` はプールのファイル全体のまま。**掃引は完全性((併合セル × 極性 × θ))をプール全体で確かめてから絞り**、`threshold_sweep.task_types` は解いた側になる(`r8_fit` が手を入れずに読める)。桁数掃引と `eval.dry_run_items` は宣言を拒む。(d) の文面は `configs/templates/order6b_d.yaml`(**T3 を入れない**。本番の `t1b.yaml` + `t3.yaml` の末尾の一文)。config 3 本の `--dry-run` = ① 1,440 / (d) 480 / S-(d) 1,200、data_checks は ① 6 PASS + 検査6 SKIP・他 7 PASS。**宣言の無い run(B0・R8・S-①)の項目と文面は 1 バイトも変わらない** | `code/eval/task_subset.py` / `code/eval/run.py` / `configs/exp_order6b_{preamble,d,s_d}.yaml` / `test_task_subset.py`(40)/ `plans/PLAN-026` §4.8 |
-| **★(c) 内容のない入力による較正の経路がある**(2026-09-16 その61 = PLAN-026 I9。ADR-083)。`python -m code.eval.calibration_run --config configs/exp_order6b_c.yaml [--dry-run | --run-dir <dir>]` —— **評価プールを読まない別の入口**。config の `eval.calibration = {symbols, arms}`(記号 `N/A`・`[MASK]`・空文字 = 原典で確認済 / 腕 b0 `eval_main`・d `order6b_d`・preamble `eval_main` + ① の前置き)。入力 = テンプレートの `{a}` `{b}` `{threshold}` を記号で literal に置き換えた文面(前置きの腕は 24 通りすべての並び。連結は ① の run と同じ `preamble.with_preamble_order`)で **306 件**。**`Item` / `classify` / 4 値分解を通さない** —— 記録は `calibration.json`(入力ごとの `yes_logp` / `no_logp`。率・答え・補正後の値なし)と `metrics.json`(`kind: calibration`。`aggregate.py` は飛ばし `frame.py` は止まる。`preamble` 欄は ① と `lines`・`sha256` が同じで `order`・`note` だけ較正の中身)。**補正は後処理の関数だけ**(`content_free_bias` = 記号をまたいで生の確率を平均してから正規化 / `calibrated_answer` = `(yes − no) − b > 0`・同点は No)。判定表・R8 への適用は I11。壊れた宣言・前置きと腕の噛み合わせ・`eval.batteries` が `[comparison]` でない・`eval.task_subset` / `eval.threshold_sweep_arm` との同時宣言は重みを読む前・run ディレクトリを作る前に止まる。**`code.eval.run`(固定オフセット・明示リストの dry-run・掃引)と桁数掃引は較正の config を拒む** | `code/eval/calibration.py` / `code/eval/calibration_run.py` / `configs/exp_order6b_c.yaml` / `test_calibration.py`(65)/ `plans/PLAN-026` §3.5・§4.9 |
-| **★最初の出力位置の上位 k の記録がある**(2026-09-16 その62 = PLAN-026 I10。ADR-084)。config の `eval.forced_choice_top_k`(1 以上の整数。無い / null = 記録しない。**順6b の config 7 本だけが 20 を宣言し、本番・smoke には無い**)を 3 経路(固定オフセット・掃引・(c) の較正)が読み、`build_engines(..., top_k=)` → `_score_batch` が log-softmax 行に `topk` を掛ける。**判定(`choose_from_logprobs`)は同じ行で先に決まり、上位 k は後から付くだけ**。行の欄 `top_k` = `[{id, text = decode([id]), logp}]`(降順)・`top_k_mass` = 確率の合計(宣言なしは null)。**固定オフセットの二値群の行には `yes_logp` / `no_logp` も入る**(宣言によらない。応答文字列・数値群の行は不変)。`metrics.json` の `forced_choice.top_k`・dry-run の報告・`log.txt` に宣言の値。宣言と採点器の食い違いは `collect_forced_choices` で止まり、壊れた宣言は重みを読む前・run ディレクトリを作る前に止まる。**本物の torch の `topk` は手元で通していない**(置き物の torch で配線だけ)。**合否には使わない**(ADR-079 決定5) | `code/eval/forced_choice.py` / `code/eval/run.py` / `code/eval/calibration_run.py` / `test_top_k.py`(36)/ `plans/PLAN-026` §3.6・§4.10 |
+| **★(c) の較正の経路(`code.eval.calibration_run`。ADR-083)と最初の出力位置の上位 k の記録(`eval.forced_choice_top_k`。ADR-084)がある**(2026-09-16 その61・その62)。**2 行の全文は `logs/STATE-ARCHIVE.md`「その156」へ移した**(ADR-063 運用規約5。60 KB 超のため。1 文字も削っていない) | `code/eval/calibration_run.py` / `code/eval/forced_choice.py` / `plans/PLAN-026` §4.9・§4.10 |
 | **★Go/No-Go の表が順6b の run を読める**(2026-09-16 その63 = PLAN-026 I11a。ADR-085)。`python -m code.analysis.gonogo --runs <glob>` は**表を run ごとに**出し、`metrics.json` の `task_subset` を宣言した run(① / (d))では**解いたタスク型のセルだけ**を組む(宣言の外の主軸の行・宣言の型の空のセルで止める)。各 run に腕を見分ける欄 `provenance`(`experiment_id`・`pool_id`・`adapter`・`template_set`・`preamble_sha256`・`task_subset`)。#3 のセルに**極性別の参照線**(極性別の Yes の件数と `gt_no_lt_yes`・`gt_yes_lt_no` の理論値。**#3 の印は変えない**)。config に `gonogo.near_tie_margin` がある run(**順6b の config 7 本だけ。0.25**)では**近接同点の感度の行**(`|yes_logp − no_logp| ≤ 幅` の件数と除いた #2。行に欄が無ければ止める。合否に使わない)。**`aggregate.py` はまだ前置き・絞りを見ない(① と (d) の run を B0 と同じ行に並べうる。I11c)**。(c) の補正の適用(I11b)と §5 の判定表(I11c)は無い | `code/analysis/gonogo.py` / `test_gonogo.py`(48)/ `plans/PLAN-026` §4.11 |
 | **★(c) の補正を順6b の記録に引ける**(2026-09-22 その64 = PLAN-026 I11b。ADR-086)。`code/analysis/calibrated.py` が較正の run(`kind: calibration`)を読み、**腕を引数で**受けて `data.eval_template_set` と前置きの sha256 を照合し(食い違えば止める)、項目ごとに(腕 × category × 並び)の偏り `b` を引く(前置きの腕は `preamble.order_index` 番目の並び)。固定オフセットは `parsed` を差し替えて `classification` を `scoring.classify` で付け直し、掃引は `answer` を差し替える。**`yes_logp` / `no_logp` と数値群の行は 1 バイトも変わらず**、`bias` と `gap_after` が足される。補正後の表は `gonogo` と `r8_fit` の `calibrated_run_report`(**#1 は出さない**)。**C3 の近接同点は補正後の差**(決定2)、掃引の感度の行は**セル × 遠いオフセットの側**(決定3)。**①+(c)・(d)+(c) は §5 の候補ではない**(注記を固定)。**§5 の判定表と `aggregate.py` の守り(I11c)は無い** | `code/analysis/calibrated.py` / `gonogo.py` / `r8_fit.py` / `test_calibrated.py`(39)/ `plans/PLAN-026` §4.12 |
 | **ruff / black はこの環境に未インストール。**整形は手作業(行長 100 以下は機械的に確認済) | ポッドを立てた時点で `pip install -e .[dev]` して掛け直す |
@@ -276,7 +275,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | ~~**★F104-c の値**~~ **決着** | ~~`s2_item` の値~~ → **★2026-10-03(その139)ADR-121: `s2_item` = 2.0(推定を見た後に人間)/ `s2_tmpl` = 0.5。config に反映** | 次に索引を組み直すときに落とす |
 | ~~**★PLAN-040 の値**~~ **決着**(その142) | ~~`n_item` の格子・`sigma` の確認点・各段の `n_rep`・誤指定で「膨らむ」の閾値~~ → **ADR-123(5 問とも推奨)。値は PLAN-040 §11** | 次に索引を組み直すときに落とす |
 | **★検出力分析の本実行: 誤指定の門が閉じた** ★新(その147) | 1 日目(2026-10-04 夜)で 1 段目の誤指定の門だけが走り、`tau` 0.25 → 14/100・0.5 → 15/100 で門が閉じた[run:20261004_120002_power_sim_t1t2]。**回し直さない**。§3.2 の見直しの別 PLAN の扱い・夜用タスクの扱いは人間。**→ ★その150: §3.2 の見直しは ADR-124(PLAN-041 採択)。残り = 実装 I1〜I8・新しい run の起動・夜用タスクの扱い**。**全文は `logs/OPEN-ITEMS.md`** | PLAN-040 付録 A.4 / ADR-123 | 本実行の後 |
-| **★run2 の門と当てはめ失敗(PLAN-042)** ★新(その153) | run2 の 1 段目で門は閉じるが、棄却のほとんどは当てはめ失敗を棄却に数えた分。~~PLAN-042(診断)の採否・§2 の閾値・今夜のタスク・P1 を回すか~~ → **★その154 ADR-126 で決着(採る・門で数え直す・今夜 1 回・P1 は後)。残り = 夜用タスクの無効化・診断の実行の日時・診断の後に規則を変えるか**。全文は `logs/OPEN-ITEMS.md` の行 | 診断の後 |
+| **★run2 の門と当てはめ失敗(PLAN-042)** ★新(その153) | run2 の 1 段目で門は閉じるが、棄却のほとんどは当てはめ失敗を棄却に数えた分。~~PLAN-042(診断)の採否・§2 の閾値・今夜のタスク・P1 を回すか~~ → **★その154 ADR-126 で決着(採る・門で数え直す・今夜 1 回・P1 は後)。残り = 夜用タスクの無効化・診断の実行の日時・診断の後に規則を変えるか** **→ ★その156 ADR-127: §2.1 を診断の前に改めた(§2.2)・過誤の門と実行可能性の門を分ける(方針)。(5) の中身は上限の値・D2' の書き換え・ADR-125 決定3 との整合・新しい反復**。全文は `logs/OPEN-ITEMS.md` の行 | 診断の後 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
 | **★`CLAUDE.md` を 200 行へ戻す** ★新(その127) | 216 行(§10.2 の上限 200 行)。§1 の「449行」も古い。全文は `logs/OPEN-ITEMS.md` の行 | ADR-113 決定2 | いつでも |
 | **★R8(Phase 2)の push と G2-1 承認** ★新(その125) | ADR-111 決定3。人間の操作 2 つ: `01cf60f` 以降の main の push と新しい G2-1 承認。経緯の全文は `logs/OPEN-ITEMS.md` の行 | ADR-111 / ADR-107 決定7 | 人間の都合 |
@@ -326,11 +325,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-06(その154・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-06(その156・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
 > 1. **人間: 今夜の夜用タスクを登録のまま走らせ、翌朝に無効にする**(ADR-126 決定3)。翌朝、`power_sim_summary.json` と終了コード 3 を確かめる
-> 2. **IMPLEMENTER: PLAN-042 D0〜D4 の実装**(§2.1 の数え直しを出力に含める。`power_sim.py` / `power_sim_fit.R` の本体は変えない)/ `stop_night.ps1:66` の数え方の不具合(1 段浅い。表示だけ。別の小さな変更)
-> 3. **人間: 診断の実行の日時**(夜用タスクと同じ夜には回さない)→ 診断の後に失敗の定義・数え方・§3.2 の手順を変えるか(`logs/OPEN-ITEMS.md` の (5))。P1 はその後
+> 2. **IMPLEMENTER: PLAN-042 D0〜D4 の実装**(**§2.2 の判定の行・記述の行・失敗した反復だけの棄却率を出力に含める**。D1 は SE も・D2 は当て直しの後の警告も残す。`power_sim.py` / `power_sim_fit.R` の本体は変えない)/ `stop_night.ps1:66` の数え方の不具合(1 段浅い。表示だけ。別の小さな変更)
+> 3. **人間: 診断の実行の日時**(夜用タスクと同じ夜には回さない)→ 診断の後に (5): 実行可能性の門の上限と判定する点・D2' の書き換え・ADR-059 の許容・ADR-125 決定3 との整合・新しい反復の取り方(`logs/OPEN-ITEMS.md`)。P1 はその後
 > 4. **PLAN-037 の I10**(文書の注。人間の承認の後)
 > 5. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
 > 6. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / D3 のパラメトリック・ブートストラップの反復数と食い違ったときの扱い / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / 実際の `eval.cells` / **文献 41 件の原典確認**(ADR-125 決定6)→ tag → S6
@@ -342,10 +341,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-06(その154・最新)。PLANNER (Opus 5.5。推奨と一致)。PLAN-042 の採否の聴取。**
+> **★★2026-10-06(その156・最新)。PLANNER (Opus 5.5。推奨と一致)。ADR-126 の再検討の採否の聴取。**
 >
-> **★やったこと**: 開始手順 → 判断材料の表(採否・範囲 / §2 の閾値 / 今夜 / P1。門の算術つき)→ `AskUserQuestion` 4 問(4 問とも推奨)→ ADR-126・PLAN-042(ステータス・§2.1・§5)・OPEN-ITEMS の行(`logs/CHANGELOG.md` その154)。
-> **★やっていないこと**: PLAN-042 の実装・診断の実行・規則・config・`code/` の変更・夜用タスクの登録 / 削除 / 無効化・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest`(コードを変えていない)。
+> **★やったこと**: 開始手順 → 判断材料の表(案 α・β・γ / β の 5 項目 / 論点 C。門の算術と HARKing の注意つき)→ `AskUserQuestion` 3 問(3 問とも推奨)→ ADR-127・PLAN-042(ステータス・§2.1 の打ち消し線・§2.2・§3・§5・罠5・罠6)・ADR-126 のステータスに注記・OPEN-ITEMS の行(`logs/CHANGELOG.md` その156)。
+> **★やっていないこと**: PLAN-042 の実装・診断の実行・規則(ADR-059・ADR-124 D2')・ADR-125 決定3・config・`code/` の変更・夜用タスクの操作・push・tag・GPU・pod・`pytest code/tests`(コードを変えていない)。
 
 
 ---

@@ -7906,3 +7906,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **報告**: SCOUT は Unpaywall API の必須パラメータに利用者のメールアドレスを 1 回送ったと自己申告した(以後は使っていない)
 - **やっていないこと**: ADR・PLAN-042・規則・config・code の変更 / 夜用タスクの操作 / 診断の実行 / push・tag・GPU・pod
 - **引き継ぎ**: context-guard(約 130k)で `logs/HANDOFF.md` を書き直した
+
+## 2026-10-06(その156): ADR-127 PLAN-042 §2.1 を診断の前に改めた・過誤の門と実行可能性の門を分ける(方針)   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本・未追跡は per_cell の frames だけ)。GPU 0・pod 0
+- **人間の指示**: 「handoffを読んで作業を続けて下さい」
+- **やったこと**:
+  - `logs/REVIEW-2026-10-06-adr126.md` の案 α・β・γ、β の 5 項目、論点 C について判断材料の表(門の算術・HARKing の注意つき)をチャットで示した
+  - `AskUserQuestion` 3 問 → **3 問とも推奨**: 案 β / 5 項目すべて / 論点 C = 今決める・分ける
+  - 文書: `logs/DECISIONS.md`(ADR-127。ADR-126 のステータスに注記)/ `plans/PLAN-042-fit-failure-diagnosis.md`(ステータス・§2.1 の旧行に打ち消し線と理由・§2.2・§3 の記録の追加・§5・罠5・罠6)/ `logs/OPEN-ITEMS.md`(行に決着と (5) の残り)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その156」。60 KB 超のため「repo の状態」の 2 行も同じ場所へ移した)
+- **やっていないこと**: PLAN-042 の実装・診断の実行・規則(ADR-059・ADR-124 D2')・ADR-125 決定3・`configs/power_sim.yaml`・`code/` の変更・夜用タスクの操作・push・tag・GPU・pod・`pytest code/tests`(コードを変えていない。`test_repo_hygiene.py` だけ通した)

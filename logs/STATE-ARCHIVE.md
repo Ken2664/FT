@@ -9936,3 +9936,43 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: 開始手順 → run2 の fit を `power_sim.py` の関数で集計(門・失敗を非棄却に数えた場合・成功だけ・失敗の大きさ)→ チャットで報告と読み(案)→ 人間の指示で記録・`results/power_sim/run2/exploratory/stage1_interim.{py,json}`・PLAN-042 草案・OPEN-ITEMS の行(`logs/CHANGELOG.md` その153)。
 > **★やっていないこと**: 規則・config・`code/` の変更・夜用タスクの登録 / 削除・run2 の再開・診断の実行・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest`(コードを変えていない)。**読みは案であり、確定していない**。
+
+## ★2026-10-06(その156)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-06(その155)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★ADR-126 の中立的な再検討を書いた(`logs/REVIEW-2026-10-06-adr126.md`。案のみ・ADR-126 は不変)**: §2.1 の 2 行目は実行前に「支えない」と決まっている(算術)/ 3 行目は失敗した反復の過誤を薄める / D2' のもとで `tau` 0(誤指定なし)の棄却は 0.32 = 門は失敗率を測っている / 推奨は案 β(実行前に §2.1 を改める)。**人間が採否を決めるまで IMPLEMENTER は PLAN-042 に着手しない**。その154 の内容(ADR-126・今夜の夜用タスクは 1 回だけ)は不変。run2 の門は規則どおり閉じたまま(`run:20261005_120003_power_sim_t1t2`)。GPU 0・pod 0
+(**次: 人間が今夜の夜用タスクを走らせ、その後に無効にする / IMPLEMENTER が PLAN-042 D0〜D4 を実装 → 人間が実行の日時を決める**。)
+
+### いま何をしているか
+
+> **★★2026-10-06(その154・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-042 の採否の聴取(ADR-126)。GPU 0・pod 0**
+> - **PLAN-042 は採択**(`plans/PLAN-042-fit-failure-diagnosis.md`。§2.1 に閾値・§5 に決着)。実装・診断の実行はまだ
+> - **run2 の数値は変わらない**(門は閉じる。数値の正本は `results/power_sim/run2/exploratory/stage1_interim.json`。要約は `logs/STATE-ARCHIVE.md`「その154」の「いま何をしているか」)
+> - **今夜(2026-10-06)**: 夜用タスクは登録のまま → per_cell の残り 154 本(約 1.6 時間の推算)→ 門で止まる(終了コード 3)→ `power_sim_summary.json`。**走った後のタスクの無効化は人間**
+> - **★その153 のブロックは `logs/STATE-ARCHIVE.md`「その154」にある**
+
+### 次のアクション
+
+> **★★2026-10-06(その154・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: 今夜の夜用タスクを登録のまま走らせ、翌朝に無効にする**(ADR-126 決定3)。翌朝、`power_sim_summary.json` と終了コード 3 を確かめる
+> 2. **IMPLEMENTER: PLAN-042 D0〜D4 の実装**(§2.1 の数え直しを出力に含める。`power_sim.py` / `power_sim_fit.R` の本体は変えない)/ `stop_night.ps1:66` の数え方の不具合(1 段浅い。表示だけ。別の小さな変更)
+> 3. **人間: 診断の実行の日時**(夜用タスクと同じ夜には回さない)→ 診断の後に失敗の定義・数え方・§3.2 の手順を変えるか(`logs/OPEN-ITEMS.md` の (5))。P1 はその後
+> 4. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 5. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 6. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / D3 のパラメトリック・ブートストラップの反復数と食い違ったときの扱い / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / 実際の `eval.cells` / **文献 41 件の原典確認**(ADR-125 決定6)→ tag → S6
+> 7. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
+
+### 引き継ぎ
+
+> **★★2026-10-06(その154・最新)。PLANNER (Opus 5.5。推奨と一致)。PLAN-042 の採否の聴取。**
+>
+> **★やったこと**: 開始手順 → 判断材料の表(採否・範囲 / §2 の閾値 / 今夜 / P1。門の算術つき)→ `AskUserQuestion` 4 問(4 問とも推奨)→ ADR-126・PLAN-042(ステータス・§2.1・§5)・OPEN-ITEMS の行(`logs/CHANGELOG.md` その154)。
+> **★やっていないこと**: PLAN-042 の実装・診断の実行・規則・config・`code/` の変更・夜用タスクの登録 / 削除 / 無効化・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest`(コードを変えていない)。
+### わかっていること「repo の状態」の 2 行(60 KB 超のため。ADR-063 運用規約5)
+
+| 事実 | 根拠 |
+|---|---|
+| **★(c) 内容のない入力による較正の経路がある**(2026-09-16 その61 = PLAN-026 I9。ADR-083)。`python -m code.eval.calibration_run --config configs/exp_order6b_c.yaml [--dry-run | --run-dir <dir>]` —— **評価プールを読まない別の入口**。config の `eval.calibration = {symbols, arms}`(記号 `N/A`・`[MASK]`・空文字 = 原典で確認済 / 腕 b0 `eval_main`・d `order6b_d`・preamble `eval_main` + ① の前置き)。入力 = テンプレートの `{a}` `{b}` `{threshold}` を記号で literal に置き換えた文面(前置きの腕は 24 通りすべての並び。連結は ① の run と同じ `preamble.with_preamble_order`)で **306 件**。**`Item` / `classify` / 4 値分解を通さない** —— 記録は `calibration.json`(入力ごとの `yes_logp` / `no_logp`。率・答え・補正後の値なし)と `metrics.json`(`kind: calibration`。`aggregate.py` は飛ばし `frame.py` は止まる。`preamble` 欄は ① と `lines`・`sha256` が同じで `order`・`note` だけ較正の中身)。**補正は後処理の関数だけ**(`content_free_bias` = 記号をまたいで生の確率を平均してから正規化 / `calibrated_answer` = `(yes − no) − b > 0`・同点は No)。判定表・R8 への適用は I11。壊れた宣言・前置きと腕の噛み合わせ・`eval.batteries` が `[comparison]` でない・`eval.task_subset` / `eval.threshold_sweep_arm` との同時宣言は重みを読む前・run ディレクトリを作る前に止まる。**`code.eval.run`(固定オフセット・明示リストの dry-run・掃引)と桁数掃引は較正の config を拒む** | `code/eval/calibration.py` / `code/eval/calibration_run.py` / `configs/exp_order6b_c.yaml` / `test_calibration.py`(65)/ `plans/PLAN-026` §3.5・§4.9 |
+| **★最初の出力位置の上位 k の記録がある**(2026-09-16 その62 = PLAN-026 I10。ADR-084)。config の `eval.forced_choice_top_k`(1 以上の整数。無い / null = 記録しない。**順6b の config 7 本だけが 20 を宣言し、本番・smoke には無い**)を 3 経路(固定オフセット・掃引・(c) の較正)が読み、`build_engines(..., top_k=)` → `_score_batch` が log-softmax 行に `topk` を掛ける。**判定(`choose_from_logprobs`)は同じ行で先に決まり、上位 k は後から付くだけ**。行の欄 `top_k` = `[{id, text = decode([id]), logp}]`(降順)・`top_k_mass` = 確率の合計(宣言なしは null)。**固定オフセットの二値群の行には `yes_logp` / `no_logp` も入る**(宣言によらない。応答文字列・数値群の行は不変)。`metrics.json` の `forced_choice.top_k`・dry-run の報告・`log.txt` に宣言の値。宣言と採点器の食い違いは `collect_forced_choices` で止まり、壊れた宣言は重みを読む前・run ディレクトリを作る前に止まる。**本物の torch の `topk` は手元で通していない**(置き物の torch で配線だけ)。**合否には使わない**(ADR-079 決定5) | `code/eval/forced_choice.py` / `code/eval/run.py` / `code/eval/calibration_run.py` / `test_top_k.py`(36)/ `plans/PLAN-026` §3.6・§4.10 |

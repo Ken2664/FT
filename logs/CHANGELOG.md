@@ -7888,3 +7888,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **見つけたこと**: `infra/power_sim_night/stop_night.ps1:66` は `*/fits/*.json` を数えるが、fit は `<run>/<シート>/fits/` にあり 1 段深い。06:00 のログは「0」と出したが実際は 846 本(表示だけ。直していない)
 - **やっていないこと**: 規則・config・`code/` の変更・夜用タスクの登録 / 削除・run2 の再開・診断の実行・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest`(コードを変えていない)
 - **引き継ぎ**: context-guard(約 128k)で `logs/HANDOFF.md` を書いた(次は PLANNER・推奨 Opus。PLAN-042 の採否の聴取)
+
+## 2026-10-06(その154): PLAN-042(run2 の当てはめ失敗の診断)を人間が採った(ADR-126)・§2 の閾値は「門で数え直す」   [actor: PLANNER (Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は登録済みの既知 1 本・未追跡は per_cell の frames だけ)。GPU 0・pod 0
+- **人間の指示**: 「handoffを読んで作業を再開してください」
+- **やったこと**:
+  - 判断材料の表(PLAN-042 §5 の 4 点と §2 の閾値。選択肢・推奨・理由)をチャットで示した。門の算術(CP95・n = 100 で開くのは棄却 13 回以下 → 失敗から来る棄却が 8・12・9・8 回以下。計算であって実験結果ではない)と、2 行目の大きさの条件が既に 74 / 156 と分かっていること(HARKing の注意)を添えた
+  - `AskUserQuestion` 4 問 → **4 問とも推奨**: 採る・範囲は全部(失敗 156 + 対照 20・D0〜D4)/ §2 の閾値 = 「門で数え直す」(細則つき)/ 今夜は登録のまま 1 回だけ走らせ、走った後にタスクを無効にする(人間)/ P1 は診断の後
+  - 文書: `logs/DECISIONS.md`(ADR-126)/ `plans/PLAN-042-fit-failure-diagnosis.md`(ステータス = 採択・§2.1 の閾値の表・§5 の決着)/ `logs/OPEN-ITEMS.md`(行に決着と残り)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その154」)
+- **やっていないこと**: PLAN-042 の実装・診断の実行・規則(ADR-059・ADR-124 D2')・`configs/power_sim.yaml`・`code/` の変更・夜用タスクの登録 / 削除 / 無効化・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest code/tests`(コードを変えていない。`test_repo_hygiene.py` だけ通した)

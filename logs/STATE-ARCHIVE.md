@@ -9901,3 +9901,38 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: 開始手順 → 判断材料の表 → `AskUserQuestion`(4 問 + 2 問。全部推奨)→ PLAN-041 I9・§10.1 → 実装・テスト → ADR-125・`05_STATISTICS.md` §3.2 / §6.8・OPEN-ITEMS(`logs/CHANGELOG.md` その152)。
 > **★やっていないこと**: 夜用タスクの登録・本実行の起動・run1 の回し直し・電源設定の変更・push・tag・GPU・pod・全体の `pytest code/tests`(`test_power_sim.py` と `test_repo_hygiene.py` だけ)。
+
+## ★2026-10-06(その154)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-06(その153)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★run2 の 1 段目(反復 100)の誤指定の門は閉じる。ただし棄却のほとんどは「当てはめ失敗 = 棄却」(ADR-124 D2')の分**(`run:20261005_120003_power_sim_t1t2`・`results/power_sim/run2/exploratory/stage1_interim.json`。06:00 に止められ `power_sim_summary.json` は未作成)。診断の草案 PLAN-042 を書いた。GPU 0・pod 0。**解釈は案のみ**
+(**次: 人間が PLAN-042 の採否と §2 の閾値・今夜の夜用タスク(per_cell の残り 154 本を回して門で止まる)を決める。P1 は回さない案**。)
+
+### いま何をしているか
+
+> **★★2026-10-06(その153・最新)。Phase 0。PLANNER (Opus 5.5)。run2 の読み出しと PLAN-042 草案。GPU 0・pod 0**
+> - **run2**(out-dir `results/power_sim/run2`・git `68f9ecf`・開始 2026-10-05T12:00:03Z・16 並列)は 06:00 に止められた。門の 2 枚(`misspecification` 600・`seed_subspace` 200)は揃い、`seed_per_cell` は 46 / 200。run_id `20261005_120003_power_sim_t1t2`(`run_info.json`)。`power_sim_summary.json` は未作成
+> - **門(規則どおり)は閉じる**: `tau` 0.25 / 0.5 で 30・23 / 100(misspec)、31・34 / 100(subspace)。CP95 下端 0.152〜0.248 > 0.075。**うち当てはめ失敗 25・22・27・29**
+> - **成功した反復だけ**: 5/75・1/78・4/73・5/71(0.013〜0.070)。run1 で 0.53 / 0.73 だった `tau` 1.0 / 1.5 は 8/94・10/97。失敗率は `tau` 0 → 29% から 1.5 → 3% へ下がる。例外 0。門の 2 枚の失敗 156 件のうち 74 は logLik の改善 < 0.01・移動 < 0.1 SE、37 は移動 > 10 SE
+> - **PLAN-042 草案**(`plans/PLAN-042-fit-failure-diagnosis.md`): 失敗 156 + 対照 20 で D0 再現・D1 `allFit`・D2 失敗した反復の LRT・D3 大きく動いた係数・D4 新しい項の SD。**規則は変えない**。推算 16 並列で約 2 時間
+> - **★その152 のブロックは `logs/STATE-ARCHIVE.md`「その153」にある**
+
+### 次のアクション
+
+> **★★2026-10-06(その153・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: PLAN-042 の採否・範囲・§2 の閾値**(読みの案と選択肢は PLAN-042 §1・§2。決めるのは人間)
+> 2. **人間: 今夜の夜用タスク**(登録のまま = per_cell の残り 154 本 ≒ 1.6 時間の推算 → 門で止まる・終了コード 3・`power_sim_summary.json` が書かれる。案: 1 回だけ走らせる。PLAN-042 の診断は同じ夜に回さない)/ **P1 の検出力シートは診断の後まで回さない案**
+> 3. IMPLEMENTER: PLAN-042 の実装(採択の後)/ `stop_night.ps1:66` の数え方の不具合(1 段浅い。表示だけ)
+> 4. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 5. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 6. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / D3 のパラメトリック・ブートストラップの反復数と食い違ったときの扱い / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / 実際の `eval.cells` / **文献 41 件の原典確認**(ADR-125 決定6)→ tag → S6
+> 7. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
+
+### 引き継ぎ
+
+> **★★2026-10-06(その153・最新)。PLANNER (Opus 5.5。推奨と一致)。run2 の読み出しと PLAN-042 草案。**
+>
+> **★やったこと**: 開始手順 → run2 の fit を `power_sim.py` の関数で集計(門・失敗を非棄却に数えた場合・成功だけ・失敗の大きさ)→ チャットで報告と読み(案)→ 人間の指示で記録・`results/power_sim/run2/exploratory/stage1_interim.{py,json}`・PLAN-042 草案・OPEN-ITEMS の行(`logs/CHANGELOG.md` その153)。
+> **★やっていないこと**: 規則・config・`code/` の変更・夜用タスクの登録 / 削除・run2 の再開・診断の実行・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest`(コードを変えていない)。**読みは案であり、確定していない**。

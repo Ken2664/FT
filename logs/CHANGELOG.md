@@ -7887,3 +7887,4 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **書いたもの**: `plans/PLAN-042-fit-failure-diagnosis.md`(草案。D0 再現・D1 `allFit`・D2 失敗した反復の LRT・D3 大きく動いた係数・D4 新しい項の SD。規則は変えない)/ `results/power_sim/run2/exploratory/stage1_interim.{py,json}` / run2 の出自(`config.yaml`・`config_resolved.json`・`git_sha.txt`・`invocations.jsonl`・`run_info.json`・`*/manifest_*`)を commit(run1 と同じ置き方。fits は .gitignore・per_cell の frames は未追跡のまま)/ `logs/OPEN-ITEMS.md`(新しい行)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その153」)
 - **見つけたこと**: `infra/power_sim_night/stop_night.ps1:66` は `*/fits/*.json` を数えるが、fit は `<run>/<シート>/fits/` にあり 1 段深い。06:00 のログは「0」と出したが実際は 846 本(表示だけ。直していない)
 - **やっていないこと**: 規則・config・`code/` の変更・夜用タスクの登録 / 削除・run2 の再開・診断の実行・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest`(コードを変えていない)
+- **引き継ぎ**: context-guard(約 128k)で `logs/HANDOFF.md` を書いた(次は PLANNER・推奨 Opus。PLAN-042 の採否の聴取)

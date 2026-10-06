@@ -1,0 +1,10 @@
+loglik_tolerance=0.001
+beta_move_tolerance=0.01
+use_refit_for_lrt=true
+max_reduction_level=3
+fit=results/power_sim/run2/misspecification/frames/frame_n80_s1p5_r0_0046.csv|results/power_sim/run2/misspecification/fits/fit_n80_s1p5_r0_0046.json
+fit=results/power_sim/run2/misspecification/frames/frame_n80_s1p5_r0_0047.csv|results/power_sim/run2/misspecification/fits/fit_n80_s1p5_r0_0047.json
+fit=results/power_sim/run2/misspecification/frames/frame_n80_s1p5_r0_0048.csv|results/power_sim/run2/misspecification/fits/fit_n80_s1p5_r0_0048.json
+fit=results/power_sim/run2/misspecification/frames/frame_n80_s1p5_r0_0049.csv|results/power_sim/run2/misspecification/fits/fit_n80_s1p5_r0_0049.json
+fit=results/power_sim/run2/misspecification/frames/frame_n80_s1p5_r0_0050.csv|results/power_sim/run2/misspecification/fits/fit_n80_s1p5_r0_0050.json
+fit=results/power_sim/run2/misspecification/frames/frame_n80_s1p5_r0_0051.csv|results/power_sim/run2/misspecification/fits/fit_n80_s1p5_r0_0051.json

@@ -9868,3 +9868,36 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: 開始手順 → 判断材料の表と読みを示し、草案の穴 3 つを指摘 → `AskUserQuestion`(D1〜D6・D4 の揃え方の諮り直し・例外の規則・未追跡ファイル)→ PLAN-041 §4.1・§5.4・§6・§10 / ADR-124 / OPEN-ITEMS 2 行。
 > **★やっていないこと**: 実装(I1〜I8)・`Documents/`・`code/`・`configs/` の変更・回し直し・タスクの削除・push・tag・GPU・pod。**次セッションが引き継ぐもの**: `logs/HANDOFF.md`(IMPLEMENTER。Sonnet 推奨)。
+
+## ★2026-10-06(その153)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-05(その152)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★PLAN-041 の実装後の確認 7 点を人間が決めた(ADR-125。6 問とも推奨)**: 新しい項の事前分布 `half-Student-t(3, 0, 2.5)`・順1b には足さない・**TOST でも当てはめ失敗を役割で不利な側に数える(PLAN-041 I9 で実装。`test_power_sim.py` 131 passed)**・`p1_tau` は別のシートのまま・夜用タスクを `run2` で登録し直す・文献と文面は起動を止めない。**★06:00 の `stop_night.ps1` は out-dir によらず power_sim を全部止める**。GPU 0・pod 0・push・tag なし。**本実行は起動していない**
+(**次: 人間が AC 電源を確かめ、夜用タスクを `-OutName run2 -ThroughStage 1` で登録し直す → 21:00 から 1 段目(誤指定の 3 枚が先頭)。run1 は回し直さない / PLAN-037 の I10 / S4・S5**。)
+
+### いま何をしているか
+
+> **★★2026-10-05(その152・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-041 の実装後の確認(ADR-125)と I9。GPU 0・pod 0。本実行は起動していない**
+> - **7 点は決着**(`logs/OPEN-ITEMS.md` の行を閉じた)。残りは人間の登録・起動・文献 41 件の原典確認・Limitations の文面
+> - **I9**: `tost_power` / `margin_quantiles` / `GridPoint.tost_n_failed`・`tost_failed_as_equivalent`(fit の JSON と R は不変)。`--dry-run` は通る(1 段目 13.8 / 22.9 時間・誤指定の 3 枚 4.3 / 7.2 時間。推算)
+> - **起動前の確認(その152 時点)**: バッテリー駆動(`BatteryStatus` = 1)/ AC のスリープ・休止は無効 / Rscript 0 本 / 夜用タスク 2 本は `run1` 向きで Ready
+> - **★その151 のブロックは `logs/STATE-ARCHIVE.md`「その152」にある**
+
+### 次のアクション
+
+> **★★2026-10-05(その152・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: AC 電源 → 夜用タスクを登録し直す**(`register_tasks.ps1 -Unregister` → `-OutName run2 -ThroughStage 1`。lme4 が見えなければ `-RLibs`。ADR-125 決定5)→ 21:00 から 1 段目。**run1 は回し直さない**。**夜用タスクを残したまま手で起動しない**(06:00 に止められる)。1 段目の全体は 13.8〜22.9 時間の推算で、夜 9 時間なら 2〜3 晩。誤指定の門は最初の晩に判定される見込み
+> 2. 門の後: 人間が `results/power_sim/run2/power_sim_summary.json` を見る(終了コード 3 なら止まる。PLAN-040 付録 A.4)
+> 3. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 4. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 5. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / D3 のパラメトリック・ブートストラップの反復数と食い違ったときの扱い / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / 実際の `eval.cells` / **文献 41 件の原典確認**(ADR-125 決定6)→ tag → S6
+> 6. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
+
+### 引き継ぎ
+
+> **★★2026-10-05(その152・最新)。PLANNER (Opus 5.5。推奨と一致)。PLAN-041 の実装後の確認(ADR-125)と I9。**
+>
+> **★やったこと**: 開始手順 → 判断材料の表 → `AskUserQuestion`(4 問 + 2 問。全部推奨)→ PLAN-041 I9・§10.1 → 実装・テスト → ADR-125・`05_STATISTICS.md` §3.2 / §6.8・OPEN-ITEMS(`logs/CHANGELOG.md` その152)。
+> **★やっていないこと**: 夜用タスクの登録・本実行の起動・run1 の回し直し・電源設定の変更・push・tag・GPU・pod・全体の `pytest code/tests`(`test_power_sim.py` と `test_repo_hygiene.py` だけ)。

@@ -7871,3 +7871,19 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - `code/tests/test_power_sim.py` に 3 件(131 passed)/ `test_repo_hygiene.py` 69 passed / `--dry-run --workers 16` は通る(1 段目 13.8 / 22.9 時間・誤指定の 3 枚 4.3 / 7.2 時間。推算)
   - 文書: `plans/PLAN-041`(I9・§10.1)/ `logs/DECISIONS.md`(ADR-125)/ `Documents/05_STATISTICS.md` §3.2(事前分布・順1b。旧文は打ち消し線)・§6.8(TOST の失敗・未決の行)/ `logs/OPEN-ITEMS.md`(PLAN-041 の実装後の行を閉じた・夜用タスクの行)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`「その152」)
 - **やっていないこと**: 夜用タスクの登録・本実行の起動・run1 の回し直し・電源設定の変更・全体の `pytest code/tests`・push・tag・GPU・pod
+
+## 2026-10-06(その153): run2(検出力分析 1 段目・反復 100)の読み出しと PLAN-042 草案(当てはめ失敗の診断)   [actor: PLANNER (Opus 5.5)]   [run:20261005_120003_power_sim_t1t2]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致。開始手順は実行済み(`results/power_sim/run2/` が未追跡)。GPU 0・pod 0
+- **人間の指示**: 「昨晩の結果を分析して解釈してください」→「記録してコミットして、診断の PLAN 草案も書いて」
+- **事実**(`results/power_sim/run2/exploratory/stage1_interim.{py,json}`。`power_sim.py` の `summarise_point`・`misspecification_gate` をそのまま使った探索の読み出し):
+  - run2 は 2026-10-05 21:00 に始まり(git `68f9ecf`・16 並列・`--through-stage 1`)、06:00 に `stop_night.ps1` が止めた(python 1 / Rscript 32)。stdout / stderr は空。run_id は `20261005_120003_power_sim_t1t2`(`run_info.json`)。`power_sim_summary.json` は未作成
+  - 完了: `misspecification` 600 / 600・`misspecification_seed_subspace` 200 / 200(門の 2 枚)・`misspecification_seed_per_cell` 46 / 200(記録だけ)
+  - 門(ADR-124 D2' = 当てはめ失敗を棄却): misspec `tau` 0.25 → 30/100(CP95 下端 0.212)・0.5 → 23/100(0.152)/ subspace 0.25 → 31/100(0.221)・0.5 → 34/100(0.248)→ **閉じる**。うち失敗 25・22・27・29
+  - 失敗を非棄却に数えると 5・1・4・5 / 100(下端 ≤ 0.016)。成功した反復だけ: 5/75・1/78・4/73・5/71。misspec の `tau` 0 / 0.75 / 1.0 / 1.5 の成功だけ: 3/71・3/85・8/94・10/97(run1 = `run:20261004_120002_power_sim_t1t2` の同じ点は 0.10・0.38・0.53・0.73)
+  - 失敗率(misspec): `tau` 0 → 0.29・0.25 → 0.25・0.5 → 0.22・0.75 → 0.15・1.0 → 0.06・1.5 → 0.03。例外 0。失敗は全部床(`drop_coverage_slope`)
+  - 門の 2 枚の失敗 156 件の床での大きさ: logLik の改善 < 0.01 かつ移動 < 0.1 SE が 74 / 移動 > 10 SE が 37 / 当て直し後に警告なし 49
+  - per_cell(途中): `tau` 0.25 で 21/46(失敗 17)、成功だけ 4/29
+- **読み(案。確定は人間。`CLAUDE.md` §8)**: 新しい項は成功した当てはめの中では膨張をほぼ消しているが、門を閉じたのは境界付近で増える収束の失敗を棄却に数えた分ではないか / より退屈な仮説: ADR-059 の許容が厳しすぎる・成功だけの率の選択の偏り・分離。PLAN-042 §1 に置いた
+- **書いたもの**: `plans/PLAN-042-fit-failure-diagnosis.md`(草案。D0 再現・D1 `allFit`・D2 失敗した反復の LRT・D3 大きく動いた係数・D4 新しい項の SD。規則は変えない)/ `results/power_sim/run2/exploratory/stage1_interim.{py,json}` / run2 の出自(`config.yaml`・`config_resolved.json`・`git_sha.txt`・`invocations.jsonl`・`run_info.json`・`*/manifest_*`)を commit(run1 と同じ置き方。fits は .gitignore・per_cell の frames は未追跡のまま)/ `logs/OPEN-ITEMS.md`(新しい行)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その153」)
+- **見つけたこと**: `infra/power_sim_night/stop_night.ps1:66` は `*/fits/*.json` を数えるが、fit は `<run>/<シート>/fits/` にあり 1 段深い。06:00 のログは「0」と出したが実際は 846 本(表示だけ。直していない)
+- **やっていないこと**: 規則・config・`code/` の変更・夜用タスクの登録 / 削除・run2 の再開・診断の実行・`stop_night.ps1` の修正・push・tag・GPU・pod・`pytest`(コードを変えていない)

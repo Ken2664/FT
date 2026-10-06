@@ -63,7 +63,8 @@ foreach ($r in @(Get-SimRscript)) {
 Start-Sleep -Seconds 2
 
 $left = @(Get-SimPython).Count + @(Get-SimRscript).Count
-$done = (Get-ChildItem -Path (Join-Path $SimDir "*/fits/*.json") -ErrorAction SilentlyContinue | Measure-Object).Count
+# fits live at results/power_sim/<run>/<sheet>/fits (two levels below $SimDir; the old one-level pattern always counted 0. PLAN-042 trap 4)
+$done = (Get-ChildItem -Path (Join-Path $SimDir "*/*/fits/*.json") -ErrorAction SilentlyContinue | Measure-Object).Count
 Write-Night ("stopped: killed python {0} / Rscript {1}; still alive {2}; fits/*.json so far {3}" -f $pythons.Count, $rscripts.Count, $left, $done)
 if ($left -gt 0) { exit 1 }
 exit 0

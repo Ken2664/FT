@@ -7915,3 +7915,16 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - `AskUserQuestion` 3 問 → **3 問とも推奨**: 案 β / 5 項目すべて / 論点 C = 今決める・分ける
   - 文書: `logs/DECISIONS.md`(ADR-127。ADR-126 のステータスに注記)/ `plans/PLAN-042-fit-failure-diagnosis.md`(ステータス・§2.1 の旧行に打ち消し線と理由・§2.2・§3 の記録の追加・§5・罠5・罠6)/ `logs/OPEN-ITEMS.md`(行に決着と (5) の残り)/ `STATE.md`(4 ブロック + 索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その156」。60 KB 超のため「repo の状態」の 2 行も同じ場所へ移した)
 - **やっていないこと**: PLAN-042 の実装・診断の実行・規則(ADR-059・ADR-124 D2')・ADR-125 決定3・`configs/power_sim.yaml`・`code/` の変更・夜用タスクの操作・push・tag・GPU・pod・`pytest code/tests`(コードを変えていない。`test_repo_hygiene.py` だけ通した)
+
+## 2026-10-06(その157): PLAN-042 D0〜D4 の実装(診断は実行していない)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- **役割**: IMPLEMENTER。実モデル Sonnet 5.5 は推奨(Sonnet)と一致(最初の発言で述べた)。
+- **人間の指示**: 「handoffを読んで作業を続けて下さい」
+- **やったこと**:
+  - `code/analysis/fit_failure_diagnosis.py`(選ぶ・表を作り直す・R を呼ぶ・数える)/ `code/analysis/fit_failure_diagnosis.R`(`power_sim_fit.R` の driver より上を借りて、D0 再現・D1 allFit・D2 LRT・D3 セル・D4 新しい項の SD を記録)/ `configs/fit_failure_diagnosis.yaml`(§2.1・§2.2 の確定値と run2 の既知の件数)/ `code/tests/test_fit_failure_diagnosis.py`(37 本。R は呼ばない)
+  - §2.2 の出力をすべて含める: 判定の行 1a・1b・3/4(+ `fit0` の感度)/ 記述の行 2・R・U / 失敗した反復だけの棄却率と CP95(4 点 + 合計 n = 103。当て直しの後と `fit0`)/ 行 5 / D4 / D0
+  - `--select-only` を run2 の fits に実行: 失敗 156・対照 20・門の 4 点の失敗 25・22・27・29・行 R の既知 13・6・7・12 がすべて一致(既知の数の再確認)
+  - スモーク: run2 に無い反復番号 9001 の合成の表で R 側を通した(D0 一致・allFit 5 最適化 × 2 式・python の評価)。**run2 の結果には触れていない**
+  - `infra/power_sim_night/stop_night.ps1` の fits の数え方を 1 段深くした(表示だけ。PLAN-042 罠4。`*/*/fits/*.json` で 1446 本を数えることを確認)
+  - `.gitignore` に `fit_failure_diagnosis_work/frames/` を追加 / `plans/PLAN-042` §7 に実装の判断 9 項目を記録
+- **やっていないこと**: 診断の本実行・夜用タスクの操作・ADR-059 / ADR-124 D2' / ADR-125 決定3 / `configs/power_sim.yaml` / `power_sim.py` / `power_sim_fit.R` の変更・§2.1 / §2.2 の閾値の書き換え・push・tag・GPU・pod
+- **確認してほしい判断**: PLAN-042 §7 の 3(`allFit` の `start_from_mle = FALSE`)と 1・2(「揃った」の定義)、5(行 U の p 値の優先順)。数字を動かす

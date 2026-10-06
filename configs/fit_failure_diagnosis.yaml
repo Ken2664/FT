@@ -1,0 +1,72 @@
+# configs/fit_failure_diagnosis.yaml — PLAN-042: run2 の「当てはめ失敗」の診断(D0〜D4)。
+#
+#   python -X utf8 -m code.analysis.fit_failure_diagnosis --config configs/fit_failure_diagnosis.yaml --select-only
+#   python -X utf8 -m code.analysis.fit_failure_diagnosis --config configs/fit_failure_diagnosis.yaml
+#   (★本実行の日時は人間が決める。夜用タスクと同じ夜には回さない。PLAN-042 §4)
+#
+# **ここに書いた数値はすべて PLAN-042 §2.1 / §2.2(ADR-126・ADR-127)が診断の前に確定したもの**で、実行後に書き換えない。
+# 実験結果は 1 つも入っていない(`expected` は run2 の集計(stage1_interim.json)で既知の件数。再現の確認用の鍵である)。
+# 門の閾値(α・CP の水準・下端の上限)は run2 の config_resolved.json の `simulation` から読む(ここに複写しない)。
+
+diagnosis:
+  # 診断する run。config_resolved.json・fits/・run_info.json を読む(`fits/` は .gitignore 済み。この機械にだけある)
+  run_dir: results/power_sim/run2
+  # 出力(+ 生成スクリプト。PLAN-042 §3)
+  out_json: results/power_sim/run2/exploratory/fit_failure_diagnosis.json
+  # 作り直した表(frames)と R の出力。frames は当てはめ後に消す(`--keep-frames` で残す)。.gitignore 済み
+  work_dir: results/power_sim/run2/exploratory/fit_failure_diagnosis_work
+
+  # 門の判定に使った段の反復数(run2 の 1 段目)。fits/ の本数がこれと違えば止まる
+  n_rep: 100
+
+  # 並列の本数。実行資源のつまみであって実験パラメータではない(ADR-069 決定3。run2 は 16 並列)
+  n_workers: 16
+
+  # 対照: 同じ 2 枚の門の 4 点(tau 0.25 / 0.5 × 2 シート)から、成功した反復を反復番号の小さい順に点ごと n 件(乱数は使わない)。
+  # PLAN-042 §3「同じ 2 枚の成功した反復から 20 件(点ごとに層別)」= 4 点 × 5 件(実装の読み。§7)
+  controls_per_gate_point: 5
+
+  # D0 再現の確認: 作り直した表の床(= その反復が止まった段)の logLik が fit の JSON と一致する許容(絶対値)。
+  # JSON の logLik は %.14g で書かれている。同じ機械・同じ lme4(2.0.6)・決定的な glmer なので、丸めだけを許す(実装の読み。§7)
+  d0_loglik_tolerance: 1.0e-6
+
+  # D1 別の最適化(lme4 2.0.6 の allFit。手元の文書で確かめた仕様: meth.tab.0 = bobyqa / Nelder_Mead / nlminbwrap /
+  # nloptwrap(NLOPT_LN_NELDERMEAD・NLOPT_LN_BOBYQA)。dfoptim と optimx はこの機械に無く、allFit が自動で外す)
+  allfit:
+    # 2.0.6 の allFit は既定で各最適化を渡した当てはめの MLE から始める(start_from_mle = TRUE)。
+    # それでは「別の最適化で収束する」の証拠にならない(最初から同じ点にいる)ので、既定の初期値から始める(旧い allFit と同じ)。
+    # 実装の読み。§7。決めるのは人間
+    start_from_mle: false
+    # 1a・1b の「揃った」: logLik が最大の最適化から差 < この値の最適化(ADR-059 と同じ許容)
+    loglik_tolerance: 0.001
+    # 1b の固定効果の差の許容(SE 単位。ADR-059 決定1 の許容。SE は logLik が最大の最適化のもの)
+    fixef_tolerance_se: 0.01
+    # 揃った最適化の数の下限(§2.2 1a・1b「2 つ以上」)
+    min_aligned: 2
+
+  # 床での失敗の大きさの区切り(§2.2 行 2。記述のためだけ。ADR-059 の許容とは別物)と、移動 > 10 SE(行 5)
+  size:
+    trivial_loglik_gain_below: 0.01
+    trivial_shift_se_below: 0.1
+    large_shift_se_above: 10.0
+
+  # 行 5(分離): 移動 > 10 SE の失敗のうち、最も動いた固定効果のセルがどれかのシードで規則率 0 か 1 の割合の下限 = 2/3
+  separation_share: {numerator: 2, denominator: 3}
+
+  # D4: 新しい項 seed:task:coverage の SD がこれ未満なら境界(0 への張り付き)と数える。
+  # lme4 の isSingular の既定の許容(1e-4。GLMM は尺度が 1 なので theta = SD)に合わせた
+  boundary_sd_below: 1.0e-4
+
+  # run2 で既知の件数(stage1_interim.json。**再現の確認であって結果ではない**)。合わなければ選択の段で止まる
+  expected:
+    failures_by_sheet:
+      misspecification: 100
+      misspecification_seed_subspace: 56
+    # 門の 4 点の失敗(sheet, tau の順。n = 103)
+    failures_at_gate_points:
+      - {sheet: misspecification, tau: 0.25, n: 25}
+      - {sheet: misspecification, tau: 0.5, n: 22}
+      - {sheet: misspecification_seed_subspace, tau: 0.25, n: 27}
+      - {sheet: misspecification_seed_subspace, tau: 0.5, n: 29}
+    # 行 R の既知の件数(門の 4 点。同順。当て直しの後に message が 1 つも無い失敗)
+    refit_silent_at_gate_points: [13, 6, 7, 12]

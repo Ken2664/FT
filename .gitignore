@@ -31,6 +31,8 @@ runs/preflight/
 # summary・config.yaml・run_info.json・invocations.jsonl は追跡する(数値の出所 = run_id)。
 # 2026-10-04(その145)人間が「要約と記録だけ commit」を選んだ(推奨。OPEN-ITEMS)。
 results/power_sim/**/fits/
+# PLAN-042 の診断が作り直す表(当てはめ後に消す。--keep-frames で残ったときのため)
+results/power_sim/**/fit_failure_diagnosis_work/frames/
 results/power_sim/*_stdout.txt
 results/power_sim/*_stderr.txt
 

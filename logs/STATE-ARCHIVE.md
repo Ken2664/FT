@@ -18,6 +18,33 @@
 
 ---
 
+## ★2026-10-07(その158)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+最終更新: 2026-10-06(その157)/ by IMPLEMENTER (Claude Sonnet 5.5。推奨 Sonnet と一致)。**★PLAN-042 D0〜D4 を実装した(`94b64a6`)。診断は実行していない**。`code/analysis/fit_failure_diagnosis.{py,R}`・`configs/fit_failure_diagnosis.yaml`・テスト 37 本。§2.2 の全出力を含む。`--select-only` は run2 の fits で既知の件数(156・20・103・13/6/7/12)と一致。規則(ADR-059・ADR-124 D2')・`power_sim` の config / `power_sim.py` / `power_sim_fit.R` は不変。run2 の門は規則どおり閉じたまま(`run:20261005_120003_power_sim_t1t2`)。GPU 0・pod 0
+(**次: 人間が PLAN-042 §7 の実装の判断(特に `allFit` の `start_from_mle = FALSE`・「揃った」の定義・行 U の p 値の優先順)を確認し、診断の実行の日時を決める(夜用タスクと同じ夜にしない)。今夜の夜用タスクは 1 回だけ走らせた後に人間が無効にする(ADR-126 決定3)**。診断の後が (5)。)
+
+> **★★2026-10-06(その157・最新)。Phase 0。IMPLEMENTER (Claude Sonnet 5.5)。PLAN-042 D0〜D4 の実装(`94b64a6`)。GPU 0・pod 0**
+> - **実装**: `code/analysis/fit_failure_diagnosis.py`(選ぶ・表を作り直す・数える)/ `.R`(`power_sim_fit.R` の driver より上を借りて D0〜D4 を記録)/ `configs/fit_failure_diagnosis.yaml` / テスト 37 本(R は呼ばない)。起動と判断 9 項目は `plans/PLAN-042` §7
+> - **確認済み(新しい結果ではない)**: `--select-only` が run2 の fits で失敗 156・対照 20・門の 4 点 25/22/27/29(103)・行 R の既知 13/6/7/12 と一致 / 合成の表(run2 の外・反復 9001)で R 側が通った。**診断の本実行はまだ**
+> - **★その156 のブロックは `logs/STATE-ARCHIVE.md`「その156」にある**
+
+> **★★2026-10-06(その156・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: 今夜の夜用タスクを登録のまま走らせ、翌朝に無効にする**(ADR-126 決定3)。翌朝、`power_sim_summary.json` と終了コード 3 を確かめる
+> 2. **IMPLEMENTER: PLAN-042 D0〜D4 の実装**(**§2.2 の判定の行・記述の行・失敗した反復だけの棄却率を出力に含める**。D1 は SE も・D2 は当て直しの後の警告も残す。`power_sim.py` / `power_sim_fit.R` の本体は変えない)/ `stop_night.ps1:66` の数え方の不具合(1 段浅い。表示だけ。別の小さな変更)
+> 3. **人間: 診断の実行の日時**(夜用タスクと同じ夜には回さない)→ 診断の後に (5): 実行可能性の門の上限と判定する点・D2' の書き換え・ADR-059 の許容・ADR-125 決定3 との整合・新しい反復の取り方(`logs/OPEN-ITEMS.md`)。P1 はその後
+> 4. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 5. **S4**(RUNNER): `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8 —— 人間の push と G2-1 承認の後
+> 6. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / D3 のパラメトリック・ブートストラップの反復数と食い違ったときの扱い / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / 実際の `eval.cells` / **文献 41 件の原典確認**(ADR-125 決定6)→ tag → S6
+> 7. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認
+
+> **★★2026-10-06(その157・最新)。IMPLEMENTER (Claude Sonnet 5.5。推奨と一致)。PLAN-042 の実装。**
+>
+> **★やったこと**: 開始手順 → 診断の実装(§2.2 の全出力)→ 合成のスモーク → `stop_night.ps1` の数え方の修正(罠4)→ PLAN-042 §7・CHANGELOG・commit `94b64a6`。
+> **★やっていないこと**: 診断の実行・夜用タスクの操作・規則(ADR-059・ADR-124 D2')・`power_sim` の config / code の変更・§2.1 / §2.2 の閾値の書き換え・push・tag・GPU・pod。
+
+---
+
 ## ★2026-10-06(その156)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 最終更新: 2026-10-06(その156)/ by PLANNER (Opus 5.5。推奨 Opus と一致)。**★ADR-127: PLAN-042 §2.1 を診断の前に改めた(§2.2)・過誤の門と実行可能性の門を分ける(方針だけ)**。人間が 3 問とも推奨: 案 β(5 項目すべて)/ 論点 C = 今決める・分ける。**PLAN-042 の実装の保留は解けた**。規則(ADR-059・ADR-124 D2')・config・`code/` は不変(書き換えは (5))。run2 の門は規則どおり閉じたまま(`run:20261005_120003_power_sim_t1t2`)。GPU 0・pod 0

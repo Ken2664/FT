@@ -7931,3 +7931,13 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-06(その157・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
 - STATE.md(冒頭・最新ブロック 2 つ。古い 2 ブロックは `logs/STATE-ARCHIVE.md`「その156」へ)と `logs/HANDOFF.md`(次は RUNNER。人間の合図で診断を実行)を更新した。context-guard(約 218k)で切った
+
+## 2026-10-07(その158): run2 1 段目の最終読みと (5) の検討(案のみ)   [actor: PLANNER 相当 (Opus 5.5)]   [run:20261005_120003_power_sim_t1t2]
+- **役割**: 数の分析と今後の検討(PLANNER 相当)。実モデル Opus 5.5。HANDOFF の推奨(Sonnet・RUNNER)とは不一致で、依頼が分析と検討なので Opus(最初の発言で述べた)。開始手順は実行済み(worktree は既知の 1 本)。GPU 0・pod 0
+- **人間の指示**: 「昨晩の実行結果とhandoffを踏まえて、数値を分析するとともに今後について深く検討、分析してください」
+- **昨晩の事実**: 2026-10-06 21:00:04 起動(git `bfcc51c`・差分なし)→ (i) per_cell の残り 154 本 → 22:53 に `power_sim_summary.json`・`stage_0100_summary.json`・門で停止(stderr 0 バイト)。`power_sim.py`・`power_sim_fit.R`・`configs/power_sim.yaml` は `68f9ecf` から不変。門の 4 点は中間読み(その153)と一致して閉じる。夜用タスク 2 本はスケジューラに無い
+- **やったこと**:
+  - `results/power_sim/run2/exploratory/stage1_final.{py,json}`: `stage1_interim.py` の分解を per_cell の完成後に読み直し(中間読みの json は書き換えていない)、成功した当てはめの LRT 統計量の裾を漸近 χ²(2) と参照線 2·F(2, 18)(算術)に並べた。**事後の探索**
+  - `logs/REVIEW-2026-10-07-run2-final.md`: 数の表 / 2 つの現象(A = 小さい `tau` での当てはめ失敗、B = 大きい `tau` での成功した当てはめの LRT の裾。基本のシートで `tau` 1.0・1.5 の 5% 裾 0.085・0.103)/ 決定7 の方針をそのまま当てると門は開くが、門の点は B が出ない領域にある / (5) を軸 A・B に分ける案(推奨 B1 + B2)/ S4 を並行して開ける案
+  - `STATE.md`(冒頭・3 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`「その158」)/ `logs/OPEN-ITEMS.md`(PLAN-042 の行に追記)
+- **やっていないこと**: 診断の実行・規則(ADR-059・ADR-124 D2')・ADR-125 決定3・`power_sim` の config / code・PLAN-042 の範囲の変更・夜用タスクの操作・`per_cell/frames/` の残骸 46 本の削除(commit もしない)・push・tag・GPU・pod・`pytest code/tests`(code を変えていない)

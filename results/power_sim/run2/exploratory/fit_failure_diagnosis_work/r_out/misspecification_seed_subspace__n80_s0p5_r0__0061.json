@@ -1,0 +1,35 @@
+{
+  "case_id": "misspecification_seed_subspace__n80_s0p5_r0__0061",
+  "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+  "lme4_version": "2.0.6",
+  "check_level": 3,
+  "floor_level": 3,
+  "d0": {"full_logLik": -2068.65540164, "add_logLik": -2068.89176772, "full_logLik_json": -2068.65540164, "add_logLik_json": -2068.89176772, "failed_reproduced": true, "ok": true},
+  "floor_full": {"failed": true, "errored": false, "refit_done": true, "loglik_gain": 0.00068077466403338, "beta_move": 0.02537270427087, "loglik_fit0": -2068.6560824183, "loglik_final": -2068.6554016437, "fit0_n_msgs_all": 1, "refit_n_msgs_all": 0, "refit_n_msgs_nonsingular": 0, "singular": false, "sd_new_term": 0.58123929497938, "moved": {"name": "taskT2", "shift_se": 0.02537270427087, "se": 0.41976472096735, "before": -1.7952873280467, "after": -1.8059378941752}},
+  "floor_add": {"failed": false, "errored": false, "refit_done": false, "loglik_gain": null, "beta_move": null, "loglik_fit0": -2068.8917677186, "loglik_final": -2068.8917677186, "fit0_n_msgs_all": 0, "refit_n_msgs_all": null, "refit_n_msgs_nonsingular": null, "singular": false, "sd_new_term": 0.58533713333607, "moved": null},
+  "p_fit0": 0.7900292568,
+  "p_final": 0.789491608,
+  "allfit_start_from_mle": false,
+  "allfit_full": {"coef_names": ["(Intercept)", "taskT2", "coverageextrap_magnitude", "coverageinterp", "taskT2:coverageextrap_magnitude", "taskT2:coverageinterp"], "records": [
+    {"optimizer": "bobyqa", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.65540146, "npar": 9, "fixef": [3.73290130145, -1.80572961692, -1.9554290045, -0.764188213421, -0.114425594528, -0.380599503551], "se": [0.336362523652, 0.419886713069, 0.418519347628, 0.430468957431, 0.563319544674, 0.573188542615], "first_message": ""},
+    {"optimizer": "Nelder_Mead", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 1, "loglik": -2068.6554052, "npar": 9, "fixef": [3.73295331043, -1.80558041105, -1.95553948862, -0.764250457669, -0.11457339981, -0.380406283759], "se": [0.33674610685, 0.420425694779, 0.418973785134, 0.430913733109, 0.564006280169, 0.573830241273], "first_message": "Model failed to converge with max|grad| = 0.00361091 (tol = 0.002, component 1) See ?lme4::convergence and ?lme4::troubleshooting."},
+    {"optimizer": "nlminbwrap", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.65540148, "npar": 9, "fixef": [3.73291340088, -1.80573702878, -1.95542539476, -0.764192059041, -0.114427472269, -0.380624157485], "se": [0.336348888636, 0.419845991046, 0.418480631849, 0.430432470666, 0.563289830353, 0.573154462375], "first_message": ""},
+    {"optimizer": "nloptwrap.NLOPT_LN_NELDERMEAD", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.65540146, "npar": 9, "fixef": [3.73290866635, -1.80567485513, -1.95550649621, -0.764214466213, -0.11436026607, -0.380618789497], "se": [0.336200791248, 0.419608975687, 0.418252151203, 0.430225106746, 0.562928197351, 0.572788674365], "first_message": ""},
+    {"optimizer": "nloptwrap.NLOPT_LN_BOBYQA", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 1, "loglik": -2068.65540768, "npar": 9, "fixef": [3.73233011665, -1.80485731235, -1.95497900892, -0.763043835907, -0.114934291827, -0.382471415922], "se": [0.336525753872, 0.420127274958, 0.418679617842, 0.430671024963, 0.563536334217, 0.573561446503], "first_message": "Model failed to converge with max|grad| = 0.00505547 (tol = 0.002, component 1) See ?lme4::convergence and ?lme4::troubleshooting."}
+  ]},
+  "allfit_add": {"coef_names": ["(Intercept)", "taskT2", "coverageextrap_magnitude", "coverageinterp"], "records": [
+    {"optimizer": "bobyqa", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.89176772, "npar": 7, "fixef": [3.83227667223, -1.97729563874, -2.02499377131, -0.978110425909], "se": [0.271550385301, 0.232039988305, 0.284929289961, 0.286556685368], "first_message": ""},
+    {"optimizer": "Nelder_Mead", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.8917678, "npar": 7, "fixef": [3.83234071824, -1.97733512344, -2.02503476005, -0.978181913069], "se": [0.271606281348, 0.232056224673, 0.284985480393, 0.286585764201], "first_message": ""},
+    {"optimizer": "nlminbwrap", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.89176776, "npar": 7, "fixef": [3.83227995443, -1.97730544383, -2.02499751611, -0.978116716568], "se": [0.271595118522, 0.232053352011, 0.284988841976, 0.286578534632], "first_message": ""},
+    {"optimizer": "nloptwrap.NLOPT_LN_NELDERMEAD", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.89176907, "npar": 7, "fixef": [3.83213348094, -1.97721819194, -2.025073254, -0.977960074613], "se": [0.271579471026, 0.232041667457, 0.284938949952, 0.286539723176], "first_message": ""},
+    {"optimizer": "nloptwrap.NLOPT_LN_BOBYQA", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2068.89176783, "npar": 7, "fixef": [3.83219147032, -1.97726114637, -2.02490863602, -0.978068229603], "se": [0.271627337114, 0.232068859329, 0.28501672098, 0.286612565971], "first_message": ""}
+  ]},
+  "cells": [
+    {"task": "T1", "coverage": "id", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 2, "min_rate": 0.875, "max_rate": 1, "pooled_rate": 0.94},
+    {"task": "T2", "coverage": "id", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.6125, "max_rate": 0.875, "pooled_rate": 0.78875},
+    {"task": "T1", "coverage": "extrap_magnitude", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.5625, "max_rate": 0.9125, "pooled_rate": 0.7725},
+    {"task": "T2", "coverage": "extrap_magnitude", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.2625, "max_rate": 0.6375, "pooled_rate": 0.4775},
+    {"task": "T1", "coverage": "interp", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.8125, "max_rate": 0.9625, "pooled_rate": 0.905},
+    {"task": "T2", "coverage": "interp", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.4625, "max_rate": 0.825, "pooled_rate": 0.63375}
+  ]
+}

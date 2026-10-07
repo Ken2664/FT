@@ -1,0 +1,35 @@
+{
+  "case_id": "misspecification__n80_s0p5_r0__0037",
+  "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+  "lme4_version": "2.0.6",
+  "check_level": 3,
+  "floor_level": 3,
+  "d0": {"full_logLik": -2462.00796966, "add_logLik": -2464.6528853, "full_logLik_json": -2462.00796966, "add_logLik_json": -2464.6528853, "failed_reproduced": true, "ok": true},
+  "floor_full": {"failed": false, "errored": false, "refit_done": true, "loglik_gain": 3.0704759410582e-06, "beta_move": 0.00080324946090387, "loglik_fit0": -2462.0079727278, "loglik_final": -2462.0079696573, "fit0_n_msgs_all": 1, "refit_n_msgs_all": 0, "refit_n_msgs_nonsingular": 0, "singular": false, "sd_new_term": 0.60341795554422, "moved": null},
+  "floor_add": {"failed": true, "errored": false, "refit_done": true, "loglik_gain": -3.1247092465492e-05, "beta_move": 1.6577946684968, "loglik_fit0": -2464.6528540566, "loglik_final": -2464.6528853037, "fit0_n_msgs_all": 2, "refit_n_msgs_all": 2, "refit_n_msgs_nonsingular": 2, "singular": false, "sd_new_term": 0.62983094490876, "moved": {"name": "coverageextrap_magnitude", "shift_se": 1.6577946684968, "se": 0.00044900622453554, "before": -2.1999185108963, "after": -2.2006628710214}},
+  "p_fit0": 0.07101378053,
+  "p_final": 0.07101134355,
+  "allfit_start_from_mle": false,
+  "allfit_full": {"coef_names": ["(Intercept)", "taskT2", "coverageextrap_magnitude", "coverageinterp", "taskT2:coverageextrap_magnitude", "taskT2:coverageinterp"], "records": [
+    {"optimizer": "bobyqa", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2462.00796963, "npar": 9, "fixef": [3.07851744907, -2.00433248121, -2.62256870499, -1.19232416143, 0.841338140483, -0.318432986659], "se": [0.295393069722, 0.388284264481, 0.387355352981, 0.39275446107, 0.529107160727, 0.533995615825], "first_message": ""},
+    {"optimizer": "Nelder_Mead", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 1, "loglik": -2462.00798547, "npar": 9, "fixef": [3.07832530399, -2.00374111255, -2.62293747208, -1.19194960389, 0.841064653723, -0.31915001638], "se": [0.295552679821, 0.388552325773, 0.38760925391, 0.392988933637, 0.529431028753, 0.534389705851], "first_message": "Model failed to converge with max|grad| = 0.005356 (tol = 0.002, component 1) See ?lme4::convergence and ?lme4::troubleshooting."},
+    {"optimizer": "nlminbwrap", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2462.00796964, "npar": 9, "fixef": [3.07850224632, -2.00432078353, -2.62257625832, -1.19232114442, 0.841339350786, -0.318442132998], "se": [0.295611869455, 0.388646258108, 0.387653623925, 0.393047577029, 0.529589631949, 0.534520950587], "first_message": ""},
+    {"optimizer": "nloptwrap.NLOPT_LN_NELDERMEAD", "error": "", "n_msgs_all": 2, "n_msgs_nonsingular": 2, "loglik": -2462.10761947, "npar": 9, "fixef": [3.0299794048, -1.91367160175, -2.50640182285, -1.11919711174, 0.625241969315, -0.443839534165], "se": [0.287207588138, 0.383459203377, 0.381580104555, 0.388317782796, 0.52491351274, 0.529550477842], "first_message": "unable to evaluate scaled gradient"},
+    {"optimizer": "nloptwrap.NLOPT_LN_BOBYQA", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2462.00797196, "npar": 9, "fixef": [3.07855059432, -2.00469249248, -2.62286438254, -1.19234776653, 0.842143730595, -0.318143315299], "se": [0.295569247596, 0.388604687373, 0.387609043427, 0.39297568329, 0.529551672336, 0.534424228471], "first_message": ""}
+  ]},
+  "allfit_add": {"coef_names": ["(Intercept)", "taskT2", "coverageextrap_magnitude", "coverageinterp"], "records": [
+    {"optimizer": "bobyqa", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2464.69803829, "npar": 7, "fixef": [2.96537210588, -1.81229132943, -2.18521098074, -1.34405710037], "se": [0.23160049016, 0.218884141879, 0.269072834539, 0.269622090922], "first_message": ""},
+    {"optimizer": "Nelder_Mead", "error": "", "n_msgs_all": 2, "n_msgs_nonsingular": 2, "loglik": -2464.65286148, "npar": 7, "fixef": [2.98452440498, -1.82169855689, -2.19973593437, -1.35664011098], "se": [0.000449073877371, 0.000448948066703, 0.000448952555653, 0.000448964215155], "first_message": "Model failed to converge with max|grad| = 0.15752 (tol = 0.002, component 1) See ?lme4::convergence and ?lme4::troubleshooting."},
+    {"optimizer": "nlminbwrap", "error": "", "n_msgs_all": 0, "n_msgs_nonsingular": 0, "loglik": -2464.6980386, "npar": 7, "fixef": [2.96537013101, -1.81228896654, -2.18521081719, -1.34405751985], "se": [0.231667274951, 0.218915040003, 0.269115707549, 0.26967957124], "first_message": ""},
+    {"optimizer": "nloptwrap.NLOPT_LN_NELDERMEAD", "error": "", "n_msgs_all": 2, "n_msgs_nonsingular": 2, "loglik": -2464.65297187, "npar": 7, "fixef": [2.98433515573, -1.82409196402, -2.19735039734, -1.35300392134], "se": [0.000448703336766, 0.154013319718, 0.202184488491, 0.140680153738], "first_message": "unable to evaluate scaled gradient"},
+    {"optimizer": "nloptwrap.NLOPT_LN_BOBYQA", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 1, "loglik": -2464.6980629, "npar": 7, "fixef": [2.96534712585, -1.81211336534, -2.18520044629, -1.34414809394], "se": [0.231667906602, 0.218842607538, 0.269060672014, 0.269607145329], "first_message": "Model failed to converge with max|grad| = 0.00853249 (tol = 0.002, component 1) See ?lme4::convergence and ?lme4::troubleshooting."}
+  ]},
+  "cells": [
+    {"task": "T1", "coverage": "id", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.8375, "max_rate": 0.9625, "pooled_rate": 0.91375},
+    {"task": "T2", "coverage": "id", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.55, "max_rate": 0.825, "pooled_rate": 0.6825},
+    {"task": "T1", "coverage": "extrap_magnitude", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.3625, "max_rate": 0.825, "pooled_rate": 0.58},
+    {"task": "T2", "coverage": "extrap_magnitude", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.2, "max_rate": 0.55, "pooled_rate": 0.3725},
+    {"task": "T1", "coverage": "interp", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.4625, "max_rate": 0.9375, "pooled_rate": 0.795},
+    {"task": "T2", "coverage": "interp", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.1875, "max_rate": 0.6375, "pooled_rate": 0.41875}
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "case_id": "misspecification__n80_s0p25_r0__0005",
+  "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+  "lme4_version": "2.0.6",
+  "check_level": 3,
+  "floor_level": 3,
+  "d0": {"full_logLik": -2405.29899753, "add_logLik": -2405.46381216, "full_logLik_json": -2405.29899753, "add_logLik_json": -2405.46381216, "failed_reproduced": true, "ok": true},
+  "floor_full": {"failed": true, "errored": false, "refit_done": true, "loglik_gain": 0.0019179548799002, "beta_move": 0.0047028048264671, "loglik_fit0": -2405.3009154885, "loglik_final": -2405.2989975337, "fit0_n_msgs_all": 1, "refit_n_msgs_all": 0, "refit_n_msgs_nonsingular": 0, "singular": false, "sd_new_term": 0.30721126989305, "moved": {"name": "taskT2:coverageextrap_magnitude", "shift_se": 0.0047028048264671, "se": 0.43030320156791, "before": -0.18279324991914, "after": -0.18481688189231}},
+  "floor_add": {"failed": false, "errored": false, "refit_done": false, "loglik_gain": null, "beta_move": null, "loglik_fit0": -2405.4638121594, "loglik_final": -2405.4638121594, "fit0_n_msgs_all": 1, "refit_n_msgs_all": null, "refit_n_msgs_nonsingular": null, "singular": true, "sd_new_term": 0.30770017696262, "moved": null},
+  "p_fit0": 0.8496789805,
+  "p_final": 0.8480508963,
+  "allfit_start_from_mle": false,
+  "allfit_full": {"coef_names": ["(Intercept)", "taskT2", "coverageextrap_magnitude", "coverageinterp", "taskT2:coverageextrap_magnitude", "taskT2:coverageinterp"], "records": [
+    {"optimizer": "bobyqa", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.29899718, "npar": 9, "fixef": [2.51761741166, -0.420490807468, -2.25685880711, -0.766699573439, -0.184680300749, -0.240487069658], "se": [0.226460486678, 0.313490949673, 0.304036286101, 0.310247113776, 0.425214298164, 0.430415152466], "first_message": "boundary (singular) fit: see help('isSingular')"},
+    {"optimizer": "Nelder_Mead", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 1, "loglik": -2405.300023, "npar": 9, "fixef": [2.51830926174, -0.421234578748, -2.25771172142, -0.767357033577, -0.18255669905, -0.239213964297], "se": [0.233331432796, 0.317399151757, 0.310123434432, 0.314177219576, 0.430018951354, 0.435556743153], "first_message": "Model failed to converge with max|grad| = 0.058279 (tol = 0.002, component 1) See ?lme4::convergence and ?lme4::troubleshooting."},
+    {"optimizer": "nlminbwrap", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.2989972, "npar": 9, "fixef": [2.51759821839, -0.420437956415, -2.25686353033, -0.766649685578, -0.184691666442, -0.240581980803], "se": [0.226460726267, 0.313491589404, 0.30403677818, 0.310247705327, 0.425215217957, 0.430416133289], "first_message": "boundary (singular) fit: see help('isSingular')"},
+    {"optimizer": "nloptwrap.NLOPT_LN_NELDERMEAD", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.29899745, "npar": 9, "fixef": [2.51756586128, -0.420493196372, -2.25681073121, -0.766673516946, -0.18469374854, -0.240395075565], "se": [0.22645692241, 0.31348599418, 0.3040314718, 0.310242277526, 0.425207558815, 0.430408474474], "first_message": "boundary (singular) fit: see help('isSingular')"},
+    {"optimizer": "nloptwrap.NLOPT_LN_BOBYQA", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2407.29923984, "npar": 9, "fixef": [2.21688316793, -0.359215388905, -1.98182005756, -0.658653217322, -0.184811463277, -0.221188935232], "se": [0.22343051877, 0.310258374647, 0.301784521073, 0.307429307833, 0.42282665718, 0.427515049795], "first_message": "boundary (singular) fit: see help('isSingular')"}
+  ]},
+  "allfit_add": {"coef_names": ["(Intercept)", "taskT2", "coverageextrap_magnitude", "coverageinterp"], "records": [
+    {"optimizer": "bobyqa", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.46381212, "npar": 7, "fixef": [2.59548769062, -0.568752110089, -2.35291772593, -0.89194735809], "se": [0.180982399477, 0.172203164156, 0.212787625055, 0.215265817128], "first_message": "boundary (singular) fit: see help('isSingular')"},
+    {"optimizer": "Nelder_Mead", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.46381217, "npar": 7, "fixef": [2.59547827311, -0.568749513518, -2.35291409462, -0.891938837532], "se": [0.180982803139, 0.172203628494, 0.212788170974, 0.215266358515], "first_message": "boundary (singular) fit: see help('isSingular')"},
+    {"optimizer": "nlminbwrap", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.46381212, "npar": 7, "fixef": [2.59548225769, -0.568746653219, -2.35291508416, -0.891943908662], "se": [0.180982235145, 0.172203019626, 0.212787443113, 0.215265637194], "first_message": "boundary (singular) fit: see help('isSingular')"},
+    {"optimizer": "nloptwrap.NLOPT_LN_NELDERMEAD", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.46381262, "npar": 7, "fixef": [2.59552826472, -0.568759497448, -2.35299863325, -0.892097302708], "se": [0.180979261978, 0.172199728638, 0.212783644214, 0.215261669259], "first_message": "boundary (singular) fit: see help('isSingular')"},
+    {"optimizer": "nloptwrap.NLOPT_LN_BOBYQA", "error": "", "n_msgs_all": 1, "n_msgs_nonsingular": 0, "loglik": -2405.46381326, "npar": 7, "fixef": [2.59565192572, -0.568856257206, -2.35306343809, -0.892077127221], "se": [0.180990852729, 0.172211400202, 0.212797801886, 0.215275853918], "first_message": "boundary (singular) fit: see help('isSingular')"}
+  ]},
+  "cells": [
+    {"task": "T1", "coverage": "id", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.7875, "max_rate": 0.925, "pooled_rate": 0.87},
+    {"task": "T2", "coverage": "id", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.7125, "max_rate": 0.925, "pooled_rate": 0.83125},
+    {"task": "T1", "coverage": "extrap_magnitude", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.4625, "max_rate": 0.6375, "pooled_rate": 0.54875},
+    {"task": "T2", "coverage": "extrap_magnitude", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.2875, "max_rate": 0.5875, "pooled_rate": 0.4425},
+    {"task": "T1", "coverage": "interp", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.7, "max_rate": 0.875, "pooled_rate": 0.785},
+    {"task": "T2", "coverage": "interp", "n_seed": 10, "n_seeds_at_0": 0, "n_seeds_at_1": 0, "min_rate": 0.6125, "max_rate": 0.7625, "pooled_rate": 0.6925}
+  ]
+}

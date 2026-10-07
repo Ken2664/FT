@@ -9,7 +9,7 @@
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
 最終更新: 2026-10-07(その158)/ by PLANNER 相当 (Opus 5.5。HANDOFF の推奨 Sonnet(実行)と不一致。依頼が数の分析と今後の検討なので Opus)。**★run2 の 1 段目が 2026-10-06 夜に完走した(`power_sim_summary.json` 22:53。門は規則どおり閉じる・4 点とも中間読みと一致)。(i) per_cell が埋まった(規則の棄却 43・38)。事後の再読みは `results/power_sim/run2/exploratory/stage1_final.json`、検討は `logs/REVIEW-2026-10-07-run2-final.md`(案のみ)**。規則・config・code は不変。GPU 0・pod 0 [run:20261005_120003_power_sim_t1t2]
-(**次: 人間が PLAN-042 §7 の 3 点を確かめて診断を実行する(夜用タスクは外れている)。並行して push と G2-1 承認で S4 を開ける。診断の後に (5) を軸 A(失敗の扱い)・軸 B(少数シードでの LRT の較正)に分けて決める(REVIEW §4 の案)**。)
+(**★2026-10-07(その159・RUNNER・Sonnet 5.5)PLAN-042 の診断を実行した(13:14〜13:55 UTC。D0 は 176 件一致。数字は `results/power_sim/run2/exploratory/fit_failure_diagnosis.json`、並べ方は `logs/CHANGELOG.md` その159。解釈はしていない)。次: 人間が結果を解釈し、(5) を軸 A(失敗の扱い)・軸 B(少数シードでの LRT の較正)に分けて決める(REVIEW §4 の案・Opus)。並行して push と G2-1 承認で S4 を開ける**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)

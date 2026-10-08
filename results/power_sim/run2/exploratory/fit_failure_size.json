@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "purpose": "Exploratory, post hoc. Not a PLAN-042 §2.2 output; the gate is not re-judged.",
+    "source": "fit_failure_diagnosis.json",
+    "source_run_id": "20261005_120003_power_sim_t1t2",
+    "gate_taus": [
+      0.25,
+      0.5
+    ],
+    "descriptive_cutoffs": {
+      "large_shift_se_above": 10.0,
+      "se_collapsed_below": 0.01,
+      "abs_move_above": 0.1,
+      "boundary_sd_below": 0.0001
+    }
+  },
+  "n_failures_at_gate_points": 103,
+  "shift": {
+    "most_moved_in": {
+      "floor_full": 77,
+      "floor_add": 26
+    },
+    "abs_move_logit": {
+      "n": 103,
+      "median": 0.008194596494739997,
+      "min": 0.00023153192250013888,
+      "max": 0.16673439083560004
+    },
+    "n_abs_move_above": 4,
+    "se": {
+      "n": 103,
+      "median": 0.31716928670677,
+      "min": 0.00038816623181266,
+      "max": 0.57512814701758
+    },
+    "n_se_collapsed": 31,
+    "large_shift": {
+      "n": 22,
+      "n_se_collapsed": 22,
+      "abs_move_logit": {
+        "n": 22,
+        "median": 0.022036364942810027,
+        "min": 0.005631181319189993,
+        "max": 0.14704777750183
+      }
+    }
+  },
+  "warnings_after_refit": {
+    "n_any_message": 67,
+    "n_nonsingular_message": 35,
+    "n_singular_only": 32,
+    "n_no_message": 36
+  },
+  "floor_loglik_gain": {
+    "n": 103,
+    "median": 0.0025286961954407,
+    "min": -0.0021796035534862,
+    "max": 0.20692737512263
+  },
+  "row_1a_not_1b": {
+    "n": 37,
+    "by_1b_full_add": {
+      "full_True__add_False": 11,
+      "full_False__add_False": 13,
+      "full_False__add_True": 13
+    }
+  },
+  "p_and_new_term_sd": {
+    "n_same_side_final_vs_fit0": 103,
+    "max_abs_p_diff_final_vs_fit0": 0.14203835769999995,
+    "n_new_term_sd_boundary_floor_full": 0,
+    "n_new_term_sd_boundary_floor_add": 0
+  }
+}

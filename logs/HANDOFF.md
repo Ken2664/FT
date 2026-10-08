@@ -1,9 +1,9 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-08(その161)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: コンテキスト超過(context-guard 約 159k)。区切り = ADR-128 の採択とコミット(`d3a3a24`)が終わった
+生成: 2026-10-08(その162)/ 直前セッションの役割: PLANNER
+直前セッションが終了した理由: コンテキスト超過(context-guard 約 192k)。区切り = PLAN-043 草案の commit(`61c839f`)の後、人間が「Q1〜Q6 を AskUserQuestion で順に聞いて」と指示した時点
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Opus — 実装の PLAN の草案は当てはめの手順・門の判定規則という統計の設計判断を含む(`10_CONTEXT_POLICY.md` §7 の「設計判断・統計」の行)
+**推奨モデル(次のセッション)**: Opus — 当てはめの手順・門の判定・乱数の値という統計の設計判断の材料を示して ADR を書く(`10_CONTEXT_POLICY.md` §7 の「設計判断・統計」の行)
 
 ---
 
@@ -13,39 +13,44 @@
 
 ## このセッションでやること(1つだけ)
 
-ADR-128 を実装する PLAN の草案 **`plans/PLAN-043-*.md`**(`plans/TEMPLATE.md` の形)を書き、人間のレビューに出す。**実装はしない。**草案に入れる項目:
-- `allFit` の段: 最適化の集合と引数(`start_from_mle` など)の固定。PLAN-042 の D1 で使った設定(§7 の記録)をそのまま採るかを判断材料の表にする(罠3)
-- 失敗の数え方: LRT は全シートで非棄却 / TOST は全シートで Δ = +∞(ADR-125 決定3 を改める)
-- 過誤の門の判定点(基本 `tau` 0.25・0.5・1.0 + seed_subspace 0.25・0.5)と実行可能性の門(各段で回した全点・失敗率の CP95 下端 > 0.10 で閉じる)・閉じたときに止める位置
-- run3: 新しい `rng_seed` の値の決め方(起動前に commit)・out-dir・夜用タスクの登録の扱い
-- 文書の打ち消し線の範囲(`05_STATISTICS.md` §3.2・`plans/PLAN-040` §11・ADR-059 / ADR-124 D2' / ADR-125 決定3 の参照)
-- B2: パラメトリック・ブートストラップ(PB)の LRT の小さな計時(費用は未実測)
-- 人間が決める値は表にして推奨を先頭に(ADR-097 決定6)。決めるのは人間
+**`plans/PLAN-043-adr128-fit-rescue-and-gates.md` §4 の Q1〜Q6 を、`AskUserQuestion` で推奨を先頭に(理由付きで)順に人間に聞く**(人間が 2026-10-08 にそう指示した)。
+§4 の表がそのまま判断材料の表である(ADR-097 決定6)。回答を受けたら:
+- **ADR-129** を `logs/DECISIONS.md` に書く(提案 エージェント (PLANNER, Opus 5.5) / 採択 人間。ADR-128 と同じ形。結果を見る前の決定か後かをリスク欄に)
+- PLAN-043 §11 の記入欄・ステータス(`草案` → `採択`)・§12 の実行ログ
+- `logs/OPEN-ITEMS.md`(PLAN-042 の行の末尾に追記)/ `STATE.md` / `logs/CHANGELOG.md` → commit
+- **実装はしない**(I1〜I10 は次の IMPLEMENTER)
+
+Q の要約(詳細は §4。`sed -n` で読む):
+- Q1 `allFit`: 推奨 = PLAN-042 D1 と同じ 5 最適化を名前で列挙・`start_from_mle = FALSE`。Q1' 床の土台の `glmer` が例外 → 推奨 = 救わずに失敗
+- Q2 失敗した反復の記述の p 値: 推奨 = 残す・門に使わない
+- Q3 実行可能性の門: 推奨 = 全シート・全点(誤指定の 3 枚はまとめて、以降はシートごと)
+- Q4 `rng_seed`: 推奨 = PLAN-043 を採った日付の YYYYMMDD(採った日が 2026-10-08 以外ならその日付)
+- Q5 PB の計時: 推奨 = 手書きの simulate → refit・合成の 4 表 × B 20・秒数だけ
+- Q6 起動の手順の確認
+- `AskUserQuestion` は 1 回 4 問まで。Q1〜Q4 → Q5・Q6(と Q1')の 2 回に分けてよい
 
 ## 直前セッションで確定したこと
 
-- **ADR-128(`logs/DECISIONS.md` 7738 行〜。人間が 5 問とも推奨)**: 軸 A = A2 + A3 / 軸 B = B1 + B2 / 実行可能性の門 0.10 / TOST の失敗も「主張しない」/ run3・新しい `rng_seed`・100 → 300 → 1000 を最初から
-- 表に使った記述の数 [run:20261005_120003_power_sim_t1t2](`results/power_sim/run2/exploratory/fit_failure_diagnosis.json` の `cases`。門の判定ではない): 1a の条件を満たす失敗 139 / 156。残る失敗は基本 `tau` 0 → 6・0.25 → 1・0.5 → 2・0.75 → 3・1.0 → 0・1.5 → 0 / seed_subspace 0.25 → 1・0.5 → 4(各 100 反復)
-- 文書本文・`configs/power_sim.yaml`(`rng_seed: 20260909`)・`power_sim*` のコードはまだ不変
+- PLAN-043 草案(commit `61c839f`)。I1〜I10・§3.1 の打ち消し線の表・§4 の Q1〜Q6・§5 の判断材料
+- 記述 [run:20261005_120003_power_sim_t1t2]: 診断の `r_out/` 176 件で床の当てはめの例外 0・`allFit` の 5 最適化(352 回ずつ)の例外 0
+- この機械の R 4.6.1 に `pbkrtest`・`dfoptim`・`optimx` は無い(2026-10-08 確認)
+- 実行可能性の門(CP95 下端 > 0.10)は 100・300・1000 反復で失敗 17・42・120 回以上で閉じる(算術)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `logs/DECISIONS.md` 7738〜7780(ADR-128)。ADR-124・125・123 は `grep -n '^## ADR-12'` で位置を取り、必要な決定だけ `sed -n`
-- `plans/PLAN-042-fit-failure-diagnosis.md` §2.2(82〜117 行)・§7(実装の記録。`allFit` の設定)
-- `Documents/05_STATISTICS.md` §3.2(189 行〜。長いので `grep -n` で失敗・縮退・D2' の箇所を絞る)/ `plans/PLAN-040*.md` §11(153 行〜)
-- コードの入口は `grep -n 'allFit\|drop_coverage_slope\|failed' code/analysis/power_sim*.py code/analysis/*.R`。**全文は読まない**
-- 書いてよい: `plans/PLAN-043-*.md`・`logs/OPEN-ITEMS.md`・`STATE.md`・`logs/CHANGELOG.md`
+- `plans/PLAN-043-adr128-fit-rescue-and-gates.md` §4(`grep -n '^### Q' ` で位置を取る)・§11・§12
+- `logs/DECISIONS.md` 7738〜7780(ADR-128。ADR-129 の形の手本)
+- 書いてよい: `logs/DECISIONS.md`(ADR-129 の追記)・`plans/PLAN-043-*.md`・`logs/OPEN-ITEMS.md`・`STATE.md`・`logs/CHANGELOG.md`
 
 ## やってはいけないこと
 
-- run2 の 100 反復で新しい規則の門を判定する(ADR-127 決定6)/ run2 の数え直しで「門が開く」と書く
-- PLAN-042 §2.1 / §2.2 の閾値や印を書き換える(実行後)
-- 人間の決定なしに `configs/power_sim.yaml`・`code/`・文書本文を変える / run3 を起動する
-- 失敗した反復だけの棄却率(4 / 103)を「本当の過誤」と読む(選択の偏り)
+- 推奨を人間の代わりに決める / 回答の前に ADR を書く
+- `configs/power_sim.yaml`・`code/`・文書本文(05_STATISTICS・PLAN-040)・古い ADR の本文を変える(実装の段)
+- run2 の 100 反復で新しい規則の門を判定する / run3 や PB の計時を起動する
 
 ## 未解決 / 人間の承認待ち
 
-- PLAN-043 のレビューと値(`allFit` の集合・`rng_seed`・PB の計時の規模)
-- push(`01cf60f` 以降の main)と G2-1 承認 → S4(検出力分析と独立)
-- PB の反復数・食い違ったときの扱いは S5
-- どの分散成分が特異か(32 件)は未確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本の削除(人間)/ 未追跡の `.claude/commands/`(このセッションでは作っていない。人間が確認)
+- PLAN-043 §4 の Q1〜Q6(このセッションで聞く)
+- push(`01cf60f` 以降の main)と G2-1 承認 → S4
+- 夜用タスクに run2 の登録が残っているか(未確認。無効化は人間)
+- PB の反復数・食い違ったときの扱いは S5 / 特異な分散成分(32 件)は未確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本・未追跡の `.claude/commands/` は人間

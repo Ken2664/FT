@@ -7995,3 +7995,6 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - `plans/PLAN-043-adr128-fit-rescue-and-gates.md`(草案): I1〜I10(床の `allFit` の段・全シート非棄却・TOST の +∞・過誤の門の判定点をシートごとに・実行可能性の門と終了コード 4・run3 の `rng_seed`・文書の打ち消し線の表・夜用タスク・PB の計時・テスト)と §4 の Q1〜Q6(推奨を先頭に)
   - `logs/OPEN-ITEMS.md`(PLAN-042 の行に追記)/ `STATE.md`(冒頭・3 ブロック・索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その162」)
 - **やっていないこと**: §4 の決定・ADR・文書本文の打ち消し線・`configs/power_sim.yaml`・`code/` の変更・run3・PB の計時・特異な分散成分の確認・`per_cell/frames/` の残骸の削除・push・tag・`pytest code/tests`(`code/` を変えていない)
+
+## 2026-10-08(その162・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- 人間が「PLAN-043 §4 の Q1〜Q6 を AskUserQuestion で順に聞いて」と指示した時点で context-guard(約 192k)が出たので、聞く前に切った。`STATE.md`(引き継ぎブロック)・`logs/HANDOFF.md`(次は PLANNER・Opus。Q1〜Q6 を聞いて ADR-129 に記録)を更新した

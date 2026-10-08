@@ -341,7 +341,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 > **★★2026-10-08(その162・最新)。PLANNER (Opus 5.5)。ADR-128 の実装の PLAN-043 草案。**
 >
-> **★やったこと**: 開始手順 → ADR-128・PLAN-042 §2.2・§6・§7・`power_sim*` の入口・config・05_STATISTICS の該当行を `grep` で読んだ → `plans/PLAN-043-adr128-fit-rescue-and-gates.md`(草案)/ OPEN-ITEMS / STATE / CHANGELOG → commit。
+> **★やったこと**: 開始手順 → ADR-128・PLAN-042 §2.2・§6・§7・`power_sim*` の入口・config・05_STATISTICS の該当行を `grep` で読んだ → `plans/PLAN-043-adr128-fit-rescue-and-gates.md`(草案)/ OPEN-ITEMS / STATE / CHANGELOG → commit `61c839f` → 人間が「Q1〜Q6 を `AskUserQuestion` で順に聞いて」と指示 → context-guard(約 192k)で聞く前に引き継ぎ(`logs/HANDOFF.md` = 次は PLANNER・Opus で Q1〜Q6 を聞き ADR-129 に記録)。
 > **★やっていないこと**: §4 の決定・ADR・文書本文の打ち消し線・config・`code/` の変更・run3・PB の計時・特異な分散成分の確認・frames の削除・push・tag・GPU・pod・`pytest code/tests`(`code/` を変えていない)。
 
 ---

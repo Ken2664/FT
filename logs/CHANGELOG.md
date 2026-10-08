@@ -8007,3 +8007,6 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - **ADR-129**(`logs/DECISIONS.md`): `allFit` = PLAN-042 D1 と同じ 5 最適化を名前で列挙・`start_from_mle = FALSE`・版が診断と違えば止まる / 床の土台の `glmer` の例外は救わずに失敗 / `p_value_failed_descriptive` を残す・門に使わない / 実行可能性の門は全シート・全点でシートごとに判定 / run3 の `rng_seed` = 20261008 / PB の計時は手書きの simulate → refit・合成の 4 表 × B 20・秒数だけ / 起動の手順は §4 Q6
   - `plans/PLAN-043-*.md`(ステータス = 採択・§11・§12)/ `logs/OPEN-ITEMS.md`(PLAN-042 の行に追記)/ `STATE.md`(冒頭・3 ブロック・索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その163」)
 - **やっていないこと**: I1〜I10 の実装・`configs/power_sim.yaml`・`code/`・`infra/power_sim_night/`・文書本文の打ち消し線・run3・PB の計時・特異な分散成分の確認・`per_cell/frames/` の残骸の削除・push・tag・`pytest code/tests` の全件(`code/` を変えていない)
+
+## 2026-10-08(その163・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- PLAN-043 の採択(ADR-129)で PLAN の区切りになったので引き継ぐ。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。PLAN-043 I1〜I10 の実装。PB の計時の実行は人間の合図の後)・PLAN-043 §10 の 1 つ目にチェックを付けた。`STATE.md` の引き継ぎブロックは ADR-129 の commit で更新済み

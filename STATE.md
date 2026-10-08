@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-08(その163)/ by PLANNER (Opus 5.5。HANDOFF の推奨 Opus と一致)。**★PLAN-043 を採択した(ADR-129。人間が 7 問とも推奨)**: `allFit` = PLAN-042 D1 と同じ 5 最適化を名前で列挙・`start_from_mle = FALSE`(床の土台の例外は救わずに失敗)/ 失敗した反復の記述の p 値を残す(門に使わない)/ 実行可能性の門は全シート・全点でシートごとに判定 / run3 の `rng_seed` = 20261008 / PB の計時は手書き・合成の 4 表 × B 20。文書の本文・config・code はまだ不変。GPU 0・pod 0
-(**次: IMPLEMENTER が PLAN-043 I1〜I10 → `pytest`・R のスモーク・`--dry-run` → 人間が run3 の起動を決める。並行して push と G2-1 承認で S4 を開ける**。)
+最終更新: 2026-10-08(その164)/ by IMPLEMENTER (Claude Sonnet 5.5。HANDOFF の推奨 Sonnet と一致)。**★PLAN-043 の I1〜I8・I10 を実装し、I9(PB の計時)はスクリプトまで作った**(未 commit だったものを handoff で commit)。`pytest code/tests -q` = 2522 passed(R のスモークは別に実行。下)/ `--dry-run` 通過 / R のスモークは変更前後の `p_value` が一致(罠6)・床で失敗した 1 件で `allFit` の段の記録が出た。**PB の計時は実行していない**(日時は人間)。GPU 0・pod 0
+(**次: IMPLEMENTER が残りを閉じる(診断の R の D0 スモーク・PLAN-043 §10 のチェック・CHANGELOG の追記の確認)→ 人間が PB の計時の日時と run3 の起動を決める。並行して push と G2-1 承認で S4**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -68,10 +68,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-08(その163・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-043 §4 を人間が決めた(ADR-129)。GPU 0・pod 0**
-> - **ADR-129(7 問とも推奨)**: Q1 `allFit` = `bobyqa`・`Nelder_Mead`・`nlminbwrap`・`nloptwrap.NLOPT_LN_NELDERMEAD`・`nloptwrap.NLOPT_LN_BOBYQA` を名前で列挙・`start_from_mle = FALSE`・R / lme4 の版が診断(4.6.1 / 2.0.6)と違えば止まる / Q1' 床の土台の `glmer` が例外なら救わずに失敗(件数を記録)/ Q2 `p_value_failed_descriptive` を残す・門に使わない / Q3 実行可能性の門は全シート・全点((i)・`p1_tau` を含む。誤指定 3 枚はまとめて、以降はシートごと)/ Q4 `rng_seed` = **20261008** / Q5 PB = lme4 の手書き simulate → refit・合成の反復(≥ 9000)4 表 × B 20 = 160 本・秒数と失敗数だけ / Q6 = PLAN-043 §4 Q6 の手順
-> - **PLAN-043 のステータス = 採択**(§11 に値・§12 に記録)。**まだ変えていないもの**: `configs/power_sim.yaml`・`power_sim*`・`power_sim_fit.R`・`infra/power_sim_night/`・05_STATISTICS §3.2・PLAN-040 §11・ADR-059 / ADR-124 D2' / ADR-125 決定3 の本文の打ち消し線(すべて I1〜I10)
-> - **★その162 のブロックは `logs/STATE-ARCHIVE.md`「その163」にある**
+> **★★2026-10-08(その164・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-043 I1〜I8・I10 実装済み・I9 はスクリプトまで。GPU 0・pod 0**
+> - **変えたもの**: `power_sim_fit.R`(床の `allFit` の段。`rescue_*` の関数・`run_one` の `allfit` 引数・出力の新しい欄)/ `power_sim.py`(`AllFitSpec`・失敗は全シート非棄却・`GridPoint` の新しい欄・`GateSpec` をシートごとの判定点に・`FeasibilityGateSpec`・`feasibility_gate`・終了コード 4)/ `configs/power_sim.yaml`(`rng_seed` 20261008・`misspecification_gate.points`・`feasibility_gate`・`fit.allfit`)/ `power_sim_smoke.yaml` / `fit_failure_diagnosis.py`(`LegacyGateSpec`。run2 の旧い門の形を読む)/ `start_night.ps1`・`register_tasks.ps1` / 05_STATISTICS・PLAN-040・DECISIONS の打ち消し線 / `pb_timing.{R,py}`・`configs/pb_timing.yaml`・`test_pb_timing.py`(新)
+> - **R のスモーク**(scratchpad。repo に入れていない。run2 の seed で組んだ合成の反復 9001・9002 と、run2 で床で失敗した 1 件(`misspecification` n80 s0 r0 rep 2。読むだけ)): 変更前後で `p_value` が一致したのは 3 表(床で失敗しない表。p0 9002・誤指定 9001・9002)。p0 9001 は変更前は失敗・変更後は `allFit` の段で救われた(full の揃った最適化 4・add 5)。run2 の 1 件は `allFit` の最適化ごとの logLik が PLAN-042 の診断の記録と一致(bobyqa −2558.76302174 など)・add の揃った最適化が 1 で救えず・記述の p 値 0.7696。**数値は run3 の判定ではない**(run2 の seed で組んだ表のスモーク)
+> - **実装の判断(人間が確認。PLAN-043 §12 に書いた)**: 両方の門が閉じたとき終了コードは 3 / `FAILURE_AS_REJECT_ROLES` は空にせず定数ごと削除 / PB の `simulate_seed` は run3 の `rng_seed` と同じ 20261008 / `feasibility_gate.scope` は `all_sheets_all_points` だけ受ける / 区間の水準は過誤の門・実行可能性の門の `ci_level`(0.95)を流用 / `start_night.ps1` は `stopped_at_feasibility_gate` でも再起動を拒む(`stop_night.ps1` は不変)
+> - **まだ**: 診断の R(`fit_failure_diagnosis.R`)の D0 スモーク(借りる範囲に関数を足したので 1 件で確かめる)/ PB の計時の実行(人間の合図)/ run3 の起動・夜用タスクの登録・push・tag(人間)
+> - **★その163 のブロックは `logs/STATE-ARCHIVE.md`「その164」にある**
 
 
 ---

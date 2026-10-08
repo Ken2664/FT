@@ -8010,3 +8010,13 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-08(その163・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - PLAN-043 の採択(ADR-129)で PLAN の区切りになったので引き継ぐ。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。PLAN-043 I1〜I10 の実装。PB の計時の実行は人間の合図の後)・PLAN-043 §10 の 1 つ目にチェックを付けた。`STATE.md` の引き継ぎブロックは ADR-129 の commit で更新済み
+
+## 2026-10-08(その164): PLAN-043 I1〜I8・I10 の実装と I9 のスクリプト   [actor: IMPLEMENTER (Claude Sonnet 5.5)]   [run:20261005_120003_power_sim_t1t2]
+- **役割**: IMPLEMENTER。実モデル Sonnet 5.5 は推奨(Sonnet)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`(PLAN-043 の I1〜I10 を ADR-129 の値で実装)
+- **やったこと**: 床の `allFit` の段(`power_sim_fit.R`。最適化 5 つを名前で列挙・版と使えない最適化で止まる・土台の例外は救わない・記述の p 値)/ 失敗は全シート非棄却・TOST は Δ = +∞ / 過誤の門をシートごとの判定点に(基本の誤指定に `tau` 1.0)/ 実行可能性の門(終了コード 4)/ `rng_seed` 20261008 / 診断モジュールに旧い門の形(`LegacyGateSpec`)/ 文書の打ち消し線(05_STATISTICS・PLAN-040・DECISIONS のステータス行)/ 夜用スクリプト / PB の計時(`pb_timing.{R,py}`・config・テスト。**実行していない**)
+- **確認**: `pytest code/tests -q` = 2522 passed(`-k 'not smoke'` 2511 + `smoke` 11)/ `--dry-run` 通過 / R のスモーク(scratchpad。run2 の seed で組んだ合成の反復と run2 で床で失敗した 1 件を読んだだけ。run3 の判定ではない)で床で失敗しない 3 表の `p_value` が変更前後で一致・床で失敗した表で `allFit` の段の記録が出て診断の D1 の logLik と一致
+- **やっていないこと**: 診断の R の D0 スモーク・PB の計時の実行・run3 の起動・夜用タスクの登録・push・tag・PLAN-043 §10/§12 の記入(次セッション)
+
+## 2026-10-08(その164・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- context-guard(約 375k。R のスモークの待ちで膨らんだ)で切った。`STATE.md`(冒頭・最新ブロック。旧は `logs/STATE-ARCHIVE.md`「その164」)・`logs/HANDOFF.md`(次は IMPLEMENTER・Sonnet。D0 スモーク・§10/§12 の記入・commit)を更新した

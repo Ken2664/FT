@@ -1,9 +1,9 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-08(その163)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: PLAN 完了(PLAN-043 §4 を人間が決め、ADR-129 で採択。commit `a60422b`)
-直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Sonnet — 採択済みの PLAN の実装とテスト(`10_CONTEXT_POLICY.md` §7 の「実装・集計」の行。PLAN-043 §6 も「IMPLEMENTER = Sonnet で可」としている)。**統計の判断が出てきたら止めて PLANNER(Opus)へ回す**
+生成: 2026-10-08(その164)/ 直前セッションの役割: IMPLEMENTER
+直前セッションが終了した理由: コンテキスト超過(context-guard 約 375k。R のスモークの待ちで膨らんだ)
+直前セッションの実モデル: Claude Sonnet 5.5
+**推奨モデル(次のセッション)**: Sonnet — 実装の仕上げと確認(`10_CONTEXT_POLICY.md` §7 の「実装・集計」の行)。**統計の判断が出たら止めて PLANNER(Opus)へ**
 
 ---
 
@@ -13,39 +13,44 @@
 
 ## このセッションでやること(1つだけ)
 
-**`plans/PLAN-043-adr128-fit-rescue-and-gates.md` の I1〜I10 を、ADR-129 の値で実装する。完了条件は PLAN-043 §10 のうち次の 3 つ: `pytest code/tests -q` が通る / 合成の反復で R のスモークが通る / `--dry-run` が通る。**
-- 手順は PLAN-043 §6 のとおり: skill `code-style` → I1 → I2 → I3 → I4 → I5(R の出力の欄を先に決め、python の読みは後)→ I10 → I6・I7・I8 → I9(I9 は別の commit)
-- **I9(PB の計時)はスクリプトを作るところまで。実行する前に人間に日時を聞く**(ADR-129 決定6「日時は人間が決める」。§10 の「計時を回す」は人間の合図の後)
-- 最後に `logs/CHANGELOG.md`・`STATE.md`・PLAN-043 §10・§12 を更新して commit
+**PLAN-043 の実装の仕上げ。次の 4 つだけ。**
+1. 診断の R の D0 スモーク: `fit_failure_diagnosis.R` は `power_sim_fit.R` の「# ---- driver」より上を借りる。上に `rescue_*` の関数を足したので、診断が引き続き動くことを **1 件**で確かめる(PLAN-042 §7 の手順。`python -X utf8 -m code.analysis.fit_failure_diagnosis --config configs/fit_failure_diagnosis.yaml` の対象を 1 件に絞るか、`results/power_sim/run2/exploratory/fit_failure_diagnosis_work/r_out/` の既存出力の写しと D0 が合うこと。**run2 の表・結果は書き換えない**。出力先は scratchpad)
+2. `pytest code/tests -q` が通ること(直前は 2522 passed(`-k 'not smoke'` 2511 + `smoke` 11))を再確認
+3. `plans/PLAN-043-*.md` の §10 のチェック(I1〜I8・I10・R のスモーク・`--dry-run`・打ち消し線)と §12 の実行ログ(実装の判断 6 件。下)を埋める。`logs/OPEN-ITEMS.md`(PLAN-042 の行)の追記
+4. commit(コード = I1〜I8・I10 / PB の計時 = I9 は **別の commit**)。メッセージ末尾に `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`
 
-## 直前セッションで確定したこと(ADR-129。`logs/DECISIONS.md` の末尾)
+**I9(PB の計時)は実行しない**。実行前に人間に日時を聞く(ADR-129 決定6)。
 
-- `allFit`(lme4 2.0.6): `bobyqa`・`Nelder_Mead`・`nlminbwrap`・`nloptwrap.NLOPT_LN_NELDERMEAD`・`nloptwrap.NLOPT_LN_BOBYQA` を名前で列挙し、`start_from_mle = FALSE`。1 つでも使えなければ止まる。R / lme4 の版を出力に残し、診断(R 4.6.1 / lme4 2.0.6)と違えば止まる
-- 床の土台の `glmer` が例外で落ちたら、救わずに当てはめ失敗とし、件数を別に記録する
-- 失敗した反復: 床が例外でなければ、当て直しの後の LRT を `p_value_failed_descriptive` に残す(`p_value` は null)。点ごとに失敗した反復だけの棄却率と CP95 を出し、どの門にも使わない
-- 実行可能性の門(CP95 下端 > 0.10): 全シート・全点が対象((i) per_cell・`p1_tau` を含む)。誤指定の 3 枚はまとめて回した後に過誤の門と一緒に判定し、P1・`p1_tau`・P1⁻・P0 は各シートの後に判定する。閉じたら次のシートの前で止まる(終了コード 4)
-- run3 の `rng_seed` = **20261008**。config に入れて commit してから起動する(起動は人間)。tag は打たない
-- PB の計時: lme4 だけで simulate → refit を手書きする。合成の反復(番号 ≥ 9000)の 4 表(P0 の (80, 1.0) から 2 枚・誤指定 `tau` 1.0 から 2 枚)× B 20 = 160 本。出すのは秒数と当て直しの失敗数だけ(p 値は出さない)。縮退と `allFit` はしない
-- ADR-128 の方針(PLAN-043 §2 の P1〜P7)は前提として変えない
+## 直前セッションで確定したこと(ファイルに入っている)
+
+- 実装は `git status` の未コミットの変更にある(handoff の commit で入っているはず。`git log -3` で確認)。変えたファイル: `code/analysis/power_sim_fit.R`・`power_sim.py`・`fit_failure_diagnosis.py`・`pb_timing.{R,py}`(新)・`configs/power_sim.yaml`・`power_sim_smoke.yaml`・`pb_timing.yaml`(新)・`code/tests/test_power_sim.py`・`test_fit_failure_diagnosis.py`・`test_pb_timing.py`(新)・`infra/power_sim_night/start_night.ps1`・`register_tasks.ps1`・`Documents/05_STATISTICS.md`・`plans/PLAN-040`・`logs/DECISIONS.md`(ADR-059・123・124・125 のステータス行の末尾)
+- 旧いテスト(失敗を過誤のシートで棄却に数える・TOST の向き・門の `sheets` × `tau`)は期待値を改め、テスト名と docstring に ADR-128 を書いた(黙って消していない)
+- R のスモーク(scratchpad。数字は run3 の判定ではない): 床で失敗しない 3 表は変更前後で `p_value` が一致(罠6)。p0 9001 は変更前に失敗・変更後は `allFit` の段で救われた。run2 で床で失敗した 1 件(rep 2)は `allFit` の最適化ごとの logLik が PLAN-042 の診断の記録と一致し、add の揃った最適化が 1 で救えず(記述の p 値 0.7696)
+- `--dry-run --config configs/power_sim.yaml` は通る(`rng_seed 20261008`・門・allFit が出る)。`pb_timing --dry-run` も通る
+
+## 実装の判断(PLAN-043 §12 に書いて、人間に確認を求める)
+
+1. 両方の門が閉じたとき終了コードは 3(両方の印は `stage_*_summary.json` に残る)
+2. `FAILURE_AS_REJECT_ROLES` は空にせず定数ごと削除
+3. PB の `simulate_seed` は run3 の `rng_seed` と同じ 20261008(新しい値を選ぶ自由度を作らない)
+4. `feasibility_gate.scope` は `all_sheets_all_points` だけ受ける
+5. 区間の水準は過誤の門・実行可能性の門の `ci_level`(0.95)を流用(新しい config 値を作らない)
+6. `start_night.ps1` は `stopped_at_feasibility_gate` でも再起動を拒む(`stop_night.ps1` は不変。PLAN の I8 は「表示」と書いたが、終了コードを読むのは start 側の summary 読みなので)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-043-*.md` §2・§3・§3.1・§6・§7・§10(`grep -n '^## '` で位置を取る)
-- `code/analysis/power_sim_fit.R`(**「# ---- driver」より上は `fit_failure_diagnosis.R` が借りている**。PLAN-043 §6 の 1)/ `code/analysis/power_sim.py` / `configs/power_sim.yaml` / `infra/power_sim_night/` / `code/tests/test_power_sim*.py`
-- I7 の打ち消し線: `Documents/05_STATISTICS.md` §3.2・§6 / `plans/PLAN-040` §11・付録 A.4 / `logs/DECISIONS.md` の ADR-059・123・124・125 の**ステータスの行の末尾だけ**(本文は変えない)
-- 参考: PLAN-042 §7(D1 の `allFit` の記録)/ `code/analysis/fit_failure_diagnosis.R` の `run_allfit`
+- 上の「変えたファイル」と `plans/PLAN-043-*.md` §10・§12。全文 `cat` せず `grep -n` → `sed -n`。R の長い出力は `tail`
 
 ## やってはいけないこと
 
-- ADR-129 の値を変える。最適化を足したり減らしたりする。`start_from_mle` を変える(PLAN-043 罠3)
-- 成功した反復の LRT を 1 ビットでも変える(罠6。床で失敗しない表の `p_value` が前と一致することをスモークで確かめる)
-- `rng_seed` を commit する前に試し回しする(罠4。`--dry-run` は当てはめないので可)
-- run2 の 100 反復で新しい規則の門を判定する / run2 の表を書き換える(罠1)
-- run3 の起動・夜用タスクの登録・PB の計時の実行(人間の合図なし)・push・tag
-- `.md` は LF、Python で書くときは `newline` を指定する(memory)
+- ADR-129 の値を変える。最適化を足し引きする。`start_from_mle` を変える(罠3)
+- 成功した反復の LRT を変える(罠6)。run2 の表・結果の書き換え。run2 の 100 反復で新しい規則の門を判定する(罠1)
+- PB の計時の実行・run3 の起動・夜用タスクの登録・push・tag(人間の合図なし)
+- R の長い待ち(数十分)をフォアグラウンドで流してコンテキストを使わない。待つなら `run_in_background` とファイル出力
+- `.md` は LF、Python で書くときは `newline` を指定する(memory)。置換スクリプトは Write でファイルに書いて実行(heredoc の `\n` が解かれる)
 
 ## 未解決 / 人間の承認待ち
 
-- run3 の起動(夜用タスクの登録。run2 の登録が残っていれば無効にするのは人間)/ PB の計時の日時
+- 実装の判断 6 件の確認 / PB の計時の日時 / run3 の起動(夜用タスクの登録。run2 の登録が残っていれば無効にするのは人間)
 - push(`01cf60f` 以降の main)と G2-1 承認 → S4
-- PB の反復数と、漸近 χ² と食い違ったときの扱いは S5 / 特異な分散成分(32 件)は未確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本と未追跡の `.claude/commands/` は人間
+- PB の反復数と漸近 χ² と食い違ったときの扱いは S5 / 特異な分散成分(32 件)は未確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本と未追跡の `.claude/commands/` は人間

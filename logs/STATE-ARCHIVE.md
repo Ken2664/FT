@@ -18,6 +18,16 @@
 
 ---
 
+## ★2026-10-08(その164)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+最終更新: 2026-10-08(その163)/ by PLANNER (Opus 5.5。HANDOFF の推奨 Opus と一致)。**★PLAN-043 を採択した(ADR-129。人間が 7 問とも推奨)**: `allFit` = PLAN-042 D1 と同じ 5 最適化を名前で列挙・`start_from_mle = FALSE`(床の土台の例外は救わずに失敗)/ 失敗した反復の記述の p 値を残す(門に使わない)/ 実行可能性の門は全シート・全点でシートごとに判定 / run3 の `rng_seed` = 20261008 / PB の計時は手書き・合成の 4 表 × B 20。文書の本文・config・code はまだ不変。GPU 0・pod 0
+(**次: IMPLEMENTER が PLAN-043 I1〜I10 → `pytest`・R のスモーク・`--dry-run` → 人間が run3 の起動を決める。並行して push と G2-1 承認で S4 を開ける**。)
+
+> **★★2026-10-08(その163・最新)。Phase 0。PLANNER (Opus 5.5)。PLAN-043 §4 を人間が決めた(ADR-129)。GPU 0・pod 0**
+> - **ADR-129(7 問とも推奨)**: Q1 `allFit` = `bobyqa`・`Nelder_Mead`・`nlminbwrap`・`nloptwrap.NLOPT_LN_NELDERMEAD`・`nloptwrap.NLOPT_LN_BOBYQA` を名前で列挙・`start_from_mle = FALSE`・R / lme4 の版が診断(4.6.1 / 2.0.6)と違えば止まる / Q1' 床の土台の `glmer` が例外なら救わずに失敗(件数を記録)/ Q2 `p_value_failed_descriptive` を残す・門に使わない / Q3 実行可能性の門は全シート・全点((i)・`p1_tau` を含む。誤指定 3 枚はまとめて、以降はシートごと)/ Q4 `rng_seed` = **20261008** / Q5 PB = lme4 の手書き simulate → refit・合成の反復(≥ 9000)4 表 × B 20 = 160 本・秒数と失敗数だけ / Q6 = PLAN-043 §4 Q6 の手順
+> - **PLAN-043 のステータス = 採択**(§11 に値・§12 に記録)。**まだ変えていないもの**: `configs/power_sim.yaml`・`power_sim*`・`power_sim_fit.R`・`infra/power_sim_night/`・05_STATISTICS §3.2・PLAN-040 §11・ADR-059 / ADR-124 D2' / ADR-125 決定3 の本文の打ち消し線(すべて I1〜I10)
+> - **★その162 のブロックは `logs/STATE-ARCHIVE.md`「その163」にある**
+
 ## ★2026-10-08(その163)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 最終更新: 2026-10-08(その162)/ by PLANNER (Opus 5.5。HANDOFF の推奨 Opus と一致)。**★ADR-128 の実装の PLAN-043 草案を書いた(`plans/PLAN-043-adr128-fit-rescue-and-gates.md`。人間のレビュー待ち)**。人間が決めるのは §4 の Q1〜Q6(`allFit` の集合・引数 / 失敗した反復の記述の p 値 / 実行可能性の門の対象と時点 / `rng_seed` / PB の計時 / 起動の手順)。文書の本文・config・code はまだ不変。GPU 0・pod 0

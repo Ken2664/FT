@@ -544,12 +544,59 @@ def test_fit_manifest_carries_the_thresholds(tmp_path: Path) -> None:
         [(tmp_path / "a.csv", tmp_path / "a.json")],
         config["fit"]["refit"],
         len(config["fit"]["reduction_order"]),
+        power_sim.load_allfit_spec(config),
     )
     text = manifest.read_text(encoding="ascii")
     assert "loglik_tolerance=0.001" in text
     assert "beta_move_tolerance=0.01" in text
     assert "max_reduction_level=3" in text
     assert text.count("fit=") == 1
+
+
+def test_fit_manifest_names_the_allfit_optimizers_and_versions(tmp_path: Path) -> None:
+    """★床の allFit の段の値(最適化の名前の列挙・start_from_mle・版)が config から R へ流れる(ADR-129 決定1)。
+
+    答える問い: 「R は allFit をどの最適化で、どの初期値で、どの版の下で回すか」——
+    PLAN-042 D1 と同じ 5 つを名前で列挙し、`start_from_mle` は false である(罠3)。
+    """
+    config = load(MAIN_CONFIG)
+    manifest = tmp_path / "manifest.txt"
+    power_sim.write_fit_manifest(
+        manifest, [(tmp_path / "a.csv", tmp_path / "a.json")], config["fit"]["refit"],
+        len(config["fit"]["reduction_order"]), power_sim.load_allfit_spec(config),
+    )
+    lines = manifest.read_text(encoding="ascii").splitlines()
+    assert (
+        "allfit_optimizers=bobyqa,Nelder_Mead,nlminbwrap,"
+        "nloptwrap.NLOPT_LN_NELDERMEAD,nloptwrap.NLOPT_LN_BOBYQA"
+    ) in lines
+    assert "allfit_start_from_mle=false" in lines
+    assert "allfit_min_aligned=2" in lines
+    assert "expected_r_version=4.6.1" in lines
+    assert "expected_lme4_version=2.0.6" in lines
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda a: a.update(optimizers=[]),
+        lambda a: a.update(optimizers=["bobyqa", "bobyqa"]),
+        lambda a: a.update(optimizers=["bobyqa,Nelder_Mead"]),
+        lambda a: a.update(start_from_mle=None),
+        lambda a: a.update(start_from_mle="false"),
+        lambda a: a.update(min_aligned=1),
+        lambda a: a.update(min_aligned=6),
+        lambda a: a.update(expected_lme4_version=None),
+        lambda a: a.update(expected_r_version=""),
+        lambda a: a.pop("optimizers"),
+    ],
+)
+def test_allfit_spec_stops_on_a_missing_or_malformed_value(mutate) -> None:
+    """★既定値を作らない(skill `code-style` §5 / PLAN-043 罠3)。null・欠け・型違いは止まる。"""
+    config = load(MAIN_CONFIG)
+    mutate(config["fit"]["allfit"])
+    with pytest.raises(ConfigError):
+        power_sim.load_allfit_spec(config)
 
 
 # --------------------------------------------------------------------------
@@ -619,7 +666,8 @@ def test_run_fits_writes_one_manifest_per_shard(tmp_path: Path, monkeypatch) -> 
                         lambda rscript, libpath, manifest: calls.append(manifest) or "")
     manifests = power_sim.run_fits(
         "Rscript", None, tmp_path / "manifest_s0_r0", _jobs(tmp_path, 10),
-        config["fit"]["refit"], len(config["fit"]["reduction_order"]), 4,
+        config["fit"]["refit"], len(config["fit"]["reduction_order"]),
+        power_sim.load_allfit_spec(config), 4,
     )
     assert len(manifests) == 4
     assert calls == manifests                       # 起動は 4 回。10 回ではない
@@ -638,7 +686,8 @@ def test_run_fits_propagates_a_worker_failure(tmp_path: Path, monkeypatch) -> No
     with pytest.raises(power_sim.PowerSimError):
         power_sim.run_fits(
             "Rscript", None, tmp_path / "manifest_s0_r0", _jobs(tmp_path, 8),
-            config["fit"]["refit"], len(config["fit"]["reduction_order"]), 4,
+            config["fit"]["refit"], len(config["fit"]["reduction_order"]),
+            power_sim.load_allfit_spec(config), 4,
         )
 
 
@@ -748,7 +797,7 @@ KEY = power_sim.PointKey(n_item=80, sigma=0.5, rho=0.0)
 
 def test_power_is_the_share_below_alpha() -> None:
     results = [fit_result(0.01), fit_result(0.2), fit_result(0.04), fit_result(0.9)]
-    point = power_sim.summarise_point(KEY, results, 0.05, failure_as_reject=True)
+    point = power_sim.summarise_point(KEY, results, 0.05)
     assert point.power == pytest.approx(0.5)
     assert point.n_rep == 4
     assert point.n_reject == 2            # 門の区間に使う分子。割合から逆算しない
@@ -767,7 +816,7 @@ def test_degeneracy_rate_is_reported() -> None:
         fit_result(0.20),
     ]
     point = power_sim.summarise_point(
-        power_sim.PointKey(80, 1.0, 1.0), results, 0.05, failure_as_reject=True
+        power_sim.PointKey(80, 1.0, 1.0), results, 0.05
     )
     assert point.reduced_rate == pytest.approx(0.5)
     assert point.singular_rate == pytest.approx(0.5)
@@ -777,12 +826,12 @@ def test_degeneracy_rate_is_reported() -> None:
 def test_a_null_p_value_stops_the_summary() -> None:
     """★p 値が null の反復を黙って捨てない(`CLAUDE.md` §7)。"""
     with pytest.raises(power_sim.PowerSimError):
-        power_sim.summarise_point(KEY, [fit_result(None)], 0.05, failure_as_reject=True)
+        power_sim.summarise_point(KEY, [fit_result(None)], 0.05)
 
 
 def test_empty_grid_point_stops_the_summary() -> None:
     with pytest.raises(power_sim.PowerSimError):
-        power_sim.summarise_point(KEY, [], 0.05, failure_as_reject=True)
+        power_sim.summarise_point(KEY, [], 0.05)
 
 
 def point(
@@ -1157,7 +1206,7 @@ def test_only_the_power_sheet_gets_the_inverse_problem() -> None:
     points = [point(s, 0.9, n_item=n) for n, s, _ in P1_POINTS]
     summaries = {
         sheet_id: power_sim.sheet_summary(
-            sheet, main_profile(sheet.profile), points, 0.8, main_axes()
+            sheet, main_profile(sheet.profile), points, 0.8, main_axes(), 0.95, 0.95
         )
         for sheet_id, sheet in sheets.items()
     }
@@ -1167,7 +1216,8 @@ def test_only_the_power_sheet_gets_the_inverse_problem() -> None:
                   "misspecification_seed_subspace", "misspecification_seed_per_cell"):
         assert "inverse_problem" not in summaries[other]
     assert summaries["p1_tau"]["failure_counted_as"] == "retain"
-    assert summaries["misspecification_seed_subspace"]["failure_counted_as"] == "reject"
+    # ★ADR-128 決定1 (A2): 誤指定のシートでも失敗は非棄却(~~"reject"~~)
+    assert summaries["misspecification_seed_subspace"]["failure_counted_as"] == "retain"
     assert summaries["misspecification_seed_subspace"]["seed_interaction"] == {
         "direction_profile": "P1", "scale": "subspace"}
     assert summaries["p1"]["true_interaction_contrasts"]["interp"] == pytest.approx(
@@ -1227,30 +1277,69 @@ GATE_SHEETS = ("misspecification", "misspecification_seed_subspace")
 
 
 def test_main_gate_is_the_decided_one() -> None:
-    """★ADR-123 決定6: `tau` 0.25・0.5 で 95% Clopper–Pearson 区間の下端 > 0.075。閾値は config にある。
+    """★ADR-123 決定6: 95% Clopper–Pearson 区間の下端 > 0.075。閾値は config にある。
 
     ★ADR-124 D4・補い 2: 門は今のシートと (ii)(`misspecification_seed_subspace`)の両方に掛ける。(i) は記録だけ。
+    ★ADR-128 決定1 (B1) / ADR-129: 判定点はシートごと。基本の誤指定は `tau` 0.25・0.5・**1.0**、
+    seed_subspace は 0.25・0.5(~~全シート共通の 0.25・0.5~~)。
     """
     config = load(MAIN_CONFIG)
     gate = power_sim.load_gate_spec(config)
     assert gate == power_sim.GateSpec(
-        sheet_ids=GATE_SHEETS, tau=(0.25, 0.5), ci_level=0.95, lower_bound_above=0.075
+        points=(
+            ("misspecification", (0.25, 0.5, 1.0)),
+            ("misspecification_seed_subspace", (0.25, 0.5)),
+        ),
+        ci_level=0.95,
+        lower_bound_above=0.075,
     )
+    assert gate.sheet_ids == GATE_SHEETS
     power_sim.check_gate_against_sheets(gate, power_sim.load_sheets(config))
     assert "misspecification_seed_per_cell" not in gate.sheet_ids
 
 
+def test_main_feasibility_gate_is_the_decided_one() -> None:
+    """★ADR-128 決定3 / ADR-129 決定4: 当てはめ失敗の率の CP95 下端 > 0.10。全シート・全点。"""
+    spec = power_sim.load_feasibility_gate_spec(load(MAIN_CONFIG))
+    assert spec == power_sim.FeasibilityGateSpec(
+        ci_level=0.95, lower_bound_above=0.10, scope="all_sheets_all_points"
+    )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda g: g.update(ci_level=None),
+        lambda g: g.update(ci_level=1.0),
+        lambda g: g.update(lower_bound_above=None),
+        lambda g: g.update(lower_bound_above=1.0),
+        lambda g: g.update(scope="misspecification_only"),
+        lambda g: g.pop("scope"),
+    ],
+)
+def test_feasibility_gate_spec_stops_on_a_missing_or_unknown_value(mutate) -> None:
+    """★既定値を作らない。値の欠け・null・未知の `scope` は止まる(PLAN-043 I5)。"""
+    config = copy.deepcopy(load(MAIN_CONFIG))
+    mutate(config["simulation"]["feasibility_gate"])
+    with pytest.raises(ConfigError):
+        power_sim.load_feasibility_gate_spec(config)
+
+
 def gate_points(first: list[float], second: list[float], n_rep: int,
                 third: list[float] | None = None) -> dict[str, list[power_sim.GridPoint]]:
-    """誤指定の 3 枚の `tau` 0.25・0.5 の棄却率から、門に渡す点を組む。"""
+    """誤指定の 3 枚の棄却率から、門に渡す点を組む。
+
+    基本の誤指定(`first`)は `tau` 0.25・0.5・1.0 の 3 点、seed_subspace と per_cell は 0.25・0.5 の 2 点
+    (ADR-128 決定1 (B1) / ADR-129)。
+    """
     sheets = {
-        "misspecification": first,
-        "misspecification_seed_subspace": second,
-        "misspecification_seed_per_cell": third if third is not None else [0.0, 0.0],
+        "misspecification": (first, (0.25, 0.5, 1.0)),
+        "misspecification_seed_subspace": (second, (0.25, 0.5)),
+        "misspecification_seed_per_cell": (third if third is not None else [0.0, 0.0], (0.25, 0.5)),
     }
     return {
-        sheet_id: [point(t, rate, n_rep=n_rep) for t, rate in zip((0.25, 0.5), rates)]
-        for sheet_id, rates in sheets.items()
+        sheet_id: [point(t, rate, n_rep=n_rep) for t, rate in zip(taus, rates)]
+        for sheet_id, (rates, taus) in sheets.items()
     }
 
 
@@ -1261,10 +1350,10 @@ def test_gate_operating_point_matches_adr_123(n_rep: int, first_stopping: int) -
     閾値と判定点は変えていない(ADR-124)ので、門のシートのどちらでも同じ作動点で閉じる。
     """
     gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
-    for index in (0, 1):                     # どちらのシートでも・どちらの tau でも足りる
-        for position in (0, 1):
+    for index, n_points in ((0, 3), (1, 2)):  # どちらのシートでも・どの判定点でも足りる(基本の誤指定は tau 1.0 も)
+        for position in range(n_points):
             def inflated(n_reject: int) -> bool:
-                rates = [[0.0, 0.0], [0.0, 0.0]]
+                rates = [[0.0, 0.0, 0.0], [0.0, 0.0]]
                 rates[index][position] = n_reject / n_rep
                 return power_sim.misspecification_gate(
                     gate_points(rates[0], rates[1], n_rep), gate
@@ -1274,17 +1363,37 @@ def test_gate_operating_point_matches_adr_123(n_rep: int, first_stopping: int) -
             assert inflated(first_stopping)
 
 
-def test_gate_ignores_tau_zero_and_large_tau() -> None:
-    """★`tau` 0 と 0.75 以上は判定に使わない(記録はシートの grid にある)。"""
+def test_gate_ignores_tau_zero_and_the_tau_it_does_not_name() -> None:
+    """★`tau` 0・0.75・1.5 と、シートが挙げていない `tau` は判定に使わない(記録はシートの grid にある)。
+
+    ★ADR-128 決定1 (B1): 基本の誤指定の判定点は 0.25・0.5・1.0、seed_subspace は 0.25・0.5。
+    """
     gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
     by_sheet = {
         sheet_id: [point(0.0, 0.5, n_rep=100), point(0.25, 0.05, n_rep=100),
-                   point(0.5, 0.05, n_rep=100), point(1.5, 0.9, n_rep=100)]
+                   point(0.5, 0.05, n_rep=100), point(0.75, 0.9, n_rep=100),
+                   point(1.0, 0.05 if sheet_id == "misspecification" else 0.9, n_rep=100),
+                   point(1.5, 0.9, n_rep=100)]
         for sheet_id in ("misspecification", "misspecification_seed_subspace")
     }
     verdict = power_sim.misspecification_gate(by_sheet, gate)
     assert verdict["inflated"] is False
-    assert [row["tau"] for row in verdict["sheets"]["misspecification"]] == [0.25, 0.5]
+    assert [row["tau"] for row in verdict["sheets"]["misspecification"]] == [0.25, 0.5, 1.0]
+    assert [row["tau"] for row in verdict["sheets"]["misspecification_seed_subspace"]] == [0.25, 0.5]
+
+
+def test_gate_closes_on_tau_one_of_the_basic_misspecification_only() -> None:
+    """★ADR-128 決定1 (B1): `tau` 1.0 の棄却が多ければ基本の誤指定の判定点として閉じる。
+
+    答える問い: 「run2 では判定に使わなかった `tau` 1.0 が、新しい規則では門に効くか」——
+    seed_subspace は 1.0 を判定点に挙げていないので、同じ棄却率でも閉じない。
+    """
+    gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
+    closing = gate_points([0.0, 0.0, 0.14], [0.0, 0.0], 100)
+    assert power_sim.misspecification_gate(closing, gate)["inflated"] is True
+    by_sheet = gate_points([0.0, 0.0, 0.0], [0.0, 0.0], 100)
+    by_sheet["misspecification_seed_subspace"].append(point(1.0, 0.5, n_rep=100))
+    assert power_sim.misspecification_gate(by_sheet, gate)["inflated"] is False
 
 
 def test_per_cell_sheet_is_recorded_but_never_judged() -> None:
@@ -1294,7 +1403,7 @@ def test_per_cell_sheet_is_recorded_but_never_judged() -> None:
     """
     gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
     verdict = power_sim.misspecification_gate(
-        gate_points([0.05, 0.05], [0.05, 0.05], 100, third=[0.9, 0.9]), gate
+        gate_points([0.05, 0.05, 0.05], [0.05, 0.05], 100, third=[0.9, 0.9]), gate
     )
     assert verdict["inflated"] is False
     assert set(verdict["sheets"]) == set(GATE_SHEETS)
@@ -1305,23 +1414,27 @@ def test_per_cell_sheet_is_recorded_but_never_judged() -> None:
         power_sim.misspecification_gate({"misspecification": []}, gate)
 
 
-def test_gate_counts_failed_fits_on_the_reject_side() -> None:
-    """★当てはめ失敗は誤指定のシートでは棄却に数える(不利な側。ADR-124 D2')。分母から除かない。
+def test_gate_counts_failed_fits_as_non_rejections() -> None:
+    """★ADR-128 決定1 (A2): 当てはめ失敗は誤指定のシートでも棄却に数えない(分母には入れる)。
 
-    答える問い: 「失敗が多い点で、門は『うまく当たった表の中の率』で読まれていないか」。
+    ~~当てはめ失敗は誤指定のシートでは棄却に数える(不利な側。ADR-124 D2')~~ を改めた。
+    答える問い: 「失敗が 14 / 100 ある点で、失敗は門を閉じる材料にならないか。成功だけの数は並ぶか」——
+    失敗を棄却に数えれば閉じる作動点(14 / 100)だが、非棄却に数えれば棄却は 0 で閉じない。
+    失敗の多さは実行可能性の門が見る(下のテスト)。
     """
     n = 100
     results = [fit_result(None, fit_failed=True, first_error="boom")] * 14 + [fit_result(0.5)] * (n - 14)
-    pt = power_sim.summarise_point(
-        power_sim.PointKey(80, 0.25, 0.0), results, 0.05, failure_as_reject=True
-    )
-    assert (pt.n_rep, pt.n_reject, pt.failed_rate) == (n, 14, pytest.approx(0.14))
+    pt = power_sim.summarise_point(power_sim.PointKey(80, 0.25, 0.0), results, 0.05)
+    assert (pt.n_rep, pt.n_reject, pt.failed_rate) == (n, 0, pytest.approx(0.14))
+    assert (pt.n_success, pt.n_reject_success) == (n - 14, 0)
     gate = power_sim.load_gate_spec(load(MAIN_CONFIG))
-    by_sheet = gate_points([0.0, 0.0], [0.0, 0.0], n)
+    by_sheet = gate_points([0.0, 0.0, 0.0], [0.0, 0.0], n)
     by_sheet["misspecification"][0] = pt
     verdict = power_sim.misspecification_gate(by_sheet, gate)
-    assert verdict["inflated"] is True                       # 14 / 100 = ちょうど閉じる作動点
-    assert verdict["sheets"]["misspecification"][0]["failed_rate"] == pytest.approx(0.14)
+    assert verdict["inflated"] is False
+    row = verdict["sheets"]["misspecification"][0]
+    assert row["failed_rate"] == pytest.approx(0.14)
+    assert (row["n_success"], row["n_reject_success"]) == (n - 14, 0)
 
 
 def test_clopper_pearson_lower_bound() -> None:
@@ -1354,14 +1467,19 @@ def test_gate_must_watch_the_leading_misspecification_sheets_and_their_tau() -> 
     bad["simulation"]["misspecification_gate"]["lower_bound_above"] = None
     with pytest.raises(ConfigError):
         power_sim.load_gate_spec(bad)
-    # 旧い `sheet`(1 枚)は止まる。重複・空のリストも止まる
-    old = copy.deepcopy(config)
-    old["simulation"]["misspecification_gate"]["sheet"] = "misspecification"
-    with pytest.raises(ConfigError, match="sheets"):
-        power_sim.load_gate_spec(old)
-    for bad_sheets in ([], ["misspecification", "misspecification"]):
+    # 旧い `sheet`(1 枚)・`sheets` + `tau`(直積。ADR-128 / PLAN-043 I4 で置き換えた)が残っていれば止まる
+    for old_key, old_value in (("sheet", "misspecification"), ("sheets", ["misspecification"]), ("tau", [0.25])):
+        old = copy.deepcopy(config)
+        old["simulation"]["misspecification_gate"][old_key] = old_value
+        with pytest.raises(ConfigError, match=old_key):
+            power_sim.load_gate_spec(old)
+    # 判定点が空・シートに点が無い・重複・数でない・null も止まる
+    for bad_points in (
+        {}, None, [], {"misspecification": []}, {"misspecification": [0.25, 0.25]},
+        {"misspecification": "0.25"}, {"misspecification": [True]},
+    ):
         broken = copy.deepcopy(config)
-        broken["simulation"]["misspecification_gate"]["sheets"] = bad_sheets
+        broken["simulation"]["misspecification_gate"]["points"] = bad_points
         with pytest.raises(ConfigError):
             power_sim.load_gate_spec(broken)
 
@@ -1470,21 +1588,50 @@ def failed_fit(**overrides: Any) -> dict[str, Any]:
     )
 
 
-def test_failed_fits_count_against_the_sheet_role() -> None:
-    """★失敗は不利な側に数える: 過誤のシートでは棄却、検出力のシートでは非棄却。分母は変えない。
+def test_failed_fits_are_non_rejections_on_every_sheet() -> None:
+    """★ADR-128 決定1 (A2): 当てはめ失敗は、どのシートでも分母に入れて非棄却に数える。
 
-    答える問い: 「同じ失敗が、シートの役割で逆向きに数えられているか」。
+    ~~失敗は不利な側に数える: 過誤のシートでは棄却、検出力のシートでは非棄却~~ を改めた(役割で向きを変えない)。
+    答える問い: 「失敗 2 件・実際の棄却 1 件・非棄却 1 件の点で、棄却は 1 / 4 か。成功だけの率は別に読めるか」。
     """
     results = [failed_fit(), failed_fit(), fit_result(0.01), fit_result(0.5)]
     key = power_sim.PointKey(80, 1.0, 0.0)
-    error_sheet = power_sim.summarise_point(key, results, 0.05, failure_as_reject=True)
-    power_sheet = power_sim.summarise_point(key, results, 0.05, failure_as_reject=False)
-    assert (error_sheet.n_rep, error_sheet.n_reject) == (4, 3)      # 失敗 2 + 実際の棄却 1
-    assert (power_sheet.n_rep, power_sheet.n_reject) == (4, 1)      # 実際の棄却 1 だけ
-    for pt in (error_sheet, power_sheet):
-        assert pt.failed_rate == pytest.approx(0.5)
-        assert pt.errored_rate == pytest.approx(0.5)
-    assert error_sheet.power == pytest.approx(0.75) and power_sheet.power == pytest.approx(0.25)
+    pt = power_sim.summarise_point(key, results, 0.05)
+    assert (pt.n_rep, pt.n_reject) == (4, 1)                        # 実際の棄却 1 だけ
+    assert pt.failed_rate == pytest.approx(0.5) and pt.errored_rate == pytest.approx(0.5)
+    assert pt.power == pytest.approx(0.25)
+    assert (pt.n_success, pt.n_reject_success) == (2, 1)            # 成功した反復の中では 1 / 2
+    intervals = power_sim.point_intervals(pt, 0.95, 0.95)
+    assert intervals["rejection"]["rate"] == pytest.approx(0.25)
+    assert intervals["rejection_success_only"]["rate"] == pytest.approx(0.5)
+    assert intervals["failed"]["rate"] == pytest.approx(0.5)
+    # 失敗した反復の記述の p 値を持つ反復が無ければ、その率は null(0 でも NaN でもない)
+    assert intervals["rejection_failed_descriptive_only"]["rate"] is None
+    json.dumps(intervals, allow_nan=False)
+
+
+def test_failed_fits_keep_a_descriptive_p_value_that_no_gate_reads() -> None:
+    """★ADR-129 決定3: 失敗した反復の記述の p 値(`p_value_failed_descriptive`)は数えて並べるだけ。
+
+    答える問い: 「失敗した反復だけの棄却数が出るか。`p_value` は null のままで、棄却には入らないか」——
+    4 件の失敗のうち記述の p 値があるのは 3 件(土台の例外の 1 件は無い)で、2 件が alpha 未満。
+    救った(allFit)反復と床の土台の例外の件数も数える。
+    """
+    failures = [
+        failed_fit(p_value_failed_descriptive=0.01),
+        failed_fit(p_value_failed_descriptive=0.03),
+        failed_fit(p_value_failed_descriptive=0.4),
+        failed_fit(floor_base_errored=True),
+    ]
+    rescued = fit_result(0.2, rescued_by_allfit=True)
+    key = power_sim.PointKey(80, 1.0, 0.0)
+    pt = power_sim.summarise_point(key, [*failures, rescued, fit_result(0.5)], 0.05)
+    assert (pt.n_rep, pt.n_reject, pt.n_success) == (6, 0, 2)       # 記述の p 値は棄却に入らない
+    assert (pt.n_failed_descriptive, pt.n_failed_descriptive_reject) == (3, 2)
+    assert (pt.n_rescued, pt.n_floor_base_errored) == (1, 1)
+    intervals = power_sim.point_intervals(pt, 0.95, 0.95)
+    assert intervals["rejection_failed_descriptive_only"]["rate"] == pytest.approx(2 / 3)
+    assert intervals["rejection"]["rate"] == 0.0
 
 
 def test_failed_fits_are_left_out_of_chisq_and_margins_but_the_rate_is_kept() -> None:
@@ -1492,40 +1639,39 @@ def test_failed_fits_are_left_out_of_chisq_and_margins_but_the_rate_is_kept() ->
     spec = power_sim.tost_spec(load(MAIN_CONFIG), main_profile("P1"))
     ok = fit_result(0.2, chisq=4.0)
     key = power_sim.PointKey(80, 1.0, 0.0)
-    pt = power_sim.summarise_point(key, [failed_fit(), ok], 0.05, spec, failure_as_reject=False)
+    pt = power_sim.summarise_point(key, [failed_fit(), ok], 0.05, spec)
     assert pt.mean_chisq == pytest.approx(4.0)
     assert len(pt.tost_min_margins) == 1
     assert pt.failed_rate == pytest.approx(0.5)
     # 全部失敗なら mean_chisq は null(0 でも NaN でもない)・最小 Δ は空
-    allfail = power_sim.summarise_point(key, [failed_fit(), failed_fit()], 0.05, spec, failure_as_reject=True)
+    allfail = power_sim.summarise_point(key, [failed_fit(), failed_fit()], 0.05, spec)
     assert allfail.mean_chisq is None and allfail.tost_min_margins == ()
-    assert (allfail.n_reject, allfail.power) == (2, 1.0)
+    assert (allfail.n_reject, allfail.power) == (0, 0.0)            # ADR-128: 失敗は棄却に数えない
 
 
-def test_failed_fits_enter_the_tost_reading_on_the_unfavourable_side() -> None:
-    """★ADR-125: TOST の読みでも失敗を役割で不利な側に数える(過誤のシート = 同等と言えない / 検出力 = 言えた)。
+def test_failed_fits_are_never_equivalent_in_the_tost_reading() -> None:
+    """★ADR-128 決定4: TOST の読みでは、どのシートでも当てはめ失敗は Δ = +∞(同等と言えない)。
 
-    答える問い: 「失敗を分母から除いた条件付きの率になっていないか」。
+    ~~ADR-125: 失敗を役割で不利な側に数える(過誤のシート = 同等と言えない / 検出力 = 言えた)~~ を改めた。
+    答える問い: 「検出力のシートでも、失敗が『同等と言えた』に数えられて TOST の検出力を膨らませていないか」。
     """
     spec = power_sim.tost_spec(load(MAIN_CONFIG), main_profile("P1"))
     key = power_sim.PointKey(80, 1.0, 0.0)
     results = [failed_fit(), fit_result(0.2, interaction_interp_se=0.1,
                                         interaction_extrap_magnitude_se=0.1)]
-    error_sheet = power_sim.summarise_point(key, results, 0.05, spec, failure_as_reject=True)
-    power_sheet = power_sim.summarise_point(key, results, 0.05, spec, failure_as_reject=False)
-    for pt in (error_sheet, power_sheet):
-        assert pt.tost_n_failed == 1 and len(pt.tost_min_margins) == 1
-    assert (error_sheet.tost_failed_as_equivalent, power_sheet.tost_failed_as_equivalent) == (False, True)
+    pt = power_sim.summarise_point(key, results, 0.05, spec)
+    assert pt.tost_n_failed == 1 and len(pt.tost_min_margins) == 1
+    assert pt.tost_failed_as_equivalent is False
 
-    def power_at(pt: power_sim.GridPoint, delta: float) -> float:
+    def power_at(delta: float) -> float:
         return power_sim.tost_power(pt.tost_min_margins, delta, n_failed=pt.tost_n_failed,
                                     failed_as_equivalent=pt.tost_failed_as_equivalent)
 
-    # 大きい Δ でも過誤のシートは 1/2 で頭打ち、検出力のシートは小さい Δ でも 1/2 から始まる
-    assert power_at(error_sheet, 100.0) == pytest.approx(0.5)
-    assert power_at(power_sheet, 0.0) == pytest.approx(0.5)
+    # 大きい Δ でも 1/2 で頭打ち(失敗は同等と言えない)。小さい Δ では 0 から始まる
+    assert power_at(100.0) == pytest.approx(0.5)
+    assert power_at(0.0) == 0.0
     # TOST を見ないときは失敗も数えない
-    assert power_sim.summarise_point(key, results, 0.05, failure_as_reject=True).tost_n_failed == 0
+    assert power_sim.summarise_point(key, results, 0.05).tost_n_failed == 0
 
 
 def test_tost_power_counts_failures_in_the_denominator() -> None:
@@ -1561,18 +1707,26 @@ def test_a_missing_fit_failed_flag_is_read_as_not_failed() -> None:
     """旧い run の JSON(`fit_failed` を持たない)は失敗なしとして読み、p 値が null なら止まる。"""
     legacy = fit_result(0.01)
     del legacy["fit_failed"]
-    pt = power_sim.summarise_point(KEY, [legacy], 0.05, failure_as_reject=True)
+    pt = power_sim.summarise_point(KEY, [legacy], 0.05)
     assert (pt.n_reject, pt.failed_rate) == (1, 0.0)
     legacy_null = fit_result(None)
     del legacy_null["fit_failed"]
     with pytest.raises(power_sim.PowerSimError):
-        power_sim.summarise_point(KEY, [legacy_null], 0.05, failure_as_reject=True)
+        power_sim.summarise_point(KEY, [legacy_null], 0.05)
 
 
-def test_failure_roles_are_the_unfavourable_side() -> None:
-    """過誤を見るシートは棄却・検出力を見るシートは非棄却に数える(役割の割り当てを固定)。"""
-    assert set(power_sim.FAILURE_AS_REJECT_ROLES) == {"null_calibration", "misspecification"}
-    assert not set(power_sim.FAILURE_AS_REJECT_ROLES) & set(power_sim.ROLES_WITH_NONADDITIVITY)
+def test_no_sheet_role_counts_failures_as_rejections() -> None:
+    """★ADR-128 決定1 (A2): 失敗を棄却に数える役割は無い(~~過誤を見るシートは棄却に数える~~ の定数は削除した)。
+
+    答える問い: 「役割ごとに失敗の向きを変える仕掛けが残っていないか」——
+    すべての役割のシートの要約が `failure_counted_as = retain` を書く。
+    """
+    assert not hasattr(power_sim, "FAILURE_AS_REJECT_ROLES")
+    config = load(MAIN_CONFIG)
+    for sheet in power_sim.load_sheets(config):
+        profile = power_sim.build_profile(config["effect"], sheet.profile)
+        body = power_sim.sheet_summary(sheet, profile, [point(1.0, 0.5)], 0.8, main_axes(), 0.95, 0.95)
+        assert body["failure_counted_as"] == "retain", sheet.sheet_id
 
 
 def test_margin_table_lists_p0_and_p1_on_the_n_item_axis() -> None:
@@ -1671,7 +1825,7 @@ def test_summarise_point_keeps_the_sorted_margins_and_the_error_rate() -> None:
                    n_errored_fits=2, first_error="Downdated VtV"),
     ]
     summary = power_sim.summarise_point(
-        power_sim.PointKey(80, 1.0, 0.0), results, 0.05, spec, failure_as_reject=True
+        power_sim.PointKey(80, 1.0, 0.0), results, 0.05, spec
     )
     assert summary.tost_min_margins == pytest.approx(
         (0.1 * Z_95, 0.5 * Z_95), abs=1e-12
@@ -1680,7 +1834,7 @@ def test_summarise_point_keeps_the_sorted_margins_and_the_error_rate() -> None:
     assert summary.errored_rate == pytest.approx(0.5)
     # TOST を見ないとき(`tost = None`)は空
     assert power_sim.summarise_point(
-        power_sim.PointKey(80, 1.0, 0.0), results, 0.05, failure_as_reject=True
+        power_sim.PointKey(80, 1.0, 0.0), results, 0.05
     ).tost_min_margins == ()
 
 
@@ -1689,7 +1843,7 @@ def test_a_null_p_value_reports_the_fit_error_it_came_from() -> None:
     results = [fit_result(None, first_error="Downdated VtV is not positive definite")]
     with pytest.raises(power_sim.PowerSimError, match="Downdated VtV"):
         power_sim.summarise_point(
-            power_sim.PointKey(80, 1.0, 0.0), results, 0.05, failure_as_reject=True
+            power_sim.PointKey(80, 1.0, 0.0), results, 0.05
         )
 
 
@@ -1707,14 +1861,16 @@ def test_fit_script_writes_the_interaction_coefficients_and_counts_errors() -> N
 
 
 def test_fit_script_writes_the_failure_flag_and_the_per_level_record() -> None:
-    """★R 側が `fit_failed`(床でも失敗)と各段の記録 `levels` を書く(ADR-124 D2'・D5)。
+    """★R 側が `fit_failed`(床の allFit の段の後でも失敗)と各段の記録 `levels` を書く(ADR-124 D2'・D5 / ADR-128)。
 
     答える問い: 「`power_sim.py` が読む `fit_failed` を R が書いているか」(R は呼ばない。文面の突き合わせ)。
-    床の失敗は p 値を出さない(`an` が NULL になる)ことも固定する。
+    失敗は p 値を出さない(`an` が NULL になる)ことも固定する。床で失敗しても `allFit` の段が収束と言えれば
+    失敗にならない(`fit_failed <- floor_failed && !rescued`。ADR-128 決定1 (A3))。
     """
     text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
     assert 'kv("fit_failed", jbool(fit_failed))' in text
-    assert "fit_failed <- res_full$failed || res_add$failed" in text
+    assert "floor_failed <- res_full$failed || res_add$failed" in text
+    assert "fit_failed <- floor_failed && !rescued" in text
     assert "an <- if (fit_failed) NULL else anova(" in text
     assert 'kv("levels",' in text
     for key in ("level", "label", "which", "failed", "refit_done", "singular",
@@ -1731,20 +1887,24 @@ def fake_fits(
     monkeypatch: pytest.MonkeyPatch,
     calls: list[Path] | None = None,
     p_value_for: Any = None,
+    failed_for: Any = None,
 ) -> None:
     """R を呼ばず、表ごとに決まった形の JSON を書く。**当てはめの代わりであって検出力の数値ではない。**
 
     `p_value_for(csv_path)` を渡せば、表ごとに p 値を変えられる(門のテスト用)。既定は 0.5(棄却しない)。
+    `failed_for(csv_path)` が真を返す表は「当てはめ失敗」(`failed_fit`)の JSON を書く(実行可能性の門のテスト用)。
     """
 
-    def fake_run_fits(rscript, libpath, manifest_stem, jobs, refit, max_level, n_workers):
+    def fake_run_fits(rscript, libpath, manifest_stem, jobs, refit, max_level, allfit, n_workers):
         for csv_path, out_path in jobs:
             assert not out_path.exists(), "済んだ反復を R に渡している"
             assert csv_path.exists(), "当てはめ前の表が書かれていない"
             if calls is not None:
                 calls.append(csv_path)
             p_value = 0.5 if p_value_for is None else p_value_for(csv_path)
-            out_path.write_text(json.dumps(fit_result(p_value)), encoding="ascii")
+            failed = failed_for is not None and failed_for(csv_path)
+            body = failed_fit() if failed else fit_result(p_value)
+            out_path.write_text(json.dumps(body), encoding="ascii")
         return []
 
     monkeypatch.setattr(power_sim, "resolve_rscript", lambda declared: "Rscript")
@@ -1889,6 +2049,192 @@ def test_main_returns_a_distinct_code_when_the_gate_closes(
         "--config", str(config_path), "--out-dir", str(tmp_path / "out"), "--through-stage", "1",
     ])
     assert code == power_sim.EXIT_GATE_CLOSED
+
+
+def sheet_of(csv_path: Path) -> str:
+    """偽の当てはめに渡る表のパスから、シート名を取り出す(`<out>/<シート>/frames/<表>.csv`)。"""
+    return csv_path.parent.parent.name
+
+
+MISSPECIFICATION_BLOCK = [
+    "misspecification", "misspecification_seed_subspace", "misspecification_seed_per_cell",
+]
+
+
+def test_a_closed_feasibility_gate_stops_after_the_misspecification_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★ADR-128 決定3 / ADR-129 決定4: 誤指定の 3 枚が失敗だらけなら、まとめて回した後に止まる(P1 の前)。
+
+    答える問い: 「失敗を非棄却に数えたので過誤の門は閉じない。それでも実行可能性の門が手順の不全を止めるか」——
+    全部が当てはめ失敗なら棄却は 0(過誤の門は閉じない)だが、失敗率 1 の CP95 下端は閾値 0.10 を超える。
+    smoke の 1 段目は 1 反復なので全部失敗でも下端は 0.025(閉じない)。2 段目は 2 反復で 0.158(閉じる)。
+    """
+    calls: list[Path] = []
+    fake_fits(monkeypatch, calls, failed_for=lambda csv_path: True)
+    summary = power_sim.run(smoke_config(), tmp_path, None, keep_frames=True, through_stage=2)
+    first = json.loads((tmp_path / "stage_0001_summary.json").read_text(encoding="utf-8"))
+    assert first["stopped_at_feasibility_gate"] is False       # 1 / 1 の下端 0.025 は 0.10 を超えない
+    assert summary["stage"] == 2                              # 2 段目で閉じて止まる
+    assert summary["stopped_at_gate"] is False                # 過誤の門は閉じていない(失敗は棄却に数えない)
+    assert summary["misspecification_gate"]["inflated"] is False
+    assert summary["stopped_at_feasibility_gate"] is True
+    assert summary["stopped_after_sheet"] == "misspecification_seed_per_cell"
+    assert list(summary["sheets"]) == MISSPECIFICATION_BLOCK  # 3 枚は判定の前に全部回す。P1 以降は回さない
+    # P1 以降は 2 段目では回さない(1 段目の 1 反復ぶんだけが残っている)
+    assert len(list((tmp_path / "p1" / "fits").glob("*.json"))) == len(power_sim.load_sheets(smoke_config())[3].points)
+    feasibility = summary["feasibility_gate"]
+    assert feasibility["closed"] is True and set(feasibility["closed_sheets"]) == set(MISSPECIFICATION_BLOCK)
+    row = feasibility["sheets"]["misspecification"][0]
+    assert (row["n_rep"], row["n_failed"], row["exceeds"]) == (2, 2, True)
+    # (i) も実行可能性の門の対象(過誤の門では記録だけ。ADR-129 決定4)
+    assert "misspecification_seed_per_cell" in feasibility["sheets"]
+
+
+def test_the_feasibility_gate_is_judged_after_each_later_sheet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★誤指定の後のシートは、各シートを回し終えるごとに判定し、閉じたら次のシートの前で止まる(ADR-129 決定4)。
+
+    答える問い: 「P1 が失敗だらけのとき、`p1_tau` 以降を回さずに止まるか。誤指定の 3 枚は影響を受けないか」。
+    """
+    fake_fits(monkeypatch, failed_for=lambda csv_path: sheet_of(csv_path) == "p1")
+    summary = power_sim.run(smoke_config(), tmp_path, None, keep_frames=True, through_stage=2)
+    assert summary["stage"] == 2                              # 1 反復では下端 0.025。2 反復で閉じる
+    assert summary["stopped_at_feasibility_gate"] is True and summary["stopped_at_gate"] is False
+    assert summary["stopped_after_sheet"] == "p1"
+    assert list(summary["sheets"]) == [*MISSPECIFICATION_BLOCK, "p1"]
+    assert summary["feasibility_gate"]["closed_sheets"] == ["p1"]
+    # 2 段目では p1 を回し終えたところで止まり、p1_tau は 1 段目の 1 反復ぶんしか無い
+    n_fits = lambda sheet: len(list((tmp_path / sheet / "fits").glob("*.json")))  # noqa: E731
+    assert n_fits("p1_tau") == 1 * len(power_sim.load_sheets(smoke_config())[4].points)
+    assert n_fits("p1") == 2 * len(power_sim.load_sheets(smoke_config())[3].points)
+    on_disk = json.loads((tmp_path / "power_sim_summary.json").read_text(encoding="utf-8"))
+    assert on_disk["stopped_at_feasibility_gate"] is True
+
+
+def test_the_feasibility_gate_stays_open_when_nothing_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """失敗が無ければ、実行可能性の門の行は全シート・全点に残り、閉じない(全 7 シートが回る)。"""
+    fake_fits(monkeypatch)
+    summary = power_sim.run(smoke_config(), tmp_path, None, keep_frames=False, through_stage=1)
+    assert summary["stopped_at_feasibility_gate"] is False and summary["stopped_after_sheet"] is None
+    assert list(summary["feasibility_gate"]["sheets"]) == list(summary["sheets"])
+    assert len(summary["sheets"]) == 7
+    assert summary["feasibility_gate"]["closed"] is False
+
+
+def test_main_returns_code_four_when_the_feasibility_gate_closes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★ADR-128 決定3: 実行可能性の門が閉じたときの終了コードは 4(過誤の門の 3 と分ける)。"""
+    assert (power_sim.EXIT_GATE_CLOSED, power_sim.EXIT_FEASIBILITY_CLOSED) == (3, 4)
+    fake_fits(monkeypatch, failed_for=lambda csv_path: True)
+    code = power_sim.main([
+        "--config", str(SMOKE_CONFIG), "--out-dir", str(tmp_path / "out"), "--through-stage", "2",
+    ])
+    assert code == power_sim.EXIT_FEASIBILITY_CLOSED
+
+
+def test_main_returns_three_when_both_gates_close(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """両方が閉じたときは 3(過誤の門)。どちらが閉じたかは summary に両方残る(実装の判断。PLAN-043 §12)。"""
+    config = gate_closing_smoke_config()
+    config["simulation"]["feasibility_gate"]["lower_bound_above"] = 0.0
+    # 全部が成功なら失敗率は 0 で下端 0 > 0 は偽 → 閉じない。両方閉じるには失敗も要る((i) だけ失敗させる)
+    fake_fits(monkeypatch, p_value_for=lambda csv_path: 0.001,
+              failed_for=lambda csv_path: sheet_of(csv_path) == "misspecification_seed_per_cell")
+    config_path = tmp_path / "both.yaml"
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    code = power_sim.main([
+        "--config", str(config_path), "--out-dir", str(tmp_path / "out"), "--through-stage", "1",
+    ])
+    summary = json.loads((tmp_path / "out" / "power_sim_summary.json").read_text(encoding="utf-8"))
+    assert summary["stopped_at_gate"] is True and summary["stopped_at_feasibility_gate"] is True
+    assert code == power_sim.EXIT_GATE_CLOSED
+
+
+@pytest.mark.parametrize("n_rep,first_closing", [(100, 17), (300, 42), (1000, 120)])
+def test_feasibility_gate_operating_point_matches_plan_043(n_rep: int, first_closing: int) -> None:
+    """★PLAN-043 §5.3 の算術: 100 反復では 17 回以上、300 では 42 回以上、1000 では 120 回以上の失敗で閉じる。
+
+    答える問い: 「CP95 下端 > 0.10 の作動点が、PLAN に書いた失敗の件数と食い違っていないか」。
+    """
+    spec = power_sim.load_feasibility_gate_spec(load(MAIN_CONFIG))
+
+    def closed(n_failed: int) -> bool:
+        pt = dataclasses.replace(point(1.0, 0.0, n_rep=n_rep), failed_rate=n_failed / n_rep)
+        return power_sim.feasibility_gate({"p1": [pt]}, spec)["closed"]
+
+    assert not closed(first_closing - 1)
+    assert closed(first_closing)
+
+
+def test_feasibility_gate_rows_name_the_point_and_count_the_rescues() -> None:
+    """行に点・失敗数・救った数・床の土台の例外の数が残る(門の結果によらず記録する)。"""
+    spec = power_sim.load_feasibility_gate_spec(load(MAIN_CONFIG))
+    pt = dataclasses.replace(
+        point(1.0, 0.0, n_item=120, n_rep=100), failed_rate=0.05, n_rescued=7, n_floor_base_errored=1
+    )
+    verdict = power_sim.feasibility_gate({"p1": [pt]}, spec)
+    (row,) = verdict["sheets"]["p1"]
+    assert (row["n_item"], row["sigma"], row["rho"], row["n_failed"]) == (120, 1.0, 0.0, 5)
+    assert (row["n_rescued"], row["n_floor_base_errored"], row["exceeds"]) == (7, 1, False)
+    assert verdict["closed"] is False and verdict["closed_sheets"] == []
+
+
+def test_fit_script_runs_the_floor_allfit_stage_by_name() -> None:
+    """★R 側の床の allFit の段(ADR-128 決定1 (A3) / ADR-129 決定1・2)の約束を文面で固定する(R は呼ばない)。
+
+    答える問い: 「床で失敗した表にだけ allFit を当て、最適化を名前で列挙し、版と使えない最適化で止まり、
+    土台の例外は救わず、救えなければ p 値なしで記述の p 値を残すか」。実際に走らせた確かめは PLAN-043 §12。
+    """
+    text = power_sim.FIT_SCRIPT.read_text(encoding="utf-8")
+    assert "allfit_attempted <- floor_failed && !floor_base_errored && level >= max_level" in text
+    assert "rescued <- af_full$select$satisfied && af_add$select$satisfied" in text
+    assert "meth.tab = rescue_method_table(opt_names)" in text          # 最適化は名前で列挙(既定の表に任せない)
+    assert "start_from_mle = start_from_mle" in text                    # 値は config から(false。罠3)
+    assert "rescue_check_versions(man$expected_r_version, man$expected_lme4_version)" in text
+    assert "rescue_check_available(allfit$optimizers)" in text          # 1 つでも使えなければ止まる
+    assert "floor_base_errored <- floor_failed && (res_full$errored || res_add$errored)" in text
+    for key in ("p_value_failed_descriptive", "fit_failed_before_allfit", "floor_base_errored",
+                "allfit_attempted", "rescued_by_allfit", "allfit_full", "allfit_add"):
+        assert f'kv("{key}"' in text, key
+    # 救った表の LRT は allFit で揃った最適化のうち logLik 最大のものから取る
+    assert "af_full$fits[[af_full$select$best]]" in text and "af_add$fits[[af_add$select$best]]" in text
+
+
+def test_main_config_is_the_run3_one() -> None:
+    """★ADR-129 決定5: run3 の `rng_seed` は採った日付 20261008(config に入れて commit してから起動する)。
+
+    答える問い: 「run2 の seed(20260909)のまま run3 を起動していないか」。他の値(格子・シート・点・`s2_*`・
+    `n_rep_stages`・`alpha`・`tost_alpha`・門の閾値 0.075)は ADR-128 で変えないと決めた。
+    """
+    config = load(MAIN_CONFIG)
+    assert config["simulation"]["rng_seed"] == 20261008
+    assert config["simulation"]["n_rep_stages"] == [100, 300, 1000]
+    assert (config["simulation"]["alpha"], config["simulation"]["tost_alpha"]) == (0.05, 0.05)
+    assert (config["dgp"]["s2_item"], config["dgp"]["s2_tmpl"]) == (2.0, 0.5)
+    assert config["fit"]["allfit"]["start_from_mle"] is False
+
+
+def test_dry_run_reports_the_gates_the_allfit_stage_and_the_seed(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """★`--dry-run` は R も当てはめも呼ばず、門・allFit・seed の宣言を読んで出す(config の食い違いを本実行の前に止める)。"""
+    assert power_sim.main(["--config", str(MAIN_CONFIG), "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "rng_seed  : 20261008" in out
+    assert "nloptwrap.NLOPT_LN_BOBYQA" in out and "start_from_mle false" in out
+    assert "misspecification: tau [0.25, 0.5, 1.0]" in out
+    assert "misspecification_seed_subspace: tau [0.25, 0.5]" in out
+    assert "feasibility (exit 4)" in out and "lower bound of the failure rate > 0.1" in out
+    broken = copy.deepcopy(load(MAIN_CONFIG))
+    broken["simulation"]["misspecification_gate"]["sheets"] = ["misspecification"]
+    with pytest.raises(ConfigError, match="sheets"):
+        power_sim.describe_plan(broken)
 
 
 def test_run_requires_a_stage_within_the_declared_ones(

@@ -194,8 +194,36 @@ def floor_failure_size(fit: Mapping[str, Any]) -> dict[str, float]:
     }
 
 
+@dataclass(frozen=True)
+class LegacyGateSpec:
+    """run2 の門の形(全シート共通の `sheets` × `tau` の直積。ADR-124 D4)。答える問い: run2 はどの点を門に使ったか。
+
+    ★PLAN-043 I4(ADR-128 / ADR-129)で `power_sim.GateSpec` はシートごとの判定点に変わった。この診断は
+    run2 の記録(`config_resolved.json`)を**当時の規則のまま**読み直すので、旧い形をここに持つ。
+    """
+
+    sheet_ids: tuple[str, ...]
+    tau: tuple[float, ...]
+    ci_level: float
+    lower_bound_above: float
+
+
+def load_legacy_gate_spec(config: Mapping[str, Any]) -> LegacyGateSpec:
+    """run2 の config の `simulation.misspecification_gate`(旧い形)を読む。答える問い: run2 の門の点は。"""
+    sheet_ids = tuple(str(i) for i in require(config, "simulation.misspecification_gate.sheets"))
+    tau = tuple(float(t) for t in require(config, "simulation.misspecification_gate.tau"))
+    if not sheet_ids or not tau or len(set(sheet_ids)) != len(sheet_ids):
+        raise ConfigError("run2 の門の sheets / tau が空か重複している")
+    return LegacyGateSpec(
+        sheet_ids=sheet_ids,
+        tau=tau,
+        ci_level=float(require(config, "simulation.misspecification_gate.ci_level")),
+        lower_bound_above=float(require(config, "simulation.misspecification_gate.lower_bound_above")),
+    )
+
+
 def select_targets(
-    spec: DiagnosisSpec, sheets: Sequence[ps.Sheet], gate: ps.GateSpec
+    spec: DiagnosisSpec, sheets: Sequence[ps.Sheet], gate: LegacyGateSpec
 ) -> tuple[list[Target], dict[tuple[str, float], list[dict[str, Any]]]]:
     """診断する反復を選ぶ。答える問い: 門の 2 枚の失敗と、同じ 2 枚の成功した反復の対照はどれか。
 
@@ -230,7 +258,7 @@ def select_targets(
 
 
 def check_expected_counts(
-    spec: DiagnosisSpec, gate: ps.GateSpec, fits_by_point: Mapping[tuple[str, float], Sequence[Mapping[str, Any]]]
+    spec: DiagnosisSpec, gate: LegacyGateSpec, fits_by_point: Mapping[tuple[str, float], Sequence[Mapping[str, Any]]]
 ) -> None:
     """答える問い: 読んだ fit は run2 の集計(stage1_interim.json)と同じ件数になるか。合わなければ止まる。"""
     for sheet_id, expected in spec.expected_failures_by_sheet.items():
@@ -761,7 +789,7 @@ def case_summary(case: CaseEval) -> dict[str, Any]:
 
 
 def aggregate(
-    spec: DiagnosisSpec, run_config: Mapping[str, Any], gate: ps.GateSpec,
+    spec: DiagnosisSpec, run_config: Mapping[str, Any], gate: LegacyGateSpec,
     targets: Sequence[Target], fits_by_point: Mapping[tuple[str, float], Sequence[Mapping[str, Any]]],
     out_dir: Path,
 ) -> dict[str, Any]:
@@ -887,7 +915,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         spec = replace(spec, n_workers=args.workers)
     run_config = json.loads((spec.run_dir / "config_resolved.json").read_text(encoding="utf-8"))
     sheets = ps.load_sheets(run_config)
-    gate = ps.load_gate_spec(run_config)
+    gate = load_legacy_gate_spec(run_config)
     targets, fits_by_point = select_targets(spec, sheets, gate)
     n_failure = sum(1 for t in targets if t.role == ROLE_FAILURE)
     print(f"targets: failures {n_failure} / controls {len(targets) - n_failure} (known counts match)")

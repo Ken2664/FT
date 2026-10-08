@@ -8,6 +8,8 @@
 # (register_tasks.ps1). ASCII only on purpose: Windows PowerShell 5.1 reads BOM-less files as ANSI.
 #
 # Exit codes: 0 = started / already running / nothing left to do, 1 = refused (reason printed + logged)
+# (The python run itself, detached, exits 0 / 3 = misspecification gate closed / 4 = feasibility gate closed;
+#  both gates are recorded in power_sim_summary.json, which step 2 below reads. PLAN-040 appendix A.4.)
 
 param(
     [Parameter(Mandatory = $true)][string]$OutName,
@@ -59,6 +61,11 @@ if (Test-Path $summaryPath) {
     $summary = Get-Content -Raw -Encoding UTF8 $summaryPath | ConvertFrom-Json
     if ($summary.stopped_at_gate) {
         Write-Night "the misspecification gate is closed (stopped_at_gate). Do NOT rerun: next is the Section 3.2 review PLAN (appendix A.4)"
+        exit 0
+    }
+    # PLAN-043 I8 / ADR-128 decision 3: the feasibility gate (too many fit failures; python exit code 4). Absent in older summaries = false.
+    if ($summary.stopped_at_feasibility_gate) {
+        Write-Night "the feasibility gate is closed (stopped_at_feasibility_gate; python exit code 4). Do NOT rerun: a human reads the summary first (appendix A.4)"
         exit 0
     }
     if ([int]$summary.n_rep -ge $StageReps[$ThroughStage]) {

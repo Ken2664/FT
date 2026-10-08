@@ -59,14 +59,28 @@ TOST の検出力は集計の後で読む(`tost_power`)。
 
 - **当てはめ**: `(1 | seed:task:coverage)` を足し、縮退は template → 傾きの相関 → 傾き(= 床)。
   item と新しい項は落とさない(`power_sim_fit.R`)
-- **当てはめ失敗**: 床でも収束しない / 例外の表は p 値なし(`fit_failed`)。**シートの役割で不利な側に数える**
-  (誤指定・P0 = 棄却 / P1・P1⁻ = 非棄却。`FAILURE_AS_REJECT_ROLES`)。`failed_rate` を別に出す。
-  **TOST の最小 Δ でも同じ向きに数える**(ADR-125: 過誤のシート = 同等と言えない / 検出力のシート = 同等と言えた)
+- **当てはめ失敗**: 床でも収束しない / 例外の表は p 値なし(`fit_failed`)。~~**シートの役割で不利な側に数える**
+  (誤指定・P0 = 棄却 / P1・P1⁻ = 非棄却。`FAILURE_AS_REJECT_ROLES`)~~ → ★ADR-128: どのシートでも非棄却(下)。
+  `failed_rate` を別に出す。~~**TOST の最小 Δ でも同じ向きに数える**(ADR-125: 過誤のシート = 同等と言えない /
+  検出力のシート = 同等と言えた)~~ → ★ADR-128 決定4: どのシートでも同等と言えない(Δ = +∞)
 - **誤指定のシート**: 独立な `z`(今のシート)に加え、**シード固有の交互作用**(`z = m_s × d`・`m_s ~ N(0, tau²)`)の
   2 枚(大きさ `subspace` = (ii)・`per_cell` = (i))。門は `misspecification_gate.sheets` に挙げたシート((ii) と今のシート)に
   掛け、(i) は記録だけ。誤指定のシートは先頭にまとめて並べ、**その全部を回した後に**門を判定する
 - **P1 の確認点**: `tau` に数値を書ける形(`sheets[].tau: 0.5`)。同じ点 `(80, 1.0, 0.0)` が P1 のシートにあるので
   別のシート(`p1_tau`)にした(乱数の鍵とファイル名が点で決まるため)
+
+**★2026-10-08(PLAN-043 I1〜I5 / ADR-128・ADR-129)に、床の `allFit` の段・失敗の数え方・2 つの門を改めた。**
+
+- **床の `allFit` の段**(`power_sim_fit.R`): 床で ADR-059 の判定が収束しない表に、床の式(full・add)へ `allFit` を
+  1 段足す。最適化は名前で列挙(`fit.allfit`)・`start_from_mle = false`・版が違えば止まる。full と add の両方が
+  「警告なしに収束した最適化が 2 つ以上・logLik の差 < 0.001」なら収束。それでも収束しなければ「当てはめ失敗」。
+  床の土台の `glmer` が例外なら救わずに失敗(件数を別に記録)
+- **当てはめ失敗の数え方**: どのシートでも**非棄却**(分母に入れる)。成功した反復だけの棄却数と、失敗した反復だけの
+  記述の p 値(`p_value_failed_descriptive`)を並べる(どの門にも使わない)。TOST もどのシートでも Δ = +∞
+- **過誤の門**(`misspecification_gate.points`): 判定点を**シートごと**に(基本の誤指定の `tau` 0.25・0.5・1.0 /
+  seed_subspace の 0.25・0.5)。閾値は 0.075 のまま。終了コード 3
+- **実行可能性の門**(`simulation.feasibility_gate`): 全シート・全点で当てはめ失敗の率の CP95 下端 > 0.10 なら閉じる。
+  誤指定の 3 枚はまとめて回した後、以降は各シートを回し終えるごとに判定し、閉じたら次のシートの前で止まる。終了コード 4
 """
 
 from __future__ import annotations
@@ -445,11 +459,69 @@ def resolve_rscript(declared: str | None) -> str:
     )
 
 
+@dataclass(frozen=True)
+class AllFitSpec:
+    """床の `allFit` の段(PLAN-043 I1 / ADR-128 決定1 (A3) / ADR-129 決定1)。答える問い: 何をどの版で回すか。
+
+    `optimizers` は `allFit` の結果の名前で**列挙**する(`nloptwrap.NLOPT_LN_BOBYQA` など)。1 つでも
+    使えなければ R が止まる。`expected_*_version` は診断(PLAN-042 D1)で `allFit` を回した版で、違えば止まる。
+    `min_aligned` は「警告なしに収束し、最大の logLik から差 < `fit.refit.loglik_tolerance` の最適化」の最小数。
+    """
+
+    optimizers: tuple[str, ...]
+    start_from_mle: bool
+    min_aligned: int
+    expected_r_version: str
+    expected_lme4_version: str
+
+
+def load_allfit_spec(config: Mapping[str, Any]) -> AllFitSpec:
+    """config の `fit.allfit` を読む。答える問い: 床の `allFit` の段の値は宣言されているか。
+
+    **値はコードに直書きしない**(skill `code-style` §1)。null・欠け・型違いは止まる
+    (`start_from_mle` の既定を作らない。ADR-129 決定1 / PLAN-043 罠3)。
+    """
+    optimizers = require(config, "fit.allfit.optimizers")
+    if (
+        not isinstance(optimizers, list)
+        or not optimizers
+        or any(not isinstance(n, str) or not n or "," in n or n != n.strip() for n in optimizers)
+        or len(set(optimizers)) != len(optimizers)
+    ):
+        raise ConfigError(
+            f"fit.allfit.optimizers は重複のない名前(文字列)の空でないリスト: {optimizers!r}"
+        )
+    start_from_mle = require(config, "fit.allfit.start_from_mle")
+    if not isinstance(start_from_mle, bool):
+        raise ConfigError(f"fit.allfit.start_from_mle は true / false: {start_from_mle!r}")
+    min_aligned = require(config, "fit.allfit.min_aligned")
+    if not isinstance(min_aligned, int) or isinstance(min_aligned, bool) or not (
+        2 <= min_aligned <= len(optimizers)
+    ):
+        raise ConfigError(
+            f"fit.allfit.min_aligned は 2 以上 {len(optimizers)} 以下の整数: {min_aligned!r}"
+        )
+    versions = []
+    for key in ("expected_r_version", "expected_lme4_version"):
+        version = require(config, f"fit.allfit.{key}")
+        if not isinstance(version, str) or not version:
+            raise ConfigError(f"fit.allfit.{key} は版の文字列: {version!r}")
+        versions.append(version)
+    return AllFitSpec(
+        optimizers=tuple(optimizers),
+        start_from_mle=start_from_mle,
+        min_aligned=min_aligned,
+        expected_r_version=versions[0],
+        expected_lme4_version=versions[1],
+    )
+
+
 def write_fit_manifest(
     path: Path,
     jobs: Sequence[tuple[Path, Path]],
     refit: Mapping[str, Any],
     max_reduction_level: int,
+    allfit: AllFitSpec,
 ) -> None:
     """R に渡す平文 manifest を書く。答える問い: R は何をどの閾値で当てるか。
 
@@ -461,6 +533,11 @@ def write_fit_manifest(
         f"beta_move_tolerance={refit['beta_move_tolerance']}",
         f"use_refit_for_lrt={'true' if refit['use_refit_for_lrt'] else 'false'}",
         f"max_reduction_level={max_reduction_level}",
+        f"allfit_optimizers={','.join(allfit.optimizers)}",
+        f"allfit_start_from_mle={'true' if allfit.start_from_mle else 'false'}",
+        f"allfit_min_aligned={allfit.min_aligned}",
+        f"expected_r_version={allfit.expected_r_version}",
+        f"expected_lme4_version={allfit.expected_lme4_version}",
     ]
     lines += [f"fit={csv.as_posix()}|{out.as_posix()}" for csv, out in jobs]
     path.write_text("\n".join(lines) + "\n", encoding="ascii", newline="\n")
@@ -522,6 +599,7 @@ def run_fits(
     jobs: Sequence[tuple[Path, Path]],
     refit: Mapping[str, Any],
     max_reduction_level: int,
+    allfit: AllFitSpec,
     n_workers: int,
 ) -> list[Path]:
     """1 つの格子点の当てはめをすべて通す。答える問い: 何本の R を同時に走らせるか。
@@ -538,7 +616,7 @@ def run_fits(
     manifests: list[Path] = []
     for index, shard in enumerate(shards):
         manifest = manifest_stem.with_name(f"{manifest_stem.name}_{index:02d}.txt")
-        write_fit_manifest(manifest, shard, refit, max_reduction_level)
+        write_fit_manifest(manifest, shard, refit, max_reduction_level, allfit)
         manifests.append(manifest)
     if len(manifests) <= 1:
         for manifest in manifests:
@@ -639,14 +717,20 @@ class GridPoint:
 
     `power` は **棄却率**である(P1 のシートでは検出力、P0・誤指定のシートでは第一種の過誤の率)。
     `n_reject` はその分子(誤指定の門の Clopper–Pearson 区間に使う。割合から逆算しない)。
-    **当てはめ失敗(`fit_failed`)は分子・分母とも不利な側に数えた後の値である**
-    (過誤のシート = 棄却 / 検出力のシート = 非棄却。ADR-124 D2')。`failed_rate` はその割合。
+    **★ADR-128 決定1 (A2): 当てはめ失敗(`fit_failed`)は、どのシートでも分母に入れて非棄却に数える**
+    (~~過誤のシート = 棄却 / 検出力のシート = 非棄却。ADR-124 D2'~~ → 過誤のシートで棄却に数えるのをやめた)。
+    `failed_rate` はその割合。**成功した反復だけの棄却数 `n_reject_success`(分母 `n_success`)を別に持つ**
+    (並べるだけ。「本当の過誤」と読まない。PLAN-043 罠2)。失敗した反復の記述の p 値
+    (`p_value_failed_descriptive`。ADR-129 決定3)は `n_failed_descriptive` 件のうち
+    `n_failed_descriptive_reject` 件が `alpha` 未満 —— **どの門にも使わない**。
+    `n_rescued` は床で失敗したが `allFit` の段で収束と言えた反復(ADR-128 決定1 (A3))、
+    `n_floor_base_errored` は床の土台の当てはめが例外で、救えなかった反復(ADR-129 決定2)。
     `mean_chisq` と `tost_min_margins` は当てはめが成功した反復だけで作る
     (失敗は p 値も交互作用の係数も持たない)。全部失敗なら `mean_chisq` は null。
     `tost_min_margins` は反復ごとの「同等と言える最小の Δ」(昇順。TOST を見ないときは空)。
-    **TOST の読みでは失敗も数える**(ADR-125): `tost_n_failed` 件を、`tost_failed_as_equivalent` が真
-    (検出力のシート)なら Δ = 0(同等と言えた)、偽(過誤のシート)なら Δ = +∞(同等と言えない)として
-    `tost_power` と `margin_quantiles` に渡す。無限大は JSON に書かないので、件数と向きで持つ。
+    **TOST の読みでは失敗も数える**(ADR-125 → ADR-128 決定4): `tost_n_failed` 件を、どのシートでも
+    Δ = +∞(同等と言えない)として `tost_power` と `margin_quantiles` に渡す
+    (`tost_failed_as_equivalent` は常に偽。記録のため欄は残す)。無限大は JSON に書かないので、件数と向きで持つ。
     """
 
     n_item: int
@@ -661,12 +745,20 @@ class GridPoint:
     mean_chisq: float | None
     # 当てはめが例外で落ち、縮退へ進んだ反復の割合(`power_sim_fit.R` の `errored_result`。ADR-124 例外の規則)
     errored_rate: float
-    # 床でも収束しない / 床でも例外で、p 値を出せなかった反復の割合(ADR-124 D2')
+    # 床でも(allFit の段の後でも)収束しない / 床でも例外で、p 値を出せなかった反復の割合(ADR-124 D2'・ADR-128)
     failed_rate: float = 0.0
     tost_min_margins: tuple[float, ...] = ()
-    # TOST の読みに入れる当てはめ失敗の件数と向き(ADR-125。TOST を見ないときは 0)
+    # TOST の読みに入れる当てはめ失敗の件数と向き(ADR-125・ADR-128 決定4。TOST を見ないときは 0)
     tost_n_failed: int = 0
     tost_failed_as_equivalent: bool = False
+    # ★PLAN-043 I2: 成功した反復だけの棄却(並べるだけ)・allFit で救った件数・床の土台の例外の件数・
+    # 失敗した反復の記述の p 値(ADR-129 決定3。どの門にも使わない)
+    n_success: int = 0
+    n_reject_success: int = 0
+    n_rescued: int = 0
+    n_floor_base_errored: int = 0
+    n_failed_descriptive: int = 0
+    n_failed_descriptive_reject: int = 0
 
     @property
     def key(self) -> PointKey:
@@ -674,19 +766,21 @@ class GridPoint:
 
 
 def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
-                    alpha: float, tost: TostSpec | None = None, *,
-                    failure_as_reject: bool) -> GridPoint:
+                    alpha: float, tost: TostSpec | None = None) -> GridPoint:
     """1 つの格子点をまとめる。答える問い: この仮定値の下で棄却率はいくつか。
 
     **縮退の発火率も返す** —— ADR-064 決定4 の★リスク欄
     「10 シードで `(0 + coverage | seed)` が同定できるかは誰にも数値では言えない」に
     合成データの上で数値を与えるのが、ADR-068 決定1 を採る利の 1 つだからである。
 
-    **★当てはめ失敗(`fit_failed`。床でも収束しない / 床でも例外)は不利な側に数える**(ADR-124 D2')。
-    `failure_as_reject` が真(過誤のシート)なら棄却、偽(検出力のシート)なら非棄却。
+    **★ADR-128 決定1 (A2): 当てはめ失敗(`fit_failed`。床の `allFit` の段の後でも収束しない / 床の土台が例外)は、
+    どのシートでも分母に入れて非棄却に数える**(~~過誤のシートでは棄却。ADR-124 D2'~~)。
     **分母から除かない**(除くと「うまく当たった表の中の率」になる。PLAN-041 §3.3 罠2)。
-    必須の引数にしてあるのは、シートの役割の取り違えを呼び出し側に書かせるため。
+    だから `n_reject` は成功した反復の棄却数と一致し、成功だけの率は `n_reject_success / n_success` で別に読む。
+    失敗の隠れ(失敗が過誤と結びつくのに過誤の門に見えない)は、実行可能性の門と
+    失敗した反復の記述の p 値(`p_value_failed_descriptive`)が見る(PLAN-043 罠5)。
     `fit_failed` でないのに p 値が null の反復は、黙って数えず止まる(`CLAUDE.md` §7)。
+    旧い出力(run2。新しい欄を持たない)も読める。
     """
     if not results:
         raise PowerSimError(f"{key} の結果が 0 件である")
@@ -701,8 +795,14 @@ def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
         )
     n = len(results)
     done = [r for r, f in zip(results, failed) if not f]
-    n_failed = n - len(done)
-    n_reject = sum(1 for r in done if r["p_value"] < alpha) + (n_failed if failure_as_reject else 0)
+    failures = [r for r, f in zip(results, failed) if f]
+    n_failed = len(failures)
+    n_reject = sum(1 for r in done if r["p_value"] < alpha)
+    described = [
+        r["p_value_failed_descriptive"]
+        for r in failures
+        if r.get("p_value_failed_descriptive") is not None
+    ]
     margins = (
         tuple(sorted(equivalence_margin(r, tost) for r in done))
         if tost is not None
@@ -727,7 +827,13 @@ def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
         failed_rate=n_failed / n,
         tost_min_margins=margins,
         tost_n_failed=n_failed if tost is not None else 0,
-        tost_failed_as_equivalent=not failure_as_reject,
+        tost_failed_as_equivalent=False,
+        n_success=len(done),
+        n_reject_success=n_reject,
+        n_rescued=sum(1 for r in results if r.get("rescued_by_allfit", False)),
+        n_floor_base_errored=sum(1 for r in results if r.get("floor_base_errored", False)),
+        n_failed_descriptive=len(described),
+        n_failed_descriptive_reject=sum(1 for p in described if p < alpha),
     )
 
 
@@ -964,48 +1070,66 @@ def compare_power(
 
 
 # --------------------------------------------------------------------------
-# ★誤指定の門(ADR-122 決定3 / ADR-123 決定6)
+# ★誤指定の門(ADR-122 決定3 / ADR-123 決定6)と実行可能性の門(ADR-128 決定3)
 # --------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class GateSpec:
-    """誤指定の門。答える問い: どのシートのどの `tau` で、どの区間の下端がいくつを超えたら止まるか。
+    """誤指定の門(過誤の門)。答える問い: どのシートのどの `tau` で、どの区間の下端がいくつを超えたら止まるか。
 
     ★ADR-124 D4: 門は複数のシート(今の独立な `z` と、シード固有の交互作用の (ii))に掛ける。
-    誤指定のシートのうち `sheet_ids` に無いもの((i))は記録だけで、判定に使わない。
+    誤指定のシートのうち `points` に無いもの((i))は記録だけで、判定に使わない。
+    ★ADR-128 決定1・ADR-129: 判定点は**シートごと**(`points`)。基本の誤指定の `tau` 0.25・0.5・1.0 と
+    seed_subspace の 0.25・0.5。~~全シート共通の `sheets` × `tau` の直積(ADR-124 D4)~~
     """
 
-    sheet_ids: tuple[str, ...]
-    tau: tuple[float, ...]
+    points: tuple[tuple[str, tuple[float, ...]], ...]    # (シート id, 判定点の tau)
     ci_level: float
     lower_bound_above: float
+
+    @property
+    def sheet_ids(self) -> tuple[str, ...]:
+        return tuple(sheet_id for sheet_id, _ in self.points)
 
 
 def load_gate_spec(config: Mapping[str, Any]) -> GateSpec:
     """config の `simulation.misspecification_gate` を読む。答える問い: 門の値は宣言されているか。
 
     **閾値はコードに直書きしない**(skill `code-style` §1)。null は止まる。
-    旧い `sheet`(1 枚)が残っていても止まる(どちらが効いているか読めなくなるため)。
+    旧い `sheet`(1 枚)・`sheets` + `tau`(直積)が残っていても止まる(どちらが効いているか読めなくなるため)。
     """
-    if "sheet" in config.get("simulation", {}).get("misspecification_gate", {}):
-        raise ConfigError(
-            "simulation.misspecification_gate.sheet は .sheets(リスト)に置き換えた(ADR-124 D4)"
-        )
+    declared = config.get("simulation", {}).get("misspecification_gate", {})
+    for old_key, reason in (
+        ("sheet", "ADR-124 D4 で .sheets に置き換えた"),
+        ("sheets", "ADR-128 / PLAN-043 I4 で .points(シートごとの判定点)に置き換えた"),
+        ("tau", "ADR-128 / PLAN-043 I4 で .points(シートごとの判定点)に置き換えた"),
+    ):
+        if old_key in declared:
+            raise ConfigError(f"simulation.misspecification_gate.{old_key} は {reason}")
     level = float(require(config, "simulation.misspecification_gate.ci_level"))
     if not 0.0 < level < 1.0:
         raise ConfigError(f"simulation.misspecification_gate.ci_level は (0, 1): {level}")
-    tau = tuple(float(t) for t in require(config, "simulation.misspecification_gate.tau"))
-    if not tau:
-        raise ConfigError("simulation.misspecification_gate.tau が空である")
-    sheet_ids = tuple(str(i) for i in require(config, "simulation.misspecification_gate.sheets"))
-    if not sheet_ids or len(set(sheet_ids)) != len(sheet_ids):
+    declared_points = require(config, "simulation.misspecification_gate.points")
+    if not isinstance(declared_points, Mapping) or not declared_points:
         raise ConfigError(
-            f"simulation.misspecification_gate.sheets は重複のない空でないリスト: {list(sheet_ids)}"
+            "simulation.misspecification_gate.points は {シート id: [tau, ...]} の空でない写像: "
+            f"{declared_points!r}"
         )
+    points: list[tuple[str, tuple[float, ...]]] = []
+    for sheet_id, taus in declared_points.items():
+        if (
+            not isinstance(taus, list)
+            or not taus
+            or any(isinstance(t, bool) or not isinstance(t, (int, float)) for t in taus)
+            or len(set(taus)) != len(taus)
+        ):
+            raise ConfigError(
+                f"simulation.misspecification_gate.points.{sheet_id} は重複のない数のリスト: {taus!r}"
+            )
+        points.append((str(sheet_id), tuple(float(t) for t in taus)))
     return GateSpec(
-        sheet_ids=sheet_ids,
-        tau=tau,
+        points=tuple(points),
         ci_level=level,
         lower_bound_above=float(
             require(config, "simulation.misspecification_gate.lower_bound_above")
@@ -1025,10 +1149,57 @@ def clopper_pearson_lower(n_reject: int, n: int, level: float) -> float:
     return float(beta_distribution.ppf((1.0 - level) / 2.0, n_reject, n - n_reject + 1))
 
 
-def _gate_rows(points: Sequence[GridPoint], gate: GateSpec, sheet_id: str) -> list[dict[str, Any]]:
-    """答える問い: このシートの判定点(`gate.tau`)の棄却率と区間の下端はいくつか。"""
+def clopper_pearson_interval(n_reject: int, n: int, level: float) -> list[float]:
+    """答える問い: 棄却 `n_reject` / `n` の、両側 `level` の Clopper–Pearson 区間 [下端, 上端] は。"""
+    lower = clopper_pearson_lower(n_reject, n, level)
+    upper = (
+        1.0
+        if n_reject == n
+        else float(beta_distribution.ppf(1.0 - (1.0 - level) / 2.0, n_reject + 1, n - n_reject))
+    )
+    return [lower, upper]
+
+
+def _rate_with_interval(count: int, n: int, level: float) -> dict[str, Any]:
+    """答える問い: `count` / `n` の率と両側 `level` の区間は(`n` = 0 なら率も区間も null)。"""
+    if n == 0:
+        return {"count": count, "n": 0, "rate": None, "ci": None, "ci_level": level}
+    return {
+        "count": count,
+        "n": n,
+        "rate": count / n,
+        "ci": clopper_pearson_interval(count, n, level),
+        "ci_level": level,
+    }
+
+
+def point_intervals(point: GridPoint, rejection_level: float, failure_level: float) -> dict[str, Any]:
+    """答える問い: この点の棄却率・成功だけの棄却率・失敗率・失敗した反復だけの棄却率は、区間つきでいくつか。
+
+    ★PLAN-043 I2 / ADR-129 決定3。**並べるだけ**で、どの門にも使わない(成功だけ・失敗だけの率を
+    「本当の過誤」と読まない。選択の偏りがある。PLAN-043 罠2)。`rejection` は失敗を非棄却に数えた
+    無条件の率で、誤指定の門が見る量である。
+    """
+    return {
+        "rejection": _rate_with_interval(point.n_reject, point.n_rep, rejection_level),
+        "rejection_success_only": _rate_with_interval(
+            point.n_reject_success, point.n_success, rejection_level
+        ),
+        "failed": _rate_with_interval(
+            round(point.failed_rate * point.n_rep), point.n_rep, failure_level
+        ),
+        "rejection_failed_descriptive_only": _rate_with_interval(
+            point.n_failed_descriptive_reject, point.n_failed_descriptive, rejection_level
+        ),
+    }
+
+
+def _gate_rows(
+    points: Sequence[GridPoint], taus: Sequence[float], gate: GateSpec, sheet_id: str
+) -> list[dict[str, Any]]:
+    """答える問い: このシートの判定点(`taus`)の棄却率と区間の下端はいくつか。"""
     rows = []
-    for tau in gate.tau:
+    for tau in taus:
         matching = [p for p in points if p.sigma == tau]
         if len(matching) != 1:
             raise PowerSimError(
@@ -1043,6 +1214,8 @@ def _gate_rows(points: Sequence[GridPoint], gate: GateSpec, sheet_id: str) -> li
             "n_reject": point.n_reject,
             "rejection_rate": point.power,
             "failed_rate": point.failed_rate,
+            "n_success": point.n_success,
+            "n_reject_success": point.n_reject_success,
             "ci_level": gate.ci_level,
             "ci_lower": lower,
             "exceeds": lower > gate.lower_bound_above,
@@ -1053,29 +1226,116 @@ def _gate_rows(points: Sequence[GridPoint], gate: GateSpec, sheet_id: str) -> li
 def misspecification_gate(
     points_by_sheet: Mapping[str, Sequence[GridPoint]], gate: GateSpec
 ) -> dict[str, Any]:
-    """誤指定のシートを回し終えた時点の判定(ADR-123 決定6 / ADR-124 D4)。
+    """誤指定のシートを回し終えた時点の判定(ADR-123 決定6 / ADR-124 D4 / ADR-128 決定1 (B1))。
 
-    答える問い: 「§3.2 の当てはめの第一種の過誤は、**門のシートのどれか**の `tau` の判定点の
+    答える問い: 「§3.2 の当てはめの第一種の過誤は、**門のシートのどれか**の判定点の
     **どれか 1 つでも**区間の下端が閾値を超えるほど膨らむか」。膨らめば、その段の P1・P1⁻・P0 の前で止まる。
-    `points_by_sheet` は誤指定のシートすべて。**`gate.sheet_ids` にあるものだけが判定に効き**、
-    残り((i) など)は `recorded_only` に同じ形で記録する。
-    **`tau` 0 と判定点以外の `tau` は判定に使わない**(記録はシートの `grid` にある)。
-    当てはめ失敗は棄却に数えた後の率である(`summarise_point`。ADR-124 D2')。
+    `points_by_sheet` は誤指定のシートすべて。**`gate.points` に挙げたシートだけが判定に効き**
+    (そのシートの挙げた `tau` だけ)、残り((i) など)は `recorded_only` にそのシートの全点を同じ形で記録する。
+    **挙げていない `tau` は判定に使わない**(記録はシートの `grid` にある)。
+    率は**当てはめ失敗を非棄却に数えた無条件の率**である(`summarise_point`。ADR-128 決定1 (A2))。
+    成功した反復だけの数も行に並べる(判定には使わない)。
     """
     missing = [i for i in gate.sheet_ids if i not in points_by_sheet]
     if missing:
         raise PowerSimError(f"誤指定の門のシート {missing} の結果が無い")
-    judged = {i: _gate_rows(points_by_sheet[i], gate, i) for i in gate.sheet_ids}
+    judged = {
+        sheet_id: _gate_rows(points_by_sheet[sheet_id], taus, gate, sheet_id)
+        for sheet_id, taus in gate.points
+    }
     recorded = {
-        i: _gate_rows(points, gate, i)
-        for i, points in points_by_sheet.items()
-        if i not in gate.sheet_ids
+        sheet_id: _gate_rows(points, sorted({p.sigma for p in points}), gate, sheet_id)
+        for sheet_id, points in points_by_sheet.items()
+        if sheet_id not in gate.sheet_ids
     }
     return {
         "sheets": judged,
         "recorded_only": recorded,
         "lower_bound_above": gate.lower_bound_above,
         "inflated": any(row["exceeds"] for rows in judged.values() for row in rows),
+    }
+
+
+# 実行可能性の門が見る点の範囲。いまは「回したすべてのシートのすべての点」だけ(ADR-129 決定4)
+FEASIBILITY_SCOPE_ALL = "all_sheets_all_points"
+
+
+@dataclass(frozen=True)
+class FeasibilityGateSpec:
+    """実行可能性の門。答える問い: 当てはめ失敗の率が、どの区間の下端がいくつを超えたら手順が回らないとみなして止めるか。
+
+    ★ADR-128 決定3 / ADR-129 決定4: 各段で回した**すべての点**で、当てはめ失敗の率の両側 `ci_level` の
+    Clopper–Pearson 区間の下端が `lower_bound_above` を超える点が 1 つでもあれば閉じる。過誤の門とは別
+    (棄却ではなく失敗を見る。終了コードも別)。
+    """
+
+    ci_level: float
+    lower_bound_above: float
+    scope: str
+
+
+def load_feasibility_gate_spec(config: Mapping[str, Any]) -> FeasibilityGateSpec:
+    """config の `simulation.feasibility_gate` を読む。答える問い: 実行可能性の門の値は宣言されているか。
+
+    閾値はコードに直書きしない。null・欠けは止まる。`scope` はいまは `all_sheets_all_points` だけ。
+    """
+    level = float(require(config, "simulation.feasibility_gate.ci_level"))
+    if not 0.0 < level < 1.0:
+        raise ConfigError(f"simulation.feasibility_gate.ci_level は (0, 1): {level}")
+    bound = float(require(config, "simulation.feasibility_gate.lower_bound_above"))
+    if not 0.0 <= bound < 1.0:
+        raise ConfigError(f"simulation.feasibility_gate.lower_bound_above は [0, 1): {bound}")
+    scope = require(config, "simulation.feasibility_gate.scope")
+    if scope != FEASIBILITY_SCOPE_ALL:
+        raise ConfigError(
+            f"simulation.feasibility_gate.scope は {FEASIBILITY_SCOPE_ALL!r} だけ(ADR-129 決定4): {scope!r}"
+        )
+    return FeasibilityGateSpec(ci_level=level, lower_bound_above=bound, scope=scope)
+
+
+def _feasibility_rows(
+    points: Sequence[GridPoint], gate: FeasibilityGateSpec
+) -> list[dict[str, Any]]:
+    """答える問い: このシートの各点の当てはめ失敗の率と区間の下端はいくつか。"""
+    rows = []
+    for point in points:
+        n_failed = round(point.failed_rate * point.n_rep)
+        lower = clopper_pearson_lower(n_failed, point.n_rep, gate.ci_level)
+        rows.append({
+            "n_item": point.n_item,
+            "sigma": point.sigma,
+            "rho": point.rho,
+            "n_rep": point.n_rep,
+            "n_failed": n_failed,
+            "failed_rate": point.failed_rate,
+            "n_rescued": point.n_rescued,
+            "n_floor_base_errored": point.n_floor_base_errored,
+            "ci_level": gate.ci_level,
+            "ci_lower": lower,
+            "exceeds": lower > gate.lower_bound_above,
+        })
+    return rows
+
+
+def feasibility_gate(
+    points_by_sheet: Mapping[str, Sequence[GridPoint]], gate: FeasibilityGateSpec
+) -> dict[str, Any]:
+    """答える問い: 渡したシートのどこかの点で、当てはめ失敗の率が実行可能性の門の閾値を超えたか。
+
+    ★ADR-128 決定3 / ADR-129 決定4。**過誤の門とは独立**(失敗を非棄却に数えると、失敗が過誤と結びついていても
+    過誤の門には見えない。その見張りがこの門と、失敗した反復の記述の p 値である。PLAN-043 罠5)。
+    """
+    sheets = {sheet_id: _feasibility_rows(points, gate) for sheet_id, points in points_by_sheet.items()}
+    closed_sheets = [
+        sheet_id for sheet_id, rows in sheets.items() if any(row["exceeds"] for row in rows)
+    ]
+    return {
+        "scope": gate.scope,
+        "ci_level": gate.ci_level,
+        "lower_bound_above": gate.lower_bound_above,
+        "sheets": sheets,
+        "closed_sheets": closed_sheets,
+        "closed": bool(closed_sheets),
     }
 
 
@@ -1090,9 +1350,8 @@ ROLE_MISSPECIFICATION = "misspecification"
 ROLES = (ROLE_POWER, ROLE_SHAPE_CHECK, ROLE_NULL_CALIBRATION, ROLE_MISSPECIFICATION)
 # 非加法性を持つ(RMS > 0)シート。残りは厳密に加法(RMS = 0)のプロファイルを使う
 ROLES_WITH_NONADDITIVITY = (ROLE_POWER, ROLE_SHAPE_CHECK)
-# 当てはめ失敗を棄却に数えるシート(第一種の過誤を見るシート)。残り(検出力を見るシート)は非棄却に数える
-# (どちらも「不利な側」。ADR-124 D2')
-FAILURE_AS_REJECT_ROLES = (ROLE_NULL_CALIBRATION, ROLE_MISSPECIFICATION)
+# ★ADR-128 決定1 (A2): 当てはめ失敗は、どのシートでも非棄却に数える(~~過誤のシート = 棄却 / 検出力のシート = 非棄却。
+# ADR-124 D2'~~ の `FAILURE_AS_REJECT_ROLES` は空にした = 定数ごと削除)。実行可能性の門が失敗の多さを見る
 TAU_ZERO = "zero"
 TAU_EQUALS_SIGMA = "equals_sigma"
 # 点の 3 つ組の並び(`sheets[].points` の各要素)
@@ -1294,13 +1553,13 @@ def check_gate_against_sheets(gate: GateSpec, sheets: Sequence[Sheet]) -> None:
             f"誤指定のシート {stray} が先頭のまとまりの外にある。先頭に連続して置くこと(ADR-124 D4)"
         )
     by_id = {s.sheet_id: s for s in block}
-    for sheet_id in gate.sheet_ids:
+    for sheet_id, taus in gate.points:
         if sheet_id not in by_id:
             raise ConfigError(
                 f"誤指定の門のシート {sheet_id} は sheets の先頭の誤指定のシートのどれかでなければならない"
             )
         swept = {p.sigma for p in by_id[sheet_id].points}
-        missing = [t for t in gate.tau if t not in swept]
+        missing = [t for t in taus if t not in swept]
         if missing:
             raise ConfigError(f"誤指定の門の tau {missing} をシート {sheet_id} が回さない")
 
@@ -1401,8 +1660,13 @@ def sheet_summary(
     points: Sequence[GridPoint],
     target_power: float,
     axes: AxisSpec,
+    rejection_level: float,
+    failure_level: float,
 ) -> dict[str, Any]:
     """シート 1 枚の結果をまとめる。答える問い: このシートは何を言うための数か。
+
+    各点に `intervals`(棄却率・成功だけの棄却率・失敗率・失敗した反復だけの棄却率の Clopper–Pearson 区間。
+    PLAN-043 I2)を足す。区間の水準は誤指定の門(棄却)と実行可能性の門(失敗)の `ci_level`。
 
     **`power` の読み方はシートの役割で違う**: power のシートは検出力(`n_item` の範囲と `sigma*` を出す)、
     null_calibration / misspecification のシートは第一種の過誤の率、shape_check は形の検査。
@@ -1417,10 +1681,15 @@ def sheet_summary(
         "seed_interaction": (
             None if sheet.seed_interaction is None else dataclasses.asdict(sheet.seed_interaction)
         ),
-        "failure_counted_as": (
-            "reject" if sheet.role in FAILURE_AS_REJECT_ROLES else "retain"
-        ),
-        "grid": [dataclasses.asdict(point) for point in points],
+        # ★ADR-128 決定1 (A2): どのシートでも非棄却(~~過誤のシートでは reject~~)
+        "failure_counted_as": "retain",
+        "grid": [
+            {
+                **dataclasses.asdict(point),
+                "intervals": point_intervals(point, rejection_level, failure_level),
+            }
+            for point in points
+        ],
     }
     # tau が 0 でない検出力のシート(P1 の確認点。ADR-124 D6)は軸を持たない 1 点なので逆問題を解かない
     if sheet.role == ROLE_POWER and sheet.tau == TAU_ZERO:
@@ -1435,6 +1704,9 @@ CONFIG_COPY_FILE = "config.yaml"
 RESOLVED_CONFIG_FILE = "config_resolved.json"
 # 誤指定の門が閉じて止まったときの終了コード(0 = 指定した段まで回った)
 EXIT_GATE_CLOSED = 3
+# 実行可能性の門(当てはめ失敗が多すぎる。ADR-128 決定3)が閉じて止まったときの終了コード。過誤の門(3)と分ける。
+# 両方が同じ点で閉じたときは 3(過誤の門)を返す —— どちらが閉じたかは stage_*_summary.json に両方残る
+EXIT_FEASIBILITY_CLOSED = 4
 
 
 def stage_summary_name(n_rep: int) -> str:
@@ -1517,6 +1789,7 @@ class RunContext:
     libpath: str | None
     refit: Mapping[str, Any]
     max_level: int
+    allfit: AllFitSpec
     n_workers: int
     keep_frames: bool
 
@@ -1568,13 +1841,10 @@ def run_sheet_stage(
         if pending:
             run_fits(
                 ctx.rscript, ctx.libpath, sheet_dir / f"manifest_{tag}", pending,
-                ctx.refit, ctx.max_level, ctx.n_workers,
+                ctx.refit, ctx.max_level, ctx.allfit, ctx.n_workers,
             )
         results = [json.loads(out.read_text(encoding="ascii")) for out in outputs]
-        points.append(summarise_point(
-            key, results, ctx.alpha, tost,
-            failure_as_reject=sheet.role in FAILURE_AS_REJECT_ROLES,
-        ))
+        points.append(summarise_point(key, results, ctx.alpha, tost))
         if not ctx.keep_frames:
             for csv_path, _ in pending:
                 csv_path.unlink(missing_ok=True)
@@ -1585,39 +1855,68 @@ def run_stage(
     ctx: RunContext,
     sheets: Sequence[Sheet],
     gate: GateSpec,
+    feasibility: FeasibilityGateSpec,
     axes: AxisSpec,
     stage_index: int,
     n_rep: int,
 ) -> dict[str, Any]:
     """1 段を回す。答える問い: 反復 `n_rep` までで、各シートは何を言うか。門は閉じたか。
 
-    **先頭にまとめた誤指定のシートを全部回し終えた時点で門を判定し、膨らめば残りのシートを回さずに返す**
-    (ADR-123 決定6 / ADR-124 D4)。(i) の記録が門の結果によらず残るよう、誤指定のシートは判定の前に全部回す。
+    **先頭にまとめた誤指定のシートを全部回し終えた時点で、誤指定の門(過誤の門)を判定し、膨らめば残りのシートを
+    回さずに返す**(ADR-123 決定6 / ADR-124 D4)。(i) の記録が門の結果によらず残るよう、誤指定のシートは判定の前に全部回す。
+    **実行可能性の門**(ADR-128 決定3 / ADR-129 決定4)は全シート・全点に掛け、誤指定の 3 枚はまとめて回した後に
+    過誤の門と一緒に、以降(P1・`p1_tau`・P1⁻・P0)は各シートを回し終えるごとに判定する。閉じたら次のシートの前で止まる。
     """
     block_ids = [sheet.sheet_id for sheet in leading_misspecification_block(sheets)]
     sheet_summaries: dict[str, Any] = {}
     sheet_points: dict[str, list[GridPoint]] = {}
     gate_result: dict[str, Any] | None = None
+    feasibility_sheets: dict[str, Any] = {}
+    stopped_after: str | None = None
     for sheet in sheets:
         profile = build_profile(ctx.config["effect"], sheet.profile)
         points = run_sheet_stage(ctx, sheet, profile, tost_spec(ctx.config, profile), n_rep)
         sheet_points[sheet.sheet_id] = points
-        body = sheet_summary(sheet, profile, points, ctx.target_power, axes)
+        body = sheet_summary(
+            sheet, profile, points, ctx.target_power, axes, gate.ci_level, feasibility.ci_level
+        )
         if sheet.compare_with is not None:
             body["compared_with"] = sheet.compare_with
             body["power_minus_reference"] = compare_power(
                 sheet_points[sheet.compare_with], points
             )
         sheet_summaries[sheet.sheet_id] = body
+        if sheet.sheet_id in block_ids and sheet.sheet_id != block_ids[-1]:
+            continue    # 誤指定のシートは全部回してから判定する
+        judged_ids = block_ids if sheet.sheet_id in block_ids else [sheet.sheet_id]
+        feasibility_now = feasibility_gate({i: sheet_points[i] for i in judged_ids}, feasibility)
+        feasibility_sheets.update(feasibility_now["sheets"])
+        misspecification_closed = False
         if sheet.sheet_id == block_ids[-1]:
             gate_result = misspecification_gate({i: sheet_points[i] for i in block_ids}, gate)
-            if gate_result["inflated"]:
-                break
+            misspecification_closed = gate_result["inflated"]
+        if misspecification_closed or feasibility_now["closed"]:
+            stopped_after = sheet.sheet_id
+            break
+    closed_sheets = [
+        sheet_id for sheet_id, rows in feasibility_sheets.items()
+        if any(row["exceeds"] for row in rows)
+    ]
     return {
         "stage": stage_index,
         "n_rep": n_rep,
         "misspecification_gate": gate_result,
+        "feasibility_gate": {
+            "scope": feasibility.scope,
+            "ci_level": feasibility.ci_level,
+            "lower_bound_above": feasibility.lower_bound_above,
+            "sheets": feasibility_sheets,
+            "closed_sheets": closed_sheets,
+            "closed": bool(closed_sheets),
+        },
         "stopped_at_gate": bool(gate_result and gate_result["inflated"]),
+        "stopped_at_feasibility_gate": bool(closed_sheets),
+        "stopped_after_sheet": stopped_after,
         "sheets": sheet_summaries,
         "margin_table": margin_quantile_table(
             sheet_points, {s.sheet_id: s.role for s in sheets}, axes
@@ -1638,6 +1937,7 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
     """
     sheets = load_sheets(config)
     gate = load_gate_spec(config)
+    feasibility = load_feasibility_gate_spec(config)
     check_gate_against_sheets(gate, sheets)
     axes = load_axis_spec(config)
     stages = load_stages(config)
@@ -1667,6 +1967,7 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
         libpath=config["fit"].get("r_libpath"),
         refit=config["fit"]["refit"],
         max_level=len(require(config, "fit.reduction_order")),
+        allfit=load_allfit_spec(config),
         n_workers=n_workers,
         keep_frames=keep_frames,
     )
@@ -1700,10 +2001,10 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
     }
     summary: dict[str, Any] = {}
     for stage_index, n_rep in enumerate(stages[:through_stage], start=1):
-        summary = {**header, **run_stage(ctx, sheets, gate, axes, stage_index, n_rep)}
+        summary = {**header, **run_stage(ctx, sheets, gate, feasibility, axes, stage_index, n_rep)}
         write_json_atomic(out_dir / stage_summary_name(n_rep), summary)
         write_json_atomic(out_dir / SUMMARY_FILE, summary)
-        if summary["stopped_at_gate"]:
+        if summary["stopped_at_gate"] or summary["stopped_at_feasibility_gate"]:
             break
     return summary
 
@@ -1811,6 +2112,24 @@ def describe_plan(config: Mapping[str, Any], workers_override: int | None = None
         f"(= {n_points} points x {stages[-1]} x 2); a reduced iteration costs more",
         "NOTE: n_item, sigma and rho are ASSUMED values; n_item here is NOT eval.cells",
     ]
+    # ★PLAN-043 I5: 門と allFit の宣言は dry-run でも読む(config の食い違いを本実行の前に止める)
+    gate = load_gate_spec(config)
+    check_gate_against_sheets(gate, sheets)
+    feasibility = load_feasibility_gate_spec(config)
+    allfit = load_allfit_spec(config)
+    lines += [
+        f"rng_seed  : {require(config, 'simulation.rng_seed')}  (committed before launch; PLAN-043 trap 4)",
+        "allfit    : floor stage after the last reduction level; optimizers "
+        + ", ".join(allfit.optimizers)
+        + f"; start_from_mle {str(allfit.start_from_mle).lower()}; min_aligned {allfit.min_aligned}; "
+        f"R {allfit.expected_r_version} / lme4 {allfit.expected_lme4_version}",
+        "failures  : counted as non-rejections on every sheet; TOST delta = +inf on every sheet (ADR-128)",
+        f"gate      : misspecification (exit {EXIT_GATE_CLOSED}) CP{gate.ci_level * 100:g} lower bound > "
+        f"{gate.lower_bound_above:g} at "
+        + "; ".join(f"{sheet_id}: tau {list(taus)}" for sheet_id, taus in gate.points),
+        f"            feasibility (exit {EXIT_FEASIBILITY_CLOSED}) CP{feasibility.ci_level * 100:g} lower bound of the "
+        f"failure rate > {feasibility.lower_bound_above:g} at {feasibility.scope}",
+    ]
     workers = int(workers_override or config["fit"].get("n_workers") or 1)
     try:
         lines += stage_cost_lines(config, sheets, stages, workers)
@@ -1855,6 +2174,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "stage": summary["stage"],
         "n_rep": summary["n_rep"],
         "misspecification_gate": summary["misspecification_gate"],
+        "feasibility_gate": {
+            "closed": summary["feasibility_gate"]["closed"],
+            "closed_sheets": summary["feasibility_gate"]["closed_sheets"],
+            "stopped_after_sheet": summary["stopped_after_sheet"],
+        },
         "inverse_problem": {
             sheet_id: body["inverse_problem"]
             for sheet_id, body in summary["sheets"].items()
@@ -1866,6 +2190,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("STOPPED: the misspecification gate closed (ADR-123 decision 6). "
               "P1 / P1_neg / P0 of this stage were not run.")
         return EXIT_GATE_CLOSED
+    if summary["stopped_at_feasibility_gate"]:
+        print("STOPPED: the feasibility gate closed (ADR-128 decision 3): the share of fit failures is too "
+              f"high at {summary['feasibility_gate']['closed_sheets']}. The sheets after "
+              f"{summary['stopped_after_sheet']} of this stage were not run.")
+        return EXIT_FEASIBILITY_CLOSED
     return 0
 
 

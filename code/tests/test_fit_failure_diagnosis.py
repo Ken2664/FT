@@ -335,7 +335,7 @@ def test_d0_summary_reports_the_largest_difference(spec: fd.DiagnosisSpec) -> No
 # ---- 選ぶ・書く ----------------------------------------------------------------
 
 
-def synthetic_run(tmp_path: Path, n_rep: int, failed_reps: set[int]) -> tuple[Path, ps.Sheet, ps.GateSpec]:
+def synthetic_run(tmp_path: Path, n_rep: int, failed_reps: set[int]) -> tuple[Path, ps.Sheet, fd.LegacyGateSpec]:
     key = ps.PointKey(80, TAU, 0.0)
     sheet = ps.Sheet(sheet_id=SHEET, role=ps.ROLE_MISSPECIFICATION, profile="P0", points=(key,),
                      tau=ps.TAU_EQUALS_SIGMA, compare_with=None)
@@ -344,7 +344,7 @@ def synthetic_run(tmp_path: Path, n_rep: int, failed_reps: set[int]) -> tuple[Pa
     for rep in range(n_rep):
         payload = fit_json(failed=rep in failed_reps)
         (fits_dir / f"fit_{key.tag()}_{rep:04d}.json").write_text(json.dumps(payload), encoding="ascii")
-    gate = ps.GateSpec(sheet_ids=(SHEET,), tau=(TAU,), ci_level=LEVEL, lower_bound_above=BOUND)
+    gate = fd.LegacyGateSpec(sheet_ids=(SHEET,), tau=(TAU,), ci_level=LEVEL, lower_bound_above=BOUND)
     return tmp_path, sheet, gate
 
 

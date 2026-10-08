@@ -206,21 +206,35 @@ simulation:
   n_rep_stages: [100, 300, 1000]
   alpha: 0.05               # 有意水準
   target_power: 0.8         # §6.3 手続き5。n_item の範囲・sigma* はここを基準に格子点だけで読む
-  rng_seed: 20260909
+  # ~~rng_seed: 20260909~~(run2。ADR-122 決定4)→ ★2026-10-08 ADR-129 決定5: run3 は採った日付 20261008
+  # (run2 と違う SeedSequence の列。PLAN-043 I6)。**この値は起動の前に commit する**(結果を見て選べない。罠4)。tag は打たない
+  rng_seed: 20261008
   # ★D5 (a)。平行性の TOST は交互作用 2 係数の Wald 90% CI がどちらも ±Δ に入れば同等(IUT)。
   # 片側 0.05 = 90% CI。**Δ の値は決めない**(凍結前に人間。ADR-114)。反復ごとに「同等と言える最小の Δ」を
   # 保存し、Δ の関数としての TOST の検出力は集計の後で読む
   tost_alpha: 0.05
-  # ★ADR-122 決定3 / ADR-123 決定6。各段で誤指定のシートを回し終えた時点で判定し、膨らめばその段の P1 の前で止まる。
-  # 「膨らむ」= tau のどれか 1 つで、主要検定の棄却率の Clopper–Pearson 区間(ci_level)の下端 > lower_bound_above。
-  # 0.075 は名目 α の 1.5 倍(**出典は未確認**。ADR-123 リスク)。tau 0 と 0.75 以上は判定に使わない(記録はする)
-  # ★ADR-124 D4・補い 2: 門は今のシートと (ii) の両方に掛け、どちらかの tau 0.25 / 0.5 で下端 > 0.075 なら閉じる。
-  #   (i) は判定に使わず記録する。閾値・判定点は ADR-123 決定6 のまま
+  # ★ADR-122 決定3 / ADR-123 決定6。各段で誤指定のシートを回し終えた時点で判定し、膨らめばその段の P1 の前で止まる(過誤の門。終了コード 3)。
+  # 「膨らむ」= 判定点のどれか 1 つで、主要検定の棄却率(**当てはめ失敗を非棄却に数えた無条件の率**。ADR-128 決定1)の
+  # Clopper–Pearson 区間(ci_level)の下端 > lower_bound_above。0.075 は名目 α の 1.5 倍(**出典は未確認**。ADR-123 リスク)。
+  # ★ADR-124 D4・補い 2: 門は今のシートと (ii) に掛け、(i) は判定に使わず記録する。
+  # ★2026-10-08 ADR-128 決定1 (B1) / PLAN-043 I4: 判定点を**シートごと**にした(基本の誤指定に tau 1.0 を足した)。
+  #   ~~sheets: [misspecification, misspecification_seed_subspace] / tau: [0.25, 0.5]~~(全シート共通の直積。残っていれば止まる)。
+  #   tau 0 と判定点以外の tau は判定に使わない(記録はする)
   misspecification_gate:
-    sheets: [misspecification, misspecification_seed_subspace]
-    tau: [0.25, 0.5]
+    points:
+      misspecification: [0.25, 0.5, 1.0]
+      misspecification_seed_subspace: [0.25, 0.5]
     ci_level: 0.95
     lower_bound_above: 0.075
+  # ★実行可能性の門(ADR-128 決定3 / ADR-129 決定4。PLAN-043 I5。終了コード 4)。当てはめ失敗の率が高すぎて手順が回らない
+  # ことを見る(過誤の門は失敗を非棄却に数えるので、失敗が多くても棄却は増えない)。回した**すべてのシートのすべての点**で、
+  # 当てはめ失敗の率の Clopper–Pearson 区間の下端 > lower_bound_above なら閉じる。誤指定の 3 枚はまとめて回した後に過誤の門と
+  # 一緒に判定し、以降(p1・p1_tau・p1_neg・p0)は各シートを回し終えるごとに判定して、閉じたら次のシートの前で止まる。
+  # 0.10 は人間が決めた(ADR-128)。100・300・1000 反復で失敗が 17・42・120 回以上で閉じる(算術。PLAN-043 §5.3)
+  feasibility_gate:
+    ci_level: 0.95
+    lower_bound_above: 0.10
+    scope: all_sheets_all_points
 
 # ---- 当てはめ(§6.3 手続き3b。ADR-058 決定1 / ADR-059)------------------------
 fit:
@@ -249,3 +263,22 @@ fit:
   # ★2026-10-05 ADR-124 決定2: template → coverage の傾きの相関 → coverage の傾き(= 床)。item と
   # seed:task:coverage は落とさない。床でも失敗(収束しない / 例外)なら「当てはめ失敗」(power_sim_fit.R)
   reduction_order: [template, coverage_corr, coverage_slope]
+  # ★床の allFit の段(ADR-128 決定1 (A3) / ADR-129 決定1・2。PLAN-043 I1)。床(上の最後の段)でも ADR-059 の判定が
+  # 収束しない表に、床の式(full・add)へ lme4 の allFit を当てる。full と add の**両方**で「警告なし(singular を除く)に
+  # 収束した最適化が min_aligned 個以上、logLik が最大のものから差 < refit.loglik_tolerance」なら収束(PLAN-042 §2.2 の 1a)。
+  # LRT は揃った最適化のうち logLik 最大のもの(full・add それぞれ)から取る。それでも収束しなければ「当てはめ失敗」。
+  # 最適化は allFit の結果の名前で**列挙**する(PLAN-042 D1 と同じ 5 つ。dfoptim・optimx が無い機械でも集合が変わらない)。
+  # **1 つでも使えなければ R が止まる**。start_from_mle は false(既定の初期値から当て直す。true は「別の最適化でも同じ点に
+  # 着く」の証拠として弱い)。R / lme4 の版が expected_* と違えば止まる(診断の版)。床の土台の glmer が例外なら救わずに失敗。
+  # **run3 の結果を見た後にこの欄を変えない**(PLAN-043 罠3。変えるなら新しい反復)
+  allfit:
+    optimizers:
+      - bobyqa
+      - Nelder_Mead
+      - nlminbwrap
+      - nloptwrap.NLOPT_LN_NELDERMEAD
+      - nloptwrap.NLOPT_LN_BOBYQA
+    start_from_mle: false
+    min_aligned: 2
+    expected_r_version: "4.6.1"
+    expected_lme4_version: "2.0.6"

@@ -6,6 +6,8 @@
 #   remove:     powershell -ExecutionPolicy Bypass -File infra\power_sim_night\register_tasks.ps1 -Unregister
 #   preview:    add -DryRun (prints what would be registered, changes nothing)
 # To move on to the next stage, register again with -ThroughStage 2 (it replaces the tasks).
+# PLAN-043 / ADR-129 decision 7: for run3 the human registers with -OutName run3 -ThroughStage 1 (a leftover run2 task is disabled by the human).
+# The run exits 3 when the misspecification gate closes and 4 when the feasibility gate closes (PLAN-040 appendix A.4); start_night.ps1 then refuses to rerun.
 #
 # Needs you to stay logged in (screen off / locked / lid closed with "do nothing" on AC is fine; log-off is not).
 # ASCII only on purpose (Windows PowerShell 5.1 reads BOM-less files as ANSI).

@@ -7970,3 +7970,6 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - 1a を満たし 1b を満たさない 37 件: 1b を落としたのは add だけ 11・full だけ 13・両方 13
   - 当て直しの後と `fit0` の p 値は 103 件とも α 0.05 の同じ側。新しい項の SD が 0 に張り付いた失敗は 0 件(full・add とも)
 - **やっていないこと**: 解釈の確定・(5) の決定・規則(ADR-059・ADR-124 D2')・config・`power_sim*` の変更・どの分散成分が特異かの確認・`per_cell/frames/` の残骸 46 本の削除・push・tag・`pytest code/tests`(`code/` を変えていない)
+
+## 2026-10-08(その160・引き継ぎ)   [actor: PLANNER 相当 (Opus 5.5)]
+- STATE.md(冒頭・最新ブロック 3 つ。古いブロックは `logs/STATE-ARCHIVE.md`「その160」へ)・`logs/OPEN-ITEMS.md`(PLAN-042 の行に追記)・`logs/HANDOFF.md`(次は PLANNER・Opus。(5) の判断材料の表)を更新した。context-guard(約 105k)で切った

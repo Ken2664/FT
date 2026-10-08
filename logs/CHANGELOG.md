@@ -8026,3 +8026,6 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **人間の指示**: `/resume-handoff`
 - **やったこと**: 診断の R(`fit_failure_diagnosis.R`)の D0 スモークを 1 件(`misspecification__n80_s0_r0__0002`。表は `rebuild_frame_rows` で作り直し、出力は scratchpad。run2 の表・結果は書き換えていない)→ R は異常終了せず(159.2 秒)、出力は run2 の既存の `r_out` と全欄一致(差 0・`d0.ok` = true)/ `pytest code/tests -q` = 2522 passed(588 s)/ `--dry-run`(`power_sim`・`pb_timing`)通過 / `plans/PLAN-043-*.md` §10 のチェックと §12 の実行ログ・実装の判断 6 件 / `logs/OPEN-ITEMS.md`(PLAN-042 の行)
 - **やっていないこと**: PB の計時の実行・run3 の起動・夜用タスクの登録・push・tag(人間の合図なし)・ADR-129 の値の変更
+
+## 2026-10-08(その165・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- PLAN-043 の実装を閉じたのと context-guard(約 112k)で切った。`STATE.md`(冒頭・最新ブロック・次のアクション・引き継ぎ。旧は `logs/STATE-ARCHIVE.md`「その165」)・`logs/HANDOFF.md`(次は人間の指示待ち: 判断 6 件の確認 / PB の計時の日時 / run3 の準備)を更新した

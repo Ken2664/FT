@@ -18,6 +18,33 @@
 
 ---
 
+## ★2026-10-08(その165)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+最終更新: 2026-10-08(その164)/ by IMPLEMENTER (Claude Sonnet 5.5。HANDOFF の推奨 Sonnet と一致)。**★PLAN-043 の I1〜I8・I10 を実装し、I9(PB の計時)はスクリプトまで作った**(未 commit だったものを handoff で commit)。`pytest code/tests -q` = 2522 passed(R のスモークは別に実行。下)/ `--dry-run` 通過 / R のスモークは変更前後の `p_value` が一致(罠6)・床で失敗した 1 件で `allFit` の段の記録が出た。**PB の計時は実行していない**(日時は人間)。GPU 0・pod 0
+(**次: IMPLEMENTER が残りを閉じる(診断の R の D0 スモーク・PLAN-043 §10 のチェック・CHANGELOG の追記の確認)→ 人間が PB の計時の日時と run3 の起動を決める。並行して push と G2-1 承認で S4**。)
+
+> **★★2026-10-08(その164・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-043 I1〜I8・I10 実装済み・I9 はスクリプトまで。GPU 0・pod 0**
+> - **変えたもの**: `power_sim_fit.R`(床の `allFit` の段。`rescue_*` の関数・`run_one` の `allfit` 引数・出力の新しい欄)/ `power_sim.py`(`AllFitSpec`・失敗は全シート非棄却・`GridPoint` の新しい欄・`GateSpec` をシートごとの判定点に・`FeasibilityGateSpec`・`feasibility_gate`・終了コード 4)/ `configs/power_sim.yaml`(`rng_seed` 20261008・`misspecification_gate.points`・`feasibility_gate`・`fit.allfit`)/ `power_sim_smoke.yaml` / `fit_failure_diagnosis.py`(`LegacyGateSpec`。run2 の旧い門の形を読む)/ `start_night.ps1`・`register_tasks.ps1` / 05_STATISTICS・PLAN-040・DECISIONS の打ち消し線 / `pb_timing.{R,py}`・`configs/pb_timing.yaml`・`test_pb_timing.py`(新)
+> - **R のスモーク**(scratchpad。repo に入れていない。run2 の seed で組んだ合成の反復 9001・9002 と、run2 で床で失敗した 1 件(`misspecification` n80 s0 r0 rep 2。読むだけ)): 変更前後で `p_value` が一致したのは 3 表(床で失敗しない表。p0 9002・誤指定 9001・9002)。p0 9001 は変更前は失敗・変更後は `allFit` の段で救われた(full の揃った最適化 4・add 5)。run2 の 1 件は `allFit` の最適化ごとの logLik が PLAN-042 の診断の記録と一致(bobyqa −2558.76302174 など)・add の揃った最適化が 1 で救えず・記述の p 値 0.7696。**数値は run3 の判定ではない**(run2 の seed で組んだ表のスモーク)
+> - **実装の判断(人間が確認。PLAN-043 §12 に書いた)**: 両方の門が閉じたとき終了コードは 3 / `FAILURE_AS_REJECT_ROLES` は空にせず定数ごと削除 / PB の `simulate_seed` は run3 の `rng_seed` と同じ 20261008 / `feasibility_gate.scope` は `all_sheets_all_points` だけ受ける / 区間の水準は過誤の門・実行可能性の門の `ci_level`(0.95)を流用 / `start_night.ps1` は `stopped_at_feasibility_gate` でも再起動を拒む(`stop_night.ps1` は不変)
+> - **まだ**: 診断の R(`fit_failure_diagnosis.R`)の D0 スモーク(借りる範囲に関数を足したので 1 件で確かめる)/ PB の計時の実行(人間の合図)/ run3 の起動・夜用タスクの登録・push・tag(人間)
+> - **★その163 のブロックは `logs/STATE-ARCHIVE.md`「その164」にある**
+
+> **★★2026-10-08(その163・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **IMPLEMENTER: PLAN-043 I1〜I10**(ADR-129 の値。`pytest code/tests -q`・合成の反復で R のスモーク・`--dry-run --workers 16` の費用の表)→ **人間が run3 の起動を決める**(夜用タスクの登録は人間。run2 の登録が残っていれば無効にする)。PB の計時(I9)は run3 と別の夜か昼で、日時は人間
+> 2. **人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)**: `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8。**検出力分析と独立に進められる**
+> 3. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / **PB の反復数と食い違ったときの扱い(ADR-128 決定2)** / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / 実際の `eval.cells` / **文献 41 件の原典確認**(ADR-125 決定6)→ tag → S6
+> 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本の削除
+
+> **★★2026-10-08(その163・最新)。PLANNER (Opus 5.5)。PLAN-043 §4 の Q1〜Q6 を聞いて ADR-129。**
+>
+> **★やったこと**: 開始手順(HANDOFF・STATE・git の食い違いなし)→ PLAN-043 §4・§5 を判断材料として示し、`AskUserQuestion` 2 回(Q1〜Q4 / Q1'・Q5・Q6)→ 人間が 7 問とも推奨 → ADR-129・PLAN-043(採択・§11・§12)・OPEN-ITEMS・STATE・CHANGELOG → commit。
+> **★やっていないこと**: I1〜I10 の実装・config・`code/`・文書本文の打ち消し線・run3・PB の計時・特異な分散成分の確認・frames の削除・push・tag・GPU・pod・`pytest code/tests`(`code/` を変えていない)。
+
+---
+
 ## ★2026-10-08(その164)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 最終更新: 2026-10-08(その163)/ by PLANNER (Opus 5.5。HANDOFF の推奨 Opus と一致)。**★PLAN-043 を採択した(ADR-129。人間が 7 問とも推奨)**: `allFit` = PLAN-042 D1 と同じ 5 最適化を名前で列挙・`start_from_mle = FALSE`(床の土台の例外は救わずに失敗)/ 失敗した反復の記述の p 値を残す(門に使わない)/ 実行可能性の門は全シート・全点でシートごとに判定 / run3 の `rng_seed` = 20261008 / PB の計時は手書き・合成の 4 表 × B 20。文書の本文・config・code はまだ不変。GPU 0・pod 0

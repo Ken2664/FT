@@ -341,7 +341,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 > **★★2026-10-08(その161・最新)。PLANNER (Opus 5.5)。(5) の判断材料の表と ADR-128。**
 >
-> **★やったこと**: 開始手順 → 診断の json と REVIEW §4 から判断材料の表(チャット)→ `AskUserQuestion` 5 問(5 問とも推奨)→ ADR-128 / OPEN-ITEMS / STATE / CHANGELOG → commit。
+> **★やったこと**: 開始手順 → 診断の json と REVIEW §4 から判断材料の表(チャット)→ `AskUserQuestion` 5 問(5 問とも推奨)→ ADR-128 / OPEN-ITEMS / STATE / CHANGELOG → commit `d3a3a24` → 引き継ぎ(context-guard 約 159k。`logs/HANDOFF.md` = 次は PLANNER・Opus で PLAN-043 の草案)。
 > **★やっていないこと**: 文書本文の打ち消し線・config・`power_sim*` の変更・PLAN-043 の草案・特異な分散成分の確認・frames の削除・push・tag・GPU・pod・`pytest code/tests`(`code/` を変えていない)。
 
 ---

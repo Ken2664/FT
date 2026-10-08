@@ -7982,3 +7982,6 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
   - 人間が `AskUserQuestion` 5 問すべてで推奨を選んだ → **ADR-128**(`logs/DECISIONS.md`)
   - `logs/OPEN-ITEMS.md`(PLAN-042 の行に決着を追記)/ `STATE.md`(冒頭・3 ブロック・索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その161」)
 - **やっていないこと**: `05_STATISTICS.md`・PLAN-040 §11・ADR-059 / ADR-124 D2' / ADR-125 決定3 の本文の打ち消し線・`configs/power_sim.yaml`・`power_sim*` の変更(実装の PLAN で行う)・PLAN-043 の草案・特異な分散成分の確認・`per_cell/frames/` の残骸の削除・push・tag・`pytest code/tests` の全件(`code/` を変えていない)
+
+## 2026-10-08(その161・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- `STATE.md`(引き継ぎブロック)・`logs/HANDOFF.md`(次は PLANNER・Opus。ADR-128 の実装の PLAN-043 の草案)を更新した。context-guard(約 159k)で切った

@@ -7973,3 +7973,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-08(その160・引き継ぎ)   [actor: PLANNER 相当 (Opus 5.5)]
 - STATE.md(冒頭・最新ブロック 3 つ。古いブロックは `logs/STATE-ARCHIVE.md`「その160」へ)・`logs/OPEN-ITEMS.md`(PLAN-042 の行に追記)・`logs/HANDOFF.md`(次は PLANNER・Opus。(5) の判断材料の表)を更新した。context-guard(約 105k)で切った
+
+## 2026-10-08(その161): (5) の判断材料の表と ADR-128   [actor: PLANNER (Claude Opus 5.5)]   [run:20261005_120003_power_sim_t1t2]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(worktree は既知の 1 本)。GPU 0・pod 0
+- **人間の指示**: 「handoffを読んで作業を続けて下さい」
+- **やったこと**:
+  - `fit_failure_diagnosis.json` の `judgement_rows`・`failed_only_rejection`・`d4_new_term_sd` と、`cases` の (シート, `tau`) ごとの「1a の条件を満たす失敗」の件数(139 / 156。残る失敗は基本 `tau` 0 → 6・0.25 → 1・0.5 → 2・0.75 → 3・1.0 → 0・1.5 → 0 / seed_subspace 0.25 → 1・0.5 → 4。記述)を読み、軸 A・軸 B・実行可能性の門・TOST の整合・新しい反復の判断材料の表をチャットで示した(ADR-097 決定6)
+  - 人間が `AskUserQuestion` 5 問すべてで推奨を選んだ → **ADR-128**(`logs/DECISIONS.md`)
+  - `logs/OPEN-ITEMS.md`(PLAN-042 の行に決着を追記)/ `STATE.md`(冒頭・3 ブロック・索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その161」)
+- **やっていないこと**: `05_STATISTICS.md`・PLAN-040 §11・ADR-059 / ADR-124 D2' / ADR-125 決定3 の本文の打ち消し線・`configs/power_sim.yaml`・`power_sim*` の変更(実装の PLAN で行う)・PLAN-043 の草案・特異な分散成分の確認・`per_cell/frames/` の残骸の削除・push・tag・`pytest code/tests` の全件(`code/` を変えていない)

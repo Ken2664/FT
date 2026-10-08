@@ -7985,3 +7985,13 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-08(その161・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - `STATE.md`(引き継ぎブロック)・`logs/HANDOFF.md`(次は PLANNER・Opus。ADR-128 の実装の PLAN-043 の草案)を更新した。context-guard(約 159k)で切った
+
+## 2026-10-08(その162): ADR-128 の実装の PLAN-043 草案   [actor: PLANNER (Claude Opus 5.5)]   [run:20261005_120003_power_sim_t1t2]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。worktree は既知の 1 本)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`
+- **やったこと**:
+  - ADR-128・PLAN-042 §2.2・§4〜§7・`power_sim_fit.R`(`judge_one`・`run_one`)・`power_sim.py`(数え方・門・`run_stage`)・`configs/power_sim.yaml`(シート・門)・`fit_failure_diagnosis.R`(`run_allfit`)・05_STATISTICS の該当行を `grep` / `sed -n` で読んだ
+  - 記述として確かめた: 診断の `r_out/` 176 件で床の当てはめの例外 0・`allFit` の 5 最適化(352 回ずつ)の例外 0 / この機械の R 4.6.1 に `pbkrtest`・`dfoptim`・`optimx` は無い / 実行可能性の門(CP95 下端 > 0.10)は 100・300・1000 反復で失敗 17・42・120 回以上で閉じる(`scipy.stats.beta` の算術)
+  - `plans/PLAN-043-adr128-fit-rescue-and-gates.md`(草案): I1〜I10(床の `allFit` の段・全シート非棄却・TOST の +∞・過誤の門の判定点をシートごとに・実行可能性の門と終了コード 4・run3 の `rng_seed`・文書の打ち消し線の表・夜用タスク・PB の計時・テスト)と §4 の Q1〜Q6(推奨を先頭に)
+  - `logs/OPEN-ITEMS.md`(PLAN-042 の行に追記)/ `STATE.md`(冒頭・3 ブロック・索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その162」)
+- **やっていないこと**: §4 の決定・ADR・文書本文の打ち消し線・`configs/power_sim.yaml`・`code/` の変更・run3・PB の計時・特異な分散成分の確認・`per_cell/frames/` の残骸の削除・push・tag・`pytest code/tests`(`code/` を変えていない)

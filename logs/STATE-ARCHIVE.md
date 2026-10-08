@@ -18,6 +18,32 @@
 
 ---
 
+## ★2026-10-08(その162)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+最終更新: 2026-10-08(その161)/ by PLANNER (Opus 5.5。HANDOFF の推奨 Opus と一致)。**★(5) を決めた(ADR-128。人間が 5 問とも推奨): 軸 A = A2 + A3(床の失敗に 1a の `allFit` を 1 段・それでも失敗なら主張しない)/ 軸 B = B1 + B2(過誤の門に `tau` 1.0・主要検定を PB の LRT に寄せる方向で計時から)/ 実行可能性の門 = 全点で失敗率の CP95 下端 > 0.10 / TOST の失敗も「主張しない」/ 新しい run3・新しい `rng_seed`**。文書の本文・config・code はまだ不変。GPU 0・pod 0 [run:20261005_120003_power_sim_t1t2]
+(**次: PLANNER が ADR-128 の実装の PLAN(PLAN-043 草案)を書く → 人間のレビュー → IMPLEMENTER → 人間が run3 の起動を決める。並行して push と G2-1 承認で S4 を開ける**。)
+
+> **★★2026-10-08(その161・最新)。Phase 0。PLANNER (Opus 5.5)。(5) の判断材料の表と ADR-128。GPU 0・pod 0**
+> - **ADR-128(人間が 5 問とも推奨)**: 軸 A = A2 + A3 / 軸 B = B1 + B2 / 実行可能性の門 = 各段で回した全点(`tau` 0・P0・P1・P1⁻ を含む)で失敗率の CP95 下端 > 0.10 なら閉じる / ADR-125 決定3 を改めて TOST の失敗も Δ = +∞ / run3 で新しい `rng_seed`・100 → 300 → 1000 を最初から
+> - **表に使った記述の数(`fit_failure_diagnosis.json` の `cases` を数えた。門の判定ではない)**: 1a の条件を満たす失敗 139 / 156。残る失敗は基本 `tau` 0 → 6・0.25 → 1・0.5 → 2・0.75 → 3・1.0 → 0・1.5 → 0 / seed_subspace 0.25 → 1・0.5 → 4(各 100 反復)
+> - **まだ変えていないもの**: `05_STATISTICS.md` §3.2・PLAN-040 §11・ADR-059 / ADR-124 D2' / ADR-125 決定3 の本文の打ち消し線・`configs/power_sim.yaml`・`power_sim*`。**実装の PLAN で行う**
+> - **★その160 のブロックは `logs/STATE-ARCHIVE.md`「その161」にある**
+
+> **★★2026-10-08(その161・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **PLANNER: ADR-128 の実装の PLAN(PLAN-043 草案)**: `allFit` の最適化の集合と引数の固定 / 失敗の数え方(LRT・TOST)/ 過誤の門(`tau` 0.25・0.5・1.0 + seed_subspace 0.25・0.5)と実行可能性の門 / run3 の `rng_seed` の値(起動前に commit)/ 文書の打ち消し線(05_STATISTICS §3.2・PLAN-040 §11)/ PB の計時(B2)→ 人間のレビュー → IMPLEMENTER → 人間が run3 の起動を決める
+> 2. **人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)**: `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8。**検出力分析と独立に進められる**
+> 3. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / **PB の反復数と食い違ったときの扱い(ADR-128 決定2)** / E1 の TOST / s の水準 / step 数・T2 の文面 / ★L(d) / N5 / テンプレート集合 / `θ` の根拠 / 実際の `eval.cells` / **文献 41 件の原典確認**(ADR-125 決定6)→ tag → S6
+> 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本の削除
+
+> **★★2026-10-08(その161・最新)。PLANNER (Opus 5.5)。(5) の判断材料の表と ADR-128。**
+>
+> **★やったこと**: 開始手順 → 診断の json と REVIEW §4 から判断材料の表(チャット)→ `AskUserQuestion` 5 問(5 問とも推奨)→ ADR-128 / OPEN-ITEMS / STATE / CHANGELOG → commit `d3a3a24` → 引き継ぎ(context-guard 約 159k。`logs/HANDOFF.md` = 次は PLANNER・Opus で PLAN-043 の草案)。
+> **★やっていないこと**: 文書本文の打ち消し線・config・`power_sim*` の変更・PLAN-043 の草案・特異な分散成分の確認・frames の削除・push・tag・GPU・pod・`pytest code/tests`(`code/` を変えていない)。
+
+---
+
 ## ★2026-10-08(その161)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 最終更新: 2026-10-08(その160)/ by PLANNER 相当 (Opus 5.5。HANDOFF の推奨 Sonnet(実行)と不一致。依頼が診断結果の説明 = 統計の読みなので Opus)。**★PLAN-042 の診断(その159・10-07 夜)の結果を説明し、失敗の大きさを探索的に読み直した(`results/power_sim/run2/exploratory/fit_failure_size.{py,json}`・`9cfc560`)。判定の行は 1a・3 が 4 点とも開く / 1b・5 は支えない。失敗した反復だけの棄却 4 / 103。解釈と (5) は人間**。規則・config・code は不変。GPU 0・pod 0 [run:20261005_120003_power_sim_t1t2]

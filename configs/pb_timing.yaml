@@ -1,0 +1,34 @@
+# configs/pb_timing.yaml — パラメトリック・ブートストラップ(PB)の費用の計時(PLAN-043 I9 / ADR-128 決定2 (B2) / ADR-129 決定6)。
+#
+#   python -m code.analysis.pb_timing --config configs/pb_timing.yaml --dry-run
+#   python -m code.analysis.pb_timing --config configs/pb_timing.yaml     # ★実行は人間の合図の後(日時は人間が決める。ADR-129 決定6)
+#
+# **出すのは秒数と当て直しの失敗の数だけ。p 値は出さない・判定に使わない**(PB の反復数・中の失敗の扱い・
+# 漸近 χ² と食い違ったときの扱いは S5)。run3 と同じ夜には回さない(PLAN-043 §4 Q5)。
+#
+# 表は**合成の反復(番号 >= min_rep。run2・run3 の反復は 0〜999 なので重ならない)**で、run3 の反復を覗かない。
+# 当てはめの閾値・縮退順序・DGP・シートは source_config(本番の config)から読む(複写しない)。
+analysis:
+  id: pb_timing
+  plan: plans/PLAN-043-adr128-fit-rescue-and-gates.md
+  section: PLAN-043 I9
+
+source_config: configs/power_sim.yaml
+
+# 表: P0 の (80, 1.0, 0.0) から 2 枚・誤指定(tau = sigma = 1.0)の同じ点から 2 枚(ADR-129 決定6)。
+# point は [n_item, sigma, rho]。そのシートが回す点でなければ止まる
+tables:
+  - {sheet: p0, point: [80, 1.0, 0.0], rep: 9001}
+  - {sheet: p0, point: [80, 1.0, 0.0], rep: 9002}
+  - {sheet: misspecification, point: [80, 1.0, 0.0], rep: 9001}
+  - {sheet: misspecification, point: [80, 1.0, 0.0], rep: 9002}
+
+pb:
+  n_boot: 20                  # 1 表あたりの simulate -> refit の回数(B。ADR-129 決定6)。計 4 x 20 x 2 = 160 本の当て直し
+  min_rep: 9000               # この番号未満の反復は使わない(run2・run3 の反復を覗かない)
+  # simulate() の乱数の種。計時だけの値で、p 値を出さないので結果に効かない。run3 の rng_seed と同じ値を使った
+  # (新しい値を選ぶ自由度を作らないため。実装の判断。PLAN-043 §12)
+  simulate_seed: 20261008
+  n_parallel: 4               # 同時に走らせる Rscript(1 表 1 本)。秒数は並列の下の値で、出力に残す
+
+out_dir: results/power_sim/pb_timing

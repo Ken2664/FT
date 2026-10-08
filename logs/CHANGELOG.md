@@ -7998,3 +7998,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-08(その162・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - 人間が「PLAN-043 §4 の Q1〜Q6 を AskUserQuestion で順に聞いて」と指示した時点で context-guard(約 192k)が出たので、聞く前に切った。`STATE.md`(引き継ぎブロック)・`logs/HANDOFF.md`(次は PLANNER・Opus。Q1〜Q6 を聞いて ADR-129 に記録)を更新した
+
+## 2026-10-08(その163): PLAN-043 §4 の Q1〜Q6 を聞いて ADR-129(PLAN-043 採択)   [actor: PLANNER (Claude Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。worktree は既知の 1 本)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`(HANDOFF = PLAN-043 §4 の Q1〜Q6 を `AskUserQuestion` で推奨を先頭に聞く)
+- **やったこと**:
+  - PLAN-043 §4・§5 を判断材料の表として示し(ADR-097 決定6)、`AskUserQuestion` を 2 回(Q1〜Q4 / Q1'・Q5・Q6)。人間が 7 問とも推奨を選んだ
+  - **ADR-129**(`logs/DECISIONS.md`): `allFit` = PLAN-042 D1 と同じ 5 最適化を名前で列挙・`start_from_mle = FALSE`・版が診断と違えば止まる / 床の土台の `glmer` の例外は救わずに失敗 / `p_value_failed_descriptive` を残す・門に使わない / 実行可能性の門は全シート・全点でシートごとに判定 / run3 の `rng_seed` = 20261008 / PB の計時は手書きの simulate → refit・合成の 4 表 × B 20・秒数だけ / 起動の手順は §4 Q6
+  - `plans/PLAN-043-*.md`(ステータス = 採択・§11・§12)/ `logs/OPEN-ITEMS.md`(PLAN-042 の行に追記)/ `STATE.md`(冒頭・3 ブロック・索引の行。旧ブロックは `logs/STATE-ARCHIVE.md`「その163」)
+- **やっていないこと**: I1〜I10 の実装・`configs/power_sim.yaml`・`code/`・`infra/power_sim_night/`・文書本文の打ち消し線・run3・PB の計時・特異な分散成分の確認・`per_cell/frames/` の残骸の削除・push・tag・`pytest code/tests` の全件(`code/` を変えていない)

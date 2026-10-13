@@ -1,0 +1,6 @@
+loglik_tolerance=0.001
+beta_move_tolerance=0.01
+max_reduction_level=3
+n_boot=20
+simulate_seed=20261008
+table=C:/Users/keenk/paper/FT/results/power_sim/pb_timing/frames/p0__n80_s1_r0__9001.csv|C:/Users/keenk/paper/FT/results/power_sim/pb_timing/r_out/p0__n80_s1_r0__9001.json|4

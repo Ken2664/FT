@@ -1,0 +1,19 @@
+{
+  "csv": "misspecification__n80_s1_r0__9002.csv",
+  "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+  "lme4_version": "2.0.6",
+  "n_parallel": 4,
+  "settled_level": 3,
+  "observed_fit_failed": false,
+  "observed_fit_seconds": 426.510,
+  "n_boot": 20,
+  "skipped": false,
+  "simulate_seconds": 0.030,
+  "refit_seconds_total": 908.220,
+  "refit_seconds_each": [94.780, 23.740, 28.310, 42.470, 53.790, 54.330, 35.770, 68.760, 82.330, 26.500, 28.360, 29.350, 34.680, 59.420, 32.150, 26.320, 32.110, 79.050, 49.390, 26.610],
+  "refit_error_add": 0,
+  "refit_error_full": 0,
+  "refit_nonsingular_warning_add": 0,
+  "refit_nonsingular_warning_full": 18,
+  "first_refit_error": ""
+}

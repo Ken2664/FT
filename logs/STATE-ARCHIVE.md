@@ -18,6 +18,38 @@
 
 ---
 
+## ★2026-10-13(その166)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-08(その165)/ by IMPLEMENTER (Claude Sonnet 5.5。HANDOFF の推奨 Sonnet と一致)。**★PLAN-043 の実装を閉じた**: 診断の R の D0 スモーク(1 件)は run2 の既存の出力と全欄一致・`pytest code/tests -q` = 2522 passed・`--dry-run` 通過・PLAN-043 §10/§12 を記入。**PB の計時は実行していない**(日時は人間)。GPU 0・pod 0
+(**次: 人間が PLAN-043 §12 の実装の判断 6 件を確認 → PB の計時の日時と run3 の起動を決める。並行して push と G2-1 承認で S4**。)
+
+### いま何をしているか
+
+> **★★2026-10-08(その165・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-043 の実装は閉じた(I1〜I8・I10 = `472fe75`、I9 のスクリプト = `f739c17`、記入 = その165 の commit)。GPU 0・pod 0**
+> - **確認**: 診断の R(`fit_failure_diagnosis.R`)の D0 を 1 件(`misspecification__n80_s0_r0__0002`)で通した。表は作り直し・出力は scratchpad(run2 の表・結果は書き換えていない)。R は異常終了せず、出力は run2 の既存の `r_out` と全欄一致(差 0・`d0.ok` = true・`failed_reproduced` = true)[run:20261005_120003_power_sim_t1t2 の読み直し。run3 の判定ではない]/ `pytest code/tests -q` = 2522 passed / `power_sim --dry-run`・`pb_timing --dry-run` 通過(`rng_seed 20261008`・`allfit` 5 最適化・両方の門)
+> - **実装の判断 6 件(人間が確認。PLAN-043 §12)**: 両方の門が閉じたとき終了コード 3 / `FAILURE_AS_REJECT_ROLES` は定数ごと削除 / PB の `simulate_seed` = 20261008 / `feasibility_gate.scope` は `all_sheets_all_points` だけ / 区間の水準は `ci_level` 0.95 を流用 / `start_night.ps1` は `stopped_at_feasibility_gate` でも再起動を拒む
+> - **まだ**: PB の計時の実行(人間の日時)/ run3 の起動・夜用タスクの登録(run2 の登録の無効化を含む)・push・tag(人間)
+> - **★その164 のブロックは `logs/STATE-ARCHIVE.md`「その165」にある**
+
+### 次のアクション
+
+> **★★2026-10-08(その165・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: PLAN-043 §12 の実装の判断 6 件の確認 → PB の計時の日時 → run3 の起動**(`--dry-run --workers 16` の費用の表は出る。夜用タスクの登録・run2 の登録が残っていれば無効化は人間。1 段目の後、2 段目も人間が決める)
+> 2. **人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)**: `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8。**検出力分析と独立に進められる**
+> 3. **PLAN-037 の I10**(文書の注。人間の承認の後)
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / **PB の反復数と食い違ったときの扱い(ADR-128 決定2)** / E1 の TOST / s の水準 / step 数・T2 の件数
+> 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本の削除 / 特異な分散成分(32 件)の確認
+
+### 引き継ぎ
+
+> **★★2026-10-08(その165・最新)。IMPLEMENTER (Sonnet 5.5)。PLAN-043 の仕上げ。**
+>
+> **★やったこと**: 開始手順(HANDOFF・STATE・git の食い違いなし。HANDOFF は実装が未コミットと書いたが実際は commit 済み)→ 診断の R の D0 スモーク 1 件 → `pytest` 2522 passed → `--dry-run` → PLAN-043 §10/§12・`logs/OPEN-ITEMS.md`・CHANGELOG の記入 → commit。
+> **★やっていないこと**: PB の計時の実行・run3 の起動・夜用タスクの登録・push・tag・ADR-129 の値の変更・run2 の表・結果の書き換え・GPU・pod。
+
 ## ★2026-10-08(その165)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 最終更新: 2026-10-08(その164)/ by IMPLEMENTER (Claude Sonnet 5.5。HANDOFF の推奨 Sonnet と一致)。**★PLAN-043 の I1〜I8・I10 を実装し、I9(PB の計時)はスクリプトまで作った**(未 commit だったものを handoff で commit)。`pytest code/tests -q` = 2522 passed(R のスモークは別に実行。下)/ `--dry-run` 通過 / R のスモークは変更前後の `p_value` が一致(罠6)・床で失敗した 1 件で `allFit` の段の記録が出た。**PB の計時は実行していない**(日時は人間)。GPU 0・pod 0

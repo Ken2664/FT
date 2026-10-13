@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-08(その165)/ by IMPLEMENTER (Claude Sonnet 5.5。HANDOFF の推奨 Sonnet と一致)。**★PLAN-043 の実装を閉じた**: 診断の R の D0 スモーク(1 件)は run2 の既存の出力と全欄一致・`pytest code/tests -q` = 2522 passed・`--dry-run` 通過・PLAN-043 §10/§12 を記入。**PB の計時は実行していない**(日時は人間)。GPU 0・pod 0
-(**次: 人間が PLAN-043 §12 の実装の判断 6 件を確認 → PB の計時の日時と run3 の起動を決める。並行して push と G2-1 承認で S4**。)
+最終更新: 2026-10-13(その166)/ by Claude Opus 5.5(役割の指定なし。結果の読み出しと記録)。**★PB の計時(PLAN-043 I9)を記録した** [run:20261012_132900_pb_timing]: 4 表 × B 20 = 当て直し 160 本・例外 0・非 singular の警告 94・1 回の引き(add + full の当て直し)平均 68.3 秒 / 中央値 53.9 秒・所要 43.6 分(4 並列)。**解釈はしていない**。GPU 0・pod 0
+(**次: 人間が PLAN-043 §12 の実装の判断 6 件を確認 → run3 の起動を決める。PB の秒数は S5 の判断材料(PB の反復数・中の失敗の扱い)。並行して push と G2-1 承認で S4**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -68,11 +68,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-08(その165・最新)。Phase 0。IMPLEMENTER (Sonnet 5.5)。PLAN-043 の実装は閉じた(I1〜I8・I10 = `472fe75`、I9 のスクリプト = `f739c17`、記入 = その165 の commit)。GPU 0・pod 0**
-> - **確認**: 診断の R(`fit_failure_diagnosis.R`)の D0 を 1 件(`misspecification__n80_s0_r0__0002`)で通した。表は作り直し・出力は scratchpad(run2 の表・結果は書き換えていない)。R は異常終了せず、出力は run2 の既存の `r_out` と全欄一致(差 0・`d0.ok` = true・`failed_reproduced` = true)[run:20261005_120003_power_sim_t1t2 の読み直し。run3 の判定ではない]/ `pytest code/tests -q` = 2522 passed / `power_sim --dry-run`・`pb_timing --dry-run` 通過(`rng_seed 20261008`・`allfit` 5 最適化・両方の門)
-> - **実装の判断 6 件(人間が確認。PLAN-043 §12)**: 両方の門が閉じたとき終了コード 3 / `FAILURE_AS_REJECT_ROLES` は定数ごと削除 / PB の `simulate_seed` = 20261008 / `feasibility_gate.scope` は `all_sheets_all_points` だけ / 区間の水準は `ci_level` 0.95 を流用 / `start_night.ps1` は `stopped_at_feasibility_gate` でも再起動を拒む
-> - **まだ**: PB の計時の実行(人間の日時)/ run3 の起動・夜用タスクの登録(run2 の登録の無効化を含む)・push・tag(人間)
-> - **★その164 のブロックは `logs/STATE-ARCHIVE.md`「その165」にある**
+> **★★2026-10-13(その166・最新)。Phase 0。Claude Opus 5.5(役割の指定なし)。PB の計時(PLAN-043 I9)を読み出して記録した。GPU 0・pod 0**
+> - **実行**: 人間が 2026-10-12 夜に `results/power_sim/pb_timing_launch.ps1` で起動。1 回目(22:26 JST)は `lme4` が見つからず終了コード 1(アプリの外の起動で `R_LIBS` が無い)→ ランチャーに `R_LIBS` を足した 2 回目(22:29〜23:12 JST)が終了コード 0。`git_sha 5017f3f`・`tracked_diff_empty` = true
+> - **数値** [run:20261012_132900_pb_timing。正本 `results/power_sim/pb_timing/pb_timing.json`]: 4 表・飛ばし 0・引き 80・当て直し 160・**例外 0**・非 singular の警告 94(add 20 = 誤指定 9001(段 0)だけ / full 74)・1 回の引きの秒数 平均 68.3 / 中央値 53.9 / 最大 175.0・当て直しの合計 5466.75 秒・観測の当てはめの合計 1189.99 秒。段 0 の表(誤指定 9001)は平均 127.1 秒、段 3 の 3 表は 42.2〜58.7 秒。p0 9002 は観測の当てはめが床で失敗したまま PB を回した(設計どおり。飛ばすのは例外だけ)
+> - **注意**: 秒数は 16 論理コアで Rscript 4 本を同時に走らせた経過時間(BLAS のスレッドは未確認)/ 点は (80, 1.0, 0.0) だけ・B 20 / 警告は ADR-059 の判定を通していないので「失敗」の数ではない / **p 値は出していない**(ADR-129 決定6)
+> - **run_id は事後に付けた**(`pb_timing.py` は run_id を書かない。`power_sim.py` と同じ「UTC の開始時刻_analysis.id」。`results/power_sim/pb_timing/run_info.json`)
+> - **★その165 のブロックは `logs/STATE-ARCHIVE.md`「その166」にある**
 
 
 ---
@@ -325,12 +326,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-08(その165・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-13(その166・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **人間: PLAN-043 §12 の実装の判断 6 件の確認 → PB の計時の日時 → run3 の起動**(`--dry-run --workers 16` の費用の表は出る。夜用タスクの登録・run2 の登録が残っていれば無効化は人間。1 段目の後、2 段目も人間が決める)
+> 1. **人間: PLAN-043 §12 の実装の判断 6 件の確認 → run3 の起動**(PB の計時は済んだ。`--dry-run --workers 16` の費用の表は出る。夜用タスクの登録・run2 の登録が残っていれば無効化は人間。1 段目の後、2 段目も人間が決める)
 > 2. **人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)**: `ident` の s = 0・1 の配線確認・T2 の「数だけ」診断・(β) R8。**検出力分析と独立に進められる**
 > 3. **PLAN-037 の I10**(文書の注。人間の承認の後)
-> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / **PB の反復数と食い違ったときの扱い(ADR-128 決定2)** / E1 の TOST / s の水準 / step 数・T2 の件数
+> 4. **S5 凍結の場**(人間): T1c の件数・`eval.freeze_tag`・E3 の統計と α / 平行性の TOST の Δ / シード分類の閾値 / **PB の反復数と食い違ったときの扱い(ADR-128 決定2。材料 = [run:20261012_132900_pb_timing]。PB の中で ADR-059 の判定を回すか・観測の当てはめが失敗した表から引くかも)** / E1 の TOST / s の水準 / step 数・T2 の件数
 > 5. 人間(いつでも): MisFT の原典確認 / worktree `claude/great-bardeen-9c1ac4` の削除 / 旧 pod 5 本の terminate / `CLAUDE.md` を 200 行へ / 引用の原典確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本の削除 / 特異な分散成分(32 件)の確認
 
 
@@ -339,10 +340,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-08(その165・最新)。IMPLEMENTER (Sonnet 5.5)。PLAN-043 の仕上げ。**
+> **★★2026-10-13(その166・最新)。Claude Opus 5.5(役割の指定なし)。PB の計時の読み出しと記録。**
 >
-> **★やったこと**: 開始手順(HANDOFF・STATE・git の食い違いなし。HANDOFF は実装が未コミットと書いたが実際は commit 済み)→ 診断の R の D0 スモーク 1 件 → `pytest` 2522 passed → `--dry-run` → PLAN-043 §10/§12・`logs/OPEN-ITEMS.md`・CHANGELOG の記入 → commit。
-> **★やっていないこと**: PB の計時の実行・run3 の起動・夜用タスクの登録・push・tag・ADR-129 の値の変更・run2 の表・結果の書き換え・GPU・pod。
+> **★やったこと**: 開始手順 → `results/power_sim/pb_timing/` の読み出し(log 2 本・`pb_timing.json`・`r_out/` 4 件)と記述の集計 → 人間の指示で run_id `20261012_132900_pb_timing` を事後に付け(`run_info.json`)、PLAN-043 §10/§12・`logs/OPEN-ITEMS.md`・CHANGELOG・STATE を記入 → commit。
+> **★やっていないこと**: 結果の解釈・PB の反復数の決定(S5)・run3 の起動・夜用タスクの登録・push・tag・`code/` の変更・`run2/.../frames/` の残骸の削除・GPU・pod。
 
 ---
 

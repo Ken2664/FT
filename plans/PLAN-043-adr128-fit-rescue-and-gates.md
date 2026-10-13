@@ -198,7 +198,7 @@
 - [x] 合成の反復で R のスモークが通る(その164: 床で失敗しない 3 表の `p_value` が変更前後で一致・p0 9001 は変更前に失敗・変更後は `allFit` の段で救われた・run2 で床で失敗した 1 件は `allFit` の最適化ごとの logLik が PLAN-042 の診断の記録と一致 / その165: 診断の R の D0 を 1 件(`misspecification__n80_s0_r0__0002`)で通した。出力は scratchpad で、run2 の既存の `r_out` と全欄一致(差 0・`d0.ok` = true・`failed_reproduced` = true・159.2 秒)。run2 の表・結果は書き換えていない。数値は run3 の判定ではない)
 - [x] `--dry-run` が通る(その164・その165 で再確認。`rng_seed 20261008`・`allfit` の 5 最適化・両方の門・費用の表が出る。`pb_timing --dry-run` も通る)
 - [x] §3.1 の打ち消し線を引いた(`472fe75`: 05_STATISTICS・PLAN-040 §11・付録 A.4・DECISIONS の ADR-059・123・124・125 のステータス行・power_sim.py の docstring・config のコメント)
-- [ ] PB の計時を回し、秒数を `results/power_sim/pb_timing/` に残した
+- [x] PB の計時を回し、秒数を `results/power_sim/pb_timing/` に残した(2026-10-12 夜に人間が起動。[run:20261012_132900_pb_timing](run_id は事後に付けた)。当て直し 160 本・例外 0・1 回の引き 平均 68.3 秒。その166 で記録)
 - [x] `STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` を更新した(その165)
 - [ ] run3 の起動は人間が決める(この PLAN の完了条件に含めない)
 
@@ -225,6 +225,8 @@
 | 2026-10-08 | §4 の Q1〜Q6・Q1' を `AskUserQuestion` で聞いた。人間が 7 問とも推奨 → 採択(ADR-129・§11) | — | PLANNER (Opus 5.5)/ 採択 人間 |
 | 2026-10-08 | 採択(ADR-129)を受けて IMPLEMENTER が I1〜I8・I10 を実装(`472fe75`)・I9 のスクリプトを作った(`f739c17`。実行はしていない)。`pytest` 2522 passed・`--dry-run` 通過・R のスモーク(合成の反復・scratchpad) | `20261005_120003_power_sim_t1t2`(run2 の seed を読んだだけ。run3 は未起動) | IMPLEMENTER (Sonnet 5.5。その164) |
 | 2026-10-08 | 診断の R の D0 スモーク(1 件)・`pytest` 再確認・§10/§12 の記入(その165) | 同上(読むだけ) | IMPLEMENTER (Sonnet 5.5) |
+| 2026-10-12 | **I9 の実行**(人間が `results/power_sim/pb_timing_launch.ps1` で起動)。1 回目 22:26 JST は `lme4` が見つからず終了コード 1(`R_LIBS` が無い)→ ランチャーに `R_LIBS` を足して 2 回目 22:29〜23:12 JST が終了コード 0(`git_sha 5017f3f`・`tracked_diff_empty` = true) | — | 人間 |
+| 2026-10-13 | I9 の結果の読み出しと記録(その166): 4 表・飛ばし 0・当て直し 160・例外 0・非 singular の警告 94(add 20 / full 74)・1 回の引き 平均 68.3 / 中央値 53.9 / 最大 175.0 秒・段 0 の表は平均 127.1 秒。run_id を事後に付けた(`run_info.json`)。**解釈・PB の反復数の決定はしていない(S5)** | `20261012_132900_pb_timing` | Claude Opus 5.5(役割の指定なし)|
 
 **実装の判断(IMPLEMENTER が置いた。人間が確認する。PLANNER / 人間の仕事 = CLAUDE.md §8)**:
 
@@ -235,4 +237,4 @@
 5. 区間の水準は過誤の門・実行可能性の門の `ci_level`(0.95)を流用した(新しい config 値を作らない)
 6. `start_night.ps1` は `stopped_at_feasibility_gate` でも再起動を拒む(`stop_night.ps1` は不変。I8 は「表示」と書いたが、終了コードを読むのは start 側の summary 読みなので)
 
-**まだ**: I9 の実行(日時は人間。ADR-129 決定6)/ run3 の起動・夜用タスクの登録(run2 の登録が残っていれば無効化も)・push・tag(人間)。
+**まだ**: ~~I9 の実行(日時は人間。ADR-129 決定6)~~(2026-10-12 夜に実行・2026-10-13 その166 で記録。[run:20261012_132900_pb_timing])/ run3 の起動・夜用タスクの登録(run2 の登録が残っていれば無効化も)・push・tag(人間)。

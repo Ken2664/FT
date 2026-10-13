@@ -1,0 +1,9 @@
+{
+  "run_id": "20261012_132900_pb_timing",
+  "created_utc": "2026-10-12T13:29:00+00:00",
+  "git_sha": "5017f3fefbd14ff4f65750a55600861fd6de077d",
+  "config_source": "configs/pb_timing.yaml",
+  "launcher": "results/power_sim/pb_timing_launch.ps1",
+  "run_id_assigned_post_hoc": true,
+  "note": "pb_timing.py does not write a run_id. This run_id was assigned on 2026-10-13 (session 166) after the run, with the same rule as power_sim.py (UTC start time + analysis.id). created_utc is the start of the successful launch (launch_20261012_222900.log, 22:29:00 JST). The earlier launch (launch_20261012_222643.log) exited 1 because lme4 was not found (R_LIBS unset outside the app) and produced no r_out."
+}

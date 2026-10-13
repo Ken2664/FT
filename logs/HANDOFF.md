@@ -21,12 +21,12 @@
 
 - PB の計時(PLAN-043 I9)は 2026-10-12 夜に人間が実行した。[run:20261012_132900_pb_timing](run_id は事後に付けた。`results/power_sim/pb_timing/run_info.json`)。commit `e034f7d`
 - 数値の正本は `results/power_sim/pb_timing/pb_timing.json`。要約は `STATE.md`「いま何をしているか」と `logs/CHANGELOG.md` その166(当て直し 160 本・例外 0・非 singular の警告 94・1 回の引き 平均 68.3 秒)
-- **タスクスケジューラなどアプリの外から R を起動すると `lme4` が見つからない**(1 回目は終了コード 1)。`R_LIBS` を明示するやり方は `results/power_sim/pb_timing_launch.ps1` にある。**run3 の夜用スクリプトが `R_LIBS` を設定しているかは未確認**
+- **タスクスケジューラなどアプリの外から R を起動すると `lme4` が見つからない**(1 回目は終了コード 1)。`R_LIBS` を明示するやり方は `results/power_sim/pb_timing_launch.ps1` にある。夜用の `infra/power_sim_night/start_night.ps1` は `R_LIBS` を設定している(2026-10-13 に `grep -c R_LIBS` = 3 で確認。中身は読んでいない)
 
 ## 触ってよいファイル / 読むべき範囲
 
 - `plans/PLAN-043-adr128-fit-rescue-and-gates.md` §4 Q6・§10・§12(`grep -n` → `sed -n`)
-- `infra/power_sim_night/`(`R_LIBS` の確認。`grep -n R_LIBS`)
+- `infra/power_sim_night/`(必要なら `grep -n R_LIBS` で設定の中身を確認)
 - `results/power_sim/pb_timing/`(読むだけ)
 
 ## やってはいけないこと

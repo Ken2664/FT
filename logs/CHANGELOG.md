@@ -8040,4 +8040,4 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 - **やっていないこと**: 結果の解釈・PB の反復数の決定(S5)・run3 の起動・夜用タスクの登録・push・tag・`code/` の変更(`pb_timing.py` に run_id を書かせる変更も含む)・`run2/.../frames/` の残骸の削除
 
 ## 2026-10-13(その166・引き継ぎ)   [actor: Claude Opus 5.5(役割の指定なし)]
-- context-guard(約 105k)と区切り(PB の計時の記録を commit)で切った。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。人間の指示待ち: 実装の判断 6 件の確認 / run3 の起動の準備。夜用スクリプトの `R_LIBS` の確認を含む)を更新した。`STATE.md` は `e034f7d` で更新済み
+- context-guard(約 105k)と区切り(PB の計時の記録を commit)で切った。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。人間の指示待ち: 実装の判断 6 件の確認 / run3 の起動の準備。夜用の start_night.ps1 は R_LIBS を設定済み(grep で確認))を更新した。`STATE.md` は `e034f7d` で更新済み

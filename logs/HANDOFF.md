@@ -1,46 +1,42 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-08(その165)/ 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: PLAN 完了(PLAN-043 の実装を閉じた)+ context-guard(約 112k)
-直前セッションの実モデル: Claude Sonnet 5.5
-**推奨モデル(次のセッション)**: Sonnet — PB の計時の実行・run3 の起動の準備は「実装・集計」の行(`10_CONTEXT_POLICY.md` §7)。**実装の判断 6 件の解釈・run3 の結果の読みが出たら止めて PLANNER(Opus)へ**
+生成: 2026-10-13(その166)/ 直前セッションの役割: (指定なし。結果の読み出しと記録 = ANALYST 相当)
+直前セッションが終了した理由: context-guard(約 105k)+ 区切り(PB の計時の記録を commit した)
+直前セッションの実モデル: Claude Opus 5.5
+**推奨モデル(次のセッション)**: Sonnet — run3 の起動の準備(`--dry-run --workers 16`・夜用タスクの登録の手順)は「実装・集計」の行(`10_CONTEXT_POLICY.md` §7)。**実装の判断 6 件の解釈・PB の反復数(S5)・run3 の結果の読みが出たら止めて PLANNER(Opus)へ**
 
 ---
 
-あなたは IMPLEMENTER(PB の計時の実行は RUNNER 相当)です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは IMPLEMENTER(run3 の起動の準備は RUNNER 相当)です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
 `CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
-## このセッションでやること(1つだけ。**人間の指示を待つ**)
+## このセッションでやること(1つだけ)
 
-PLAN-043 の実装は閉じた。**エージェントだけで進められる作業は残っていない。**人間が次のどれかを指示する。指示が無ければ、下の「人間の承認待ち」を短く示して止まる。
+**人間の指示を待つ。**候補は `STATE.md`「次のアクション」の 1(PLAN-043 §12 の実装の判断 6 件の確認 → run3 の起動)。
+人間が run3 の起動を指示したら、PLAN-043 §4 Q6 の手順 2〜3 に沿って `python -m code.analysis.power_sim --config configs/power_sim.yaml --dry-run --workers 16` の費用の表を出し、
+夜用タスクの登録(`register_tasks.ps1 -OutName run3 -ThroughStage 1`)と run2 の登録の無効化は**人間が行う**ことを伝える。起動そのものはしない。
 
-- (a) 実装の判断 6 件(PLAN-043 §12)に異論 → 指示された箇所だけ直す(`pytest`・`--dry-run` を回し直す)
-- (b) PB の計時の日時を指示 → `python -X utf8 -m code.analysis.pb_timing --config configs/pb_timing.yaml`(ADR-129 決定6。合成の 4 表 × B 20 = 160 本・秒数と当て直しの失敗の数だけ。**run3 と同じ夜にしない**)。長い待ちは `run_in_background`・ファイル出力、`tail` / `jq` だけ読む。結果は `results/power_sim/pb_timing/` に残し、PLAN-043 §10 の PB の行にチェックを付ける。**p 値は出さない・判定に使わない**
-- (c) run3 の起動の準備 → `--dry-run --workers 16` の費用の表を示すまで。**起動・夜用タスクの登録は人間**
+## 直前セッションで確定したこと
 
-## 直前セッションで確定したこと(ファイルに入っている)
-
-- 実装: I1〜I8・I10 = `472fe75` / I9(PB の計時のスクリプト。実行はしていない)= `f739c17` / 記入(PLAN-043 §10/§12・OPEN-ITEMS・CHANGELOG)= `52319a1` / STATE・HANDOFF = このセッションの handoff の commit
-- `pytest code/tests -q` = 2522 passed(588 s)。`power_sim --dry-run`・`pb_timing --dry-run` 通過(`rng_seed 20261008`・`allfit` の 5 最適化・過誤の門 (exit 3)・実行可能性の門 (exit 4))
-- 診断の R(`fit_failure_diagnosis.R`)の D0 を 1 件(`misspecification__n80_s0_r0__0002`)で再実行し、run2 の既存の `r_out` と全欄一致(差 0・`d0.ok` = true)[run:20261005_120003_power_sim_t1t2 の読み直し。run3 の判定ではない]。run2 の表・結果は書き換えていない
-- PLAN-043 §10 で未チェックなのは「PB の計時を回し秒数を残した」と「run3 の起動は人間」だけ
+- PB の計時(PLAN-043 I9)は 2026-10-12 夜に人間が実行した。[run:20261012_132900_pb_timing](run_id は事後に付けた。`results/power_sim/pb_timing/run_info.json`)。commit `e034f7d`
+- 数値の正本は `results/power_sim/pb_timing/pb_timing.json`。要約は `STATE.md`「いま何をしているか」と `logs/CHANGELOG.md` その166(当て直し 160 本・例外 0・非 singular の警告 94・1 回の引き 平均 68.3 秒)
+- **タスクスケジューラなどアプリの外から R を起動すると `lme4` が見つからない**(1 回目は終了コード 1)。`R_LIBS` を明示するやり方は `results/power_sim/pb_timing_launch.ps1` にある。**run3 の夜用スクリプトが `R_LIBS` を設定しているかは未確認**
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-043-*.md` §10・§12、`code/analysis/pb_timing.{R,py}`・`configs/pb_timing.yaml`(PB の計時を回すときだけ)。全文 `cat` せず `grep -n` → `sed -n`。`runs/*/log.txt` と R の長い出力は `tail` / `jq`
+- `plans/PLAN-043-adr128-fit-rescue-and-gates.md` §4 Q6・§10・§12(`grep -n` → `sed -n`)
+- `infra/power_sim_night/`(`R_LIBS` の確認。`grep -n R_LIBS`)
+- `results/power_sim/pb_timing/`(読むだけ)
 
 ## やってはいけないこと
 
-- ADR-129 の値を変える。最適化を足し引きする。`start_from_mle` を変える(罠3)。成功した反復の LRT を変える(罠6)
-- run2 の表・結果の書き換え。run2 の 100 反復で新しい規則の門を判定する(罠1)
-- 人間の合図なしの PB の計時の実行・run3 の起動・夜用タスクの登録・push・tag
-- R の長い待ちをフォアグラウンドで流してコンテキストを使う(`run_in_background` + ファイル)。`sleep` のチェーンは使えない(Monitor か until ループ)
-- `.md` は LF、Python で書くときは `newline` / バイト書き(memory)。置換スクリプトは Write か heredoc をファイルに書いて実行
+- run3 の起動・夜用タスクの登録 / 無効化・push・tag を人間の合図なしに行う
+- PB の秒数から PB の反復数・中の失敗の扱いを決める(S5。人間)
+- `results/power_sim/run2/` を書き換える(`misspecification_seed_per_cell/frames/` の残骸の削除も人間の指示を待つ)
 
 ## 未解決 / 人間の承認待ち
 
-- 実装の判断 6 件の確認(PLAN-043 §12): 両方の門が閉じたとき終了コード 3 / `FAILURE_AS_REJECT_ROLES` は定数ごと削除 / PB の `simulate_seed` = 20261008 / `feasibility_gate.scope` は `all_sheets_all_points` だけ / 区間の水準は `ci_level` 0.95 を流用 / `start_night.ps1` は `stopped_at_feasibility_gate` でも再起動を拒む
-- PB の計時の日時 / run3 の起動(夜用タスクの登録。run2 の登録が残っていれば無効にするのは人間)
-- push(`01cf60f` 以降の main)と G2-1 承認 → S4
-- PB の反復数と漸近 χ² と食い違ったときの扱いは S5 / 特異な分散成分(32 件)は未確認 / `run2/misspecification_seed_per_cell/frames/` の残骸 46 本と未追跡の `.claude/commands/` は人間
+- PLAN-043 §12 の実装の判断 6 件の確認
+- run3 の起動(夜用タスクの登録・run2 の登録の無効化を含む)/ push / G2-1 承認
+- S5: PB の反復数・PB の中で ADR-059 の判定を回すか・観測の当てはめが床で失敗した表から引くか(`logs/OPEN-ITEMS.md` PLAN-042 の行)

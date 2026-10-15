@@ -30,6 +30,36 @@
 
 ---
 
+## ★2026-10-15(その173)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 冒頭の最終更新
+最終更新: 2026-10-15(その172。I5 の R スモークを起動して切った。結果は未記入。下の引き継ぎ)/ 前: その171 Claude Sonnet 5.5(IMPLEMENTER)。**★PLAN-044 I1〜I4 を実装し、I3 の天井の水準 `L_05` = 5.3・`L_50` = 7.512 を当てはめの前に commit した**(`33df8c1`。run_id `20261015_040148_ceiling_level`。パイロットの表は読まない)。役割 `ceiling_probe`(門なし)・`configs/power_sim_ceiling.yaml`(8 枚 x 1 点)・`ceiling_level.py`。`power_sim.yaml` の経路は不変(smoke を偽の当てはめで HEAD と比べ、表と当てはめ結果は同一バイト)。pytest 2554 passed, 11 deselected。**未完: I5 の R スモーク(各シート 1 表の時間)と PLAN-044 §11・§13・CHANGELOG の記入**。GPU 0・pod 0
+(**次: IMPLEMENTER が I5(R スモーク)と文書の記入。天井のシートの本実行は人間が決める。run3 は起動しない**。)
+
+### いま何をしているか
+> **★★2026-10-15(その171・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-044 I1〜I4 を実装、I3 の `L` を commit。GPU 0・pod 0**
+> - **commit**: `214b3ab`(コード・config(L は null)・テスト)→ `33df8c1`(I3 の出力 `results/power_sim/ceiling_level/` と `L_05` = 5.3・`L_50` = 7.512 の転記。当てはめの前)
+> - **I3(`ceiling_level.py`)**: パイロットと同じ形(2 シード x 80 項目 x T1 の id・interp)が全部 rule になる確率 = 0.05 / 0.5 の最小の `L`(共通乱数 20 万組・二分法)。確率 0.0500 / 0.4999 / SE 0.0002 / 0.0006。**仮定値の算術であって実験結果ではない**
+> - **シートは 8 枚**(`ceiling_p0` x 3・`ceiling_p1` x 3・`ceiling_null` x 2 を 1 水準 1 枚で。PLAN-044 の「3 枚・8 点」の構造上の読み。§13 に記録する)。`--dry-run` は 800 表・16 並列で 3.4〜5.7 時間(推算)
+> - **★その170 のブロックは `logs/STATE-ARCHIVE.md`「その171」にある**
+
+### 次のアクション
+> **★★2026-10-15(その171・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **IMPLEMENTER: PLAN-044 I5 の残り**(`power_sim_ceiling.yaml` の各シート 1 表の R スモーク + 時間の記録・PLAN-044 §11・§13・`logs/CHANGELOG.md`)→ 人間が天井のシートの起動を決める → ANALYST が記述 → PLANNER が手当ての PLAN(人間が決める)
+> 2. PLANNER: PLAN-045(R3。主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3・ADR-131 決定7)。1 と触るファイルは重ならない
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 の手当ての決定と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(パイロット用プールを揃えるか)/ その166 の 5 の項目
+
+### 引き継ぎ(その172)
+> **★★2026-10-15(その172・最新)。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-044 I5 の R スモークを起動したところで切った。**
+>
+> **★やったこと**: 開始手順・HANDOFF との突き合わせ(食い違いなし)→ 天井の config の写し(`n_rep_stages: [1]`)をスクラッチパッドに作り、本物の R(4.6.1・lme4 2.0.6。`R_LIBS` なしで読める)で 8 シート x 1 表を逐次に当てるスモークをバックグラウンドで起動(04:08:32Z。出力はスクラッチパッドの `ceiling_smoke_out/`・ログ `smoke.log`。**セッションが切れると消えている恐れがある**)。
+> **★やっていないこと**: スモークの結果の読み取り・PLAN-044 §11・§13・CHANGELOG の記入・天井のシートの本実行・push・tag・GPU・解釈。**コードと config は変えていない**。
+
+---
+
 ## ★2026-10-15(その171)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### 冒頭の最終更新

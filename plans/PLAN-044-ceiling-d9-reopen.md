@@ -256,7 +256,7 @@
 - [x] §4 の Q1〜Q7 の回答が ADR に入った(提案 エージェント / 採択 人間)。ADR-131
 - [x] I1〜I4 を実装し `pytest code/tests -q` が通る(その171。`214b3ab`。2554 passed, 11 deselected。`power_sim.yaml` の経路は smoke を偽の当てはめで HEAD と比べて表・当てはめ結果が同一バイト)
 - [x] I3 の `L_05`・`L_50` を config に書いて commit した(当てはめの前。`33df8c1`。`L_05` = 5.3・`L_50` = 7.512。run_id `20261015_040148_ceiling_level`)
-- [ ] `--dry-run` とスモーク(各シート 1 表)が通る
+- [x] `--dry-run` とスモーク(各シート 1 表)が通る(その173。8 表とも当てはめ失敗 0・`allFit` の段に着いたのは 2 表。時間は §13。**配線確認だけで、値は主張・効果量に使わない**)
 - [ ] 天井のシートを回した(人間が起動)。`results/power_sim/ceiling/` に §3.1 の量と表が残った
 - [ ] ANALYST が記述した / `STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` を更新した
 - [ ] 手当ての PLAN へ引き継いだ(Q5 (a))
@@ -285,3 +285,4 @@
 | 2026-10-15 | 採択(ADR-131。人間が 7 問とも推奨 (a))。§7 は推奨どおりなので書き直していない。`code/`・config は不変 | — | PLANNER (Opus 5.5) / 採択 人間 |
 | 2026-10-15 | I1〜I4 実装(`214b3ab`)。**構造上の読み**: シートの属性に水準 `L` があり、`PointKey` に水準は無いので、「3 枚・8 点」は config では 8 枚(`ceiling_p0` x 3・`ceiling_p1` x 3・`ceiling_null` x 2)・各 1 点 (80, 1.0, 0.0) になった(統計の中身は同じ)。`run` の文脈・ヘッダを `build_run_context`・`run_header` に切り出し(出力は不変)。I3 の定義: 2 シード x 80 項目 x T1 の id・interp の 320 試行が全部 rule になる確率(ランダム効果で条件づけた積の平均・共通乱数)| — | IMPLEMENTER (Sonnet 5.5) |
 | 2026-10-15 | I3 の実行(clean な木・n_draws 200000・種 20261015): `L_05` = 5.3(確率 0.0500)・`L_50` = 7.512(確率 0.4999)を config に転記して commit(`33df8c1`)。パイロットの表は読んでいない。**I5 の R スモーク(各シート 1 表の時間)は未実施** | 20261015_040148_ceiling_level | IMPLEMENTER (Sonnet 5.5) |
+| 2026-10-15 | I5 の R スモーク(各シート 1 表・`n_rep_stages` = [1]・`--workers 8`・`--through-stage 1`・本物の R 4.6.1・lme4 2.0.6・git `aecfe1e`・逐次): **8 表とも当てはめ失敗 0**(`failed_rate` 全点 0.0・`n_errored_fits` 0・`floor_base_errored` false)。**`allFit` の段に着いたのは 2 表**(`ceiling_p1_L05`・`ceiling_p1_L50`。ともに rescued)。縮約の段(`reduction_level`): `p0_L05` 3・`p0_L50` 3・`p0_Linf` 2・`p1_L05` 3・`p1_L50` 3・`p1_Linf` 0・`null_L05` 3・`null_L50` 2。**1 表の時間**(シートの出力ファイルの更新時刻の差から。表の生成と R の起動を含む。R の標準出力の行 `(NNN.Ns)` は `smoke.log` に残っていない): `p0_L05` 819 秒 / `p0_L50` 831 秒 / `p0_Linf` 595 秒 / `p1_L05` 926 秒 / `p1_L50` 930 秒 / `p1_Linf` 197 秒 / `null_L05` 1874 秒 / `null_L50` 658 秒。合計 6830 秒(`time` = real 113m53s)・平均 853.75 秒・最小 197 秒・最大 1874 秒。**算術(§6.2 の推算の更新材料。実測の外挿であって予測ではない)**: 平均 853.75 秒 x 800 表 ÷ 16 並列 = 42688 秒 = 11.9 時間(最小 197 秒で 2.7 時間・最大 1874 秒で 26.0 時間)。§6.2 の推算の上限(634 コア秒 = 8.8 時間 / 16 並列)を超える。1 表が 1 コアで走っていたか・並列にしたとき 1 表が遅くならないかは測っていない。**起動の判断は人間**。`results/power_sim/ceiling/` は使っていない・`--keep-frames` なし・コードと config は不変。出力はスクラッチパッド(`ceiling_smoke_out`)。数値は配線確認で、主張に使わない | 20261015_040839_power_sim_ceiling(スモーク) | IMPLEMENTER (Sonnet 5.5) |

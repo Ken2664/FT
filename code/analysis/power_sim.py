@@ -81,6 +81,14 @@ TOST の検出力は集計の後で読む(`tost_power`)。
   seed_subspace の 0.25・0.5)。閾値は 0.075 のまま。終了コード 3
 - **実行可能性の門**(`simulation.feasibility_gate`): 全シート・全点で当てはめ失敗の率の CP95 下端 > 0.10 なら閉じる。
   誤指定の 3 枚はまとめて回した後、以降は各シートを回し終えるごとに判定し、閉じたら次のシートの前で止まる。終了コード 4
+
+**★2026-10-15(PLAN-044 I2 / ADR-131)に、天井のシート(役割 `ceiling_probe`)を足した。**
+`configs/power_sim_ceiling.yaml` だけが使う。T1 × `id`・`interp` が 1.000 に張り付いたとき、**今の手続き**(`power_sim_fit.R`
+は不変)がどう振る舞うかを**記述するだけ**で、門は掛けない(誤指定の門・実行可能性の門の欄を持てば止まる)。
+`ceiling` の欄(`base`・`mode`・`cells`・`level`)から `eta` を作る(`+∞` はこの役割だけで許す。`draw_frame` は変えない:
+`logistic(+inf)` = 1.0 で `rng.random()` はいつも 1.0 未満なので、乱数は同じ数だけ消費される)。天井の水準 `L` は
+`ceiling.levels` に値で書き、`code/analysis/ceiling_level.py` が規則から計算した値を当てはめの前に commit する。
+**`configs/power_sim.yaml` の経路は 1 バイトも変えない**(`test_power_sim.py` が固定する)。
 """
 
 from __future__ import annotations
@@ -100,6 +108,7 @@ from statistics import NormalDist
 from typing import Any
 
 import numpy as np
+from scipy.special import expit
 from scipy.stats import beta as beta_distribution
 
 from code import artifacts
@@ -1360,6 +1369,33 @@ POINT_FIELDS = ("n_item", "sigma", "rho")
 ADDITIVE_RMS_TOLERANCE = 1e-9
 
 
+# ★PLAN-044 / ADR-131: 天井のシート。役割は `ROLES` に入れない(既存の役割の検査・門の経路に触れないため)
+ROLE_CEILING_PROBE = "ceiling_probe"
+CEILING_MODE_REPLACE = "replace"            # 指定したセルの `eta` を `L` に置き換える(ceiling_p0・ceiling_p1)
+CEILING_MODE_SHIFT_TASK = "shift_task"      # 指定した 1 セルが `L` になるよう、そのタスク型の行全体をずらす(ceiling_null)
+CEILING_MODES = (CEILING_MODE_REPLACE, CEILING_MODE_SHIFT_TASK)
+LEVEL_INFINITE = "inf"                      # `ceiling.levels` に書く +∞(JSON に無限大を書かないため文字列)
+CEILING_SHEET_KEYS = frozenset({"id", "role", "tau", "ceiling", "points"})
+CEILING_SPEC_KEYS = frozenset({"base", "mode", "cells", "level"})
+# 天井のシートが config に持てない門の欄(「門を掛けない」。PLAN-044 Q3 (a))
+CEILING_FORBIDDEN_GATES = ("misspecification_gate", "feasibility_gate")
+
+
+@dataclass(frozen=True)
+class CeilingSpec:
+    """天井のシートの `eta` の作り方(PLAN-044 §3.2)。答える問い: 基のプロファイルのどのセルを、どの水準 `L` にするか。
+
+    `cells` は `(タスク型, 被覆水準)` の名前。`replace` は挙げたセルをすべて `L` にし、`shift_task` は**ちょうど 1 セル**を
+    挙げ、そのセルが `L` になるようタスク型の行全体に同じ定数を足す(行の中の差は変えない)。`level_name` は
+    `ceiling.levels` の名前(値は当てはめの前に commit する)。
+    """
+
+    base_profile: str
+    mode: str
+    cells: tuple[tuple[str, str], ...]
+    level_name: str
+
+
 @dataclass(frozen=True)
 class SeedInteractionSpec:
     """シード固有の交互作用の誤指定(ADR-124 D4)。答える問い: どのプロファイルの向きを、どの大きさで使うか。"""
@@ -1386,6 +1422,8 @@ class Sheet:
     tau: str | float
     compare_with: str | None
     seed_interaction: SeedInteractionSpec | None = None
+    # 役割 `ceiling_probe` のシートだけが持つ(PLAN-044)。このとき `profile` は基のプロファイルの名前である
+    ceiling: CeilingSpec | None = None
 
 
 def load_n_item_grid(config: Mapping[str, Any]) -> tuple[int, ...]:
@@ -1447,6 +1485,85 @@ def _parse_seed_interaction(
     return spec
 
 
+def _parse_ceiling_cells(raw: Any, effect: Mapping[str, Any], sheet_id: str) -> tuple[tuple[str, str], ...]:
+    """答える問い: `ceiling.cells` は `[タスク型, 被覆水準]` の重複のない名前の列で、どれも `effect` にあるか。"""
+    tasks = list(effect["task_levels"])
+    coverages = list(effect["coverage_levels"])
+    if not isinstance(raw, list) or not raw:
+        raise ConfigError(f"sheets[{sheet_id}].ceiling.cells は空でないリスト: {raw!r}")
+    cells: list[tuple[str, str]] = []
+    for entry in raw:
+        if (
+            not isinstance(entry, list)
+            or len(entry) != 2
+            or entry[0] not in tasks
+            or entry[1] not in coverages
+        ):
+            raise ConfigError(
+                f"sheets[{sheet_id}].ceiling.cells の各要素は [タスク型 {tasks}, 被覆 {coverages}]: {entry!r}"
+            )
+        cells.append((str(entry[0]), str(entry[1])))
+    if len(set(cells)) != len(cells):
+        raise ConfigError(f"sheets[{sheet_id}].ceiling.cells に重複がある: {raw!r}")
+    return tuple(cells)
+
+
+def _load_ceiling_sheet(
+    entry: Mapping[str, Any], config: Mapping[str, Any], grids: Mapping[str, Sequence[float]]
+) -> Sheet:
+    """役割 `ceiling_probe` のシートを読む。答える問い: この天井のシートは、基・ずらし方・水準・点が整合しているか。
+
+    キーは `{id, role, tau, ceiling, points}` だけ(`profile`・`compare_with`・`seed_interaction` は持てない)。
+    `tau` は `zero`。`shift_task` に `+∞` の水準は置けない(行全体が 1 になって情報が無い。PLAN-044 §3.2)。
+    基のプロファイルは `build_profile` を通る(`rule_rate` の照合の門は**基のセル**に掛かる。天井のセルは
+    `L` の値で置き換わるので照合しない)。
+    """
+    sheet_id = str(entry["id"])
+    if set(entry) != CEILING_SHEET_KEYS:
+        raise ConfigError(
+            f"sheets[{sheet_id}] (role = {ROLE_CEILING_PROBE}) のキーは {sorted(CEILING_SHEET_KEYS)}: {sorted(entry)}"
+        )
+    if entry["tau"] != TAU_ZERO:
+        raise ConfigError(f"sheets[{sheet_id}].tau は {TAU_ZERO}(天井のシートは tau 0): {entry['tau']!r}")
+    raw = entry["ceiling"]
+    if not isinstance(raw, Mapping) or set(raw) != CEILING_SPEC_KEYS:
+        raise ConfigError(f"sheets[{sheet_id}].ceiling は {sorted(CEILING_SPEC_KEYS)} の 4 キー: {raw!r}")
+    effect = config["effect"]
+    base = build_profile(effect, str(raw["base"]))
+    mode = raw["mode"]
+    if mode not in CEILING_MODES:
+        raise ConfigError(f"sheets[{sheet_id}].ceiling.mode は {CEILING_MODES} のどれか: {mode!r}")
+    cells = _parse_ceiling_cells(raw["cells"], effect, sheet_id)
+    if mode == CEILING_MODE_SHIFT_TASK and len(cells) != 1:
+        raise ConfigError(f"sheets[{sheet_id}].ceiling.cells は {CEILING_MODE_SHIFT_TASK} ではちょうど 1 セル: {raw['cells']!r}")
+    level_name = str(raw["level"])
+    declared = config.get("ceiling", {}).get("levels")
+    if not isinstance(declared, Mapping) or level_name not in declared:
+        raise ConfigError(f"sheets[{sheet_id}].ceiling.level = {level_name} は ceiling.levels に無い")
+    if mode == CEILING_MODE_SHIFT_TASK and declared[level_name] == LEVEL_INFINITE:
+        raise ConfigError(
+            f"sheets[{sheet_id}]: {CEILING_MODE_SHIFT_TASK} に +∞ の水準 {level_name} は置けない"
+            "(タスク型の行が全部 1 になり情報が無い。PLAN-044 §3.2)"
+        )
+    raw_points = entry["points"]
+    if not isinstance(raw_points, list) or not raw_points:
+        raise ConfigError(f"sheets[{sheet_id}].points は空でないリストである: {raw_points!r}")
+    points = tuple(_parse_point(p, grids, sheet_id) for p in raw_points)
+    if len(set(points)) != len(points):
+        raise ConfigError(f"sheets[{sheet_id}].points に重複した点がある")
+    return Sheet(
+        sheet_id=sheet_id,
+        role=ROLE_CEILING_PROBE,
+        profile=base.name,
+        points=points,
+        tau=TAU_ZERO,
+        compare_with=None,
+        ceiling=CeilingSpec(
+            base_profile=base.name, mode=mode, cells=cells, level_name=level_name
+        ),
+    )
+
+
 def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
     """config の `sheets:` を読む。答える問い: 宣言したシートは整合しているか。
 
@@ -1467,6 +1584,9 @@ def load_sheets(config: Mapping[str, Any]) -> list[Sheet]:
         if any(sheet.sheet_id == sheet_id for sheet in sheets):
             raise ConfigError(f"sheets の id が重複している: {sheet_id}")
         role = entry["role"]
+        if role == ROLE_CEILING_PROBE:
+            sheets.append(_load_ceiling_sheet(entry, config, grids))
+            continue
         if role not in ROLES:
             raise ConfigError(f"sheets[{sheet_id}].role は {ROLES} のどれか: {role!r}")
         tau = entry["tau"]
@@ -1924,27 +2044,15 @@ def run_stage(
     }
 
 
-def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
-        keep_frames: bool, workers_override: int | None = None, *,
-        through_stage: int, config_path: Path | None = None) -> dict[str, Any]:
-    """段を順に回して最後の段の結果を返す。答える問い: 10 シードの設計で、何が言えるか。
+def build_run_context(
+    config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
+    keep_frames: bool, workers_override: int | None,
+) -> RunContext:
+    """config から 1 回の起動で変わらない値を組む。答える問い: 表を組み、当てるのに何が要るか(未決は残っていないか)。
 
-    **表を組む → R に投げる → 数える、の 3 段しかない。**
-    当てはめの中身は `power_sim_fit.R` にある(skill `code-style` §2)。
-
-    **回すのは `through_stage` 段目まで**(人間 2026-10-04 その143: 段ごとに止まり、人間が見てから
-    次の段を起動する)。同じ `out_dir` に大きい `through_stage` で起動し直すと、済んだ反復は飛ばして続きから回る。
+    `run`(本実行)と `run_ceiling_probe`(天井のシート。PLAN-044)が共有する。順は元の `run` のまま
+    (`n_item` の格子 → `s2_*` → `alpha` 等 → R の解決)で、どこで止まるかも変えない。
     """
-    sheets = load_sheets(config)
-    gate = load_gate_spec(config)
-    feasibility = load_feasibility_gate_spec(config)
-    check_gate_against_sheets(gate, sheets)
-    axes = load_axis_spec(config)
-    stages = load_stages(config)
-    if not 1 <= through_stage <= len(stages):
-        raise ConfigError(
-            f"--through-stage は 1〜{len(stages)}(simulation.n_rep_stages = {list(stages)}): {through_stage}"
-        )
     for n_item in load_n_item_grid(config):
         load_levels(config, n_item)
     s2_item = float(require(config, "dgp.s2_item"))
@@ -1955,7 +2063,7 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
 
     rscript = resolve_rscript(rscript_override or config["fit"].get("rscript"))
     n_workers = int(workers_override or require(config, "fit.n_workers"))
-    ctx = RunContext(
+    return RunContext(
         config=config,
         out_dir=out_dir,
         s2_item=s2_item,
@@ -1972,16 +2080,19 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
         keep_frames=keep_frames,
     )
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    info = record_run(out_dir, config, config_path, through_stage, n_workers)
-    header = {
+
+def run_header(
+    config: Mapping[str, Any], ctx: RunContext, info: Mapping[str, Any], stages: Sequence[int]
+) -> dict[str, Any]:
+    """段ごとの結果の頭に付ける記述。答える問い: この結果はどの run の、どの仮定値から出たか。"""
+    return {
         "run_id": info["run_id"],
         "n_seed": int(require(config, "dgp.n_seed")),
         "n_item_grid": list(load_n_item_grid(config)),
         "n_rep_stages": list(stages),
-        "s2_item": s2_item,
-        "s2_tmpl": s2_tmpl,
-        "alpha": alpha,
+        "s2_item": ctx.s2_item,
+        "s2_tmpl": ctx.s2_tmpl,
+        "alpha": ctx.alpha,
         "tost_alpha": float(require(config, "simulation.tost_alpha")),
         "tost_delta_note": (
             "tost_min_margins is, per replication, the smallest delta at which both interaction "
@@ -1993,12 +2104,46 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
         ),
         # ★実行資源のつまみであって実験パラメータではない。結果はこの値に依らない
         # (ADR-069 決定3)。それでも「何並列で回したか」は再現の記録として残す。
-        "n_workers": n_workers,
+        "n_workers": ctx.n_workers,
         "assumed_values_note": (
             "n_item, sigma and rho are ASSUMED values, not measurements; n_item here is NOT "
             "eval.cells (05_STATISTICS.md section 6.8; ADR-122 / ADR-123)"
         ),
     }
+
+
+def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
+        keep_frames: bool, workers_override: int | None = None, *,
+        through_stage: int, config_path: Path | None = None) -> dict[str, Any]:
+    """段を順に回して最後の段の結果を返す。答える問い: 10 シードの設計で、何が言えるか。
+
+    **表を組む → R に投げる → 数える、の 3 段しかない。**
+    当てはめの中身は `power_sim_fit.R` にある(skill `code-style` §2)。
+
+    **回すのは `through_stage` 段目まで**(人間 2026-10-04 その143: 段ごとに止まり、人間が見てから
+    次の段を起動する)。同じ `out_dir` に大きい `through_stage` で起動し直すと、済んだ反復は飛ばして続きから回る。
+    **天井のシート(役割 `ceiling_probe`。PLAN-044)の config は `run_ceiling_probe` へ回す**(門を掛けない)。
+    """
+    sheets = load_sheets(config)
+    if any(sheet.role == ROLE_CEILING_PROBE for sheet in sheets):
+        return run_ceiling_probe(
+            config, out_dir, rscript_override, keep_frames, workers_override,
+            through_stage=through_stage, config_path=config_path,
+        )
+    gate = load_gate_spec(config)
+    feasibility = load_feasibility_gate_spec(config)
+    check_gate_against_sheets(gate, sheets)
+    axes = load_axis_spec(config)
+    stages = load_stages(config)
+    if not 1 <= through_stage <= len(stages):
+        raise ConfigError(
+            f"--through-stage は 1〜{len(stages)}(simulation.n_rep_stages = {list(stages)}): {through_stage}"
+        )
+    ctx = build_run_context(config, out_dir, rscript_override, keep_frames, workers_override)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    info = record_run(out_dir, config, config_path, through_stage, ctx.n_workers)
+    header = run_header(config, ctx, info, stages)
     summary: dict[str, Any] = {}
     for stage_index, n_rep in enumerate(stages[:through_stage], start=1):
         summary = {**header, **run_stage(ctx, sheets, gate, feasibility, axes, stage_index, n_rep)}
@@ -2007,6 +2152,468 @@ def run(config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
         if summary["stopped_at_gate"] or summary["stopped_at_feasibility_gate"]:
             break
     return summary
+
+
+# --------------------------------------------------------------------------
+# ★天井のシート(PLAN-044 / ADR-131。役割 `ceiling_probe`)
+# --------------------------------------------------------------------------
+#
+# T1 × `id`・`interp` が 1.000 に張り付いたとき、**今の手続き**(`power_sim_fit.R` は不変)がどう振る舞うかを
+# **記述する**。門は掛けない(Q3 (a))。値はすべて仮定値で、実験結果ではない。
+
+
+@dataclass(frozen=True)
+class CeilingReportSpec:
+    """天井のシートの記述の宣言(`ceiling.report`)。答える問い: 区間の水準・分位点・周辺確率の積分の節点数はいくつか。"""
+
+    ci_level: float
+    quantiles: tuple[float, ...]
+    quadrature_nodes: int
+
+
+def load_ceiling_report_spec(config: Mapping[str, Any]) -> CeilingReportSpec:
+    """config の `ceiling.report` を読む。答える問い: 記述の値は宣言されているか(null・欠けは止まる)。"""
+    level = float(require(config, "ceiling.report.ci_level"))
+    if not 0.0 < level < 1.0:
+        raise ConfigError(f"ceiling.report.ci_level は (0, 1): {level}")
+    quantiles = tuple(float(q) for q in require(config, "ceiling.report.quantiles"))
+    if not quantiles or any(not 0.0 <= q <= 1.0 for q in quantiles):
+        raise ConfigError(f"ceiling.report.quantiles は [0, 1] の値の空でない列: {list(quantiles)}")
+    nodes = require(config, "ceiling.report.quadrature_nodes")
+    if not isinstance(nodes, int) or isinstance(nodes, bool) or nodes < 2:
+        raise ConfigError(f"ceiling.report.quadrature_nodes は 2 以上の整数: {nodes!r}")
+    return CeilingReportSpec(ci_level=level, quantiles=quantiles, quadrature_nodes=nodes)
+
+
+def check_ceiling_config(config: Mapping[str, Any], sheets: Sequence[Sheet]) -> None:
+    """答える問い: この config は「天井のシートだけ・門なし」か(混ぜると門の経路と記述の経路が食い違う)。
+
+    天井のシートと既存の役割のシートを同じ config に置かない。`simulation` に誤指定の門・実行可能性の門の欄が
+    あれば止まる(「門を掛けない」を欄の有無で固定する。PLAN-044 Q3 (a))。
+    """
+    stray = [s.sheet_id for s in sheets if s.role != ROLE_CEILING_PROBE]
+    if stray:
+        raise ConfigError(f"天井のシートの config に別の役割のシート {stray} がある。分けること(PLAN-044)")
+    declared = [key for key in CEILING_FORBIDDEN_GATES if key in config.get("simulation", {})]
+    if declared:
+        raise ConfigError(
+            f"天井のシートの config の simulation に門の欄 {declared} がある。天井のシートは門を掛けない(PLAN-044 Q3 (a))"
+        )
+
+
+def parse_ceiling_level(raw: Any, name: str) -> float:
+    """答える問い: `ceiling.levels` の値は、数か `"inf"` か。"""
+    if isinstance(raw, str) and raw == LEVEL_INFINITE:
+        return math.inf
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(raw):
+        raise ConfigError(f"ceiling.levels.{name} は有限の数か {LEVEL_INFINITE!r}: {raw!r}")
+    return float(raw)
+
+
+def resolve_ceiling_level(config: Mapping[str, Any], name: str) -> float:
+    """答える問い: 天井の水準 `name` の値は決まっているか。null(I3 が計算して転記する前)なら止まる。"""
+    return parse_ceiling_level(require(config, f"ceiling.levels.{name}"), name)
+
+
+def build_ceiling_eta(
+    base_eta: np.ndarray, tasks: Sequence[str], coverages: Sequence[str], spec: CeilingSpec, level: float
+) -> np.ndarray:
+    """答える問い: 天井の水準 `level` のとき、DGP の `eta`(タスク型 × 被覆)はどうなるか(PLAN-044 §3.2)。
+
+    `replace`: `cells` を `level` に置き換える(`+∞` 可。`draw_frame` で `logistic(+inf)` = 1.0 になる)。
+    `shift_task`: 1 セルが `level` になるよう、そのタスク型の行全体に同じ定数を足す(行の中の差と、他の行は変えない。
+    厳密に加法の基のプロファイルなら、ずらした後も厳密に加法)。`level` が有限でなければ止まる。
+    """
+    eta = np.array(base_eta, dtype=float)
+    if spec.mode == CEILING_MODE_REPLACE:
+        for task, coverage in spec.cells:
+            eta[tasks.index(task), coverages.index(coverage)] = level
+        return eta
+    if spec.mode != CEILING_MODE_SHIFT_TASK:
+        raise ConfigError(f"ceiling.mode は {CEILING_MODES} のどれか: {spec.mode!r}")
+    if not math.isfinite(level):
+        raise ConfigError(f"{CEILING_MODE_SHIFT_TASK} に有限でない水準は置けない: {level}")
+    ((task, coverage),) = spec.cells
+    ti, ci = tasks.index(task), coverages.index(coverage)
+    eta[ti, :] += level - base_eta[ti, ci]
+    eta[ti, ci] = level      # 足し算の丸めを残さない
+    return eta
+
+
+def ceiling_logit_contrasts(eta: np.ndarray, coverages: Sequence[str]) -> dict[str, float]:
+    """答える問い: ロジットの尺度の交互作用の真値(処理対比・基準 T1 × id)は、天井のセルを含んでも定義されるか。
+
+    関わる 4 セルのどれかが有限でなければ NaN(= 定義されない。`∞ − ∞` か発散。PLAN-044 §6.1)。
+    """
+    out: dict[str, float] = {}
+    for ci, coverage in enumerate(coverages):
+        if ci == 0:
+            continue
+        cells = (eta[1, ci], eta[1, 0], eta[0, ci], eta[0, 0])
+        out[coverage] = (
+            float((cells[0] - cells[1]) - (cells[2] - cells[3]))
+            if all(math.isfinite(c) for c in cells)
+            else math.nan
+        )
+    return out
+
+
+def ceiling_profile(config: Mapping[str, Any], sheet: Sheet) -> EffectProfile:
+    """答える問い: この天井のシートの DGP の `eta` と、ロジットの尺度の真値は何か。
+
+    `EffectProfile` の形に合わせるが、**非加法性 RMS は NaN**(天井のシートでは読まない)。`delta` は `eta` から
+    `mu + a + b` を引いた値(`+∞` が残る)。`interaction_contrasts` は定義されなければ NaN。
+    水準 `L` が null なら止まる(I3 が計算して転記するまで当てはめない)。
+    """
+    spec = sheet.ceiling
+    if spec is None:
+        raise ConfigError(f"シート {sheet.sheet_id} は天井のシートではない")
+    effect = config["effect"]
+    base = build_profile(effect, spec.base_profile)
+    level = resolve_ceiling_level(config, spec.level_name)
+    eta = build_ceiling_eta(base.eta, base.tasks, base.coverages, spec, level)
+    additive = float(effect["mu"]) + np.asarray(effect["a"], dtype=float)[:, None] + np.asarray(
+        effect["b"], dtype=float
+    )[None, :]
+    return EffectProfile(
+        name=sheet.sheet_id,
+        tasks=base.tasks,
+        coverages=base.coverages,
+        eta=eta,
+        delta=eta - additive,
+        nonadditivity_rms=math.nan,
+        interaction_contrasts=ceiling_logit_contrasts(eta, base.coverages),
+    )
+
+
+def marginal_rule_rates(eta: np.ndarray, variance: float, nodes: int) -> np.ndarray:
+    """答える問い: ランダム効果を積分した、セルの周辺の `rule_rate` はいくつか(確率の尺度の真値の材料)。
+
+    観測 1 つのランダム効果の和 `u + v + w`(+ `z`)は正規分布の和なので N(0, `variance`) である
+    (`rho` に依らない。1 つのセルの周辺は 1 つの被覆の `u` だけを見る)。`E[expit(eta + sqrt(variance) Z)]` を
+    Gauss–Hermite 求積(`nodes` 点)で出す。`eta` = +∞ のセルは 1.0。
+    """
+    if variance < 0.0:
+        raise ValueError(f"variance は 0 以上: {variance}")
+    x, w = np.polynomial.hermite.hermgauss(nodes)
+    shift = math.sqrt(2.0 * variance) * x
+    return (expit(np.asarray(eta, dtype=float)[..., None] + shift) * w).sum(axis=-1) / math.sqrt(math.pi)
+
+
+def probability_contrasts(rates: np.ndarray, coverages: Sequence[str]) -> dict[str, float]:
+    """答える問い: 確率の尺度の差の差(処理対比と同じ向き: (T2 − T1) × (被覆 − id))はいくつか。"""
+    return {
+        coverage: float((rates[1, ci] - rates[1, 0]) - (rates[0, ci] - rates[0, 0]))
+        for ci, coverage in enumerate(coverages)
+        if ci > 0
+    }
+
+
+def ceiling_true_values(
+    profile: EffectProfile, sigma: float, s2_item: float, s2_tmpl: float, nodes: int
+) -> dict[str, Any]:
+    """答える問い: この点の DGP で、周辺の `rule_rate` と確率の尺度の差の差の真値はいくつか(PLAN-044 §3.1)。
+
+    周辺はランダム効果(`sigma`・`s2_item`・`s2_tmpl`。`tau` は 0)を積分したもの。**実験結果ではなく DGP の算術**。
+    """
+    variance = sigma**2 + s2_item + s2_tmpl
+    rates = marginal_rule_rates(profile.eta, variance, nodes)
+    return {
+        "random_effect_variance": variance,
+        "marginal_rule_rate": {
+            task: {cov: float(rates[ti, ci]) for ci, cov in enumerate(profile.coverages)}
+            for ti, task in enumerate(profile.tasks)
+        },
+        "probability_scale_contrasts": probability_contrasts(rates, profile.coverages),
+    }
+
+
+def cell_labels(levels: DesignLevels) -> list[str]:
+    """答える問い: 観測のセル率の並び(タスク型 × 被覆。行の順)は何か。"""
+    return [f"{task}.{cov}" for task in levels.tasks for cov in levels.coverages]
+
+
+def frame_cell_rates(rows: Sequence[tuple[Any, ...]], levels: DesignLevels) -> list[float]:
+    """答える問い: この表の 6 セルの `rule_rate`(`is_rule` の平均)はいくつか。`cell_labels` の順。"""
+    sums: dict[str, int] = {label: 0 for label in cell_labels(levels)}
+    for _, task, coverage, _, _, is_rule in rows:
+        sums[f"{task}.{coverage}"] += is_rule
+    per_cell = levels.n_seed * levels.n_item
+    return [sums[label] / per_cell for label in cell_labels(levels)]
+
+
+def collect_cell_rates(
+    ctx: RunContext, sheet: Sheet, profile: EffectProfile, key: PointKey, n_rep: int
+) -> list[list[float]]:
+    """答える問い: 反復ごとの 6 セルの観測の `rule_rate`(表から数える)はいくつか。
+
+    反復の表は `replication_rng` だけで決まるので、**組み直せば当てはめ時と同じ表になる**
+    (`run_sheet_stage` と同じ引数。CSV を残していなくても、再開した起動でも同じ値)。
+    """
+    levels = load_levels(ctx.config, key.n_item)
+    return [
+        frame_cell_rates(
+            draw_frame(
+                levels, profile.eta, key.sigma, key.rho, ctx.s2_item, ctx.s2_tmpl,
+                replication_rng(ctx.rng_seed, sheet.sheet_id, key, rep),
+                tau=frame_tau(sheet, key.sigma),
+            ),
+            levels,
+        )
+        for rep in range(n_rep)
+    ]
+
+
+def json_safe(value: Any) -> Any:
+    """答える問い: JSON に書けない値(`inf`・`nan`・numpy)を、書ける形にするとどうなるか。
+
+    `+inf` は `"inf"`、`-inf` は `"-inf"`、NaN は null。無限大を JSON に書かない(`allow_nan` に頼らない)。
+    """
+    if isinstance(value, Mapping):
+        return {str(k): json_safe(v) for k, v in value.items()}
+    if isinstance(value, np.ndarray):
+        return json_safe(value.tolist())
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    if isinstance(value, (float, np.floating)):
+        number = float(value)
+        if math.isnan(number):
+            return None
+        return ("inf" if number > 0 else "-inf") if math.isinf(number) else number
+    if isinstance(value, np.integer):
+        return int(value)
+    return value
+
+
+def quantile_dict(values: Sequence[float], quantiles: Sequence[float]) -> dict[str, float] | None:
+    """答える問い: 値の分位点(`QUANTILE_METHOD`)はいくつか。空なら null。"""
+    if len(values) == 0:
+        return None
+    result = np.quantile(np.asarray(values, dtype=float), list(quantiles), method=QUANTILE_METHOD)
+    return {f"{q:g}": float(v) for q, v in zip(quantiles, result)}
+
+
+def summarise_cell_rates(
+    rates: Sequence[Sequence[float]], labels: Sequence[str], quantiles: Sequence[float]
+) -> dict[str, Any]:
+    """答える問い: 6 セルの観測の `rule_rate` は、反復をまたいでどう分布するか(分位点・平均・厳密に 1.0 の反復の数)。"""
+    table = np.asarray(rates, dtype=float)
+    return {
+        label: {
+            "mean": float(table[:, i].mean()),
+            "quantiles": quantile_dict(table[:, i], quantiles),
+            "n_rep_all_rule": int((table[:, i] == 1.0).sum()),
+        }
+        for i, label in enumerate(labels)
+    }
+
+
+def summarise_coefficients(
+    results: Sequence[Mapping[str, Any]], coverages: Sequence[str], quantiles: Sequence[float]
+) -> dict[str, Any]:
+    """答える問い: 当てはめが成功した反復の、交互作用の 2 係数の推定値と SE の分布はどうか(選択の偏りあり。記述だけ)。
+
+    **成功した反復だけ**(失敗は係数を持たない。PLAN-044 罠4: 失敗率と並べて読む)。有限でない値(null・NaN・∞)は
+    数から外して `n_non_finite` に数える(黙って捨てない)。
+    """
+    out: dict[str, Any] = {}
+    for cov in coverages[1:]:
+        columns = {}
+        for field in ("est", "se"):
+            raw = [
+                r.get(f"interaction_{cov}_{field}") for r in results if not r.get("fit_failed", False)
+            ]
+            finite = [float(v) for v in raw if v is not None and math.isfinite(float(v))]
+            columns[field] = {
+                "n": len(finite),
+                "n_non_finite": len(raw) - len(finite),
+                "quantiles": quantile_dict(finite, quantiles),
+            }
+        out[cov] = {"estimate": columns["est"], "se": columns["se"]}
+    return out
+
+
+def fit_stage_counts(results: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """答える問い: 反復はどの段で収束と言えたか(縮退 0〜3 段 / `allFit` で救われた / 失敗)。"""
+    counts: dict[str, int] = {}
+    for r in results:
+        if r.get("fit_failed", False):
+            label = "failed"
+        elif r.get("rescued_by_allfit", False):
+            label = "rescued_by_allfit"
+        else:
+            label = f"level_{r.get('reduction_level', 'unknown')}"
+        counts[label] = counts.get(label, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def ceiling_point_record(
+    point: GridPoint,
+    results: Sequence[Mapping[str, Any]],
+    rates: Sequence[Sequence[float]],
+    labels: Sequence[str],
+    profile: EffectProfile,
+    true_values: Mapping[str, Any],
+    probe: CeilingReportSpec,
+    rates_file: str,
+) -> dict[str, Any]:
+    """答える問い: この点について §3.1 の量(記述だけ)は何か。門には使わない。"""
+    return {
+        **dataclasses.asdict(point),
+        "intervals": point_intervals(point, probe.ci_level, probe.ci_level),
+        "fit_stage_counts": fit_stage_counts(results),
+        "interaction_coefficients": summarise_coefficients(results, profile.coverages, probe.quantiles),
+        "tost_min_margin_quantiles": margin_quantiles(
+            point.tost_min_margins, probe.quantiles,
+            n_failed=point.tost_n_failed, failed_as_equivalent=point.tost_failed_as_equivalent,
+        ),
+        "true_values": true_values,
+        "observed_cell_rates": summarise_cell_rates(rates, labels, probe.quantiles),
+        "observed_cell_rates_file": rates_file,
+    }
+
+
+def run_ceiling_sheet(
+    ctx: RunContext, sheet: Sheet, profile: EffectProfile, probe: CeilingReportSpec, n_rep: int
+) -> dict[str, Any]:
+    """天井のシート 1 枚を反復 `n_rep` まで回して記述する。答える問い: このシートの各点で §3.1 の量は何か。
+
+    当てはめと表の組み立ては `run_sheet_stage`(既存)をそのまま使う(`eta` に `+∞` が入るだけ)。
+    反復ごとのセル率は表から数え直して `cell_rates_<点>.json` に残す(全部。要約は分位点)。
+    """
+    spec = sheet.ceiling
+    if spec is None:
+        raise ConfigError(f"シート {sheet.sheet_id} は天井のシートではない")
+    points = run_sheet_stage(ctx, sheet, profile, tost_spec(ctx.config, profile), n_rep)
+    sheet_dir = ctx.out_dir / sheet.sheet_id
+    records = []
+    for point in points:
+        key = point.key
+        tag = key.tag()
+        results = [
+            json.loads((sheet_dir / "fits" / f"fit_{tag}_{rep:04d}.json").read_text(encoding="ascii"))
+            for rep in range(n_rep)
+        ]
+        levels = load_levels(ctx.config, key.n_item)
+        labels = cell_labels(levels)
+        rates = collect_cell_rates(ctx, sheet, profile, key, n_rep)
+        rates_file = f"cell_rates_{tag}.json"
+        write_json_atomic(
+            sheet_dir / rates_file,
+            {
+                "cells": labels,
+                "n_trials_per_cell": levels.n_seed * levels.n_item,
+                "n_rep": n_rep,
+                "rates": rates,
+            },
+        )
+        true_values = ceiling_true_values(
+            profile, key.sigma, ctx.s2_item, ctx.s2_tmpl, probe.quadrature_nodes
+        )
+        records.append(
+            ceiling_point_record(point, results, rates, labels, profile, true_values, probe, rates_file)
+        )
+    return {
+        "role": sheet.role,
+        "ceiling": {
+            "base_profile": spec.base_profile,
+            "mode": spec.mode,
+            "cells": [list(c) for c in spec.cells],
+            "level_name": spec.level_name,
+            "level": resolve_ceiling_level(ctx.config, spec.level_name),
+        },
+        "eta": profile.eta,
+        # ロジットの尺度の真値(処理対比・基準 T1 × id)。天井が厳密な 1.000(+∞)なら定義されない(null)
+        "true_logit_interaction_contrasts": dict(profile.interaction_contrasts),
+        "failure_counted_as": "retain",
+        "grid": records,
+    }
+
+
+def run_ceiling_stage(
+    ctx: RunContext, sheets: Sequence[Sheet], probe: CeilingReportSpec, stage_index: int, n_rep: int
+) -> dict[str, Any]:
+    """天井のシートを 1 段回す。答える問い: 反復 `n_rep` までで、各シートの §3.1 の量は何か(門は無い)。"""
+    summaries = {
+        sheet.sheet_id: run_ceiling_sheet(ctx, sheet, ceiling_profile(ctx.config, sheet), probe, n_rep)
+        for sheet in sheets
+    }
+    return {"stage": stage_index, "n_rep": n_rep, "sheets": summaries}
+
+
+def run_ceiling_probe(
+    config: Mapping[str, Any], out_dir: Path, rscript_override: str | None,
+    keep_frames: bool, workers_override: int | None = None, *,
+    through_stage: int, config_path: Path | None = None,
+) -> dict[str, Any]:
+    """天井のシートを回して最後の段の結果を返す。答える問い: T1 の `id`・`interp` が天井のとき、今の手続きは何をするか。
+
+    **門を掛けない**(`check_ceiling_config`)。天井の水準が null なら、何も書かずに止まる
+    (I3 が計算して転記し、commit してから当てはめる。PLAN-044 §3.3)。結果は記述で、解釈しない。
+    """
+    sheets = load_sheets(config)
+    check_ceiling_config(config, sheets)
+    probe = load_ceiling_report_spec(config)
+    stages = load_stages(config)
+    if not 1 <= through_stage <= len(stages):
+        raise ConfigError(
+            f"--through-stage は 1〜{len(stages)}(simulation.n_rep_stages = {list(stages)}): {through_stage}"
+        )
+    for sheet in sheets:
+        ceiling_profile(config, sheet)      # 水準が null ならここで止まる(out_dir を作る前)
+    ctx = build_run_context(config, out_dir, rscript_override, keep_frames, workers_override)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    info = record_run(out_dir, config, config_path, through_stage, ctx.n_workers)
+    header = {
+        **run_header(config, ctx, info, stages),
+        "role": ROLE_CEILING_PROBE,
+        "gates": "none (PLAN-044 Q3 (a)): failure rates and CP intervals are recorded, nothing closes",
+        "ceiling_note": (
+            "ceiling levels L are ASSUMED values fixed by a rule before fitting (ceiling_level.py); "
+            "everything here is descriptive and is NOT a statement about the real experiment (PLAN-044 trap 5)"
+        ),
+    }
+    summary: dict[str, Any] = {}
+    for stage_index, n_rep in enumerate(stages[:through_stage], start=1):
+        summary = json_safe({**header, **run_ceiling_stage(ctx, sheets, probe, stage_index, n_rep)})
+        write_json_atomic(out_dir / stage_summary_name(n_rep), summary)
+        write_json_atomic(out_dir / SUMMARY_FILE, summary)
+    return summary
+
+
+def describe_ceiling_plan(config: Mapping[str, Any], workers_override: int | None = None) -> list[str]:
+    """天井のシートの費用の表。答える問い: 何本の当てはめで、水準は決まっているか(R は呼ばない)。"""
+    sheets = load_sheets(config)
+    check_ceiling_config(config, sheets)
+    stages = load_stages(config)
+    lines = [f"sheets    : {len(sheets)} ceiling_probe sheets (no gates; PLAN-044 Q3 (a))"]
+    for sheet in sheets:
+        spec = sheet.ceiling
+        if spec is None:
+            raise ConfigError(f"シート {sheet.sheet_id} は天井のシートではない")
+        raw = config["ceiling"]["levels"][spec.level_name]
+        points = ", ".join(f"({k.n_item}, {k.sigma:g}, {k.rho:g})" for k in sheet.points)
+        lines.append(
+            f"  {sheet.sheet_id:<14} base {spec.base_profile} {spec.mode} cells {[list(c) for c in spec.cells]} "
+            f"level {spec.level_name} = {'UNDECIDED (null)' if raw is None else raw}  points: {points}"
+        )
+    n_points = sum(len(sheet.points) for sheet in sheets)
+    allfit = load_allfit_spec(config)
+    lines += [
+        f"n_seed    : {require(config, 'dgp.n_seed')}  (ADR-028)",
+        f"stages    : {list(stages)} (cumulative reps; one invocation runs --through-stage N)",
+        f"fits      : {n_points * stages[-1] * 2} at the last stage (= {n_points} points x {stages[-1]} x 2)",
+        "NOTE: levels L and every DGP value are ASSUMED values; nothing here is a measurement",
+        f"rng_seed  : {require(config, 'simulation.rng_seed')}  (committed before launch)",
+        "allfit    : same as power_sim.yaml; optimizers " + ", ".join(allfit.optimizers),
+        "gates     : none (failure rate and CP intervals are recorded only)",
+    ]
+    workers = int(workers_override or config["fit"].get("n_workers") or 1)
+    try:
+        lines += stage_cost_lines(config, sheets, stages, workers)
+    except ConfigError:
+        lines.append("cost      : UNDECIDED (dgp.templates or dgp.n_seed is null) -- cannot scale")
+    return lines
 
 
 def estimate_seconds_per_pair(levels: DesignLevels) -> float:
@@ -2086,6 +2693,8 @@ def describe_plan(config: Mapping[str, Any], workers_override: int | None = None
     段ごとに「全シート」と「先頭のシート(誤指定)だけ」を出す —— 門が閉じれば、その段は先頭のシートだけで止まる。
     """
     sheets = load_sheets(config)
+    if any(sheet.role == ROLE_CEILING_PROBE for sheet in sheets):
+        return describe_ceiling_plan(config, workers_override)
     stages = load_stages(config)
     # 出力は ASCII のみ。この環境の stdout は cp932 であり、em dash で落ちる
     # (`plans/PLAN-019-check2/` の検査スクリプトと同じ制約)。
@@ -2169,6 +2778,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         config, args.out_dir, args.rscript, args.keep_frames, args.workers,
         through_stage=args.through_stage, config_path=args.config,
     )
+    if summary.get("role") == ROLE_CEILING_PROBE:
+        print(json.dumps({
+            "run_id": summary["run_id"], "stage": summary["stage"], "n_rep": summary["n_rep"],
+            "role": summary["role"],
+            "failed_rate": {
+                sheet_id: {f"{p['n_item']}_{p['sigma']:g}_{p['rho']:g}": p["failed_rate"] for p in body["grid"]}
+                for sheet_id, body in summary["sheets"].items()
+            },
+        }, indent=2, ensure_ascii=True))
+        return 0
     report = {
         "run_id": summary["run_id"],
         "stage": summary["stage"],

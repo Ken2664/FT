@@ -1,43 +1,43 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-15(その170)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: PLAN完了(PLAN-044 を採択し ADR-131 を commit した。1 セッション = 1 PLAN)
-直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Sonnet — PLAN-044 I1〜I5 は実装・テストで、`10_CONTEXT_POLICY.md` §7 の「実装・集計」の行に当たる(PLAN-044 §7 も「IMPLEMENTER = Sonnet で可。統計の判断が出たら止めて PLANNER へ」と書いている)
+生成: 2026-10-15(その171)/ 直前セッションの役割: IMPLEMENTER
+直前セッションが終了した理由: コンテキスト超過(context-guard。全 pytest が 84 分かかり、大きな出力で膨らんだ)
+直前セッションの実モデル: Claude Sonnet 5.5
+**推奨モデル(次のセッション)**: Sonnet — PLAN-044 の I5(R のスモーク・文書の記入)は実装・集計の行(`10_CONTEXT_POLICY.md` §7)。統計の判断が出たら止めて PLANNER へ
 
 ---
 
 あなたは IMPLEMENTER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
-`CLAUDE.md` §1 の開始手順を実行し、skill `code-style` を読んでから作業を始めてください。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
 ## このセッションでやること(1つだけ)
 
-**PLAN-044(`plans/PLAN-044-ceiling-d9-reopen.md`)の I1〜I5 を実装する。**完了の条件は次の 4 つ。
+**PLAN-044 の I5 の残りを済ませて閉じる。**完了の条件は次の 3 つ。
 
-1. I1 `configs/power_sim_ceiling.yaml`(新規)・I2 `code/analysis/power_sim.py` の役割 `ceiling_probe`・I3 `code/analysis/ceiling_level.py`(新規)・I4 テストを、§3・§7 のとおりに書く
-2. I3 で `L_05`・`L_50` を計算し(固定の乱数種。出力は `results/power_sim/ceiling_level/`)、値を config に転記して**当てはめの前に commit する**
-3. `pytest code/tests -q` が通る(直前は `-k 'not smoke'` で 2512 passed, 11 deselected)。`--dry-run` の費用の表と、合成の反復で R のスモークを各シート 1 表(1 表の時間を記録)
-4. PLAN-044 §11・§13、`logs/CHANGELOG.md`、`STATE.md` を更新して commit する。天井のシートの本実行は**起動しない**(人間が決める)
+1. `configs/power_sim_ceiling.yaml` の**各シート 1 表**(8 枚)を、**本物の `power_sim_fit.R`(R 4.6.1・lme4 2.0.6)**で当てる。スクラッチパッドの `--out-dir` に `n_rep_stages` を [1] にした config の写しで回す(本番の `results/power_sim/ceiling/` は使わない・`--keep-frames` 不要)。**1 表の時間(秒)を記録**し、当てはめ失敗・`allFit` の段に着いたかを見る(記述だけ。解釈しない)。`Rscript` は PATH に無い(`resolve_rscript` が `C:/Program Files/R/R-*/bin/Rscript.exe` を探す)。`R_LIBS` は `lme4` の入る場所(`infra/` か STATE の R の節を `grep -n 'R_LIBS' STATE.md`)
+2. PLAN-044 §11(スモークの行)・§13(スモークの時間の行)・`logs/CHANGELOG.md`・`STATE.md`(冒頭・3 ブロック。古い「その171」ブロックは `logs/STATE-ARCHIVE.md` へ。上限 60 KB に近い: 現在 58.6 KB)を更新して commit
+3. **天井のシートの本実行は起動しない**(人間が決める)
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- **ADR-131**(`logs/DECISIONS.md` 末尾)で PLAN-044 を採択した。人間は 7 問とも推奨 (a) を選んだ: Q1 `L_05`・`L_50`・`L_inf` / Q2 3 枚・8 点(`ceiling_p0` × 3・`ceiling_p1` × 3・`ceiling_null` × `L_05`・`L_50`。すべて (80, 1.0, 0.0)・`tau` 0)/ Q3 run3 とは別の run・役割 `ceiling_probe`・門なし・`n_rep` 100 の 1 段・`--keep-frames`・`rng_seed` = 採った日付 **20261015** / Q4 今の手続きだけを当てる / Q5 手当ては結果の後に別の PLAN で決める / Q6 本命の候補は C + B(決定ではない)/ Q7 R3 は別の PLAN-045
-- PLAN-044 §7 は推奨どおりなので、書き直していない。I1〜I5 の仕様の正本は §3.1〜§3.3 と §7
-- PLAN-034 D9・§7 罠6・`05_STATISTICS.md` §2 の弱点欄には打ち消し線と参照を付けた(commit `7227836`)
-- この機械の R には `lme4` とその依存しか無い(`brms`・`rstanarm`・`blme` は無い)
+- commit `214b3ab`(コード・config(L は null)・テスト)→ `33df8c1`(I3 の出力 `results/power_sim/ceiling_level/` と `L_05` = 5.3・`L_50` = 7.512 の転記。run_id `20261015_040148_ceiling_level`。**当てはめの前**)→ その後の文書 commit(STATE・CHANGELOG・PLAN-044 §11・§13 の一部・この HANDOFF)
+- `pytest code/tests -q -k 'not smoke'` = 2554 passed, 11 deselected(**84 分かかる**。次は `code/tests/test_ceiling_probe.py` と `test_power_sim.py` だけを回せばよい。文書だけの変更なら全部は要らない)
+- `power_sim.yaml` の経路は不変(smoke を偽の当てはめで HEAD と比べ、表と当てはめ結果は同一バイト)
+- **構造上の読み**: PLAN-044 の「3 枚・8 点」は config では 8 枚・各 1 点(水準はシートの属性)。PLAN-044 §13 に記録済み。統計の中身は同じ
+- 天井のシートは `--dry-run --workers 16` で 800 表・3.4〜5.7 時間(推算。R のスモークの実測で更新する)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- 書く: `configs/power_sim_ceiling.yaml`(新規)・`code/analysis/power_sim.py`・`code/analysis/ceiling_level.py`(新規)・`code/tests/`(新しいテストファイル。既存のテストは壊さない)・`results/power_sim/ceiling_level/`・`plans/PLAN-044`(§11・§13)・`logs/CHANGELOG.md`・`STATE.md`
-- 読む: PLAN-044 §2・§3・§6.1・§7・§8(全文 284 行。`grep -n` → `sed -n`)/ `configs/power_sim.yaml`(P0・P1 の `eta`・`dgp`・`fit`)/ `power_sim.py` の `draw_frame` と役割・門の分岐(`grep -n 'role\|gate\|draw_frame'`)
+- 読む: `configs/power_sim_ceiling.yaml`・`code/analysis/power_sim.py` の `run_ceiling_probe`(`grep -n 'def run_ceiling'`)・PLAN-044 §6.2・§11・§13
+- 書く: PLAN-044 §11・§13・`logs/CHANGELOG.md`・`STATE.md`・`logs/STATE-ARCHIVE.md`。**コードは変えない**(スモークで不具合が見つかったら止めて報告)
 
 ## やってはいけないこと
 
-- `power_sim_fit.R`・`configs/power_sim.yaml`・run3 の `rng_seed` 20261008 の変更。**`power_sim.yaml` の経路の出力は 1 バイトも変えない**(既存のテストで固定)
-- I3 でパイロットの表(`results/s2_item_pilot/`)を読むこと。`L` は仮定値と規則だけで決める(PLAN-044 罠1)
-- `L_05`・`L_50` を commit する前に天井のシートを当てはめること / 天井のシートの本実行・夜用タスクの登録・push・tag・GPU
-- 結果の解釈・手当ての設計(確率の尺度の検定など)。**統計の判断(例: §3.3 の「起こる確率」の定義の解釈が割れる)が出たら止めて人間に伝え、PLANNER へ回す**
+- `power_sim_fit.R`・`configs/power_sim.yaml`・run3 の `rng_seed` 20261008 の変更 / `L_05`・`L_50` の変更(commit 済み。変えるなら新しい run)
+- 天井のシートの本実行・夜用タスクの登録・push・tag・GPU
+- スモークの数値を主張・効果量に使うこと(配線確認だけ。`CLAUDE.md` §2)・結果の解釈・手当ての設計
+- 全 pytest を何度も回すこと(84 分。コンテキストと時間を食う)。出力は `tail` で
 
 ## 未解決 / 人間の承認待ち
 

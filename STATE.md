@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-15(その170)/ by Claude Opus 5.5(PLANNER)。**★PLAN-044 を採択した(ADR-131。人間が 7 問とも推奨 (a))**: 天井の水準 `L_05`・`L_50`・`L_inf` / 天井のシート 3 枚・8 点 / run3 と別の記述の run(門なし・100 反復・表を残す)/ 今の手続きだけ / 手当ては天井のシートの結果の後・run3 の前に別の PLAN(本命の候補 = C + B・A は感度。**絞り込みで決定ではない**)/ R3 は別の PLAN-045。PLAN-034 D9・§7 罠6・05_STATISTICS §2 の弱点欄に打ち消し線と参照。`code/`・config は不変。GPU 0・pod 0
-(**次: IMPLEMENTER が PLAN-044 I1〜I5。run3 は起動しない**。)
+最終更新: 2026-10-15(その171)/ by Claude Sonnet 5.5(IMPLEMENTER)。**★PLAN-044 I1〜I4 を実装し、I3 の天井の水準 `L_05` = 5.3・`L_50` = 7.512 を当てはめの前に commit した**(`33df8c1`。run_id `20261015_040148_ceiling_level`。パイロットの表は読まない)。役割 `ceiling_probe`(門なし)・`configs/power_sim_ceiling.yaml`(8 枚 x 1 点)・`ceiling_level.py`。`power_sim.yaml` の経路は不変(smoke を偽の当てはめで HEAD と比べ、表と当てはめ結果は同一バイト)。pytest 2554 passed, 11 deselected。**未完: I5 の R スモーク(各シート 1 表の時間)と PLAN-044 §11・§13・CHANGELOG の記入**。GPU 0・pod 0
+(**次: IMPLEMENTER が I5(R スモーク)と文書の記入。天井のシートの本実行は人間が決める。run3 は起動しない**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -68,11 +68,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-15(その170・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-044 を採択(ADR-131)。GPU 0・pod 0**
-> - **ADR-131(7 問とも推奨)**: Q1 `L_05`・`L_50`(パイロットと同じ形の観測が起こる確率 0.05・0.5 の最小の `L`。IMPLEMENTER が規則から計算し、当てはめの前に commit)+ `L_inf` / Q2 3 枚・8 点 / Q3 `configs/power_sim_ceiling.yaml`・役割 `ceiling_probe`・門なし・`n_rep` 100・`--keep-frames`・`rng_seed` = 採った日付 / Q4 今の手続きだけ / Q5 手当ては結果の後に別の PLAN / Q6 本命の候補 C + B・A は感度(**決定ではない**)/ Q7 R3 は PLAN-045
-> - **文書**: PLAN-034 D9・§7 罠6・05_STATISTICS §2 の弱点欄に打ち消し線・理由・日付と、PLAN-044・ADR-131 への参照(手当ては「未決」)
-> - **`L_05`・`L_50` の値はまだ無い**(PLAN-044 I3)
-> - **★その169 のブロックは `logs/STATE-ARCHIVE.md`「その170」にある**
+> **★★2026-10-15(その171・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-044 I1〜I4 を実装、I3 の `L` を commit。GPU 0・pod 0**
+> - **commit**: `214b3ab`(コード・config(L は null)・テスト)→ `33df8c1`(I3 の出力 `results/power_sim/ceiling_level/` と `L_05` = 5.3・`L_50` = 7.512 の転記。当てはめの前)
+> - **I3(`ceiling_level.py`)**: パイロットと同じ形(2 シード x 80 項目 x T1 の id・interp)が全部 rule になる確率 = 0.05 / 0.5 の最小の `L`(共通乱数 20 万組・二分法)。確率 0.0500 / 0.4999 / SE 0.0002 / 0.0006。**仮定値の算術であって実験結果ではない**
+> - **シートは 8 枚**(`ceiling_p0` x 3・`ceiling_p1` x 3・`ceiling_null` x 2 を 1 水準 1 枚で。PLAN-044 の「3 枚・8 点」の構造上の読み。§13 に記録する)。`--dry-run` は 800 表・16 並列で 3.4〜5.7 時間(推算)
+> - **★その170 のブロックは `logs/STATE-ARCHIVE.md`「その171」にある**
 
 
 ---
@@ -325,9 +325,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-15(その170・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-15(その171・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **IMPLEMENTER: PLAN-044 I1〜I5**(天井の config・役割 `ceiling_probe`・`L_05`・`L_50` の計算と commit・テスト・`--dry-run`・各シート 1 表のスモーク)→ 人間が天井のシートの起動を決める → ANALYST が記述 → PLANNER が手当ての PLAN(人間が決める)
+> 1. **IMPLEMENTER: PLAN-044 I5 の残り**(`power_sim_ceiling.yaml` の各シート 1 表の R スモーク + 時間の記録・PLAN-044 §11・§13・`logs/CHANGELOG.md`)→ 人間が天井のシートの起動を決める → ANALYST が記述 → PLANNER が手当ての PLAN(人間が決める)
 > 2. PLANNER: PLAN-045(R3。主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3・ADR-131 決定7)。1 と触るファイルは重ならない
 > 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 4. run3 は 1 の手当ての決定と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
@@ -339,10 +339,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-15(その170・最新)。Claude Opus 5.5(PLANNER)。PLAN-044 を採択(ADR-131)。**
+> **★★2026-10-15(その171・最新)。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-044 I1〜I4 を実装。**
 >
-> **★やったこと**: 開始手順 → PLAN-044 §4・§5 の表をチャットで示した → `AskUserQuestion` 2 回・7 問(7 問とも推奨)→ ADR-131・PLAN-044 のステータス・§11・§12・§13・OPEN-ITEMS の 2 行 → commit → PLAN-034 D9・§7 罠6・05_STATISTICS §2 の弱点欄に打ち消し線と参照(別の commit)。
-> **★やっていないこと**: 手当ての決定・`code/`・config・`L_05`・`L_50` の計算・PLAN-045 の起草・run3・push・tag・GPU。
+> **★やったこと**: 開始手順 → PLAN-044・`power_sim.py` を読む → 役割 `ceiling_probe`(`Sheet.ceiling`・`ceiling_profile`・`run_ceiling_probe`・`describe_ceiling_plan`)・`run` の文脈とヘッダの切り出し・`ceiling_level.py`・`configs/power_sim_ceiling.yaml`・`test_ceiling_probe.py`(42 件)→ HEAD との smoke の同一バイト確認 → 全 pytest → commit `214b3ab` → I3 を clean な木で再実行 → `L` を転記して commit `33df8c1`。
+> **★やっていないこと**: I5 の R スモーク(R は Rscript の導入先 `C:/Program Files/R/R-4.6.1`)・PLAN-044 §11・§13・CHANGELOG の記入・天井のシートの本実行・夜用タスクの登録・push・tag・GPU・解釈。
 
 
 ---

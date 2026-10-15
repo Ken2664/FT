@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-15(その168)/ by Claude Opus 5.5(PLANNER)。**★REVIEW の R1〜R3 の判断材料の表を作り(`logs/REVIEW-2026-10-15-implementation-analysis.md` §D)、人間が 3 問とも推奨を選んだ(ADR-130)**: R1 = run3 を保留して PLAN-034 D9 を開き直す PLAN を起草 / R2 = run3 は S4 と T2 の文面・step 数の決定の後 / R3 = 主プールの `interp` から逆順が K にある組を除いて作り直す。`code/`・config・設計文書は不変。GPU 0・pod 0
-(**次: PLANNER が D9 を開き直す PLAN を起草する(天井のシートで今の手続きを測り、手当ての候補を並べる)。run3 は起動しない**。)
+最終更新: 2026-10-15(その169)/ by Claude Opus 5.5(PLANNER)。**★PLAN-044 草案(PLAN-034 D9 = 天井を開き直す。ADR-130 決定1)を書いた**: 天井のシート 3 枚・8 点(T1 × `id`・`interp` を `L_05`・`L_50`・`L_inf` に置き換え / 置き換え P1 / T1 の行をずらした帰無)を run3 と別の記述の run で回す案・手当ての候補 A〜G の表(暫定の推奨 = C 確率の尺度への切り替え + B 実施不能の受け皿)・§4 の Q1〜Q7(Q7 = R3 は別の PLAN-045 が推奨)。`code/`・config・設計文書は不変。GPU 0・pod 0
+(**次: 人間が PLAN-044 をレビューする(§4 の Q1〜Q7)。run3 は起動しない**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -68,11 +68,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-15(その168・最新)。Phase 0。Claude Opus 5.5(PLANNER)。R1〜R3 の扱いを決めた(ADR-130)。GPU 0・pod 0**
-> - **判断材料の表**: `logs/REVIEW-2026-10-15-implementation-analysis.md` §D(D.0 = 追加の事実 / D.1 R1 / D.2 R2 / D.3 R3)
-> - **追加の事実**(パイロット。主張に使わない): 313 step でも T1 × `id`・`interp` は 2 シードとも 80/80(`results/s2_item_pilot/frame.csv`)/ PLAN-002 §4.5.3 に交換律ペアの項目の規約はあるが、普通の `interp` 項目には掛かっていない(その167 の R3 の「扱いは見つからなかった」を訂正)
-> - **ADR-130(3 問とも推奨)**: 決定1 R1 = run3 を保留・D9 を開き直す PLAN(手当ては PLAN のレビューで決める)/ 決定2 R2 = run3 は S4 と T2 の文面・step 数の決定の後 / 決定3 R3 = `interp` 候補から逆順が K にある組を除いてプールを作り直し `mirror_in_K` を記録(K は不変)
-> - **★その167 のブロックは `logs/STATE-ARCHIVE.md`「その168」にある**
+> **★★2026-10-15(その169・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-044 草案。GPU 0・pod 0**
+> - **成果物**: `plans/PLAN-044-ceiling-d9-reopen.md`(草案。人間のレビュー待ち)
+> - **天井のシート(§3)**: `n_item` 80・`sigma` 1.0・`rho` 0。`ceiling_p0` / `ceiling_p1`(T1 × `id`・`interp` を `L` に置き換え)・`ceiling_null`(T1 の行をずらした厳密な加法)。`L_05`・`L_50` = 仮定値の DGP の下で「パイロットと同じ形の観測」が起こる確率 0.05・0.5 の最小の `L`(実装が規則から計算。値はまだ無い)/ `L_inf` = 厳密な天井。**パイロットは下限しか言えない**(80/80 の CP95 下端 0.955・160/160 で 0.977。算術)
+> - **§4 の問い**: Q1 水準 / Q2 シートと点 / Q3 run3 と別の記述の run・門なし・100 反復 / Q4 今の手続きだけ・表を残す / Q5 手当ては結果の後に別の PLAN / Q6 本命の候補 / Q7 R3 は別の PLAN-045(★はすべて (a))
+> - **確認した事実**: この機械の R の導入先には `lme4` とその依存しか無い(`brms`・`rstanarm`・`blme` は無い。ADR-060 のベイズの当てはめは未実装)
+> - **★その168 のブロックは `logs/STATE-ARCHIVE.md`「その169」にある**
 
 
 ---
@@ -325,13 +326,14 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-15(その168・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-15(その169・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **PLANNER: PLAN-034 D9 を開き直す PLAN を起草する(ADR-130 決定1)**。天井のシートで今の手続き(ADR-128・129)の当てはめ失敗率と LRT・TOST を測る設計 + 手当ての候補の表 → 人間のレビュー
-> 2. PLANNER: R3 の実装の PLAN(主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3)。1 と同じ PLAN にするかは起草時に示す
-> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
-> 4. run3 は 1・3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
-> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(パイロット用プールを揃えるか)/ その166 の 5 の項目
+> 1. **人間: PLAN-044 のレビュー(§4 の Q1〜Q7)→ ADR**。採択の後、PLAN-034 D9・§7 罠6・05_STATISTICS §2 の弱点欄に打ち消し線と参照(別のコミット)
+> 2. IMPLEMENTER: PLAN-044 I1〜I5(天井の config・役割 `ceiling_probe`・`L` の計算・テスト・スモーク)→ 人間が天井のシートの起動を決める → ANALYST が記述 → PLANNER が手当ての PLAN
+> 3. PLANNER: R3 の実装の PLAN(Q7 (a) なら PLAN-045。主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3)
+> 4. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 5. run3 は 1〜2 の手当ての決定と 4 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 6. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(パイロット用プールを揃えるか)/ その166 の 5 の項目
 
 
 ---
@@ -339,10 +341,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-15(その168・最新)。Claude Opus 5.5(PLANNER)。R1〜R3 の判断材料の表と ADR-130。**
+> **★★2026-10-15(その169・最新)。Claude Opus 5.5(PLANNER)。PLAN-044 草案。**
 >
-> **★やったこと**: 開始手順 → REVIEW と D9・§2 の弱点欄を読んだ → パイロットの表を step ごとに数えた → REVIEW に §D(判断材料の表)→ `AskUserQuestion` 3 問(3 問とも推奨)→ ADR-130・OPEN-ITEMS の 2 行 → commit。
-> **★やっていないこと**: PLAN の起草・`code/`・config・PLAN-034・05_STATISTICS の変更・run3・push・tag・GPU。
+> **★やったこと**: 開始手順 → REVIEW R1・§D・PLAN-034 D9・05_STATISTICS §2 の弱点欄と §3.2・`power_sim.yaml`・`power_sim.py` の `draw_frame`・PLAN-043 の §4 の形を読んだ → CP の下端を算術で確かめた → PLAN-044 草案 → OPEN-ITEMS の 2 行 → commit。
+> **★やっていないこと**: 手当ての決定・`code/`・config・PLAN-034・05_STATISTICS の変更・R3 の PLAN・run3・push・tag・GPU。
 
 
 ---

@@ -1,9 +1,9 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-15(その167)/ 直前セッションの役割: (指定なし。実装・解析の再検討 = CRITIC 相当)
-直前セッションが終了した理由: context-guard(約 240k)+ 区切り(再検討の所見を `logs/` に書いて commit した)
+生成: 2026-10-15(その168)/ 直前セッションの役割: PLANNER
+直前セッションが終了した理由: 区切り(R1〜R3 の扱いが ADR-130 で決まった。次は新しい PLAN の起草 = 1 セッション 1 PLAN)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Opus — 次は所見(とくに R1・R3)を判断材料の表にする「設計判断・統計」の行(`10_CONTEXT_POLICY.md` §7)。決めるのは人間
+**推奨モデル(次のセッション)**: Opus — PLAN の起草は「設計判断・統計」の行(`10_CONTEXT_POLICY.md` §7)。天井での当てはめと手当ての候補を並べる統計設計である
 
 ---
 
@@ -13,29 +13,29 @@
 
 ## このセッションでやること(1つだけ)
 
-**人間の指示を待つ。**候補は、`logs/REVIEW-2026-10-15-implementation-analysis.md` の R1(天井)・R2(T2 のシードの二極化)・R3(既知性と可換性)について、
-人間が扱いを決めるための**判断材料の表**(選択肢・利点・代償・推奨。ADR-097 決定6)を作り、`AskUserQuestion` で推奨を先頭に聞くこと。
-決まったら ADR に提案者と採択者を分けて書く。**run3 の起動は R1・R2 の扱いが決まってからのほうが安い**(人間の判断)。
+**PLAN-034 D9(天井)を開き直す PLAN の草案を `plans/PLAN-044-*.md`(`plans/TEMPLATE.md` の型)に書いて commit する**(ADR-130 決定1)。完了の条件は次の 3 つ。
+
+1. 天井のシートの設計がある: T1 × `id`・`interp` が天井のときに、今の手続き(ADR-128・129。`allFit` の段・失敗 = 非棄却・実行可能性の門)の当てはめ失敗率と LRT・TOST の振る舞いを測る。値の出所(パイロット 2 シード。PLAN-001 §4.6 規則4)も書く
+2. 手当ての候補の表がある(選択肢・利点・代償・★推奨。ADR-097 決定6): ADR-060 の事前分布の当てはめを主に上げる / 天井なら主要検定を「実施不能」と事前に決める / 連続の DV / 確率の尺度(ADR-114 決定6)など。**天井では、どの推定法でも T1 の勾配をデータが決めない**(REVIEW §D.0)ことを前提に書く
+3. 人間が決める問いを §4 に並べる(Q 番号つき)。**R3 の実装(ADR-130 決定3)を同じ PLAN に入れるか別にするかも、問いの 1 つとして示す**
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- 所見の本体は `logs/REVIEW-2026-10-15-implementation-analysis.md`(重大度順・R1〜R12・§C の C1〜C9)。詳細は `logs/REVIEW-2026-10-15-eval.md`・`logs/REVIEW-2026-10-15-datagen.md`、再現は `logs/review-2026-10-15-probes/`
-- R1 の再現: パイロットの表(`results/s2_item_pilot/frame.csv`、625 step、2 シード)に床の式を当てると、`glmer` は収束せず、交互作用の係数は ±22・SE 約 3,463(`ceiling_check.R`)。**2 シードの例示であり、主張には使わない(ADR-106)**
-- R3 は組合せ論的な事実(`data/generated/ft/exp_phase1_main_p2/manifest.json` と `data/generated/battery/main/items.jsonl`)
-- `pytest code/tests -q -k 'not smoke'` = 2511 passed(2026-10-15)
+- ADR-130(`logs/DECISIONS.md` 末尾): R1 = run3 を保留して D9 を開き直す PLAN / R2 = run3 は S4 と T2 の文面・step 数の決定の後 / R3 = 主プールの `interp` 候補から逆順が K にある組を除き `mirror_in_K` を記録(K は不変)。人間が 3 問とも推奨を選んだ
+- 判断材料の表と追加の事実は `logs/REVIEW-2026-10-15-implementation-analysis.md` §D。313・625 step とも T1 × `id`・`interp` は 2 シードで 80/80(`results/s2_item_pilot/frame.csv`。パイロットなので主張に使わない。ADR-106)
+- 天井の再現は `logs/review-2026-10-15-probes/ceiling_check.R`(床の式で `glmer` が収束しない)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `logs/REVIEW-2026-10-15-implementation-analysis.md`(全文。短い)
-- `logs/OPEN-ITEMS.md` の D9 の行と「その167」の行(`grep -n 'D9\|その167'`)
-- `plans/PLAN-034-power-t1t2.md` の D9・§7 罠6、`Documents/05_STATISTICS.md` §2 の弱点欄(`grep -n` → `sed -n`)
+- 書く: `plans/PLAN-044-*.md`(新規)・`logs/CHANGELOG.md`・`STATE.md`・`logs/OPEN-ITEMS.md` の D9 と「その167」の行
+- 読む: REVIEW の R1 と §D / `plans/PLAN-034-power-t1t2.md` の D9・§7 罠6(`grep -n`)/ `Documents/05_STATISTICS.md` §2 の弱点欄(101〜125 行あたり)・§3.2 の ADR-060 の感度解析(326〜345 行あたり)/ `configs/power_sim.yaml` のシートの定義 / `plans/PLAN-043-*.md` §4(問いの形の手本)
 
 ## やってはいけないこと
 
-- 所見を解釈して「主要検定は使えない」などと結論すること(`CLAUDE.md` §8)。案は出してよい
-- `code/`・config・事前登録の文書を、人間の決定の前に直すこと
-- R1 の数値(パイロット)を主張・効果量の値として使うこと
+- 手当てを決めること・PLAN-034 / 05_STATISTICS / config / `code/` を直すこと(PLAN のレビューの前)
+- run3 の起動・push・tag・GPU
+- パイロットの数値を効果量や主張の値として使うこと(シートの値の出所として使うなら、そうと明記する)
 
 ## 未解決 / 人間の承認待ち
 
-- R1〜R4 の扱い(`logs/OPEN-ITEMS.md`「その167」の行)/ PLAN-043 §12 の判断 6 件 → run3 / push と G2-1 承認 → S4 / S5 凍結の場の項目(`STATE.md`「次のアクション」)
+- PLAN-044 のレビュー(手当ての選択)/ R3 の実装の PLAN / S4 の前の push と G2-1 承認 / PLAN-043 §12 の判断 6 件(run3 の前)/ REVIEW の R4 以下・C1/C2・R5(凍結前)

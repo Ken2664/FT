@@ -8050,3 +8050,9 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **確認**: `pytest code/tests -q -k 'not smoke'` = 2511 passed, 11 deselected
 - **やっていないこと**: 修正(`code/`・config・文書本文)・解釈・決定・run3・push・tag・GPU
+
+## 2026-10-15(その168): REVIEW の R1〜R3 の判断材料の表と ADR-130   [actor: PLANNER (Claude Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。未追跡の `.claude/commands/`・`frames/` と worktree `claude/great-bardeen-9c1ac4` は既知)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`
+- **やったこと**: REVIEW・OPEN-ITEMS の D9 の行・PLAN-034 D9・05_STATISTICS §2 の弱点欄と §3.2(ADR-060)を読んだ → パイロットの表を step ごとに数えた(313 でも T1 × `id`・`interp` は 80/80。`results/s2_item_pilot/frame.csv`)→ PLAN-002 §4.5.3 に交換律ペアの規約があることを見つけた(REVIEW の R3 の記述を §D で訂正)→ REVIEW に §D(判断材料の表 R1・R2・R3)→ `AskUserQuestion` 3 問 → **ADR-130**(3 問とも推奨: R1 run3 を保留して D9 を開き直す PLAN / R2 run3 は S4 と T2 の決定の後 / R3 `interp` から逆順が K にある組を除く)→ `logs/OPEN-ITEMS.md` の 2 行 / `STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`「その168」)/ `logs/HANDOFF.md`(次は PLANNER・Opus。PLAN-044 の草案)
+- **やっていないこと**: PLAN の起草・`code/`・config・PLAN-034・05_STATISTICS の変更・run3・push・tag・GPU

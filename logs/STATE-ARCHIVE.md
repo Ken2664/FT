@@ -18,6 +18,18 @@
 
 ---
 
+## ★2026-10-15(その172)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### 引き継ぎ(その171 の版)
+> **★★2026-10-15(その171・最新)。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-044 I1〜I4 を実装。**
+>
+> **★やったこと**: 開始手順 → PLAN-044・`power_sim.py` を読む → 役割 `ceiling_probe`(`Sheet.ceiling`・`ceiling_profile`・`run_ceiling_probe`・`describe_ceiling_plan`)・`run` の文脈とヘッダの切り出し・`ceiling_level.py`・`configs/power_sim_ceiling.yaml`・`test_ceiling_probe.py`(42 件)→ HEAD との smoke の同一バイト確認 → 全 pytest → commit `214b3ab` → I3 を clean な木で再実行 → `L` を転記して commit `33df8c1`。
+> **★やっていないこと**: I5 の R スモーク(R は Rscript の導入先 `C:/Program Files/R/R-4.6.1`)・PLAN-044 §11・§13・CHANGELOG の記入・天井のシートの本実行・夜用タスクの登録・push・tag・GPU・解釈。
+
+
+
+---
+
 ## ★2026-10-15(その171)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### 冒頭の最終更新

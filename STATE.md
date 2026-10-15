@@ -8,7 +8,7 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-15(その171)/ by Claude Sonnet 5.5(IMPLEMENTER)。**★PLAN-044 I1〜I4 を実装し、I3 の天井の水準 `L_05` = 5.3・`L_50` = 7.512 を当てはめの前に commit した**(`33df8c1`。run_id `20261015_040148_ceiling_level`。パイロットの表は読まない)。役割 `ceiling_probe`(門なし)・`configs/power_sim_ceiling.yaml`(8 枚 x 1 点)・`ceiling_level.py`。`power_sim.yaml` の経路は不変(smoke を偽の当てはめで HEAD と比べ、表と当てはめ結果は同一バイト)。pytest 2554 passed, 11 deselected。**未完: I5 の R スモーク(各シート 1 表の時間)と PLAN-044 §11・§13・CHANGELOG の記入**。GPU 0・pod 0
+最終更新: 2026-10-15(その172。I5 の R スモークを起動して切った。結果は未記入。下の引き継ぎ)/ 前: その171 Claude Sonnet 5.5(IMPLEMENTER)。**★PLAN-044 I1〜I4 を実装し、I3 の天井の水準 `L_05` = 5.3・`L_50` = 7.512 を当てはめの前に commit した**(`33df8c1`。run_id `20261015_040148_ceiling_level`。パイロットの表は読まない)。役割 `ceiling_probe`(門なし)・`configs/power_sim_ceiling.yaml`(8 枚 x 1 点)・`ceiling_level.py`。`power_sim.yaml` の経路は不変(smoke を偽の当てはめで HEAD と比べ、表と当てはめ結果は同一バイト)。pytest 2554 passed, 11 deselected。**未完: I5 の R スモーク(各シート 1 表の時間)と PLAN-044 §11・§13・CHANGELOG の記入**。GPU 0・pod 0
 (**次: IMPLEMENTER が I5(R スモーク)と文書の記入。天井のシートの本実行は人間が決める。run3 は起動しない**。)
 ---
 
@@ -339,10 +339,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-15(その171・最新)。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-044 I1〜I4 を実装。**
+> **★★2026-10-15(その172・最新)。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-044 I5 の R スモークを起動したところで切った。**
 >
-> **★やったこと**: 開始手順 → PLAN-044・`power_sim.py` を読む → 役割 `ceiling_probe`(`Sheet.ceiling`・`ceiling_profile`・`run_ceiling_probe`・`describe_ceiling_plan`)・`run` の文脈とヘッダの切り出し・`ceiling_level.py`・`configs/power_sim_ceiling.yaml`・`test_ceiling_probe.py`(42 件)→ HEAD との smoke の同一バイト確認 → 全 pytest → commit `214b3ab` → I3 を clean な木で再実行 → `L` を転記して commit `33df8c1`。
-> **★やっていないこと**: I5 の R スモーク(R は Rscript の導入先 `C:/Program Files/R/R-4.6.1`)・PLAN-044 §11・§13・CHANGELOG の記入・天井のシートの本実行・夜用タスクの登録・push・tag・GPU・解釈。
+> **★やったこと**: 開始手順・HANDOFF との突き合わせ(食い違いなし)→ 天井の config の写し(`n_rep_stages: [1]`)をスクラッチパッドに作り、本物の R(4.6.1・lme4 2.0.6。`R_LIBS` なしで読める)で 8 シート x 1 表を逐次に当てるスモークをバックグラウンドで起動(04:08:32Z。出力はスクラッチパッドの `ceiling_smoke_out/`・ログ `smoke.log`。**セッションが切れると消えている恐れがある**)。
+> **★やっていないこと**: スモークの結果の読み取り・PLAN-044 §11・§13・CHANGELOG の記入・天井のシートの本実行・push・tag・GPU・解釈。**コードと config は変えていない**。
 
 
 ---

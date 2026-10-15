@@ -8062,3 +8062,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **人間の指示**: `/resume-handoff`
 - **やったこと**: REVIEW R1・§D・PLAN-034 D9・§7 罠6・05_STATISTICS §2 の弱点欄と §3.2(ADR-060・061)・`configs/power_sim.yaml`・`power_sim.py` の `draw_frame`・PLAN-043 §4・PLAN-001 §4.6 を読んだ → 80/80・160/160 の CP95 下端を `scipy.stats.beta` で計算(0.95494・0.97721。算術)→ R の導入先を確かめた(`lme4` とその依存だけ。`brms`・`rstanarm`・`blme` は無い)→ **`plans/PLAN-044-ceiling-d9-reopen.md` 草案**(天井のシート 3 枚・8 点 / 水準 `L_05`・`L_50`・`L_inf` を規則で決める / run3 と別の記述の run・門なし・100 反復・表を残す / 手当ての候補 A〜G と暫定の推奨 C + B / §4 の Q1〜Q7。Q7 = R3 は別の PLAN-045 が推奨)→ `logs/OPEN-ITEMS.md` の D9 と「その167」の行 → `STATE.md`(冒頭・3 ブロック。旧は `logs/STATE-ARCHIVE.md`「その169」)
 - **やっていないこと**: 手当ての決定・`code/`・config・PLAN-034・05_STATISTICS の変更・R3 の PLAN・`L_05`・`L_50` の値の計算・run3・push・tag・GPU
+
+## 2026-10-15(その169・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- 区切り(PLAN-044 の草案を commit した)で切った。`logs/HANDOFF.md`(次は PLANNER・推奨は Opus。PLAN-044 の Q1〜Q7 を人間に聞いて ADR-131 に記録し、採択後に PLAN-034 D9・05_STATISTICS の弱点欄へ打ち消し線を付ける)を更新した。`STATE.md` は `569772a` で更新済み

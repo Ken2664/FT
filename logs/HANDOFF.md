@@ -16,7 +16,8 @@
 **PLAN-044 の I5 の残りを済ませて閉じる。**完了の条件は次の 3 つ(前の HANDOFF と同じ)。
 
 1. 天井のシート 8 枚の**各 1 表**を本物の R で当てた結果を読む(記述だけ。解釈しない)。**1 表の時間(秒)・当てはめ失敗・`allFit` の段に着いたか**を記録する。
-   - **前セッションが起動済み**(04:08:32Z)。コマンド: `python -m code.analysis.power_sim --config <scratchpad>/ceiling_smoke.yaml --out-dir <scratchpad>/ceiling_smoke_out --through-stage 1 --workers 8`(config は `configs/power_sim_ceiling.yaml` の `n_rep_stages` を `[1]` にした写し。`PYTHONIOENCODING=utf-8`)。8 表を**逐次**に当てる(1 シート 1 表なので並列にならない)。1 表 7〜10 分と見込めば全部で約 1 時間(推算)
+   - **★スモークは完了した(終了コード 0。起動 04:08:32Z)。結果は読んでいない。**出力はスクラッチパッド `C:/Users/keenk/AppData/Local/Temp/claude/C--Users-keenk-paper-FT/4ecb883d-e3ad-4c93-b6e1-8f2228a75a38/scratchpad/` の `ceiling_smoke_out/`(8 シートのディレクトリ)と `smoke.log`。**回し直さず、これを読む**(無い場合だけ下の手順で回し直す)
+   - 前セッションが起動した(04:08:32Z)。コマンド: `python -m code.analysis.power_sim --config <scratchpad>/ceiling_smoke.yaml --out-dir <scratchpad>/ceiling_smoke_out --through-stage 1 --workers 8`(config は `configs/power_sim_ceiling.yaml` の `n_rep_stages` を `[1]` にした写し。`PYTHONIOENCODING=utf-8`)。8 表を**逐次**に当てる(1 シート 1 表なので並列にならない)。1 表 7〜10 分と見込めば全部で約 1 時間(推算)
    - 出力先は前セッションのスクラッチパッド(`C:\Users\keenk\AppData\Local\Temp\claude\C--Users-keenk-paper-FT\*\scratchpad\ceiling_smoke_out` と `smoke.log`。`ls` で探す)。**無い・途中で止まっている場合は、新しいスクラッチパッドに同じ写しを作って最初から回す**(`Rscript` は PATH に無いが `resolve_rscript` が `C:/Program Files/R/R-4.6.1/bin/Rscript.exe` を見つける。lme4 2.0.6 は `R_LIBS` なしで読める)。バックグラウンド(`run_in_background`)で起動し、`Monitor` で待つ
    - 表ごとの秒数は R の標準出力の行 `<csv> -> <json> (NNN.Ns)` に出る(`power_sim_fit.R` 457 行)。`smoke.log` か各シートの出力ディレクトリのログを `grep -n ' -> '` で拾う。当てはめ結果の JSON(各表)から失敗・`allFit` の段を読む(キーは `grep` で探す)
    - **本番の `results/power_sim/ceiling/` は使わない。`--keep-frames` は付けない**

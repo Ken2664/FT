@@ -1,7 +1,7 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
 生成: 2026-10-15(その171)/ 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: コンテキスト超過(context-guard。全 pytest が 84 分かかり、大きな出力で膨らんだ)
+直前セッションが終了した理由: コンテキスト超過(context-guard。全 pytest を待つあいだに大きな出力で膨らんだ)
 直前セッションの実モデル: Claude Sonnet 5.5
 **推奨モデル(次のセッション)**: Sonnet — PLAN-044 の I5(R のスモーク・文書の記入)は実装・集計の行(`10_CONTEXT_POLICY.md` §7)。統計の判断が出たら止めて PLANNER へ
 
@@ -22,7 +22,7 @@
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
 - commit `214b3ab`(コード・config(L は null)・テスト)→ `33df8c1`(I3 の出力 `results/power_sim/ceiling_level/` と `L_05` = 5.3・`L_50` = 7.512 の転記。run_id `20261015_040148_ceiling_level`。**当てはめの前**)→ その後の文書 commit(STATE・CHANGELOG・PLAN-044 §11・§13 の一部・この HANDOFF)
-- `pytest code/tests -q -k 'not smoke'` = 2554 passed, 11 deselected(**84 分かかる**。次は `code/tests/test_ceiling_probe.py` と `test_power_sim.py` だけを回せばよい。文書だけの変更なら全部は要らない)
+- `pytest code/tests -q -k 'not smoke'` = 2554 passed, 11 deselected(**単独で約 11 分。二つ並行して回すと 84 分かかった**。次は `code/tests/test_ceiling_probe.py` と `test_power_sim.py` だけを回せばよい。文書だけの変更なら全部は要らない)
 - `power_sim.yaml` の経路は不変(smoke を偽の当てはめで HEAD と比べ、表と当てはめ結果は同一バイト)
 - **構造上の読み**: PLAN-044 の「3 枚・8 点」は config では 8 枚・各 1 点(水準はシートの属性)。PLAN-044 §13 に記録済み。統計の中身は同じ
 - 天井のシートは `--dry-run --workers 16` で 800 表・3.4〜5.7 時間(推算。R のスモークの実測で更新する)
@@ -37,7 +37,7 @@
 - `power_sim_fit.R`・`configs/power_sim.yaml`・run3 の `rng_seed` 20261008 の変更 / `L_05`・`L_50` の変更(commit 済み。変えるなら新しい run)
 - 天井のシートの本実行・夜用タスクの登録・push・tag・GPU
 - スモークの数値を主張・効果量に使うこと(配線確認だけ。`CLAUDE.md` §2)・結果の解釈・手当ての設計
-- 全 pytest を何度も回すこと(84 分。コンテキストと時間を食う)。出力は `tail` で
+- 全 pytest を何度も回すこと(単独で約 11 分。並行して回すと 84 分に伸びる)。出力は `tail` で
 
 ## 未解決 / 人間の承認待ち
 

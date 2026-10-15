@@ -8072,3 +8072,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **やったこと**: PLAN-044 の全文と ADR-129・130 の形を読んだ → §4 の要約の表と §5 の手当ての候補の表をチャットで示した(ADR-097 決定6)→ `AskUserQuestion` 2 回・7 問(Q1〜Q4、Q5〜Q7)→ 7 問とも推奨 (a) → **ADR-131**(「パイロットを見た後・合成データの結果を見る前」の決定であることと、Q6 は絞り込みで決定ではないことをリスク欄に書いた)→ PLAN-044 のステータス・§11・§12・§13(§7 は推奨どおりなので書き直していない)→ `logs/OPEN-ITEMS.md` の D9 と「その167」の行 → `STATE.md`(冒頭・3 ブロック。旧は `logs/STATE-ARCHIVE.md`「その170」)
 - **やっていないこと**: 手当ての決定・`code/`・config・`L_05`・`L_50` の計算・PLAN-045 の起草・run3・push・tag・GPU
 - **別の commit(PLAN-044 §7 末尾)**: `plans/PLAN-034-power-t1t2.md` D9(行 78)・§7 罠6・記入欄の D9 に打ち消し線・理由・日付と PLAN-044・ADR-131 への参照 / `Documents/05_STATISTICS.md` §2 の弱点欄に「天井のセルではロジットの尺度の勾配をデータが決めない」の項(手当ては未決)と、§6.8 の「この PLAN に入れなかったもの」の D9 に打ち消し線と参照。**確認**: `pytest code/tests -q -k 'not smoke'` = 2512 passed, 11 deselected
+
+## 2026-10-15(その170・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- 区切り(PLAN-044 を採択した)で切った。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨は Sonnet。PLAN-044 I1〜I5 = 天井の config・役割 `ceiling_probe`・`L_05`・`L_50` の計算と commit・テスト・`--dry-run`・スモーク。天井のシートの起動は人間)を更新した。`STATE.md` は `7ba4f5b` で更新済み

@@ -8065,3 +8065,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-15(その169・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - 区切り(PLAN-044 の草案を commit した)で切った。`logs/HANDOFF.md`(次は PLANNER・推奨は Opus。PLAN-044 の Q1〜Q7 を人間に聞いて ADR-131 に記録し、採択後に PLAN-034 D9・05_STATISTICS の弱点欄へ打ち消し線を付ける)を更新した。`STATE.md` は `569772a` で更新済み
+
+## 2026-10-15(その170): PLAN-044 の採択(ADR-131)   [actor: PLANNER (Claude Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。未追跡の `.claude/commands/`・`frames/` と worktree `claude/great-bardeen-9c1ac4` は既知)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`
+- **やったこと**: PLAN-044 の全文と ADR-129・130 の形を読んだ → §4 の要約の表と §5 の手当ての候補の表をチャットで示した(ADR-097 決定6)→ `AskUserQuestion` 2 回・7 問(Q1〜Q4、Q5〜Q7)→ 7 問とも推奨 (a) → **ADR-131**(「パイロットを見た後・合成データの結果を見る前」の決定であることと、Q6 は絞り込みで決定ではないことをリスク欄に書いた)→ PLAN-044 のステータス・§11・§12・§13(§7 は推奨どおりなので書き直していない)→ `logs/OPEN-ITEMS.md` の D9 と「その167」の行 → `STATE.md`(冒頭・3 ブロック。旧は `logs/STATE-ARCHIVE.md`「その170」)
+- **やっていないこと**: 手当ての決定・`code/`・config・`L_05`・`L_50` の計算・PLAN-045 の起草・run3・push・tag・GPU

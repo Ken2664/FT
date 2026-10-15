@@ -8041,3 +8041,12 @@ Answer: 90`(19)・`60`(19)。**構造確認で見た今回 p2_s1 の先頭 2 行
 
 ## 2026-10-13(その166・引き継ぎ)   [actor: Claude Opus 5.5(役割の指定なし)]
 - context-guard(約 105k)と区切り(PB の計時の記録を commit)で切った。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。人間の指示待ち: 実装の判断 6 件の確認 / run3 の起動の準備。夜用の start_night.ps1 は R_LIBS を設定済み(grep で確認))を更新した。`STATE.md` は `e034f7d` で更新済み
+
+## 2026-10-15(その167): 実装・解析の再検討(読み取りのみ)   [actor: Claude Opus 5.5(役割の指定なし。CRITIC 相当)]
+- **人間の指示**: 「ここまでの実装、分析を再検討して、問題点がないか調査してください」
+- **やったこと**: 開始手順(STATE・CHANGELOG・git。worktree `claude/great-bardeen-9c1ac4` が残っているのは登録簿のとおり)→ `Documents/05_STATISTICS.md` §2・§3.2、`code/analysis/power_sim.py`・`power_sim_fit.R` を読んだ → パイロットの表(`results/s2_item_pilot/frame.csv`、625 step)に床の式を当て、天井での振る舞いを確かめた(R 4.6.1・lme4 2.0.6。再現は `logs/review-2026-10-15-probes/ceiling_check.R`)→ 評価・採点系とデータ生成・訓練系をサブエージェント 2 本に委譲(`CLAUDE.md` §10.2)し、R3 は自分で再現 → 所見を `logs/REVIEW-2026-10-15-implementation-analysis.md` に、詳細を `logs/REVIEW-2026-10-15-{eval,datagen}.md` に、プローブを `logs/review-2026-10-15-probes/` に置いた / `logs/OPEN-ITEMS.md` に索引の行 / `STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`「その167」)
+- **所見の要点**(数値はファイルから計算した組合せ論的な事実か記述。パイロットは主張に使わない): R1 T1 × `id`・`interp` は 4 run とも 1.000 → `glmer` は収束せず、交互作用の係数 ±22・SE 約 3,463 / R2 T2 の `p2` は s0 rule 0.975・s1 other_error 0.981 / R3 K = 2,000 のうち 446 組が両順。主プールの `interp` のうち逆順が K にあるのは T1 14/80・T2 18/80 / R4 誤指定の門は CP 下端 > 0.075 で閉じる / R8 `pb_timing.py` の中央値は上側(54.04。正しくは 53.915)/ 評価系: 4 値分解の排他性・合計 1.0 を壊すバグは無し。C1 `N
+
+Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
+- **確認**: `pytest code/tests -q -k 'not smoke'` = 2511 passed, 11 deselected
+- **やっていないこと**: 修正(`code/`・config・文書本文)・解釈・決定・run3・push・tag・GPU

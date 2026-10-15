@@ -1,0 +1,15 @@
+suppressPackageStartupMessages(library(lme4))
+d <- read.csv("C:/Users/keenk/paper/FT/results/s2_item_pilot/frame.csv", stringsAsFactors = TRUE)
+d <- d[d$step == 625, ]
+d$seed <- factor(d$seed); d$task <- factor(d$task)
+d$coverage <- relevel(d$coverage, ref = "id")
+print(with(d, tapply(is_rule, list(task, coverage), mean)))
+f_full <- is_rule ~ task * coverage + (1 | seed) + (1 | item) + (1 | seed:task:coverage)
+f_add  <- is_rule ~ task + coverage + (1 | seed) + (1 | item) + (1 | seed:task:coverage)
+ff <- glmer(f_full, family = binomial, data = d)
+fa <- glmer(f_add, family = binomial, data = d)
+print(summary(ff)$coefficients)
+print(anova(fa, ff))
+# plain GLM, no random effects
+g1 <- glm(is_rule ~ task * coverage, family = binomial, data = d)
+print(summary(g1)$coefficients)

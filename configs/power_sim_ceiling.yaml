@@ -138,8 +138,8 @@ sheets:
 # L_inf = +inf(T1 x id・interp の is_rule は常に 1)。数値でなく文字列 "inf" と書く。
 ceiling:
   levels:
-    L_05: null
-    L_50: null
+    L_05: 5.3      # ★run_id 20261015_040148_ceiling_level(git 214b3ab)。results/power_sim/ceiling_level/ceiling_level.json。当てはめの前に commit
+    L_50: 7.512    # 同上(確率 0.5 の水準。モンテカルロの SE 0.0006)
     L_inf: inf
   report:
     ci_level: 0.95            # 率の Clopper-Pearson 区間(門ではない。記述)

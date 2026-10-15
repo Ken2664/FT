@@ -122,14 +122,17 @@ def test_the_level_rule_point_is_the_sheet_point() -> None:
     assert replaced == set(rule.cells)
 
 
-def test_committed_levels_are_null_until_ceiling_level_computes_them() -> None:
-    """★PLAN-044 I1: L_inf だけが決まっている。L_05・L_50 は I3 が計算して転記する(null のあいだ本実行は止まる)。"""
+def test_committed_levels_are_the_ceiling_level_output() -> None:
+    """★PLAN-044 I3: config の L_05・L_50 は `ceiling_level.py` の出力(run_id つき)と一致する(当てはめの前に commit)。"""
     levels = load(CEILING_CONFIG)["ceiling"]["levels"]
     assert levels["L_inf"] == power_sim.LEVEL_INFINITE
-    if levels["L_05"] is None or levels["L_50"] is None:
-        assert levels["L_05"] is None and levels["L_50"] is None
-        with pytest.raises(ConfigError, match="未決定"):
-            power_sim.resolve_ceiling_level(load(CEILING_CONFIG), "L_05")
+    output = json.loads(
+        (REPO_ROOT / "results" / "power_sim" / "ceiling_level" / ceiling_level.OUTPUT_FILE).read_text(encoding="utf-8")
+    )
+    assert output["run_id"] == "20261015_040148_ceiling_level"
+    assert levels["L_05"] == output["levels"]["L_05"]["level"] == 5.3
+    assert levels["L_50"] == output["levels"]["L_50"]["level"] == 7.512
+    assert levels["L_05"] < levels["L_50"]
 
 
 # --------------------------------------------------------------------------

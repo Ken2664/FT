@@ -1,0 +1,102 @@
+{
+  "run_id": "20261015_040148_ceiling_level",
+  "created_utc": "2026-10-15T04:01:48.879682+00:00",
+  "git_sha": "214b3abb64036073c7183943c94869b3ed0d5b20",
+  "tracked_diff_empty": true,
+  "config_source": "configs\\power_sim_ceiling.yaml",
+  "note": "ASSUMED-VALUE arithmetic (a rule applied to the DGP), not an experimental result. The pilot tables were NOT read (PLAN-044 trap 1); the pilot shape is only the rule below.",
+  "rule": {
+    "event": "every trial of every listed cell is rule (is_rule = 1)",
+    "cells": [
+      [
+        "T1",
+        "id"
+      ],
+      [
+        "T1",
+        "interp"
+      ]
+    ],
+    "n_seed": 2,
+    "n_item": 80,
+    "sigma": 1.0,
+    "rho": 0.0,
+    "s2_item": 2.0,
+    "s2_tmpl": 0.5,
+    "tau": 0.0,
+    "rng_seed": 20261015,
+    "n_draws": 200000,
+    "chunk": 2000,
+    "search": [
+      0.0,
+      30.0
+    ],
+    "tolerance": 0.0001,
+    "round_decimals": 4
+  },
+  "levels": {
+    "L_05": {
+      "target_probability": 0.05,
+      "level_exact": 5.299959182739258,
+      "level": 5.3,
+      "probability_at_level": 0.050004320884780254,
+      "monte_carlo_se_at_level": 0.00022796510854066802,
+      "bisection_iterations": 19
+    },
+    "L_50": {
+      "target_probability": 0.5,
+      "level_exact": 7.512044906616211,
+      "level": 7.512,
+      "probability_at_level": 0.4999830483622435,
+      "monte_carlo_se_at_level": 0.0005620717152602393,
+      "bisection_iterations": 19
+    }
+  },
+  "probability_table": [
+    {
+      "level": 2.0,
+      "probability": 2.850438750373839e-06,
+      "monte_carlo_se": 6.895287812302439e-07
+    },
+    {
+      "level": 3.0,
+      "probability": 0.0001468907427499309,
+      "monte_carlo_se": 6.957619353222623e-06
+    },
+    {
+      "level": 4.0,
+      "probability": 0.0031080220434661745,
+      "monte_carlo_se": 4.34408206059103e-05
+    },
+    {
+      "level": 5.0,
+      "probability": 0.029388909049812426,
+      "monte_carlo_se": 0.0001675736201184443
+    },
+    {
+      "level": 6.0,
+      "probability": 0.1375227385370384,
+      "monte_carlo_se": 0.00039150236401908376
+    },
+    {
+      "level": 7.0,
+      "probability": 0.36231664126110724,
+      "monte_carlo_se": 0.0005581329890658813
+    },
+    {
+      "level": 8.0,
+      "probability": 0.6246633636877538,
+      "monte_carlo_se": 0.0005138595981221622
+    },
+    {
+      "level": 9.0,
+      "probability": 0.8192026890189357,
+      "monte_carlo_se": 0.0003348310115182928
+    },
+    {
+      "level": 10.0,
+      "probability": 0.9239844862768077,
+      "monte_carlo_se": 0.00017051365079453234
+    }
+  ]
+}

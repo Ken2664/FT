@@ -10570,3 +10570,27 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 |---|---|
 | **★(c) 内容のない入力による較正の経路がある**(2026-09-16 その61 = PLAN-026 I9。ADR-083)。`python -m code.eval.calibration_run --config configs/exp_order6b_c.yaml [--dry-run | --run-dir <dir>]` —— **評価プールを読まない別の入口**。config の `eval.calibration = {symbols, arms}`(記号 `N/A`・`[MASK]`・空文字 = 原典で確認済 / 腕 b0 `eval_main`・d `order6b_d`・preamble `eval_main` + ① の前置き)。入力 = テンプレートの `{a}` `{b}` `{threshold}` を記号で literal に置き換えた文面(前置きの腕は 24 通りすべての並び。連結は ① の run と同じ `preamble.with_preamble_order`)で **306 件**。**`Item` / `classify` / 4 値分解を通さない** —— 記録は `calibration.json`(入力ごとの `yes_logp` / `no_logp`。率・答え・補正後の値なし)と `metrics.json`(`kind: calibration`。`aggregate.py` は飛ばし `frame.py` は止まる。`preamble` 欄は ① と `lines`・`sha256` が同じで `order`・`note` だけ較正の中身)。**補正は後処理の関数だけ**(`content_free_bias` = 記号をまたいで生の確率を平均してから正規化 / `calibrated_answer` = `(yes − no) − b > 0`・同点は No)。判定表・R8 への適用は I11。壊れた宣言・前置きと腕の噛み合わせ・`eval.batteries` が `[comparison]` でない・`eval.task_subset` / `eval.threshold_sweep_arm` との同時宣言は重みを読む前・run ディレクトリを作る前に止まる。**`code.eval.run`(固定オフセット・明示リストの dry-run・掃引)と桁数掃引は較正の config を拒む** | `code/eval/calibration.py` / `code/eval/calibration_run.py` / `configs/exp_order6b_c.yaml` / `test_calibration.py`(65)/ `plans/PLAN-026` §3.5・§4.9 |
 | **★最初の出力位置の上位 k の記録がある**(2026-09-16 その62 = PLAN-026 I10。ADR-084)。config の `eval.forced_choice_top_k`(1 以上の整数。無い / null = 記録しない。**順6b の config 7 本だけが 20 を宣言し、本番・smoke には無い**)を 3 経路(固定オフセット・掃引・(c) の較正)が読み、`build_engines(..., top_k=)` → `_score_batch` が log-softmax 行に `topk` を掛ける。**判定(`choose_from_logprobs`)は同じ行で先に決まり、上位 k は後から付くだけ**。行の欄 `top_k` = `[{id, text = decode([id]), logp}]`(降順)・`top_k_mass` = 確率の合計(宣言なしは null)。**固定オフセットの二値群の行には `yes_logp` / `no_logp` も入る**(宣言によらない。応答文字列・数値群の行は不変)。`metrics.json` の `forced_choice.top_k`・dry-run の報告・`log.txt` に宣言の値。宣言と採点器の食い違いは `collect_forced_choices` で止まり、壊れた宣言は重みを読む前・run ディレクトリを作る前に止まる。**本物の torch の `topk` は手元で通していない**(置き物の torch で配線だけ)。**合否には使わない**(ADR-079 決定5) | `code/eval/forced_choice.py` / `code/eval/run.py` / `code/eval/calibration_run.py` / `test_top_k.py`(36)/ `plans/PLAN-026` §3.6・§4.10 |
+
+
+## 2026-10-22(その178・STATE.md から移した旧ブロック。その179 で置き換え)
+
+> **★★2026-10-22(その178・最新)。Phase 0。Claude Opus 5.5(IMPLEMENTER)。PLAN-046 I1〜I4 を実装して commit(`c11164d`)。GPU 0・pod 0**
+> - **できたもの**: `code/analysis/ceiling_remedy.py`(I1 `ceiling_rule` + I3 評価)・`code/analysis/power_sim_fit_lmm.R`(I2)・`code/analysis/ceiling_probnull.py`(I4 の解く処理)・`configs/ceiling_remedy.yaml`・`configs/power_sim_ceiling_probnull.yaml`(`solved` null・`rng_seed` 20261022)・`power_sim.py` の `probability_null`
+> - **人間が決めたこと(その178)**: `ceiling_probnull` の DGP = 案 A(T1 の行 = `ceiling_null`・T2 × id = P0 の 1.8・T2 の interp・extrap を解く。PLAN-046 §12)
+> - **未了**: 解く処理の本実行(`results/power_sim/ceiling_probnull_solve/`)→ config の `solved` へ転記して commit・転記値のテスト / probnull のロジットのスモーク(2 表。1 表 3〜30 分)/ 評価の probnull 側のスモーク / PLAN-046 §13 に 1 表の時間
+> - **実装の注記**: 既存の manifest は再開で書き直され全反復を載せていない(`ceiling_null_L50` 62/100・`ceiling_p1_L05` 47/100)ので、表は乱数種から組み直して照合する(PLAN-046 §8 罠8)。LMM の最適化は `nloptwrap`(lme4 2.0.6 の `lmer` の既定を明示。ロジットの道の既定とは違う)
+> - **天井のシートの数値の正本は PLAN-044 §13.1**
+
+> **★★2026-10-22(その178・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **IMPLEMENTER: PLAN-046 I4 の残りと I5**(`logs/HANDOFF.md`)→ 人間が probnull の生成(約 3 時間)と評価の起動 → ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
+> 2. PLANNER: PLAN-045(R3。主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3・ADR-131 決定7)。1 と触るファイルは重ならない
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 の C の採否と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(パイロット用プールを揃えるか)/ その166 の 5 の項目 / 確率の尺度の TOST の Δ(ADR-132 決定5)
+
+> **★★2026-10-22(その178・最新)。Claude Opus 5.5(IMPLEMENTER)。PLAN-046 I1〜I4 を実装(`c11164d`)。コンテキスト超過で引き継ぐ。**
+>
+> **★やったこと**: 開始手順(食い違いなし)→ `ceiling_probnull` の DGP の 3 案を表にして `AskUserQuestion` → 人間が案 A → R の LMM(2 表で約 2 秒・当て直しと `allFit` の経路を確認)→ 実装・テスト(新 38 件)→ 既存の 8 シートの反復 0 で評価の配線のスモーク(スクラッチ。主張に使わない)→ `pytest` 2604 passed → commit
+> **★やっていないこと**: 解く処理の本実行と転記・probnull のスモーク・評価の本実行(人間)・push・tag・GPU
+

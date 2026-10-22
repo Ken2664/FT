@@ -8147,3 +8147,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-22(その178・引き継ぎ)   [actor: IMPLEMENTER (Claude Opus 5.5)]
 - context-guard(約 283k)で切った。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。PLAN-046 I4 の残り = 解く処理の本実行と転記の commit・I5 のスモーク・§13 の時間・人間に起動を聞く)・`STATE.md`(冒頭・3 ブロック。旧は `logs/STATE-ARCHIVE.md`「その178」)を更新した
+
+## 2026-10-22(その179): PLAN-046 I4 の残りと I5(解く処理の本実行・転記・スモーク)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- **役割**: IMPLEMENTER。実モデル Sonnet 5.5 は推奨(Sonnet)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。未追跡の `.claude/commands/`・`frames/`・`git_diff.patch`・`launch_20261016_220000.log` と worktree `claude/great-bardeen-9c1ac4` は触っていない)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`
+- **やったこと**: (1) `ceiling_probnull` の解く処理を本実行(作業ツリーがきれい。`tracked_diff_empty` true)[run:20261022_041749_ceiling_probnull_solve] → `solved` を config にそのまま転記・出力 JSON との一致のテスト(最初のテストは JSON の構造 `sheets` を取り違えて落ち、直した)・pytest 2605 passed → `02cc6ce`(当てはめの前に commit)。(2) スモーク(スクラッチ。主張に使わない): ロジット 2 表 994 秒・失敗 0 [run:20261022_043027_power_sim_ceiling_probnull] / 評価 LMM 10 表 1 表 1.4〜3.1 秒・全体 36 秒 [run:20261022_044738_ceiling_remedy] / `--dry-run` 通過。(3) PLAN-046 §11・§13 に時間と算術(probnull 生成 ≈ 3.5 時間・LMM 1000 表 ≈ 31 分直列)
+- **確認**: `pytest code/tests -q` 2605 passed(約 10 分)。試行の値と本実行の `solved` は一致
+- **やっていないこと**: probnull の本生成・評価の本実行(人間が起動)・C の採否・`05_STATISTICS.md` の書き換え・push・tag・GPU

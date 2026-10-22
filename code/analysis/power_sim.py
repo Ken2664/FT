@@ -1373,7 +1373,11 @@ ADDITIVE_RMS_TOLERANCE = 1e-9
 ROLE_CEILING_PROBE = "ceiling_probe"
 CEILING_MODE_REPLACE = "replace"            # 指定したセルの `eta` を `L` に置き換える(ceiling_p0・ceiling_p1)
 CEILING_MODE_SHIFT_TASK = "shift_task"      # 指定した 1 セルが `L` になるよう、そのタスク型の行全体をずらす(ceiling_null)
-CEILING_MODES = (CEILING_MODE_REPLACE, CEILING_MODE_SHIFT_TASK)
+# ★PLAN-046 I4(ceiling_probnull): shift_task と同じ行に、`ceiling.probability_null.solved.<水準>` のセルの `eta` を置く。
+# 解いた値は ceiling_probnull.py が計算し、当てはめの前に config に転記する(ここでは解かない)
+CEILING_MODE_PROBABILITY_NULL = "probability_null"
+CEILING_MODES = (CEILING_MODE_REPLACE, CEILING_MODE_SHIFT_TASK, CEILING_MODE_PROBABILITY_NULL)
+CEILING_SINGLE_CELL_MODES = (CEILING_MODE_SHIFT_TASK, CEILING_MODE_PROBABILITY_NULL)
 LEVEL_INFINITE = "inf"                      # `ceiling.levels` に書く +∞(JSON に無限大を書かないため文字列)
 CEILING_SHEET_KEYS = frozenset({"id", "role", "tau", "ceiling", "points"})
 CEILING_SPEC_KEYS = frozenset({"base", "mode", "cells", "level"})
@@ -1534,15 +1538,15 @@ def _load_ceiling_sheet(
     if mode not in CEILING_MODES:
         raise ConfigError(f"sheets[{sheet_id}].ceiling.mode は {CEILING_MODES} のどれか: {mode!r}")
     cells = _parse_ceiling_cells(raw["cells"], effect, sheet_id)
-    if mode == CEILING_MODE_SHIFT_TASK and len(cells) != 1:
-        raise ConfigError(f"sheets[{sheet_id}].ceiling.cells は {CEILING_MODE_SHIFT_TASK} ではちょうど 1 セル: {raw['cells']!r}")
+    if mode in CEILING_SINGLE_CELL_MODES and len(cells) != 1:
+        raise ConfigError(f"sheets[{sheet_id}].ceiling.cells は {mode} ではちょうど 1 セル: {raw['cells']!r}")
     level_name = str(raw["level"])
     declared = config.get("ceiling", {}).get("levels")
     if not isinstance(declared, Mapping) or level_name not in declared:
         raise ConfigError(f"sheets[{sheet_id}].ceiling.level = {level_name} は ceiling.levels に無い")
-    if mode == CEILING_MODE_SHIFT_TASK and declared[level_name] == LEVEL_INFINITE:
+    if mode in CEILING_SINGLE_CELL_MODES and declared[level_name] == LEVEL_INFINITE:
         raise ConfigError(
-            f"sheets[{sheet_id}]: {CEILING_MODE_SHIFT_TASK} に +∞ の水準 {level_name} は置けない"
+            f"sheets[{sheet_id}]: {mode} に +∞ の水準 {level_name} は置けない"
             "(タスク型の行が全部 1 になり情報が無い。PLAN-044 §3.2)"
         )
     raw_points = entry["points"]
@@ -2216,28 +2220,69 @@ def resolve_ceiling_level(config: Mapping[str, Any], name: str) -> float:
 
 
 def build_ceiling_eta(
-    base_eta: np.ndarray, tasks: Sequence[str], coverages: Sequence[str], spec: CeilingSpec, level: float
+    base_eta: np.ndarray, tasks: Sequence[str], coverages: Sequence[str], spec: CeilingSpec, level: float,
+    solved: Mapping[tuple[str, str], float] | None = None,
 ) -> np.ndarray:
     """答える問い: 天井の水準 `level` のとき、DGP の `eta`(タスク型 × 被覆)はどうなるか(PLAN-044 §3.2)。
 
     `replace`: `cells` を `level` に置き換える(`+∞` 可。`draw_frame` で `logistic(+inf)` = 1.0 になる)。
     `shift_task`: 1 セルが `level` になるよう、そのタスク型の行全体に同じ定数を足す(行の中の差と、他の行は変えない。
     厳密に加法の基のプロファイルなら、ずらした後も厳密に加法)。`level` が有限でなければ止まる。
+    `probability_null`(PLAN-046 I4): `shift_task` の後、`solved` のセルを解いた値に置く。`solved` は
+    ずらした行(天井の行)のセルを持てない(行が `ceiling_null` と同じであることを保つ)。他のずらし方では `solved` を渡さない。
     """
     eta = np.array(base_eta, dtype=float)
     if spec.mode == CEILING_MODE_REPLACE:
+        if solved is not None:
+            raise ConfigError(f"{CEILING_MODE_REPLACE} に解いたセルは置けない")
         for task, coverage in spec.cells:
             eta[tasks.index(task), coverages.index(coverage)] = level
         return eta
-    if spec.mode != CEILING_MODE_SHIFT_TASK:
+    if spec.mode not in CEILING_SINGLE_CELL_MODES:
         raise ConfigError(f"ceiling.mode は {CEILING_MODES} のどれか: {spec.mode!r}")
     if not math.isfinite(level):
-        raise ConfigError(f"{CEILING_MODE_SHIFT_TASK} に有限でない水準は置けない: {level}")
+        raise ConfigError(f"{spec.mode} に有限でない水準は置けない: {level}")
     ((task, coverage),) = spec.cells
     ti, ci = tasks.index(task), coverages.index(coverage)
     eta[ti, :] += level - base_eta[ti, ci]
     eta[ti, ci] = level      # 足し算の丸めを残さない
+    if spec.mode == CEILING_MODE_SHIFT_TASK:
+        if solved is not None:
+            raise ConfigError(f"{CEILING_MODE_SHIFT_TASK} に解いたセルは置けない")
+        return eta
+    if not solved:
+        raise ConfigError(f"{CEILING_MODE_PROBABILITY_NULL} には解いたセル(ceiling.probability_null.solved)が要る")
+    for (solved_task, solved_coverage), value in solved.items():
+        if solved_task == task:
+            raise ConfigError(
+                f"{CEILING_MODE_PROBABILITY_NULL} の解いたセル {solved_task}.{solved_coverage} が天井の行 {task} にある"
+            )
+        if not math.isfinite(value):
+            raise ConfigError(f"解いたセル {solved_task}.{solved_coverage} の値が有限でない: {value}")
+        eta[tasks.index(solved_task), coverages.index(solved_coverage)] = float(value)
     return eta
+
+
+def resolve_probability_null_cells(
+    config: Mapping[str, Any], level_name: str, tasks: Sequence[str], coverages: Sequence[str]
+) -> dict[tuple[str, str], float]:
+    """答える問い: 水準 `level_name` の `ceiling_probnull` で、解いたセルの `eta` は config に転記済みか(PLAN-046 I4)。
+
+    `ceiling.probability_null.solved.<水準>` は `"<タスク型>.<被覆>": 値` の対応。null・欠け・未知のセルは止まる
+    (ceiling_probnull.py が計算して当てはめの前に転記するまで当てはめない)。
+    """
+    raw = require(config, f"ceiling.probability_null.solved.{level_name}")
+    if not isinstance(raw, Mapping) or not raw:
+        raise ConfigError(f"ceiling.probability_null.solved.{level_name} は空でない対応: {raw!r}")
+    out: dict[tuple[str, str], float] = {}
+    for label, value in raw.items():
+        task, _, coverage = str(label).partition(".")
+        if task not in tasks or coverage not in coverages:
+            raise ConfigError(f"ceiling.probability_null.solved.{level_name} の未知のセル: {label!r}")
+        if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ConfigError(f"ceiling.probability_null.solved.{level_name}.{label} は数: {value!r}")
+        out[(task, coverage)] = float(value)
+    return out
 
 
 def ceiling_logit_contrasts(eta: np.ndarray, coverages: Sequence[str]) -> dict[str, float]:
@@ -2271,7 +2316,12 @@ def ceiling_profile(config: Mapping[str, Any], sheet: Sheet) -> EffectProfile:
     effect = config["effect"]
     base = build_profile(effect, spec.base_profile)
     level = resolve_ceiling_level(config, spec.level_name)
-    eta = build_ceiling_eta(base.eta, base.tasks, base.coverages, spec, level)
+    solved = (
+        resolve_probability_null_cells(config, spec.level_name, base.tasks, base.coverages)
+        if spec.mode == CEILING_MODE_PROBABILITY_NULL
+        else None
+    )
+    eta = build_ceiling_eta(base.eta, base.tasks, base.coverages, spec, level, solved)
     additive = float(effect["mu"]) + np.asarray(effect["a"], dtype=float)[:, None] + np.asarray(
         effect["b"], dtype=float
     )[None, :]

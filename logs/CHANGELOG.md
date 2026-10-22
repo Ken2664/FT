@@ -8137,3 +8137,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-22(その177・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - 区切り(PLAN-046 の実装前の 2 つを ADR-133 で決めた)で切った。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。PLAN-046 I1〜I5 の実装・テスト・スモーク。評価の起動は人間)を更新した。`STATE.md` は `f5d7bea` で更新済み
+
+## 2026-10-22(その178): PLAN-046 I1〜I4 を実装(解く処理の本実行・転記・probnull のスモークは未了)   [actor: IMPLEMENTER (Claude Opus 5.5)]
+- **役割**: IMPLEMENTER。実モデル Opus 5.5 は推奨(Sonnet)と不一致(実装なので続けてよい = `10_CONTEXT_POLICY.md` §7.3。最初の発言で述べた)。開始手順は実行済み(食い違いなし)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`。途中で `ceiling_probnull` の DGP を `AskUserQuestion` で聞き、**人間が案 A(推奨)**: T1 の行 = `ceiling_null` と同じ・T2 × id = P0 の 1.8・T2 の interp・extrap を解く(提案 エージェント / 採択 人間。PLAN-046 §6.2・§12)
+- **やったこと**: I1 `code/analysis/ceiling_remedy.py` の `ceiling_rule` / I2 `code/analysis/power_sim_fit_lmm.R`(`power_sim_fit.R` は不変。SHA-256 をテストで固定)/ I3 `ceiling_remedy.py`・`configs/ceiling_remedy.yaml` / I4 `code/analysis/ceiling_probnull.py`・`configs/power_sim_ceiling_probnull.yaml`(`solved` null・`rng_seed` 20261022)・`power_sim.py` に `probability_null`(既存のずらし方・`draw_frame` は不変)/ テスト `test_ceiling_remedy.py`・`test_ceiling_probnull.py` / PLAN-046 §6.2・§8 罠8・§12・§13
+- **確認**: `pytest code/tests -q` 2604 passed。配線のスモーク(スクラッチ。主張に使わない): 既存の 8 シートの反復 0 に `--max-rep 1`、LMM 1 表 1.5〜4.1 秒。既存の manifest は再開で書き直されていて全反復を載せていない(`ceiling_null_L50` 62/100・`ceiling_p1_L05` 47/100)ので、照合の主は乱数種からの組み直し(PLAN-046 §8 罠8 に追記)
+- **やっていないこと**: 解く処理の本実行と config への転記の commit・probnull のロジットのスモーク(2 表)・評価の probnull 側のスモーク・評価の本実行(人間)・push・tag。コンテキストが閾値を超えたので引き継ぐ

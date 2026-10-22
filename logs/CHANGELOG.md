@@ -8127,3 +8127,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-22(その176・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - 区切り(PLAN-046 を採択した)で切った。`logs/HANDOFF.md`(次は PLANNER・推奨 Opus。PLAN-046 §5 の恒等リンクの縮退の扱いと §6.4 の C の採否の基準を表にして人間に聞く)を更新した。`STATE.md` は `da58f99` で更新済み
+
+## 2026-10-22(その177): PLAN-046 の実装前の 2 つを決めた(ADR-133)   [actor: PLANNER (Claude Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。未追跡の `.claude/commands/`・`frames/`・`results/power_sim/ceiling/git_diff.patch`・`launch_20261016_220000.log` と worktree `claude/great-bardeen-9c1ac4` は触っていない)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`
+- **やったこと**: ADR-059・123 決定6・128 決定3・129 決定1〜4・132・`05_STATISTICS.md` §3.2 を読み、チャットで判断材料の表(恒等リンクの縮退の扱いの 4 案 / §6.4 の門の 3 問の案・出所・n = 100 の Clopper–Pearson と二項の算術)を示して `AskUserQuestion` 1 回 4 問 → **人間が 4 問とも推奨**: 縮退はロジットの道と同じ手続き(当て直しの初期値は `theta` だけ)/ G1 = `ceiling_probnull` のどちらかの点で分岐した手続き全体の棄却率の CP95 下端 > 0.075 なら閉じる / G2 = 全 10 点の各点で C の道の LMM の当てはめ失敗率の CP95 下端 > 0.10 なら閉じる / 検出力は記述だけ・閉じたら C は採らない・両方開いても採否は人間 → ADR-133・PLAN-046(冒頭・§5.6 新設・§6.4・§7 の I2・I3・§11〜§13)・`logs/OPEN-ITEMS.md`(§6.4 の行)・`STATE.md`(4 ブロック。旧は `logs/STATE-ARCHIVE.md`「その177」)
+- **確認**: 文書だけの変更。`code/`・config は不変
+- **やっていないこと**: C の採否・`05_STATISTICS.md` の書き換え・実装・push・tag・GPU

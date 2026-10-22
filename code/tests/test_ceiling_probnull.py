@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 from typing import Any
 
@@ -113,6 +114,24 @@ def test_the_probability_scale_truth_is_zero_and_the_logit_truth_is_not(sheet_id
     tolerance = config["ceiling"]["probability_null"]["residual_tolerance"]
     assert all(abs(v) <= tolerance for v in truth["probability_scale_contrasts"].values())
     assert all(abs(v) > 0.1 for v in profile.interaction_contrasts.values())
+
+
+def test_committed_solved_values_are_the_ceiling_probnull_solve_output() -> None:
+    """★PLAN-046 I4: config の `solved` は `ceiling_probnull.py` の出力(run_id つき)と一致する(当てはめの前に commit)。"""
+    config = load(PROBNULL_CONFIG)
+    output = json.loads(
+        (REPO_ROOT / "results" / "power_sim" / "ceiling_probnull_solve" / ceiling_probnull.OUTPUT_FILE).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert output["run_id"] == "20261022_041749_ceiling_probnull_solve"
+    assert output["tracked_diff_empty"] is True   # 作業ツリーがきれいな状態で解いた
+    solved = config["ceiling"]["probability_null"]["solved"]
+    for level_name, sheet_id in (("L_05", "ceiling_probnull_L05"), ("L_50", "ceiling_probnull_L50")):
+        assert solved[level_name] == output["sheets"][sheet_id]["solved"], level_name
+    # 試行(スクラッチ)の値とも一致した = 本実行で違う値にならなかった
+    assert solved["L_05"] == {"T2.interp": 1.5847352592, "T2.extrap_magnitude": 1.1084329182}
+    assert solved["L_50"] == {"T2.interp": 1.7624797985, "T2.extrap_magnitude": 1.6491025406}
 
 
 def test_solving_twice_gives_the_same_values() -> None:

@@ -1,0 +1,129 @@
+{
+  "run_id": "20261022_041749_ceiling_probnull_solve",
+  "created_utc": "2026-10-22T04:17:49.890025+00:00",
+  "git_sha": "cb80245c9d725d1b993467594b4e38ff0da0b24a",
+  "tracked_diff_empty": true,
+  "config_source": "configs\\power_sim_ceiling_probnull.yaml",
+  "note": "ASSUMED-VALUE arithmetic (solving the DGP for probability-scale additivity), not an experimental result. Design A (2026-10-22, proposed by the agent, adopted by the human): T1 row = ceiling_null, T2 x id = base, T2 x interp / extrap solved.",
+  "rule": {
+    "solve_cells": [
+      [
+        "T2",
+        "interp"
+      ],
+      [
+        "T2",
+        "extrap_magnitude"
+      ]
+    ],
+    "search": {
+      "lower": -30.0,
+      "upper": 30.0,
+      "xtol": 1e-12
+    },
+    "round_decimals": 10,
+    "residual_tolerance": 1e-08
+  },
+  "sheets": {
+    "ceiling_probnull_L05": {
+      "level_name": "L_05",
+      "level": 5.3,
+      "point": {
+        "sigma": 1.0,
+        "variance": 3.5,
+        "nodes": 100
+      },
+      "solved_unrounded": {
+        "T2.interp": 1.5847352592170179,
+        "T2.extrap_magnitude": 1.1084329181826043
+      },
+      "solved": {
+        "T2.interp": 1.5847352592,
+        "T2.extrap_magnitude": 1.1084329182
+      },
+      "eta": [
+        [
+          5.3,
+          4.3,
+          3.1
+        ],
+        [
+          1.8,
+          1.5847352592,
+          1.1084329182
+        ]
+      ],
+      "marginal_rule_rate": {
+        "T1": {
+          "id": 0.978157580250842,
+          "interp": 0.9512914337012573,
+          "extrap_magnitude": 0.8866377626542026
+        },
+        "T2": {
+          "id": 0.7604070934249075,
+          "interp": 0.7335409468731388,
+          "extrap_magnitude": 0.668887275830747
+        }
+      },
+      "probability_scale_residuals": {
+        "interp": -2.1841417563450705e-12,
+        "extrap_magnitude": 2.4789059693830495e-12
+      },
+      "max_abs_residual": 2.4789059693830495e-12,
+      "logit_interaction_contrasts": {
+        "interp": 0.7847352591999999,
+        "extrap_magnitude": 1.5084329181999996
+      }
+    },
+    "ceiling_probnull_L50": {
+      "level_name": "L_50",
+      "level": 7.512,
+      "point": {
+        "sigma": 1.0,
+        "variance": 3.5,
+        "nodes": 100
+      },
+      "solved_unrounded": {
+        "T2.interp": 1.7624797984540992,
+        "T2.extrap_magnitude": 1.6491025405598814
+      },
+      "solved": {
+        "T2.interp": 1.7624797985,
+        "T2.extrap_magnitude": 1.6491025406
+      },
+      "eta": [
+        [
+          7.512,
+          6.512,
+          5.311999999999999
+        ],
+        [
+          1.8,
+          1.7624797985,
+          1.6491025406
+        ]
+      ],
+      "marginal_rule_rate": {
+        "T1": {
+          "id": 0.9970451555685313,
+          "interp": 0.9924767277694195,
+          "extrap_magnitude": 0.9783769488646364
+        },
+        "T2": {
+          "id": 0.7604070934249075,
+          "interp": 0.7558386656314274,
+          "extrap_magnitude": 0.7417388867260792
+        }
+      },
+      "probability_scale_residuals": {
+        "interp": 5.631717314713569e-12,
+        "extrap_magnitude": 5.066613795179364e-12
+      },
+      "max_abs_residual": 5.631717314713569e-12,
+      "logit_interaction_contrasts": {
+        "interp": 0.9624797985,
+        "extrap_magnitude": 2.0491025406
+      }
+    }
+  }
+}

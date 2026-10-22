@@ -8114,3 +8114,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **照合**: `null_L50` 以外の 7 シートは `STATE.md`(その174)の暫定値と一致。暫定の文言「`L_05` の SE の中央値 0.75〜0.81」は interp だけの範囲で、extrap は 0.725〜0.753(fits から計算し直しても summary と同じ。集計の食い違いではない)。`null_L50` は暫定 2/38 → 公式 3/100
 - **人間の決定**: 結果の git の扱いは案 A(run2 に合わせる。エージェントの推奨を採った): 上位 7 ファイル(summary 2・config 2・`invocations.jsonl`・`run_info.json`・`git_sha.txt`)・manifest 128・`cell_rates_*.json` 8 を commit。`frames/`(約 155 MB)は未追跡・`fits/` は `.gitignore` のまま
 - **やっていないこと**: 解釈・手当ての設計・コード・config の変更・push・tag・GPU
+
+## 2026-10-22(その175・引き継ぎ)   [actor: ANALYST (Claude Opus 5.5)]
+- 区切り(PLAN-044 の ANALYST の記述を終えた)で切った。`logs/HANDOFF.md`(次は PLANNER・推奨 Opus。天井の手当ての PLAN-046 の草案と人間に聞く問いの表。ADR は人間の回答の後)を更新した。`STATE.md` は `e131444` で更新済み

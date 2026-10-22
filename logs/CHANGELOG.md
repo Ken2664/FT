@@ -8144,3 +8144,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **やったこと**: I1 `code/analysis/ceiling_remedy.py` の `ceiling_rule` / I2 `code/analysis/power_sim_fit_lmm.R`(`power_sim_fit.R` は不変。SHA-256 をテストで固定)/ I3 `ceiling_remedy.py`・`configs/ceiling_remedy.yaml` / I4 `code/analysis/ceiling_probnull.py`・`configs/power_sim_ceiling_probnull.yaml`(`solved` null・`rng_seed` 20261022)・`power_sim.py` に `probability_null`(既存のずらし方・`draw_frame` は不変)/ テスト `test_ceiling_remedy.py`・`test_ceiling_probnull.py` / PLAN-046 §6.2・§8 罠8・§12・§13
 - **確認**: `pytest code/tests -q` 2604 passed。配線のスモーク(スクラッチ。主張に使わない): 既存の 8 シートの反復 0 に `--max-rep 1`、LMM 1 表 1.5〜4.1 秒。既存の manifest は再開で書き直されていて全反復を載せていない(`ceiling_null_L50` 62/100・`ceiling_p1_L05` 47/100)ので、照合の主は乱数種からの組み直し(PLAN-046 §8 罠8 に追記)
 - **やっていないこと**: 解く処理の本実行と config への転記の commit・probnull のロジットのスモーク(2 表)・評価の probnull 側のスモーク・評価の本実行(人間)・push・tag。コンテキストが閾値を超えたので引き継ぐ
+
+## 2026-10-22(その178・引き継ぎ)   [actor: IMPLEMENTER (Claude Opus 5.5)]
+- context-guard(約 283k)で切った。`logs/HANDOFF.md`(次は IMPLEMENTER・推奨 Sonnet。PLAN-046 I4 の残り = 解く処理の本実行と転記の commit・I5 のスモーク・§13 の時間・人間に起動を聞く)・`STATE.md`(冒頭・3 ブロック。旧は `logs/STATE-ARCHIVE.md`「その178」)を更新した

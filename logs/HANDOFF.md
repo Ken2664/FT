@@ -1,9 +1,9 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-22(その177)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: PLAN完了(PLAN-046 の実装の前に残っていた §5.6・§6.4 を人間に聞き ADR-133 に書いた)
+生成: 2026-10-22(その178)/ 直前セッションの役割: IMPLEMENTER
+直前セッションが終了した理由: コンテキスト超過(context-guard 約 283k)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Sonnet — 実装(`10_CONTEXT_POLICY.md` §7 の「実装・集計・データ生成」の行)。統計の判断が出たら止めて PLANNER(Opus)へ
+**推奨モデル(次のセッション)**: Sonnet — 実装・データ生成(`10_CONTEXT_POLICY.md` §7 の「実装・集計・データ生成」の行)。統計の判断が出たら止めて PLANNER(Opus)へ
 
 ---
 
@@ -13,31 +13,33 @@
 
 ## このセッションでやること(1つだけ)
 
-**PLAN-046 §7 の I1〜I5 を実装し、`pytest code/tests -q` を通し、`--dry-run` とスモーク(各シート 1 表)で 1 表の時間を測って PLAN-046 §13 に書く。評価の本実行は起動しない(起動は人間)。**
+**PLAN-046 I4 の残りと I5 を終え、人間に起動を聞くところまで進める。**
 
-- I1 天井の判定(§5 手順 1。6 セルのどれかが全シード・全項目で n/n か 0/n)を純粋関数で・単体テスト(n/n・0/n・n − 1/n・セルが欠ける表)
-- I2 恒等リンクの LMM(`lmer`・ML)の当てはめ。**縮退の扱いは §5.6 = ADR-133 決定1**(ADR-059 の判定・閾値・縮退順序・床の `allFit` の 5 最適化・ペア単位。違いは当て直しの初期値が `theta` だけ)。使う最適化を明示して出力に残す。**`power_sim_fit.R` のロジットの経路は 1 バイトも変えない**
-- I3 既存の 800 表に I1・I2 を当てる評価のスクリプト(`fits/` のロジットの結果を読み道ごとに集計・**§6.4 の G1・G2 の判定と CP95 を点ごとに出す**)。`frames/` を使う前に manifest と照合(§8 罠8)
-- I4 `ceiling_probnull` の DGP(周辺確率が加法になる `eta` を数値で解く・解と残差を記録・config に書いて commit)・テスト(確率の尺度の真値が 0)
-- I5 `pytest`・`--dry-run`・スモーク → commit → 人間に起動を聞く
+1. `python -m code.analysis.ceiling_probnull --config configs/power_sim_ceiling_probnull.yaml`(**作業ツリーがきれいな状態で**。出力は `results/power_sim/ceiling_probnull_solve/ceiling_probnull_solve.json`。run_id が付く)
+2. 出力の `solved`(各 2 値)を `configs/power_sim_ceiling_probnull.yaml` の `ceiling.probability_null.solved.L_05`・`L_50` に**そのまま転記**し、run_id をコメントに書く。試行の値(スクラッチ・配線確認用)は L_05: T2.interp 1.5847352592・T2.extrap_magnitude 1.1084329182 / L_50: 1.7624797985・1.6491025406 で、本実行が違えば理由を調べる
+3. `code/tests/test_ceiling_probnull.py` に「config の `solved` = 出力 JSON(run_id つき)」のテストを足す(`test_ceiling_probe.py` の `test_committed_levels_are_the_ceiling_level_output` と同じ形)。`pytest code/tests -q` → commit(`[run:<solve の run_id>]`)。**ロジットの当てはめの前に commit**
+4. スモーク(スクラッチパッドに出力): (a) probnull の config の写しを `simulation.n_rep_stages: [1]` にして `python -m code.analysis.power_sim --config <写し> --out-dir <scratch>/probnull_smoke --through-stage 1 --keep-frames --workers 2`(ロジット 2 表。1 表 3〜30 分なのでバックグラウンド)/ (b) `python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir <scratch>/eval_smoke --max-rep 1 --workers 8 --source-dir ceiling_probnull=<scratch>/probnull_smoke`(10 表に LMM)。`--dry-run` も
+5. PLAN-046 §13 に 1 表の時間(ロジット・LMM)と算術(200 表 ÷ 16 並列 / 1000 表の LMM)を書き、§11 の I1〜I4 の行を更新 → `STATE.md`・`logs/CHANGELOG.md` → commit → **人間に起動を聞く**(probnull の生成 `--out-dir results/power_sim/ceiling_probnull --workers 16` → 評価 `--out-dir results/ceiling_remedy --workers 16`)
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- ADR-133(`f5d7bea`。人間が 4 問とも推奨): §5.6 縮退 = ロジットの道と同じ / §6.4 G1 = `ceiling_probnull` の `L_05`・`L_50` のどちらかで分岐した手続き全体の無条件の棄却率(失敗・実施不能は非棄却・分母から除かない)の CP95 下端 > 0.075 なら閉じる / G2 = 全 10 点の各点で C の道の LMM の当てはめ失敗率の CP95 下端 > 0.10 なら閉じる / 検出力は記述だけ / 閉じたら C は採らない・開いても採否は人間
-- PLAN-046 の設計(ADR-132): 天井の規則・恒等リンクの LMM の LRT df = 2・Wald 90% CI の IUT・Δ は決めず最小 Δ を保存・B は C が実施できないときだけ
+- `c11164d`: I1 `code/analysis/ceiling_remedy.py` の `ceiling_rule`(セルが欠ける表は止まる)/ I2 `code/analysis/power_sim_fit_lmm.R`(`power_sim_fit.R` は不変。SHA-256 を `test_ceiling_remedy.py` で固定)/ I3 `ceiling_remedy.py`・`configs/ceiling_remedy.yaml`(全部の表に LMM・表は乱数種から組み直して照合・G1・G2 を点ごと・`--max-rep` のときは門を判定しない)/ I4 `code/analysis/ceiling_probnull.py`・`configs/power_sim_ceiling_probnull.yaml`(`solved` null・`rng_seed` 20261022)・`power_sim.py` の `probability_null`。pytest 2604 passed
+- 人間が `ceiling_probnull` の DGP = 案 A(PLAN-046 §6.2・§12。提案 エージェント / 採択 人間)
+- LMM の最適化は `nloptwrap`(lme4 2.0.6 の `lmer` の既定を config に明示。PLAN-046 §5.6 の「実装上の注意」で、決定ではない)
+- `configs/ceiling_remedy.yaml` は probnull の `solved` が null のあいだ読めずに止まる(設計どおり)。既存の 800 表だけで試すなら、sources を 1 つにした写しをスクラッチに作る
 
 ## 触ってよいファイル / 読むべき範囲
 
-- 読む: `plans/PLAN-046-ceiling-remedy.md` §5・§6・§7・§8(`grep -n '^## \|^### '` → `sed -n`)/ `Documents/05_STATISTICS.md` §3.2(行 196〜345 付近)
-- 触ってよい: `code/analysis/`(新しいファイル推奨。`power_sim.py`・`ceiling_level.py` への追加は最小に)/ `code/analysis/power_sim_fit.R`(**ロジットの経路は不変**。LMM は別の関数かファイル)/ `code/tests/` / 新しい config(`configs/power_sim_ceiling_probnull.yaml` など)/ PLAN-046 §13 / `STATE.md` / `logs/CHANGELOG.md`
+- 読む: `plans/PLAN-046-ceiling-remedy.md` §6・§7・§11・§13(`grep -n '^## \|^### '` → `sed -n`)/ `code/analysis/ceiling_probnull.py`・`ceiling_remedy.py` は必要な関数だけ
+- 触ってよい: `configs/power_sim_ceiling_probnull.yaml` の `solved` とそのコメント / `code/tests/test_ceiling_probnull.py` / `results/power_sim/ceiling_probnull_solve/` / PLAN-046 §11・§13 / `STATE.md` / `logs/CHANGELOG.md`
 
 ## やってはいけないこと
 
-- `configs/power_sim.yaml`・`power_sim_ceiling.yaml`・run3 の `rng_seed` 20261008 の変更 / run3 の起動 / 評価の本実行の起動(人間)
-- G1・G2 の閾値・縮退の閾値を変える。統計の判断(例: LMM の当てはめで ADR-059 の判定がそのまま当てはまらない箇所)が出たら止めて PLANNER へ
+- `configs/power_sim.yaml`・`power_sim_ceiling.yaml`・`ceiling_remedy.yaml` の門の値・`power_sim_fit.R` を変える / run3・probnull の本生成・評価の本実行を起動する(人間)
+- 転記した `solved` を評価の結果を見て変える。解く規則(`ceiling.probability_null` の search・round・tolerance)を変える
 - `results/power_sim/ceiling/*/frames/` を `git add` する。`git add -A` を使わない
 - C の採否・F8 の解釈を書く / `05_STATISTICS.md` の書き換え
 
 ## 未解決 / 人間の承認待ち
 
-- 評価の起動 / C の採否(評価の後・別の ADR)/ 確率の尺度とロジットの TOST の Δ(凍結前)/ PLAN-045(R3)/ S4 の前の push と G2-1 承認 / PLAN-043 §12 の判断 6 件(run3 の前)/ REVIEW の R4 以下・C1/C2・R5
+- probnull の生成と評価の起動 / C の採否(評価の後・別の ADR)/ 確率の尺度とロジットの TOST の Δ(凍結前)/ PLAN-045(R3)/ S4 の前の push と G2-1 承認 / PLAN-043 §12 の判断 6 件(run3 の前)/ REVIEW の R4 以下・C1/C2・R5

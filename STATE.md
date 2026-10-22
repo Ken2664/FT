@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-22(その177。PLAN-046 の実装の前に残っていた 2 つを決めた(ADR-133。人間が 4 問とも推奨): 恒等リンクの LMM の縮退 = ロジットの道と同じ手続き(ADR-059 の判定・閾値・縮退順序・床の `allFit` の 5 最適化・ペア単位。当て直しの初期値は `theta` だけ)/ C の採否の門 G1 = `ceiling_probnull` のどちらかの点で分岐した手続き全体の棄却率の CP95 下端 > 0.075 なら閉じる / G2 = 全 10 点の各点で C の道の LMM の当てはめ失敗率の CP95 下端 > 0.10 なら閉じる / 検出力は記述だけ / 閉じたら C は採らない・開いても採否は人間。`code/`・config は不変。GPU 0・pod 0)
-(**次: IMPLEMENTER(Sonnet)が PLAN-046 I1〜I5 → 人間が評価の起動 → ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)**。)
+最終更新: 2026-10-22(その178。PLAN-046 I1〜I4 を実装 `c11164d`: 天井の判定 `ceiling_rule`・恒等リンクの LMM `power_sim_fit_lmm.R`(ロジットの道は不変・SHA-256 で固定)・評価 `ceiling_remedy.py`(G1・G2 を点ごと)・`ceiling_probnull` の DGP(人間が案 A。`solved` は null)。pytest 2604 passed。解く処理の本実行・転記・probnull のスモークは未了。Claude Opus 5.5(IMPLEMENTER)。GPU 0・pod 0)
+(**次: IMPLEMENTER が PLAN-046 I4 の残り(解く処理の本実行 → 転記の commit)と I5 のスモーク → 人間が probnull の生成と評価の起動 → ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -68,11 +68,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## いま何をしているか
 
 
-> **★★2026-10-22(その177・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-046 の実装の前の 2 つ(§5.6・§6.4)を人間に聞いて ADR-133 に書いた。GPU 0・pod 0**
-> - **PLAN-046**(`plans/PLAN-046-ceiling-remedy.md`。採択 = ADR-132): §5.6 = 恒等リンクの LMM の縮退の扱い / §6.4 = C の採否の門 G1・G2 と効力(ADR-133)。**実装の前に残っているものは無い**
-> - **決まったこと(ADR-133)**: 縮退はロジットの道と同じ(違いは当て直しの初期値が `theta` だけ)/ G1 = `ceiling_probnull` の `L_05`・`L_50` のどちらかで分岐した手続き全体の棄却率の CP95 下端 > 0.075 なら閉じる / G2 = 全 10 点の各点で C の道の LMM の当てはめ失敗率の CP95 下端 > 0.10 なら閉じる / 検出力は記述だけ / 閉じたら C は採らない・両方開いても採否は人間
-> - **決まっていないこと**: C の採否(評価の後)/ 確率の尺度の TOST の Δ(凍結前)/ F8 を H2 の言葉でどう書くか(解釈は人間)
-> - **弱点(ADR-133 リスク欄)**: G1 は 100 反復では寛い(真の率 0.10 でも閉じる確率 0.124。算術)。縮退の閾値は `lmer` で較正していない
+> **★★2026-10-22(その178・最新)。Phase 0。Claude Opus 5.5(IMPLEMENTER)。PLAN-046 I1〜I4 を実装して commit(`c11164d`)。GPU 0・pod 0**
+> - **できたもの**: `code/analysis/ceiling_remedy.py`(I1 `ceiling_rule` + I3 評価)・`code/analysis/power_sim_fit_lmm.R`(I2)・`code/analysis/ceiling_probnull.py`(I4 の解く処理)・`configs/ceiling_remedy.yaml`・`configs/power_sim_ceiling_probnull.yaml`(`solved` null・`rng_seed` 20261022)・`power_sim.py` の `probability_null`
+> - **人間が決めたこと(その178)**: `ceiling_probnull` の DGP = 案 A(T1 の行 = `ceiling_null`・T2 × id = P0 の 1.8・T2 の interp・extrap を解く。PLAN-046 §12)
+> - **未了**: 解く処理の本実行(`results/power_sim/ceiling_probnull_solve/`)→ config の `solved` へ転記して commit・転記値のテスト / probnull のロジットのスモーク(2 表。1 表 3〜30 分)/ 評価の probnull 側のスモーク / PLAN-046 §13 に 1 表の時間
+> - **実装の注記**: 既存の manifest は再開で書き直され全反復を載せていない(`ceiling_null_L50` 62/100・`ceiling_p1_L05` 47/100)ので、表は乱数種から組み直して照合する(PLAN-046 §8 罠8)。LMM の最適化は `nloptwrap`(lme4 2.0.6 の `lmer` の既定を明示。ロジットの道の既定とは違う)
 > - **天井のシートの数値の正本は PLAN-044 §13.1**
 
 
@@ -326,9 +326,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 次のアクション
 
 
-> **★★2026-10-22(その177・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-10-22(その178・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **IMPLEMENTER(Sonnet): PLAN-046 I1〜I5**(天井の判定・恒等リンクの LMM の当てはめ(§5.6)・既存の 800 表への評価のスクリプト(G1・G2 の判定を出す)・`ceiling_probnull` の DGP・`pytest`・`--dry-run`・スモーク)→ 人間が評価の起動 → ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
+> 1. **IMPLEMENTER: PLAN-046 I4 の残りと I5**(`logs/HANDOFF.md`)→ 人間が probnull の生成(約 3 時間)と評価の起動 → ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
 > 2. PLANNER: PLAN-045(R3。主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3・ADR-131 決定7)。1 と触るファイルは重ならない
 > 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 4. run3 は 1 の C の採否と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
@@ -340,10 +340,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-22(その177・最新)。Claude Opus 5.5(PLANNER)。PLAN-046 の §5.6・§6.4 を人間に聞いて ADR-133 に書いた。**
+> **★★2026-10-22(その178・最新)。Claude Opus 5.5(IMPLEMENTER)。PLAN-046 I1〜I4 を実装(`c11164d`)。コンテキスト超過で引き継ぐ。**
 >
-> **★やったこと**: 開始手順(食い違いなし)→ ADR-059・123 決定6・128 決定3・129 決定1〜4・132・`05_STATISTICS.md` §3.2 を読む → チャットで縮退の扱いの 4 案と §6.4 の門の 3 問(出所・n = 100 の算術)の表を示し `AskUserQuestion` 1 回 4 問 → 4 問とも推奨 → ADR-133・PLAN-046(冒頭・§5.6・§6.4・§7・§11〜§13)・`logs/OPEN-ITEMS.md`・`STATE.md`・`logs/CHANGELOG.md`
-> **★やっていないこと**: C の採否・`05_STATISTICS.md` の書き換え(§3.2 の C の道・§2 の弱点欄は C の採否の後)・コード・config・push・tag・GPU
+> **★やったこと**: 開始手順(食い違いなし)→ `ceiling_probnull` の DGP の 3 案を表にして `AskUserQuestion` → 人間が案 A → R の LMM(2 表で約 2 秒・当て直しと `allFit` の経路を確認)→ 実装・テスト(新 38 件)→ 既存の 8 シートの反復 0 で評価の配線のスモーク(スクラッチ。主張に使わない)→ `pytest` 2604 passed → commit
+> **★やっていないこと**: 解く処理の本実行と転記・probnull のスモーク・評価の本実行(人間)・push・tag・GPU
 
 
 ---

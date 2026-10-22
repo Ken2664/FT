@@ -327,7 +327,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 > **★★2026-10-22(その179・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **人間: PLAN-046 の評価の起動を決める**(probnull の生成 `python -m code.analysis.power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16`(約 3.5 時間)→ 評価 `python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16`(LMM 1000 表。30 分以内の見込み))→ ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
+> 1. **★probnull の生成は 2026-10-22T11:55:45Z に人間の指示で起動済み(pid 31768・約 3.5 時間。ログ `results/power_sim/ceiling_probnull_launch_20261022.log`)。完了後に人間が評価を起動**(~~人間: PLAN-046 の評価の起動を決める~~。probnull の生成 `python -m code.analysis.power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16`(約 3.5 時間)→ 評価 `python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16`(LMM 1000 表。30 分以内の見込み))→ ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
 > 2. PLANNER: PLAN-045(R3。主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3・ADR-131 決定7)。1 と触るファイルは重ならない
 > 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 4. run3 は 1 の C の採否と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)

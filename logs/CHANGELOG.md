@@ -8162,3 +8162,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **RunPod の読み取り**(`list-pods`・`list-network-volumes`・`list-endpoints`・`list-clusters`・`list-templates`・`list-billing` 直近 14 日): pod 5 本すべて `EXITED`(RUNNING は 0)・ボリューム `r963j7swke`(50 GB・EU-RO-1)1 本・endpoint/cluster/template は 0。直近 14 日の課金 $1.55 は全額ボリューム保管料(約 $0.117/日)。pod の GPU・ディスク課金は 0
 - **人間の指示で古い 4 本を terminate**(`delete-pod` 204): `eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`・`nwpfapeszov83m`。直後の `list-pods` は `9matkiq0jozcgm`(`EXITED`)1 本のみ。`9matkiq0jozcgm` とボリューム(アダプタ 10 本の `*.safetensors` は **この機に無くボリュームにだけある**。中身は pod を起動していないので今回は未確認)は残した
 - `logs/OPEN-ITEMS.md` の 80・81・98 行と `STATE.md` の最新ブロックに追記。コミット・push はしていない。GPU 0
+
+## 2026-10-22(その179・起動)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- 人間の指示「今起動する」で probnull の生成を起動(2026-10-22T11:55:45Z・pid 31768・`--workers 16`・out-dir `results/power_sim/ceiling_probnull`・ログ `results/power_sim/ceiling_probnull_launch_20261022.log`)。起動後 45 秒で out-dir とシートのディレクトリが出来ていることだけ確認。評価の起動は生成の完了後に人間

@@ -11,6 +11,12 @@
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
 `CLAUDE.md` §1 の開始手順を実行してから作業を始めてください(`STATE.md` は冒頭・「いま何をしているか」・「次のアクション」・「引き継ぎ」だけでよい)。
 
+## ★起動済み(その179の最後に人間の指示で起動)
+
+- probnull の生成を **2026-10-22T11:55:45Z** に切り離して起動(pid 31768。`--workers 16`・`--through-stage 1`。作業ツリーは tracked 変更なし)。ログ: `results/power_sim/ceiling_probnull_launch_20261022.log`(+ `.err`)。見込み 約 3.5 時間
+- 状況は `tail results/power_sim/ceiling_probnull_launch_20261022.log` と `ls results/power_sim/ceiling_probnull/*/fits | wc -l`(200 で完了)。**完了後の評価(`ceiling_remedy`)は人間が起動する**
+- 途中で止まっていたら、同じコマンドで再開できる(`invocations.jsonl` に追記される。PLAN-044 の再開と同じ)。再開も人間に聞く
+
 ## 分岐(最初に 1 回だけ確かめる)
 
 ```bash

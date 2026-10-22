@@ -1,0 +1,6 @@
+{
+  "run_id": "20261016_130005_power_sim_ceiling",
+  "created_utc": "2026-10-16T13:00:05.863584+00:00",
+  "git_sha": "911e34d1f7f06c9ed5f0074ea12803d6e371f40a",
+  "config_source": "configs\\power_sim_ceiling.yaml"
+}

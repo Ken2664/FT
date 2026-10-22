@@ -8106,3 +8106,11 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-21(その174・引き継ぎ)   [actor: ANALYST (Claude Opus 5.5)]
 - context-guard(約 176k)で切った。`logs/HANDOFF.md`(次は ANALYST・推奨 Opus。再開の完了後に公式 summary から PLAN-044 §11・§13・STATE・CHANGELOG・OPEN-ITEMS に記述)を更新した
+
+## 2026-10-22(その175): 天井のシートの本実行の記述(公式 summary)   [actor: ANALYST (Claude Opus 5.5)]
+- **役割**: ANALYST。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。未追跡の `.claude/commands/`・`frames/` と worktree `claude/great-bardeen-9c1ac4` は既知)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`
+- **やったこと**: [run:20261016_130005_power_sim_ceiling] の完了を確認(8 シート x 100 fits・`power_sim_summary.json` と `stage_0100_summary.json` は同一バイト・`invocations.jsonl` の最後の 2 行が 10/21 13:09Z・13:11Z の再開)→ 公式 summary から PLAN-044 §3.1 の量を表にした → fits と `cell_rates_*.json` から「交互作用の SE > 10」と「T1 の `id` か `interp` が 800/800 全部 rule」の反復を数え、重なりを出した(R は呼んでいない)→ PLAN-044 §11 の 2 項目にチェック・§13 に 2 行(停止と再開の経緯・記述)・§13.1(表 4 つ)/ `STATE.md` の 4 ブロックを置き換え(旧ブロックは `logs/STATE-ARCHIVE.md`「その175」)/ `logs/OPEN-ITEMS.md` の D9 の行に追記
+- **照合**: `null_L50` 以外の 7 シートは `STATE.md`(その174)の暫定値と一致。暫定の文言「`L_05` の SE の中央値 0.75〜0.81」は interp だけの範囲で、extrap は 0.725〜0.753(fits から計算し直しても summary と同じ。集計の食い違いではない)。`null_L50` は暫定 2/38 → 公式 3/100
+- **人間の決定**: 結果の git の扱いは案 A(run2 に合わせる。エージェントの推奨を採った): 上位 7 ファイル(summary 2・config 2・`invocations.jsonl`・`run_info.json`・`git_sha.txt`)・manifest 128・`cell_rates_*.json` 8 を commit。`frames/`(約 155 MB)は未追跡・`fits/` は `.gitignore` のまま
+- **やっていないこと**: 解釈・手当ての設計・コード・config の変更・push・tag・GPU

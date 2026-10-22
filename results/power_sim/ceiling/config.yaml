@@ -1,0 +1,218 @@
+# configs/power_sim_ceiling.yaml — 天井のシート(PLAN-044 / ADR-131。役割 ceiling_probe)。**実験ではない。**
+#
+#   python -m code.analysis.ceiling_level --config configs/power_sim_ceiling.yaml                       # I3: L_05・L_50 を計算
+#   python -m code.analysis.power_sim --config configs/power_sim_ceiling.yaml --dry-run                 # 費用の表
+#   python -m code.analysis.power_sim --config configs/power_sim_ceiling.yaml --out-dir results/power_sim/ceiling \
+#       --through-stage 1 --keep-frames                                                                 # ★起動は人間(I6)
+#
+# 目的: T1 x id・interp が 1.000 に張り付いたとき、**今の手続き**(power_sim_fit.R は不変)が当てはめ失敗率・LRT の棄却率・
+# TOST の「同等と言える最小の Δ」でどう振る舞うかを**記述する**。**門は掛けない**(simulation に誤指定の門・実行可能性の門の
+# 欄を持てば止まる)。run3(configs/power_sim.yaml・rng_seed 20261008)とは別の run で、run3 の門を閉じない(PLAN-044 罠6)。
+#
+# **★下の値はすべて仮定値であり、実験結果ではない**(CLAUDE.md §2)。天井の水準 L は仮定値と規則だけで決める(パイロットの
+# 表は読まない。PLAN-044 罠1)。effect・dgp・fit は configs/power_sim.yaml と同じ値でなければならない
+# (test_ceiling_probe.py が固定する。**写しであって、別の値を置く場所ではない**)。
+
+analysis:
+  id: power_sim_ceiling
+  plan: plans/PLAN-044-ceiling-d9-reopen.md
+  section: Documents/05_STATISTICS.md#6
+
+# ---- 固定効果(効果量プロファイル。★仮定値)---------------------------------
+# mu + a[task] + b[coverage] + delta[task, coverage]。行 = task_levels、列 = coverage_levels。
+# **主要検定の df = (2 - 1) x (3 - 1) = 2**(ADR-112 決定1)。df が 2 でなければ power_sim.py が止まる。
+#
+# `eta`(丸める前のロジット)が DGP の真値である(ADR-069 決定1 = ★F112 案 (a))。
+# `rule_rate` は照合用の門である: eta を rule_rate に直して小数第 rule_rate_decimals 位で丸めたものと
+# 一致しなければ止まる。**§6.5 の表(小数第 2 位。4 タスク型)は書き換えない**(PLAN-034 §7 罠4)。
+# D1 (a) の eta は 3 桁で区別がつくので、この config の門は第 3 位で掛ける。
+effect:
+  mu: 2.2
+  task_levels: [T1, T2]                   # ADR-111 決定2: 主要検定は T1 × T2。T1b・T3 は探索
+  coverage_levels: [id, interp, extrap_magnitude]   # ADR-027。id が基準水準
+  a: [0.6, -0.4]                          # task の主効果(ロジット)。§6.5 の T1・T2
+  b: [0.0, -1.0, -2.2]                    # coverage の主効果(ロジット)。P0 の被覆オフセット
+  rule_rate_decimals: 3
+  profiles:
+    # ★D1 (a)。PLAN-034 §5.1: T1・T2 の P1 の 2 行(2.8 2.0 1.2 / 1.8 0.6 -1.0)の加法部分はそのまま、
+    # delta を √(2/3) 倍。交互作用の 2 係数(処理対比・基準 T1 × id)= -0.326599 / -0.979796
+    P1:
+      eta:
+        - [2.848934, 2.012234, 1.138832]  # T1
+        - [1.751066, 0.587766, -0.938832] # T2
+      rule_rate:
+        - [0.945, 0.882, 0.757]
+        - [0.852, 0.643, 0.281]
+    # ★D2 (a)。P1 の delta の符号を反転した検査用の形。交互作用の 2 係数 = +0.326599 / +0.979796
+    P1_neg:
+      eta:
+        - [3.284399, 2.121100, 0.594501]
+        - [1.315601, 0.478900, -0.394501]
+      rule_rate:
+        - [0.964, 0.893, 0.644]
+        - [0.788, 0.617, 0.403]
+    # ★D4 (a)。§6.5 の P0 の T1・T2 の行(= mu + a + b)。厳密に加法。交互作用の係数は 0
+    P0:
+      eta:
+        - [2.8, 1.8, 0.6]
+        - [1.8, 0.8, -0.4]
+      rule_rate:
+        - [0.943, 0.858, 0.646]
+        - [0.858, 0.690, 0.401]
+
+# ---- DGP(§6.3 手続き3a)-----------------------------------------------------
+dgp:
+  n_seed: 10                              # ADR-028。§6.3 手続き4 で 10 に固定した
+  # Sigma = sigma^2 * [(1 - rho) I + rho J]。★すべて仮定値(§6.7)。シートが部分集合を選ぶ
+  sigma: [0.0, 0.25, 0.5, 0.75, 1.0, 1.5]
+  rho: [0.0, 1.0]
+  # (タスク型 x 被覆)セルあたりの項目数。~~80 の整数 1 つ(ADR-114 決定3)~~
+  # → ★2026-10-04 ADR-123 決定1: 格子(T1・T2 共通)。**検出力分析の中だけの値で、実際の eval.cells は変えない**(S5)
+  n_item: [80, 120, 160, 240]
+  # ★F104: 取得元は決着(ADR-094 決定1〜3。s2_item = 案C / s2_tmpl = 案C'。どちらも 1 点の仮定値)。
+  # ~~値は 1.0 / 0.5(ADR-094 決定4)~~ → ★2026-09-24 ADR-095 決定3 で差し戻した。値は人間が決め直す。
+  # **エージェントは値を提案しない**(PLAN-019 §10.13.5)。s2_tmpl には 0 に近い値を置かない(★F118)
+  # → ★2026-10-03 ADR-121: s2_item = 2.0(人間が、パイロットの推定 [run:20261003_214842_s2_item_pilot] を
+  #   見た後に ADR-119 の例の値から選んだ。推定の規則 ADR-120 による推奨値は無し)/ s2_tmpl = 0.5(ADR-119 決定4)
+  s2_item: 2.0
+  s2_tmpl: 0.5
+  # テンプレート水準は category をそのまま使う(ADR-062 決定2 = E-2 案 (a))。
+  # 主軸のうち T1 1 / T2 5(05_STATISTICS.md §3.2)。T1b・T3 は探索なのでこの模型に入れない(ADR-114 決定3)
+  templates:
+    T1: [t1]
+    T2: [t2_count, t2_people, t2_distance, t2_money, t2_time]
+
+# ---- シート(PLAN-044 §3.2 / ADR-131 Q2 (a): 3 種 x 水準 = 8 枚・各 1 点 (80, 1.0, 0.0)。sigma 1.0・rho 0・tau 0)--------
+# 1 枚 = 1 水準。ceiling.level は下の ceiling.levels の名前。
+#   ceiling_p0   (replace)    P0 の T1 x id・interp を L に置き換える(T1 = [L, L, 0.6] / T2 = P0 のまま)。パイロットの形
+#   ceiling_p1   (replace)    P1 の T1 x id・interp を L に置き換える(T1 = [L, L, 1.138832] / T2 = P1 のまま)
+#   ceiling_null (shift_task) P0 の T1 の行全体を、T1 x id が L になるようずらす(T1 = [L, L - 1, L - 2.2]。**厳密に加法**)。L_inf は置かない
+# 乱数の鍵はシートの id を含むので、8 枚は独立な表を持つ(段を足しても前の表は変わらない)。
+# ★PLAN-044 §3.2 の「3 枚」は 3 種を指す。水準は点ではなくシートの属性なので、config では 8 枚になる(§13 に記録)。
+sheets:
+  - id: ceiling_p0_L05
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P0, mode: replace, cells: [[T1, id], [T1, interp]], level: L_05}
+    points: [[80, 1.0, 0.0]]
+  - id: ceiling_p0_L50
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P0, mode: replace, cells: [[T1, id], [T1, interp]], level: L_50}
+    points: [[80, 1.0, 0.0]]
+  - id: ceiling_p0_Linf
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P0, mode: replace, cells: [[T1, id], [T1, interp]], level: L_inf}
+    points: [[80, 1.0, 0.0]]
+  - id: ceiling_p1_L05
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P1, mode: replace, cells: [[T1, id], [T1, interp]], level: L_05}
+    points: [[80, 1.0, 0.0]]
+  - id: ceiling_p1_L50
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P1, mode: replace, cells: [[T1, id], [T1, interp]], level: L_50}
+    points: [[80, 1.0, 0.0]]
+  - id: ceiling_p1_Linf
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P1, mode: replace, cells: [[T1, id], [T1, interp]], level: L_inf}
+    points: [[80, 1.0, 0.0]]
+  - id: ceiling_null_L05
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P0, mode: shift_task, cells: [[T1, id]], level: L_05}
+    points: [[80, 1.0, 0.0]]
+  - id: ceiling_null_L50
+    role: ceiling_probe
+    tau: zero
+    ceiling: {base: P0, mode: shift_task, cells: [[T1, id]], level: L_50}
+    points: [[80, 1.0, 0.0]]
+
+# ---- 天井の水準 L と記述の宣言(PLAN-044 §3.3 / ADR-131 Q1 (a))-------------------------------------------------------
+# L_05 / L_50 = 「パイロットと同じ形の観測(2 シード x 80 項目で T1 x id・interp の両方が全部 rule)」が、シートの DGP の下で
+#   起こる確率が 0.05 / 0.5 になる最小の L(下の ceiling_level の規則)。**値は code.analysis.ceiling_level が計算し、当てはめの前に
+#   ここへ転記して commit する**(null のあいだは本実行が止まる。エージェントは値を作らない)。
+# L_inf = +inf(T1 x id・interp の is_rule は常に 1)。数値でなく文字列 "inf" と書く。
+ceiling:
+  levels:
+    L_05: 5.3      # ★run_id 20261015_040148_ceiling_level(git 214b3ab)。results/power_sim/ceiling_level/ceiling_level.json。当てはめの前に commit
+    L_50: 7.512    # 同上(確率 0.5 の水準。モンテカルロの SE 0.0006)
+    L_inf: inf
+  report:
+    ci_level: 0.95            # 率の Clopper-Pearson 区間(門ではない。記述)
+    quantiles: [0.05, 0.25, 0.5, 0.75, 0.95]   # 係数・SE・最小 Δ・セル率の分位点(power_sim.yaml の report.margin_quantiles と同じ)
+    quadrature_nodes: 100     # 周辺の rule_rate(確率の尺度の真値)の Gauss-Hermite の節点数
+
+# ---- I3: L_05・L_50 を決める規則(code/analysis/ceiling_level.py)---------------------------------------------------
+# 乱数の種は採った日付(20261015。PLAN-044 Q3 (a) の rng_seed と同じ決め方)。pilot_shape の 2 と 80 は PLAN-044 §3.3 が定めた
+# 「パイロットの形」(2 シード x 80 項目 x 2 セル)であって、パイロットの点推定ではない。
+ceiling_level:
+  rng_seed: 20261015
+  n_draws: 200000
+  chunk: 2000
+  pilot_shape: {n_seed: 2, n_item: 80}
+  cells: [[T1, id], [T1, interp]]
+  point: {sigma: 1.0, rho: 0.0}
+  targets: {L_05: 0.05, L_50: 0.5}
+  search: {lower: 0.0, upper: 30.0, tolerance: 0.0001}
+  round_decimals: 4
+  table_levels: [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]   # 単調性を目で確かめる表(確率を並べるだけ)
+  out_dir: results/power_sim/ceiling_level
+
+# ---- シミュレーション(門なし。PLAN-044 Q3 (a))-----------------------------------------------------------------------
+simulation:
+  n_rep_stages: [100]         # 1 段・100 反復(率の CP95 の幅は最大で +-0.1 程度)
+  alpha: 0.05
+  target_power: 0.8           # build_run_context が読む(power_sim.yaml と同じ値。天井のシートでは使わない)
+  rng_seed: 20261015          # 採った日付(ADR-129 決定5 と同じ決め方)。**起動の前に commit する**。run3 の 20261008 とは別
+  tost_alpha: 0.05
+
+# ---- 当てはめ(§6.3 手続き3b。ADR-058 決定1 / ADR-059)------------------------
+fit:
+  engine: rscript
+  # ★同時に走らせる Rscript の本数(ADR-069 決定3 = ★F114)。
+  # **実験パラメータではない。結果はこの値に依らない** —— 表は親が「シート x 点 x 反復」の
+  # SeedSequence で書き(★2026-10-04 ADR-122 決定4。~~単一の rng を決まった順で~~)、当てはめは表ごとに決定的である
+  # (power_sim.py の shard_jobs / replication_rng)。
+  # ★実測: 1 ペア 297.6 秒(4 タスク型・n_item = 48 = 5,760 行。run:20260909_bench_powersim)。
+  #   T1 x T2・n_item = 80 の表は 4,800 行で、行数に比例すると仮定すると約 248 秒 / ペア(推算。未実測)。
+  #   小検査(PLAN-034-check-prerun。16 並列)からは約 412 コア秒 / ペア。段ごとの時間は --dry-run が両方出す。
+  #   ~~4 シートの合計 32,000 ペア = 約 2,204 コア時(16 並列で約 138 時間)~~(PLAN-040 の前の形)
+  # ★既定は 1(逐次)である。回す機械が決まったら --workers で上書きする。
+  # **どこで回すか(この機械 16 コア / CPU の多い RunPod ポッド)は未決である**(ADR-069 決定3 / ★F114)。
+  n_workers: 1
+  rscript: null             # ★null なら PATH と既定の導入先から探す(--rscript で上書き可)
+  r_libpath: null           # lme4 を別ディレクトリに入れている場合のみ
+  # ADR-059 決定1・決定2 とその追記(2026-09-07)。閾値をコードに直書きしない。
+  refit:
+    loglik_tolerance: 0.001   # logLik(refit) - logLik(fit0) < これ なら「改善していない」
+    beta_move_tolerance: 0.01 # max|Δβ| / SE < これ なら「動いていない」
+    # ★ADR-059 は「当て直した場合に LRT へ入れるのはどちらの当てはめか」を書いていない。
+    # 既定は当て直したほう(手続きが「当て直す」で終わっているため)。★人間の確認待ち。
+    use_refit_for_lrt: true
+  # 縮退順序。~~(ADR-065 決定2)template → coverage のランダム傾き → item~~ →
+  # ★2026-10-05 ADR-124 決定2: template → coverage の傾きの相関 → coverage の傾き(= 床)。item と
+  # seed:task:coverage は落とさない。床でも失敗(収束しない / 例外)なら「当てはめ失敗」(power_sim_fit.R)
+  reduction_order: [template, coverage_corr, coverage_slope]
+  # ★床の allFit の段(ADR-128 決定1 (A3) / ADR-129 決定1・2。PLAN-043 I1)。床(上の最後の段)でも ADR-059 の判定が
+  # 収束しない表に、床の式(full・add)へ lme4 の allFit を当てる。full と add の**両方**で「警告なし(singular を除く)に
+  # 収束した最適化が min_aligned 個以上、logLik が最大のものから差 < refit.loglik_tolerance」なら収束(PLAN-042 §2.2 の 1a)。
+  # LRT は揃った最適化のうち logLik 最大のもの(full・add それぞれ)から取る。それでも収束しなければ「当てはめ失敗」。
+  # 最適化は allFit の結果の名前で**列挙**する(PLAN-042 D1 と同じ 5 つ。dfoptim・optimx が無い機械でも集合が変わらない)。
+  # **1 つでも使えなければ R が止まる**。start_from_mle は false(既定の初期値から当て直す。true は「別の最適化でも同じ点に
+  # 着く」の証拠として弱い)。R / lme4 の版が expected_* と違えば止まる(診断の版)。床の土台の glmer が例外なら救わずに失敗。
+  # **run3 の結果を見た後にこの欄を変えない**(PLAN-043 罠3。変えるなら新しい反復)
+  allfit:
+    optimizers:
+      - bobyqa
+      - Nelder_Mead
+      - nlminbwrap
+      - nloptwrap.NLOPT_LN_NELDERMEAD
+      - nloptwrap.NLOPT_LN_BOBYQA
+    start_from_mle: false
+    min_aligned: 2
+    expected_r_version: "4.6.1"
+    expected_lme4_version: "2.0.6"

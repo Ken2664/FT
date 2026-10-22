@@ -1,0 +1,16 @@
+loglik_tolerance=0.001
+beta_move_tolerance=0.01
+use_refit_for_lrt=true
+max_reduction_level=3
+allfit_optimizers=bobyqa,Nelder_Mead,nlminbwrap,nloptwrap.NLOPT_LN_NELDERMEAD,nloptwrap.NLOPT_LN_BOBYQA
+allfit_start_from_mle=false
+allfit_min_aligned=2
+expected_r_version=4.6.1
+expected_lme4_version=2.0.6
+fit=results/power_sim/ceiling/ceiling_p0_L50/frames/frame_n80_s1_r0_0021.csv|results/power_sim/ceiling/ceiling_p0_L50/fits/fit_n80_s1_r0_0021.json
+fit=results/power_sim/ceiling/ceiling_p0_L50/frames/frame_n80_s1_r0_0022.csv|results/power_sim/ceiling/ceiling_p0_L50/fits/fit_n80_s1_r0_0022.json
+fit=results/power_sim/ceiling/ceiling_p0_L50/frames/frame_n80_s1_r0_0023.csv|results/power_sim/ceiling/ceiling_p0_L50/fits/fit_n80_s1_r0_0023.json
+fit=results/power_sim/ceiling/ceiling_p0_L50/frames/frame_n80_s1_r0_0024.csv|results/power_sim/ceiling/ceiling_p0_L50/fits/fit_n80_s1_r0_0024.json
+fit=results/power_sim/ceiling/ceiling_p0_L50/frames/frame_n80_s1_r0_0025.csv|results/power_sim/ceiling/ceiling_p0_L50/fits/fit_n80_s1_r0_0025.json
+fit=results/power_sim/ceiling/ceiling_p0_L50/frames/frame_n80_s1_r0_0026.csv|results/power_sim/ceiling/ceiling_p0_L50/fits/fit_n80_s1_r0_0026.json
+fit=results/power_sim/ceiling/ceiling_p0_L50/frames/frame_n80_s1_r0_0027.csv|results/power_sim/ceiling/ceiling_p0_L50/fits/fit_n80_s1_r0_0027.json

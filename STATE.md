@@ -72,6 +72,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 > - **やったこと**: `ceiling_probnull` の解く処理を本実行し `solved` を config に転記して commit(`02cc6ce`。[run:20261022_041749_ceiling_probnull_solve]。L_05: T2.interp 1.5847352592・extrap 1.1084329182 / L_50: 1.7624797985・1.6491025406。試行の値と一致。最大 |残差| 5.6e-12)。転記値 = 出力 JSON のテストを追加。pytest 2605 passed
 > - **スモーク(スクラッチ。主張に使わない)**: probnull のロジット 2 表を 2 並列で 994 秒(失敗 0)[run:20261022_043027_power_sim_ceiling_probnull] / 評価の LMM 10 表は 1 表 1.4〜3.1 秒(平均 1.86 秒)・全体 36 秒 [run:20261022_044738_ceiling_remedy]。算術: probnull 生成 200 表 ÷ 16 並列 ≈ 3.5 時間(上限側)/ LMM 1000 表 ≈ 31 分直列。詳細は PLAN-046 §13
 > - **未了(人間が起動)**: probnull の生成と評価の本実行。**天井のシートの数値の正本は PLAN-044 §13.1**
+> - **RunPod の整理(人間の指示)**: 古い pod 4 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`・`nwpfapeszov83m`)を terminate した(`list-pods` は `9matkiq0jozcgm`(`EXITED`)1 本のみ)。ボリューム `r963j7swke`(50 GB・アダプタ 10 本の重み)と `9matkiq0jozcgm` は残す。endpoint・cluster・template は 0。直近 14 日の課金 $1.55 は全額ボリューム保管料。OPEN-ITEMS の該当 3 行に追記済み
 
 
 ---

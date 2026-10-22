@@ -8157,3 +8157,8 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-22(その179・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
 - 区切り(PLAN-046 I1〜I5 を終えた・コンテキスト約 110k)で切った。`logs/HANDOFF.md`(次は PLANNER・推奨 Opus。PLAN-045 の起草。ただし probnull・評価の出力が揃っていれば ANALYST)を更新した。`STATE.md` は `858866b` で更新済み
+
+## 2026-10-22(その180・RunPod の整理)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- **RunPod の読み取り**(`list-pods`・`list-network-volumes`・`list-endpoints`・`list-clusters`・`list-templates`・`list-billing` 直近 14 日): pod 5 本すべて `EXITED`(RUNNING は 0)・ボリューム `r963j7swke`(50 GB・EU-RO-1)1 本・endpoint/cluster/template は 0。直近 14 日の課金 $1.55 は全額ボリューム保管料(約 $0.117/日)。pod の GPU・ディスク課金は 0
+- **人間の指示で古い 4 本を terminate**(`delete-pod` 204): `eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`・`nwpfapeszov83m`。直後の `list-pods` は `9matkiq0jozcgm`(`EXITED`)1 本のみ。`9matkiq0jozcgm` とボリューム(アダプタ 10 本の `*.safetensors` は **この機に無くボリュームにだけある**。中身は pod を起動していないので今回は未確認)は残した
+- `logs/OPEN-ITEMS.md` の 80・81・98 行と `STATE.md` の最新ブロックに追記。コミット・push はしていない。GPU 0

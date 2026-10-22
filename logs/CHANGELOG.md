@@ -8117,3 +8117,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-22(その175・引き継ぎ)   [actor: ANALYST (Claude Opus 5.5)]
 - 区切り(PLAN-044 の ANALYST の記述を終えた)で切った。`logs/HANDOFF.md`(次は PLANNER・推奨 Opus。天井の手当ての PLAN-046 の草案と人間に聞く問いの表。ADR は人間の回答の後)を更新した。`STATE.md` は `e131444` で更新済み
+
+## 2026-10-22(その176): PLAN-046(天井の手当て)の草案と採択(ADR-132)   [actor: PLANNER (Claude Opus 5.5)]
+- **役割**: PLANNER。実モデル Opus 5.5 は推奨(Opus)と一致(最初の発言で述べた)。開始手順は実行済み(HANDOFF・STATE・git と食い違いなし。未追跡の `.claude/commands/`・`frames/`・`results/power_sim/ceiling/git_diff.patch`・`launch_20261016_220000.log` と worktree `claude/great-bardeen-9c1ac4` は触っていない)。GPU 0・pod 0
+- **人間の指示**: `/resume-handoff`
+- **やったこと**: PLAN-044 §5・§13.1・ADR-131 決定6・その174 のエージェントの読み(採択されていない材料)を読み、`plans/PLAN-046-ceiling-remedy.md` を起草(`6e2085d`。§3 = 天井のシート [run:20261016_130005_power_sim_ceiling] の値から言えること F1〜F10・言えないこと N1〜N7、§4 = Q1〜Q7 の表と推奨)→ チャットで要約の表を示し `AskUserQuestion` 2 回 → **人間が 7 問とも推奨**: C + B のまま C を測ってから採否 / 天井の規則 = 6 セルのどれかが全シード・全項目で n/n か 0/n / 恒等リンクの LMM / 既存の 800 表 + `ceiling_probnull` / Δ は決めない / B は C が実施できないときだけ / 弱点欄は C の採否の後 → ADR-132・PLAN-046 §12・§13・§11・`logs/OPEN-ITEMS.md`(D9 の行に追記・§6.4 の採否の基準の行を新設)・`STATE.md`(4 ブロック。旧は `logs/STATE-ARCHIVE.md`「その176」)
+- **確認**: 文書だけの変更。`code/`・config は不変
+- **やっていないこと**: C の採否・§6.4 の基準の値(人間)・恒等リンクの縮退の扱い(次の PLANNER)・`05_STATISTICS.md` §2 の弱点欄・PLAN-044 §11 の最後の項目・実装・push・tag・GPU

@@ -26,7 +26,7 @@
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `plans/PLAN-046-ceiling-remedy.md`(§5・§6.4・§11・§12・§13)/ 新しい ADR(`logs/DECISIONS.md` 末尾。ADR-132 は行 7898〜)/ `logs/OPEN-ITEMS.md`(「C の採否の基準」の行)/ `STATE.md` / `logs/CHANGELOG.md`
+- `plans/PLAN-046-ceiling-remedy.md`(§5・§6.4・§11・§12・§13)/ 新しい ADR(`logs/DECISIONS.md` 末尾。ADR-132 は行 7899〜)/ `logs/OPEN-ITEMS.md`(「C の採否の基準」の行)/ `STATE.md` / `logs/CHANGELOG.md`
 - 読むだけ: `logs/DECISIONS.md` の ADR-059・128 決定3・129 決定1〜4(`grep -n '^## ADR-059\|^## ADR-128\|^## ADR-129'` → `sed -n`)/ `Documents/05_STATISTICS.md` §3.2(当てはめの手続き)
 
 ## やってはいけないこと

@@ -8171,3 +8171,7 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - `plans/PLAN-045-interp-mirror-filter.md` 草案(ADR-130 決定3・ADR-131 決定7)。読み取りだけのスクリプト(スクラッチ)で `configs/exp_phase1_main.yaml` から現行の主プールの割当を 42 セルすべて再現し、組合せ論的な計数を §3 に書いた: `mirror_in_K`(a ≠ b かつ (b, a) ∈ K)は `interp` T1 14/80・T2 18/80、`id` T1 21/80・T2 26/80 / フィルタ後の `interp` の供給 carry 443・nocarry 1,568 で 42 セルすべて埋まる / `id`・`extrap_magnitude` の割当は不変 / 母集団から除くと `interp` セルはほぼ全部入れ替わる(T1 76/80・T2 79/80)
 - §4 に Q1〜Q5(範囲・除き方・`mirror_in_K` の定義と記録先・`id` の二重露出・順6 の測り直し)を判断材料の表で。推奨はすべて (a)(定義の整合性・費用・既存の決定から)。**人間のレビュー待ち。ADR は回答の後**
 - `code/`・config・データ・設計文書は不変。GPU 0・pod 0
+
+## 2026-10-23(その181・ADR-134)   [actor: PLANNER (Claude Opus 5.5)]
+- 人間が PLAN-045 の Q1〜Q5 を 5 問とも推奨 (a) で採択 → **ADR-134**: 主プールの全 `interp` セル + T1c の先頭の組で、逆順が K にある組を母集団から除く / `mirror_in_K` は `frame.py` の実行時の列 + manifest の件数 / `id` の二重露出は記録と感度解析だけ / 作り直した主プールで順6 を 1 run 測り直す(起動は人間)
+- PLAN-045 のステータスと §10 記入欄・`STATE.md`・`logs/OPEN-ITEMS.md` を更新。`code/`・config・データは不変。GPU 0

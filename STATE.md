@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-10-23(その181。PLAN-045(R3)の草案 `plans/PLAN-045-interp-mirror-filter.md`。Q1〜Q5 は人間のレビュー待ち。probnull の生成は L_50 で停止(fits 0)・再開は人間。Claude Opus 5.5(PLANNER)。GPU 0・pod 0)
-(**次: 人間が probnull の再開を決める・PLAN-045 の Q1〜Q5 に答える**。)
+最終更新: 2026-10-23(その181。PLAN-045(R3)の草案 `plans/PLAN-045-interp-mirror-filter.md`。Q1〜Q5 は ADR-134 で採択(5 問とも推奨 (a))。probnull の生成は L_50 で停止(fits 0)・再開は人間。Claude Opus 5.5(PLANNER)。GPU 0・pod 0)
+(**次: 人間が probnull の再開を決める・IMPLEMENTER が PLAN-045 I1〜I6**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -69,7 +69,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 
 > **★★2026-10-23(その181・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-045(R3)の草案を書いた。GPU 0・pod 0**
-> - **やったこと**: `plans/PLAN-045-interp-mirror-filter.md` 草案。§3 に組合せ論的な計数(現行の主プールの割当を 42 セルすべて再現 → `mirror_in_K` の件数: `interp` T1 14/80・T2 18/80 / `id` T1 21/80・T2 26/80。フィルタ後も 42 セルすべて埋まる(carry 層の供給 443 対 需要最大 280)。母集団から除くと `interp` セルはほぼ全部入れ替わる(T1 76/80・T2 79/80))。§4 に Q1〜Q5(範囲・除き方・`mirror_in_K` の定義と記録先・`id` の二重露出・順6 の測り直し)を判断材料の表で。**人間のレビュー待ち**
+> - **やったこと**: `plans/PLAN-045-interp-mirror-filter.md` 草案。§3 に組合せ論的な計数(現行の主プールの割当を 42 セルすべて再現 → `mirror_in_K` の件数: `interp` T1 14/80・T2 18/80 / `id` T1 21/80・T2 26/80。フィルタ後も 42 セルすべて埋まる(carry 層の供給 443 対 需要最大 280)。母集団から除くと `interp` セルはほぼ全部入れ替わる(T1 76/80・T2 79/80))。§4 に Q1〜Q5(範囲・除き方・`mirror_in_K` の定義と記録先・`id` の二重露出・順6 の測り直し)を判断材料の表で。**人間が 5 問とも推奨 (a) で採択 → ADR-134**
 > - **★probnull の生成が途中で止まっている**: `ceiling_probnull_L05` は fits 100/100(2026-10-22 22:22 JST に完了)・`ceiling_probnull_L50` は fits 0(manifest 00〜04 だけ書いて止まった)。pid 31768 は無い・ログは 0 バイト。**再開は人間が決める**(同じコマンドで再開できる。HANDOFF その179)
 > - **天井のシートの数値の正本は PLAN-044 §13.1**
 
@@ -327,7 +327,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 > **★★2026-10-23(その181・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
 > 1. **★人間: probnull の生成の再開を決める**(L_50 が fits 0 で停止。`python -m code.analysis.power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16`)→ 評価 `python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16` → ANALYST が PLAN-046 §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
-> 2. **人間: PLAN-045 §4 の Q1〜Q5 に答える** → PLANNER が採択の ADR → IMPLEMENTER が I1〜I6(1 と触るファイルは重ならない)
+> 2. **IMPLEMENTER: PLAN-045 I1〜I6**(ADR-134 で採択済み。1 と触るファイルは重ならない)→ 人間が順6 の測り直し(I7)の起動を決める
 > 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。PLAN-045 Q5 (a) なら順6 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 4. run3 は 1 の C の採否と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
 > 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(パイロット用プールを揃えるか)/ その166 の 5 の項目 / 確率の尺度の TOST の Δ(ADR-132 決定5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)
@@ -338,10 +338,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 ## 引き継ぎ
 
 
-> **★★2026-10-23(その181・最新)。Claude Opus 5.5(PLANNER)。PLAN-045 草案を書いた。次は人間が Q1〜Q5 に答える。**
+> **★★2026-10-23(その181・最新)。Claude Opus 5.5(PLANNER)。PLAN-045 を起草し ADR-134 で採択(5 問とも推奨 (a))。次は IMPLEMENTER が I1〜I6。**
 >
 > **★やったこと**: 開始手順 → probnull の停止を確かめた(L_50 fits 0・プロセス無し)→ ADR-130・131・REVIEW R3/R5/§D.3・`pool.py`・`eval_pool.py` を読んだ → 読み取りだけのスクリプトで現行の割当を再現し、フィルタ後の供給を数えた(スクリプトはスクラッチ。数は I2 で manifest に記録して再現する)→ PLAN-045 草案
-> **★やっていないこと**: probnull の再開(人間)・ADR(人間の回答の後)・`code/`・config・データの変更・push・GPU
+> **★やっていないこと**: probnull の再開(人間)・`code/`・config・データの変更・push・GPU
 
 
 ---

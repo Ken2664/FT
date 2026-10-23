@@ -10594,3 +10594,24 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 > **★やったこと**: 開始手順(食い違いなし)→ `ceiling_probnull` の DGP の 3 案を表にして `AskUserQuestion` → 人間が案 A → R の LMM(2 表で約 2 秒・当て直しと `allFit` の経路を確認)→ 実装・テスト(新 38 件)→ 既存の 8 シートの反復 0 で評価の配線のスモーク(スクラッチ。主張に使わない)→ `pytest` 2604 passed → commit
 > **★やっていないこと**: 解く処理の本実行と転記・probnull のスモーク・評価の本実行(人間)・push・tag・GPU
 
+
+## 2026-10-23(その179・STATE.md から移した旧ブロック。その181 で置き換え)
+
+> **★★2026-10-22(その179・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-046 I4 の残りと I5 を終えた。GPU 0・pod 0**
+> - **やったこと**: `ceiling_probnull` の解く処理を本実行し `solved` を config に転記して commit(`02cc6ce`。[run:20261022_041749_ceiling_probnull_solve]。L_05: T2.interp 1.5847352592・extrap 1.1084329182 / L_50: 1.7624797985・1.6491025406。試行の値と一致。最大 |残差| 5.6e-12)。転記値 = 出力 JSON のテストを追加。pytest 2605 passed
+> - **スモーク(スクラッチ。主張に使わない)**: probnull のロジット 2 表を 2 並列で 994 秒(失敗 0)[run:20261022_043027_power_sim_ceiling_probnull] / 評価の LMM 10 表は 1 表 1.4〜3.1 秒(平均 1.86 秒)・全体 36 秒 [run:20261022_044738_ceiling_remedy]。算術: probnull 生成 200 表 ÷ 16 並列 ≈ 3.5 時間(上限側)/ LMM 1000 表 ≈ 31 分直列。詳細は PLAN-046 §13
+> - **未了(人間が起動)**: probnull の生成と評価の本実行。**天井のシートの数値の正本は PLAN-044 §13.1**
+> - **RunPod の整理(人間の指示)**: 古い pod 4 本(`eytvn0qwssz2q8`・`ysev2xg35iih2j`・`lh823acvxuo8ux`・`nwpfapeszov83m`)を terminate した(`list-pods` は `9matkiq0jozcgm`(`EXITED`)1 本のみ)。ボリューム `r963j7swke`(50 GB・アダプタ 10 本の重み)と `9matkiq0jozcgm` は残す。endpoint・cluster・template は 0。直近 14 日の課金 $1.55 は全額ボリューム保管料。OPEN-ITEMS の該当 3 行に追記済み
+
+> **★★2026-10-22(その179・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **★probnull の生成は 2026-10-22T11:55:45Z に人間の指示で起動済み(pid 31768・約 3.5 時間。ログ `results/power_sim/ceiling_probnull_launch_20261022.log`)。完了後に人間が評価を起動**(~~人間: PLAN-046 の評価の起動を決める~~。probnull の生成 `python -m code.analysis.power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16`(約 3.5 時間)→ 評価 `python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16`(LMM 1000 表。30 分以内の見込み))→ ANALYST が §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
+> 2. PLANNER: PLAN-045(R3。主プールの `interp` の事前フィルタ・`mirror_in_K`・セルが埋まるかの確認。ADR-130 決定3・ADR-131 決定7)。1 と触るファイルは重ならない
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 の C の採否と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(パイロット用プールを揃えるか)/ その166 の 5 の項目 / 確率の尺度の TOST の Δ(ADR-132 決定5)
+
+> **★★2026-10-22(その179・最新)。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-046 I4 の残りと I5 を終えた(`02cc6ce` + 文書の commit)。次は人間が評価の起動を決める。**
+>
+> **★やったこと**: 開始手順(食い違いなし)→ 解く処理の本実行(作業ツリーがきれい = `tracked_diff_empty` true)→ `solved` 転記・テスト・pytest 2605 passed → commit → スモーク(ロジット 2 表・LMM 10 表・`--dry-run`)→ PLAN-046 §11・§13
+> **★やっていないこと**: probnull の本生成・評価の本実行(人間)・C の採否・`05_STATISTICS.md` の書き換え・push・tag・GPU

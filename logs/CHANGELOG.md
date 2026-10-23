@@ -8165,3 +8165,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-22(その179・起動)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
 - 人間の指示「今起動する」で probnull の生成を起動(2026-10-22T11:55:45Z・pid 31768・`--workers 16`・out-dir `results/power_sim/ceiling_probnull`・ログ `results/power_sim/ceiling_probnull_launch_20261022.log`)。起動後 45 秒で out-dir とシートのディレクトリが出来ていることだけ確認。評価の起動は生成の完了後に人間
+
+## 2026-10-23(その181・PLAN-045 草案)   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順で **probnull の生成が途中で止まっている**ことを見つけた: `ceiling_probnull_L05` fits 100/100(2026-10-22 22:22 JST)・`ceiling_probnull_L50` fits 0(manifest 00〜04 のみ)・pid 31768 無し・ログ 0 バイト。再開は人間に聞く(触っていない)
+- `plans/PLAN-045-interp-mirror-filter.md` 草案(ADR-130 決定3・ADR-131 決定7)。読み取りだけのスクリプト(スクラッチ)で `configs/exp_phase1_main.yaml` から現行の主プールの割当を 42 セルすべて再現し、組合せ論的な計数を §3 に書いた: `mirror_in_K`(a ≠ b かつ (b, a) ∈ K)は `interp` T1 14/80・T2 18/80、`id` T1 21/80・T2 26/80 / フィルタ後の `interp` の供給 carry 443・nocarry 1,568 で 42 セルすべて埋まる / `id`・`extrap_magnitude` の割当は不変 / 母集団から除くと `interp` セルはほぼ全部入れ替わる(T1 76/80・T2 79/80)
+- §4 に Q1〜Q5(範囲・除き方・`mirror_in_K` の定義と記録先・`id` の二重露出・順6 の測り直し)を判断材料の表で。推奨はすべて (a)(定義の整合性・費用・既存の決定から)。**人間のレビュー待ち。ADR は回答の後**
+- `code/`・config・データ・設計文書は不変。GPU 0・pod 0

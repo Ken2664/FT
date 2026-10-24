@@ -8187,3 +8187,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-24(その182・引き継ぎ)   [actor: IMPLEMENTER (Claude Opus 5.5)]
 - PLAN-045 I1〜I6 を終えた(`d11853c`)・コンテキスト約 227k で切った。`logs/HANDOFF.md`(次は ANALYST・推奨 Opus。probnull と評価の出力が揃っていなければ人間に probnull の再開か I7 かを聞いて止まる)を更新した。`STATE.md` は `d11853c` で更新済み。RunPod は使っていない(GPU 0)
+
+## 2026-10-24(その183・probnull の再開と評価の起動)   [actor: IMPLEMENTER (Claude Opus 5.5)]
+- **人間の指示**: 「probnull の生成を再開して。終わったら評価(ceiling_remedy)も続けて起動して。スリープしないようにもしておいて」
+- 確認: `run_sheet_stage` は `fits/fit_*.json` のある反復を飛ばす(L_05 100 本は当て直さない)/ 7a0df66(前回の起動)..HEAD の差分は `data_gen/`・`frame.py`・主の config 4 本だけで、`power_sim.py`・R・`power_sim_ceiling_probnull.yaml`・`ceiling_remedy.yaml` は不変 / 追跡ファイルの差分なし
+- 2026-10-24T14:00:47Z に鎖を起動(スクラッチの PowerShell・`Start-Process` で切り離し・pid 7300): `power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16` → 終了コード 0 なら `ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16`。走っている間は `SetThreadExecutionState`(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)でスリープを止める(電源設定は変えない)。アプリの keep-awake も要求した(セッションが 5 分止まると切れる)
+- 起動 1 分後: python 1・Rscript 32 が動いている。`invocations.jsonl` 2 行目 = git `25e24e9`・`tracked_diff_empty` true。進み具合は `results/power_sim/ceiling_probnull_chain_20261024.status`
+- 前回の停止の原因は分かっていない(未確認。ログ 0 バイト)。GPU 0・pod 0

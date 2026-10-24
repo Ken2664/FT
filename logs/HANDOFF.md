@@ -1,9 +1,23 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-24(その182)/ 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: PLAN完了(PLAN-045 I1〜I6)+ コンテキスト超過の警告(約 227k)
+生成: 2026-10-24(その183)/ 直前セッションの役割: IMPLEMENTER(起動だけ)
+直前セッションが終了した理由: 人間の指示で probnull の再開と評価の鎖を起動した(2026-10-24T14:00:47Z・pid 7300)+ コンテキスト警告
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Opus — 下の分岐の既定は ANALYST(PLAN-046 §6.1 の記述。`10_CONTEXT_POLICY.md` §7 の「統計・解釈」の行)。RUNNER(I7)になる場合は Sonnet で可
+**推奨モデル(次のセッション)**: Opus(ANALYST。PLAN-046 §6.1 と G1・G2)
+
+---
+
+**★その183 の追記(下のその182 の本文より優先)**: probnull の生成は人間の指示で再開し、終了コード 0 なら `ceiling_remedy` が続けて起動する鎖を回している。
+**分岐の前に鎖の状態を見る**:
+
+```bash
+cat results/power_sim/ceiling_probnull_chain_20261024.status   # 'end ceiling_remedy exit=0' と 'done' があるか
+tail -5 results/power_sim/ceiling_probnull_launch_20261024.log.err results/ceiling_remedy_launch_20261024.log.err
+```
+
+- `done` があり両方 exit=0 → 下の分岐の「L50 が 100 / `results/ceiling_remedy` がある」= ANALYST
+- `done` が無く pid 7300 も無い → 止まった。原因を記録し、再開するかを人間に聞いて止まる(同じ鎖を回せば済んだ反復は飛ばす)
+- まだ走っている → 人間に伝えて止まる(ポーリングしない)
 
 ---
 

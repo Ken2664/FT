@@ -155,9 +155,9 @@
 
 ## 9. 完了条件
 
-- [ ] §4 の Q1〜Q5 に人間が答え、採択の ADR を書いた
-- [ ] I1〜I6 を実装し、主プールを作り直して 2 回生成のバイト一致を確かめた。パイロットのプールが 1 バイトも変わっていないことをテストで確かめた
-- [ ] 作り直した主プールの `interp` セルで `mirror_in_K` が 0 件であることをテストで固定した
+- [x] §4 の Q1〜Q5 に人間が答え、採択の ADR を書いた(ADR-134)
+- [x] I1〜I6 を実装し、主プールを作り直して 2 回生成のバイト一致を確かめた。パイロットのプールが 1 バイトも変わっていないことをテストで確かめた(2026-10-24 その182。§11)
+- [x] 作り直した主プールの `interp` セルで `mirror_in_K` が 0 件であることをテストで固定した(`code/tests/test_interp_mirror_filter.py`)
 - [ ] `pytest code/tests -q` が通った
 - [ ] (Q5 (a) の場合)順6 の測り直しの run_id と印を記録した
 
@@ -173,4 +173,21 @@
 
 ## 11. 実行ログ
 
-(実装の後に記入)
+### 2026-10-24(その182・I1〜I6)IMPLEMENTER(Claude Opus 5.5。推奨は Sonnet)
+
+- **I1** `code/data_gen/pool.py`: `mirror_in_k`(a ≠ b かつ (b, a) ∈ K)・`is_interp_mirror`・`without_interp_mirrors`(候補の並びを保つ)。`label_coverage`・`label_main_coverage`・`fill_cells` は不変
+- **I2** `code/data_gen/eval_pool.py`: 欄 `eval.interp_mirror_filter`(無い・偽 = 掛けない。真偽値以外は止める)。真のとき `fill_candidates` が除外 3 段の後に 4 段目として掛け、`fill.candidates.interp_mirror_filter`(除いた組の数・層ごと・ハッシュ)と `fill.interp_mirror_filter`(セルごとの `mirror_in_K`・逆順が相手側のプールにある件数 = 罠4 の記録)を書く。偽なら鍵ごと書かない
+- **I3** `code/data_gen/composition_pool.py`: 同じ欄で先頭の組の候補に掛け、`fill.interp_mirror_filter` に除いた数とセルごとの `mirror_in_K` を書く(T1c のプールは `n_per_cell` が null なので書き出していない)
+- **I4** `code/analysis/frame.py`: 列 `mirror_in_K`(`coverage` の隣)。`coverage`・`main_axis` は不変
+- **config**: `exp_phase1_main.yaml` と写しの `exp_phase1_main_b1.yaml`・`exp_phase1_main_t2cross.yaml`・`exp_t1c_main.yaml` に `interp_mirror_filter: true`。パイロット側の config は触っていない(`test_order6b_pilot.py` に「主だけの欄」として宣言)
+- **I5** 主プールと `main_t2_cross` を作り直した(2 回生成してバイト一致)。manifest に出た数は §3 と一致(組合せ論的な計数であって実験結果ではない):
+  - 除いた組 473(carry 115・nocarry 358)/ 除いた後の `interp` の供給 carry 443・nocarry 1,568 / 42 セルすべて埋まった
+  - `interp` 14 セルの `mirror_in_K` はすべて 0 / `id` は T1 21(14 + 7)・T2 26(11 + 15)のまま
+  - 入れ替わった項目: T1 76/80・T2 79/80・T1b 152/160・T3 152/160・特異性対照 40/40。`id`・`extrap_magnitude` のセルは 1 組も動かない(テストで固定)
+  - 罠4 の記録: 新しい主プールの組のうち逆順がパイロットのプールにある組は 199(セルごとの内訳は manifest)。**判断は R5 と一緒に人間**
+  - 主: `pairs_hash` ~~`13e8479c…`~~ → `c20991dd…`・`items_sha256` ~~`d272204f…`~~ → `6bb6084d…` / 交差: `pairs_hash` ~~`c1409c4b…`~~ → `878ffe2d…`・`items_sha256` ~~`8cb8a58f…`~~ → `eb1ed1dd…`(2026-10-24。理由: 本 PLAN)
+  - 欄を偽にすると旧い主プール(`13e8479c…`)がそのまま組めることをテストで固定した。パイロットのプールは manifest のバイト列が commit 済みと一致(テスト)
+  - **`items.jsonl` は git に入っていない**(`.gitignore`)。この機の旧い `items.jsonl` は上書きされた。旧いプールは欄を偽にすれば再生成できる
+- **I6** PLAN-002 §4.5.1 の表と PLAN-001 の案A の注に「主プールの `interp` セルはさらに (b, a) ∉ K の組から引く。ラベルの定義は不変」を足した。PLAN-023・PLAN-037 の旧いハッシュに打ち消し線と新しい値
+- `pytest code/tests -q`: **2624 passed**(309 秒)
+- **I7(順6 の測り直し)は起動していない**(GPU。人間)

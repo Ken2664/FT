@@ -52,8 +52,11 @@ from code.data_gen.pool import (
     carry_label,
     excluded_operand_record,
     is_excluded_operand_pair,
+    is_interp_mirror,
     label_answer_range,
     label_main_coverage,
+    mirror_in_k,
+    without_interp_mirrors,
 )
 from code.eval.battery import composition, numeric_sum
 from code.lesion import composition_reference_lesions_from_config
@@ -324,6 +327,16 @@ def build_composition_pool(
     region = eval_pool.main_region_pairs(config, ft_manifest)
     coverage_pairs = frozenset(eval_pool.load_coverage_pairs(ft_manifest))
     candidates = leading_pair_candidates(region, offset=offset, main_radius=main_radius)
+    # 主プールと同じ欄で、先頭の組の `interp` セルから逆順が K にある組を除く(ADR-134 決定1)。
+    # `id` セルの候補は動かない。セルの選び方(ハッシュの小さい順)は候補の並びに依らない。
+    mirror_record: dict[str, Any] | None = None
+    if eval_pool.uses_interp_mirror_filter(config):
+        removed = [pair for pair in candidates if is_interp_mirror(pair, coverage_pairs, main_radius)]
+        n_before = len(candidates)
+        candidates = without_interp_mirrors(candidates, coverage_pairs, main_radius)
+        mirror_record = eval_pool.interp_mirror_removal_record(
+            removed, n_before=n_before, n_after=len(candidates)
+        )
 
     by_cell: dict[CompositionCell, list[Pair]] = {
         CompositionCell(coverage, carry): [] for coverage in KNOWN_LEVELS for carry in CARRY_LEVELS
@@ -338,6 +351,11 @@ def build_composition_pool(
         cell: select_pairs(pairs, settings.n_per_cell, seed, cell=cell.name)
         for cell, pairs in by_cell.items()
     }
+    if mirror_record is not None:
+        mirror_record["mirror_in_K_by_cell"] = {
+            cell.name: sum(1 for pair in pairs if mirror_in_k(pair, coverage_pairs))
+            for cell, pairs in selected.items()
+        }
     items = composition_items(
         selected,
         pool_id=pool_id,
@@ -363,6 +381,7 @@ def build_composition_pool(
             selected=selected,
             items=items,
             templates=composition.composition_templates(config),
+            mirror_record=mirror_record,
         ),
     )
 
@@ -380,12 +399,16 @@ def composition_fill_record(
     selected: Mapping[CompositionCell, Sequence[Pair]],
     items: Sequence[Item],
     templates: Mapping[str, str],
+    mirror_record: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """manifest の `fill` 欄(T1c の組をどう選んだかの記録)。
 
     答える問い: 「この T1c プールを、後から config と評価プールだけで再現できるか」
+
+    `mirror_record` は `eval.interp_mirror_filter` が真のときだけ渡る(ADR-134)。偽なら鍵ごと
+    書かない(パイロットの T1c の manifest を変えない)。
     """
-    return {
+    record: dict[str, Any] = {
         "method": FILL_COMPOSITION,
         "seed_consumed": True,
         "rule": (
@@ -423,6 +446,9 @@ def composition_fill_record(
         "n_items_by_group": {composition.GROUP: len(items)},
         "n_items_by_cell": {cell.name: len(pairs) for cell, pairs in selected.items()},
     }
+    if mirror_record is not None:
+        record[eval_pool.INTERP_MIRROR_RECORD] = dict(mirror_record)
+    return record
 
 
 def composition_dir_name(pool_id: str) -> str:

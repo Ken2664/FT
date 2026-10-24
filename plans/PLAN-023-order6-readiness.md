@@ -351,7 +351,7 @@ pytest code/tests -q
 - [x] §5 の 3 つの dry-run と preflight の data_checks が通る —— その43。`run.py --dry-run` は本番・b1・t2cross の 3 config で exit 0
   (1,640 / 1,640 / 960 項目。主プールは 9 バッチ = ans_in 6 + ans_out 3)。**data_checks は `infra/preflight.py` の `data_checks` を直接呼んだ**
   (フルの preflight はゲート付きのトークナイザを読みに行くので、ローカルでは回していない)→ 3 config とも 6 項目 + data manifest が PASS
-- [x] `data/generated/battery/main/manifest.json` をコミットした(`pairs_hash` `13e8479c…`。**2 回生成してバイト一致**)。交差プール
+- [x] `data/generated/battery/main/manifest.json` をコミットした(`pairs_hash` ~~`13e8479c…`~~(★2026-10-24 PLAN-045・ADR-134 で `interp` セルを作り直した。新しい値 `pairs_hash` `c20991dd…`・`items_sha256` `6bb6084d…`。旧い値は順6 が測ったプール)。**2 回生成してバイト一致**)。交差プール
   `data/generated/battery/main_t2_cross/manifest.json` も。**どちらも本番 config から再現できることを回帰テストが縛る**
 - [x] GPU 承認の文面(§2.4)に人間が答えた —— ADR-076 決定11(条件付き。条件 = 上の 2 行)
 

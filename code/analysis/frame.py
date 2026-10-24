@@ -63,6 +63,7 @@ from code.data_gen.pool import (
     label_answer_range,
     label_main_coverage,
     label_t_coverage,
+    mirror_in_k,
     pairs_hash,
 )
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
@@ -115,6 +116,7 @@ COLUMNS: tuple[str, ...] = (
     "category",
     "group",
     "coverage",
+    "mirror_in_K",
     "answer_range",
     "t_coverage",
     "carry",
@@ -422,6 +424,10 @@ def build_rows(run: RunInputs, records: Sequence[Mapping[str, Any]]) -> list[dic
     特異性対照(`spec_sub` / `spec_mul`)の答えは和ではないので、
     **これらの列はその項目の答えについての値ではない。**主軸外の印
     (`main_axis` が偽)と `group` で見分けること。
+
+    **`mirror_in_K` は記録だけである**(ADR-134 決定3・4)。逆順 (b, a) が K にあるか
+    (a ≠ b)を K から実行時に付ける。`coverage` も `main_axis` も変えない —— `id` の
+    二重露出の感度解析(凍結前に別に登録)が読む列であり、主軸の絞り込みには使わない。
     """
     rows: list[dict[str, Any]] = []
     for record in records:
@@ -443,6 +449,7 @@ def build_rows(run: RunInputs, records: Sequence[Mapping[str, Any]]) -> list[dic
                 "category": category,
                 "group": record["group"],
                 "coverage": coverage,
+                "mirror_in_K": mirror_in_k(pair, run.coverage_pairs),
                 "answer_range": label_answer_range(pair, run.main_radius),
                 "t_coverage": label_t_coverage(pair, run.coverage_sums),
                 "carry": record["carry"],

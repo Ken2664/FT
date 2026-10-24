@@ -71,10 +71,13 @@ from code.data_gen.pool import (
     fill_cells,
     id_cell_population,
     is_excluded_operand_pair,
+    is_interp_mirror,
     label_main_coverage,
+    mirror_in_k,
     outside_domain_side,
     pairs_hash,
     split_pilot_main,
+    without_interp_mirrors,
 )
 from code.eval.battery import numeric_sum, specificity_control, t3_comparison
 from code.eval.battery.build import build_items_from_entries, entries_by_group, pair_of
@@ -102,6 +105,14 @@ T2_CROSS_SOURCE = "main_pool_word_problem"
 # 候補の出どころ(manifest の item_exclusions.by_group の鍵。axis = candidate_source)。
 SOURCE_MAIN_REGION = "main_region"
 SOURCE_OUTSIDE_TRAINING_DOMAIN = "outside_training_domain"
+
+# 主プールの `interp` セルを、逆順が K にある組を除いた母集団から引くかの欄(ADR-134 決定2)。
+# **主の config だけ真にする。**欄が無い・偽なら今と同じ経路を通る —— パイロットのプールは
+# 同じ fill_candidates を通るので、無条件に掛けると作り直したときに中身が変わる(PLAN-045 罠1)。
+INTERP_MIRROR_FILTER_KEY = "eval.interp_mirror_filter"
+# manifest の fill(と fill.candidates)に、この欄が真のときだけ足す鍵。
+# 偽のときは鍵ごと書かない(パイロットの manifest を 1 バイトも変えない)。
+INTERP_MIRROR_RECORD = "interp_mirror_filter"
 
 # 明示リストの行のうち、群ごとの鍵(code/eval/battery/build.py の表)。
 ENTRY_CATEGORY = "category"
@@ -416,6 +427,45 @@ def outside_domain_candidates(config: Mapping[str, Any], *, main_radius: int) ->
     ]
 
 
+def uses_interp_mirror_filter(config: Mapping[str, Any]) -> bool:
+    """`eval.interp_mirror_filter` を読む(ADR-134 決定2)。
+
+    答える問い: 「この config のプールは、`interp` セルから逆順が K にある組を除くか」
+
+    欄が無いのは「掛けない」である(PLAN-045 I2。パイロット・smoke 系の config は欄を持たない)。
+    真偽値以外は止める —— `"false"` を真と読むと黙ってパイロットのプールが入れ替わる。
+    """
+    value = (config.get("eval") or {}).get("interp_mirror_filter")
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise ConfigError(f"{INTERP_MIRROR_FILTER_KEY} は true / false である: {value!r}")
+    return value
+
+
+def interp_mirror_removal_record(
+    removed: Sequence[Pair], *, n_before: int, n_after: int
+) -> dict[str, Any]:
+    """候補から除いた「`interp` かつ逆順が K にある」組の記録(ADR-134 決定3)。
+
+    答える問い: 「`interp` セルの母集団から、どの層の組を何組除いたか」
+    """
+    strata: dict[str, int] = {}
+    for pair in removed:
+        strata[carry_label(*pair)] = strata.get(carry_label(*pair), 0) + 1
+    return {
+        "rule": (
+            "label_main_coverage が interp かつ mirror_in_K(a ≠ b かつ (b, a) ∈ K)の組を"
+            "候補から除いてから fill_cells に渡す(ADR-134 決定1〜3。被覆ラベルの定義は不変)"
+        ),
+        "n_eligible_before": n_before,
+        "n_removed": len(removed),
+        "n_removed_by_stratum": dict(sorted(strata.items())),
+        "n_eligible_after": n_after,
+        "removed_pairs_hash": pairs_hash(removed),
+    }
+
+
 def fill_candidates(
     config: Mapping[str, Any], ft_manifest: Mapping[str, Any]
 ) -> FillCandidates:
@@ -427,6 +477,9 @@ def fill_candidates(
     (偶然一致 / 規則どうしの判別不能 / 被演算子)。`id` セルの母集団の記録と
     実際に埋めた母集団がずれないようにするためである(ADR-034 リスク欄)。
     特異性対照のセルも同じ候補から引く —— 群ごとに被演算子分布を変えない(ADR-035 決定3)。
+
+    **`eval.interp_mirror_filter` が真なら 4 段目を掛ける**(ADR-134 決定2): `interp` の
+    ラベルが付き逆順が K にある組を除く。`id` の組は除かない(ADR-134 決定4)。
     """
     main_radius = require(config, "data.train_domain_max")
     region = main_region_pairs(config, ft_manifest)
@@ -440,6 +493,14 @@ def fill_candidates(
     eligible = eligible_item_pairs(eligible)
 
     coverage_pairs = frozenset(load_coverage_pairs(ft_manifest))
+    mirror_record: dict[str, Any] | None = None
+    if uses_interp_mirror_filter(config):
+        removed = [pair for pair in eligible if is_interp_mirror(pair, coverage_pairs, main_radius)]
+        n_before = len(eligible)
+        eligible = without_interp_mirrors(eligible, coverage_pairs, main_radius)
+        mirror_record = interp_mirror_removal_record(
+            removed, n_before=n_before, n_after=len(eligible)
+        )
     strata: dict[str, int] = {}
     for pair in eligible:
         key = f"{label_main_coverage(pair, coverage_pairs, main_radius)}:{carry_label(*pair)}"
@@ -471,6 +532,8 @@ def fill_candidates(
         "n_eligible": len(eligible),
         "n_eligible_by_stratum": dict(sorted(strata.items())),
     }
+    if mirror_record is not None:
+        record[INTERP_MIRROR_RECORD] = mirror_record
     return FillCandidates(
         pairs=eligible,
         before_exclusion={SOURCE_MAIN_REGION: region, SOURCE_OUTSIDE_TRAINING_DOMAIN: outside},
@@ -717,6 +780,48 @@ def build_explicit(config: Mapping[str, Any], batteries: Sequence[str]) -> EvalP
     )
 
 
+def load_counterpart_pairs(config: Mapping[str, Any]) -> frozenset[Pair]:
+    """相手側のプール(`eval.counterpart_manifest`)の順序対を読む。
+
+    答える問い: 「このプールの組の逆順は、相手側のプールに出ているか」(REVIEW R5)
+    """
+    manifest_path = REPO_ROOT / require(config, "eval.counterpart_manifest")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return frozenset((int(a), int(b)) for a, b in manifest["pairs"])
+
+
+def mirror_cell_record(
+    config: Mapping[str, Any],
+    assignment: Mapping[str, Sequence[Pair]],
+    coverage_pairs: frozenset[Pair],
+) -> dict[str, Any]:
+    """セルごとの `mirror_in_K` の件数と、逆順が相手側のプールにある件数(ADR-134 決定3・リスク欄)。
+
+    答える問い: 「埋めたセルに、逆順が K にある組・逆順が相手のプールにある組は何件あるか」
+
+    **`interp` セルの `mirror_in_K` は 0 件のはずである**(テストで固定する)。`id` セルは
+    動かさないので件数が残る(ADR-134 決定4。記録と感度解析だけ)。逆順が相手側のプールにある
+    件数は R5 の判断の材料として**記録だけする**(PLAN-045 罠4)。どちらも組合せ論的な計数で
+    あって実験結果ではない(`CLAUDE.md` §2)。
+    """
+    counterpart = load_counterpart_pairs(config)
+    return {
+        "mirror_in_K": "a ≠ b かつ (b, a) ∈ K(ADR-134 決定3)",
+        "mirror_in_K_by_cell": {
+            name: sum(1 for pair in pairs if mirror_in_k(pair, coverage_pairs))
+            for name, pairs in assignment.items()
+        },
+        "reverse_in_counterpart_pool": {
+            "counterpart_manifest": require(config, "eval.counterpart_manifest"),
+            "rule": "a ≠ b かつ (b, a) が相手側のプールの組(REVIEW R5。記録だけ)",
+            "by_cell": {
+                name: sum(1 for (a, b) in pairs if a != b and (b, a) in counterpart)
+                for name, pairs in assignment.items()
+            },
+        },
+    }
+
+
 def build_filled(config: Mapping[str, Any], batteries: Sequence[str]) -> EvalPool:
     """セル表を `fill_cells` で埋めて評価プールを組む(PLAN-023 手順3。ADR-076)。
 
@@ -728,10 +833,11 @@ def build_filled(config: Mapping[str, Any], batteries: Sequence[str]) -> EvalPoo
     ft_manifest = load_condition_manifest(config)
     candidates = fill_candidates(config, ft_manifest)
     seed = require(config, "eval.pool_seed")
+    coverage_pairs = frozenset(load_coverage_pairs(ft_manifest))
     assignment = fill_cells(
         candidates.pairs,
         cells,
-        coverage_pairs=frozenset(load_coverage_pairs(ft_manifest)),
+        coverage_pairs=coverage_pairs,
         main_radius=require(config, "data.train_domain_max"),
         seed=seed,
     )
@@ -748,28 +854,31 @@ def build_filled(config: Mapping[str, Any], batteries: Sequence[str]) -> EvalPoo
     }
     items = [item for group in batteries for item in items_by_group[group]]
     instructed = numeric_sum.GROUP_BARE_SUM_INSTRUCTED
+    fill: dict[str, Any] = {
+        "method": FILL_CELLS,
+        "seed_consumed": True,
+        "rule": "ADR-017 / ADR-076 決定4・8・10(セルごとの乱数列 = pool.cell_rng)",
+        "candidates": candidates.record,
+        "cells_declared": [cell_record(cell) for cell in cells],
+        "assignment": {name: [list(pair) for pair in pairs] for name, pairs in assignment.items()},
+        "threshold_offsets": threshold_offset_counts(cells, assignment),
+        "instructed_source_cells": (
+            [cell.name for cell in instructed_source_cells(cells)]
+            if instructed in batteries
+            else []
+        ),
+        "n_items_by_group": {group: len(items_by_group[group]) for group in batteries},
+        "n_items_by_cell": {name: len(pairs) for name, pairs in assignment.items()},
+    }
+    if uses_interp_mirror_filter(config):
+        fill[INTERP_MIRROR_RECORD] = mirror_cell_record(config, assignment, coverage_pairs)
     return assemble(
         config,
         items,
         item_exclusions=excluded_operand_record(
             candidates.before_exclusion, axis="candidate_source"
         ),
-        fill={
-            "method": FILL_CELLS,
-            "seed_consumed": True,
-            "rule": "ADR-017 / ADR-076 決定4・8・10(セルごとの乱数列 = pool.cell_rng)",
-            "candidates": candidates.record,
-            "cells_declared": [cell_record(cell) for cell in cells],
-            "assignment": {name: [list(pair) for pair in pairs] for name, pairs in assignment.items()},
-            "threshold_offsets": threshold_offset_counts(cells, assignment),
-            "instructed_source_cells": (
-                [cell.name for cell in instructed_source_cells(cells)]
-                if instructed in batteries
-                else []
-            ),
-            "n_items_by_group": {group: len(items_by_group[group]) for group in batteries},
-            "n_items_by_cell": {name: len(pairs) for name, pairs in assignment.items()},
-        },
+        fill=fill,
     )
 
 

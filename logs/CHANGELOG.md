@@ -8175,3 +8175,12 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 ## 2026-10-23(その181・ADR-134)   [actor: PLANNER (Claude Opus 5.5)]
 - 人間が PLAN-045 の Q1〜Q5 を 5 問とも推奨 (a) で採択 → **ADR-134**: 主プールの全 `interp` セル + T1c の先頭の組で、逆順が K にある組を母集団から除く / `mirror_in_K` は `frame.py` の実行時の列 + manifest の件数 / `id` の二重露出は記録と感度解析だけ / 作り直した主プールで順6 を 1 run 測り直す(起動は人間)
 - PLAN-045 のステータスと §10 記入欄・`STATE.md`・`logs/OPEN-ITEMS.md` を更新。`code/`・config・データは不変。GPU 0
+
+## 2026-10-24(その182・PLAN-045 I1〜I6)   [actor: IMPLEMENTER (Claude Opus 5.5)]
+- 開始手順: probnull は `ceiling_probnull_L50` fits 0 のまま・`results/ceiling_remedy` 無し → HANDOFF の分岐で IMPLEMENTER。HANDOFF の推奨は Sonnet(実装なので Opus で続けた)。worktree `claude/great-bardeen-9c1ac4` は main の祖先で変更なし(登録簿に無い。触っていない)
+- **I1〜I4**: `code/data_gen/pool.py`(`mirror_in_k`・`is_interp_mirror`・`without_interp_mirrors`)/ `code/data_gen/eval_pool.py`(欄 `eval.interp_mirror_filter`・4 段目の除外・manifest の `fill.candidates.interp_mirror_filter` と `fill.interp_mirror_filter`。偽なら鍵ごと書かない)/ `code/data_gen/composition_pool.py`(T1c の先頭の組)/ `code/analysis/frame.py`(列 `mirror_in_K`)。被覆ラベル・`fill_cells` は不変
+- config: `exp_phase1_main.yaml`・`exp_phase1_main_b1.yaml`・`exp_phase1_main_t2cross.yaml`・`exp_t1c_main.yaml` に `interp_mirror_filter: true`(パイロット側は欄なし)
+- **I5**: `data/generated/battery/main/`・`main_t2_cross/` を作り直した(2 回生成でバイト一致)。数は PLAN-045 §3 と一致(組合せ論的な計数): 除いた組 473(carry 115・nocarry 358)・`interp` の `mirror_in_K` 0・`id` T1 21・T2 26 のまま。主 `pairs_hash` `13e8479c…` → `c20991dd…`・`items_sha256` `d272204f…` → `6bb6084d…` / 交差 `c1409c4b…` → `878ffe2d…`。テスト `code/tests/test_interp_mirror_filter.py`(新)・`test_frame.py`・`test_order6b_pilot.py`(主だけの欄)。パイロットのプールは manifest のバイト一致で固定
+- `pytest code/tests -q`: 2624 passed
+- **I6**: PLAN-001・PLAN-002 §4.5.1 に注。PLAN-023・PLAN-037 の旧いハッシュに打ち消し線と新しい値。PLAN-045 §9・§11
+- この機の旧い `items.jsonl`(git 外)は上書きされた。旧いプールは欄を偽にして再生成できる(テストで固定)。I7・probnull の再開・push は人間。GPU 0

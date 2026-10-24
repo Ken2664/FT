@@ -670,6 +670,54 @@ def id_cell_population(
 
 
 # --------------------------------------------------------------------------
+# 逆順が K にある組(ADR-130 決定3・ADR-134。PLAN-045)
+# --------------------------------------------------------------------------
+
+
+def mirror_in_k(pair: Pair, coverage_pairs: frozenset[Pair]) -> bool:
+    """逆順の組 (b, a) が訓練被覆 K に入っているか(ADR-134 決定3)。
+
+    答える問い: 「この組は、順序を無視すれば訓練で見た組ではないか」(REVIEW R3)
+
+    **対角 (a, a) は偽にする。**逆順が自分自身なので、真にすると K の対角の組が
+    すべて「逆順が K にある」と数えられる(PLAN-045 罠3)。主域の外の組は、
+    K ⊂ [1, main_radius]² なので逆順も K に入りえず、常に偽になる。
+
+    **被覆ラベルの定義は変えない**(ADR-134 決定2)。`label_coverage` は今のまま
+    `(a, b) ∉ K` を `interp` と呼ぶ。これは別の列である。
+    """
+    a, b = pair
+    return a != b and (b, a) in coverage_pairs
+
+
+def is_interp_mirror(pair: Pair, coverage_pairs: frozenset[Pair], main_radius: int) -> bool:
+    """`interp` のラベルが付き、かつ逆順が K にある組か(ADR-134 決定1・2)。
+
+    答える問い: 「この組は、主プールの `interp` セルの母集団から除く組か」
+    """
+    return label_main_coverage(
+        pair, coverage_pairs, main_radius
+    ) == COVERAGE_INTERP and mirror_in_k(pair, coverage_pairs)
+
+
+def without_interp_mirrors(
+    candidates: Sequence[Pair], coverage_pairs: frozenset[Pair], main_radius: int
+) -> list[Pair]:
+    """候補から「`interp` かつ逆順が K にある」組を除く(ADR-134 決定2。候補の事前フィルタ)。
+
+    答える問い: 「`interp` セルを、どちらの順も K に無い組だけから引くには、何を渡すか」
+
+    **`fill_cells` の前に掛ける**(PLAN-002 §4.5.3 の交換律ペアと同じ形)。`fill_cells` は
+    変えないので、`id`・`extrap_magnitude` のセルの母集団は 1 組も動かない。`interp` の
+    母集団が短くなるので `cell_rng` の並べ替えは全体として変わり、`interp` セルの項目は
+    ほぼ全部入れ替わる(PLAN-045 §3.3)。**候補の並びは保つ。**
+    """
+    return [
+        pair for pair in candidates if not is_interp_mirror(pair, coverage_pairs, main_radius)
+    ]
+
+
+# --------------------------------------------------------------------------
 # 被覆セルの充填(ADR-017。PLAN-001 §5.1.1 の穴1 に対する案A)
 # --------------------------------------------------------------------------
 

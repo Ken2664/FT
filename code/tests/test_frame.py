@@ -235,6 +235,37 @@ def test_extrap_other_rows_are_not_on_the_main_axis(tmp_path: Path) -> None:
     assert on_axis == {"id1", "interp1", "mag1"}
 
 
+def test_mirror_in_k_is_a_record_column_that_leaves_coverage_alone(tmp_path: Path) -> None:
+    """★`mirror_in_K` は a ≠ b かつ (b, a) ∈ K。被覆ラベルも主軸も動かさない(ADR-134 決定3)。
+
+    K = {(1, 2), (3, 4)} のとき、(2, 1) は `interp` のままで `mirror_in_K` が真。
+    (1, 2) は `id` で逆順 (2, 1) が K に無いので偽。対角 (5, 5) は偽(PLAN-045 罠3)。
+    """
+    manifest = write_ft_manifest(tmp_path / "ft" / "manifest.json", condition="p2")
+    metrics_path = write_run(
+        tmp_path / "runs",
+        run_id="r1",
+        manifest_path=manifest,
+        records=[
+            prediction(item_id="mirror", category="t1", operands=(2, 1)),
+            prediction(item_id="id1", category="t1", operands=(1, 2)),
+            prediction(item_id="diag", category="t1", operands=(5, 5)),
+            prediction(item_id="mag1", category="t1", operands=(150, 150)),
+        ],
+    )
+    built = frame.build_frame([metrics_path])
+    by_item = {row["item"]: row for row in built.rows}
+    assert {item: row["mirror_in_K"] for item, row in by_item.items()} == {
+        "mirror": True,
+        "id1": False,
+        "diag": False,
+        "mag1": False,
+    }
+    assert by_item["mirror"]["coverage"] == "interp"
+    assert by_item["mirror"]["main_axis"]
+    assert "mirror_in_K" in frame.COLUMNS
+
+
 def test_rows_dropped_from_the_main_axis_are_counted(tmp_path: Path) -> None:
     """★主軸から落ちた行の件数が run ごとに残ること(ADR-062 決定1 の付帯条件)。
 

@@ -50,6 +50,9 @@ PILOT_ONLY_BLOCK = "eval.threshold_sweep."
 # 最初の出力位置の上位 k の宣言。pilot の config にだけある(PLAN-026 I10。ADR-084 決定1。
 # `test_top_k.py` が値を縛る)。近接同点の幅も同じ(PLAN-026 I11a。ADR-085 決定4。`test_gonogo.py` が値を縛る)。
 PILOT_ONLY_KEYS = {"eval.forced_choice_top_k", "gonogo.near_tie_margin"}
+# 主の config にだけある欄(ADR-134 決定2。PLAN-045 I2)。pilot の config は欄を持たない ——
+# 無い = 掛けない。pilot のプールを 1 バイトも変えないための切り替えである(PLAN-045 罠1)。
+MAIN_ONLY_KEYS = {"eval.interp_mirror_filter"}
 
 
 def flatten(tree: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:
@@ -83,10 +86,13 @@ def test_pilot_config_differs_only_in_the_declared_keys() -> None:
     main, pilot = load_config(MAIN_CONFIG), load_config(PILOT_CONFIG)
     differing = differing_keys(main, pilot)
     sweep_keys = {key for key in differing if key.startswith(PILOT_ONLY_BLOCK)}
-    assert differing - sweep_keys - PILOT_ONLY_KEYS == PILOT_DIFFERING_KEYS
+    assert differing - sweep_keys - PILOT_ONLY_KEYS - MAIN_ONLY_KEYS == PILOT_DIFFERING_KEYS
     # 掃引の欄と上位 k の欄は足しただけで、本番の欄を上書きしていない
     assert sweep_keys and not any(key.startswith(PILOT_ONLY_BLOCK) for key in flatten(main))
     assert PILOT_ONLY_KEYS <= differing and not PILOT_ONLY_KEYS & set(flatten(main))
+    # 主だけの欄は主で真、pilot には無い(偽と書いて同じ意味にする余地も作らない)
+    assert MAIN_ONLY_KEYS <= differing and not MAIN_ONLY_KEYS & set(flatten(pilot))
+    assert all(flatten(main)[key] is True for key in MAIN_ONLY_KEYS)
 
 
 def test_pilot_config_points_at_the_pilot_side_and_is_not_approved() -> None:

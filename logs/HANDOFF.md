@@ -1,20 +1,15 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-23(その181)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: PLAN完了(PLAN-045 を起草し ADR-134 で採択)+ コンテキスト超過の警告
+生成: 2026-10-24(その182)/ 直前セッションの役割: IMPLEMENTER
+直前セッションが終了した理由: PLAN完了(PLAN-045 I1〜I6)+ コンテキスト超過の警告(約 227k)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Sonnet — PLAN-045 I1〜I6 は実装(`10_CONTEXT_POLICY.md` §7 の「実装・集計・データ生成」の行)。**ただし下の「分岐」で ANALYST になる場合は Opus**
+**推奨モデル(次のセッション)**: Opus — 下の分岐の既定は ANALYST(PLAN-046 §6.1 の記述。`10_CONTEXT_POLICY.md` §7 の「統計・解釈」の行)。RUNNER(I7)になる場合は Sonnet で可
 
 ---
 
-あなたは IMPLEMENTER です(分岐: 下記の 2 つの出力が揃っていれば ANALYST)。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは ANALYST です(分岐: 下記)。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
 `CLAUDE.md` §1 の開始手順を実行してから作業を始めてください(`STATE.md` は冒頭・「いま何をしているか」・「次のアクション」・「引き継ぎ」だけでよい)。
-
-## ★probnull の生成は途中で止まっている(その181 で確認)
-
-- `results/power_sim/ceiling_probnull/ceiling_probnull_L05` は fits 100/100(2026-10-22 22:22 JST に完了)/ `ceiling_probnull_L50` は fits 0(manifest 00〜04 だけ)。pid 31768 は無く、ログは 0 バイト
-- **再開は人間が決める**(同じコマンドで再開できる。`invocations.jsonl` に追記される): `python -m code.analysis.power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16` → 評価 `python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16`
 
 ## 分岐(最初に 1 回だけ確かめる)
 
@@ -22,29 +17,30 @@
 for d in results/power_sim/ceiling_probnull/*/; do echo "$d $(ls $d/fits 2>/dev/null | wc -l)"; done; ls results/ceiling_remedy 2>&1 | head -3
 ```
 
-- **L50 が 100 未満 / `results/ceiling_remedy` が無い(既定)**: IMPLEMENTER として下の「やること」(PLAN-045)。人間が別の端末で再開しているかもしれない(触らない)
-- **両方揃っている**: ANALYST(Opus)。PLAN-046 §6.1 の量を公式 summary から記述だけ・G1・G2 を機械的に(§6.4)。解釈・C の採否は書かない
+- **L50 が 100 / `results/ceiling_remedy` がある**: ANALYST(Opus)。PLAN-046 §6.1 の量を公式 summary から記述だけ・G1・G2 を機械的に(§6.4)。解釈・C の採否は書かない
+- **揃っていない(その182 の時点は L05 100・L50 0・`ceiling_remedy` 無し)**: **エージェントの作業は無い。**人間に「probnull の再開」と「順6 の測り直し(PLAN-045 I7)」のどちらを起動するかを聞いて止まる。人間が I7 を指示したら RUNNER として `infra/RUNPOD.md` §4 の手順で 1 run(設定は順6 R1・作り直した主プール)
 
 ## このセッションでやること(1つだけ)
 
-**PLAN-045 I1〜I6 を実装し、`pytest code/tests -q` を通して commit する**(`plans/PLAN-045-interp-mirror-filter.md` §5。ADR-134)。I7(順6 の測り直し)は GPU なので起動しない(人間)。
+上の分岐の 1 つ。どちらも起動・判断は人間の指示の後。
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- `620238e`: PLAN-045 草案。§3 に組合せ論的な計数(現行の主プールの割当を 42 セルすべて再現。`mirror_in_K` 真は `interp` T1 14/80・T2 18/80 / `id` T1 21/80・T2 26/80 / フィルタ後の `interp` 供給 carry 443・nocarry 1,568 で 42 セル全部埋まる / `id`・`extrap_magnitude` の割当は不変 / `interp` はほぼ全部入れ替わる T1 76/80・T2 79/80)。**I5 で manifest に同じ数が出ることを確かめる**
-- `5fe0295`: **ADR-134**(5 問とも推奨 (a)): 範囲 = 主プールの全 `interp` セル(T1・T2・T1b・T3・特異性対照)+ T1c の先頭の組 / 母集団から除いてから引く(`fill_cells`・`label_coverage`・`label_main_coverage` は不変。config の欄で入り切り、主の config だけ真)/ `mirror_in_K := a ≠ b かつ (b, a) ∈ K` を `frame.py` が実行時に付け、manifest にセルごとの件数 / `id` の二重露出は記録と感度解析だけ / 順6 は作り直した主プールで 1 run(人間が起動)
+- `d11853c`: **PLAN-045 I1〜I6 完了**(ADR-134)。`eval.interp_mirror_filter: true` は主の config 4 本(`exp_phase1_main`・`_b1`・`_t2cross`・`exp_t1c_main`)だけ。主プールと `main_t2_cross` を作り直した: 主 `pairs_hash` `c20991dd…`・`items_sha256` `6bb6084d…`(旧 `13e8479c…`・`d272204f…`)。数は組合せ論的な計数で PLAN-045 §3 と一致(除いた組 473・`interp` の `mirror_in_K` 0・`id` T1 21・T2 26)。パイロットのプールは不変(テスト)。`frame.py` に列 `mirror_in_K`。pytest 2624 passed。詳細は PLAN-045 §11
+- **順6 の印は旧い主プールで付いた**([run:20260911_141547_order6_r1] ほか)。`interp` セルはほぼ全部入れ替わったので、I7 の測り直しが残っている
+- probnull は `ceiling_probnull_L50` fits 0 のまま(再開は人間。コマンドは `STATE.md`「次のアクション」1)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `code/data_gen/pool.py`・`eval_pool.py`(`fill_candidates`)・`composition_pool.py`・`code/analysis/frame.py`・`configs/exp_phase1_main.yaml`・T1c の主の config(`configs/exp_t1c_main.yaml`)・`data/generated/battery/main/`・`main_t2_cross/`・`code/tests/`・PLAN-001/002 の `interp` の注・PLAN-045 §11
-- 先に skill `code-style` を読む。ADR-134 は `grep -n '^## ADR-134' logs/DECISIONS.md` → `sed -n`
+- ANALYST: `plans/PLAN-046-*.md` §6(`grep -n '^## \|^### ' ` → `sed -n`)・`results/ceiling_remedy/` の公式 summary(`jq` で必要なキーだけ)
+- RUNNER: `infra/RUNPOD.md` §4・順6 R1 の config・`runs/<id>/`
 
 ## やってはいけないこと
 
-- **パイロットのプール(`data/generated/battery/pilot/` ほか)を変える**(バイト一致をテストで固定する。PLAN-045 罠1)/ 被覆ラベルの定義を変える(罠2)/ K・FT データを変える
-- probnull の再開・評価・順6 の測り直しを起動する(人間)/ `05_STATISTICS.md` の書き換え
-- `results/power_sim/ceiling/*/frames/` を `git add` する。`git add -A` を使わない
+- probnull の再開・I7 の起動を人間の指示なしに行う / C の採否・印の解釈を書く
+- `results/power_sim/ceiling/*/frames/` を `git add` する。**`git add -A` を使わない**(未追跡の大きい結果がある)
+- 主プール・パイロットのプールを作り直す(PLAN-045 で確定済み)
 
 ## 未解決 / 人間の承認待ち
 
-- probnull の再開と評価の起動 / C の採否(評価の後・別の ADR)/ 確率の尺度の TOST の Δ(凍結前)/ 順6 の測り直しの起動(PLAN-045 I7)/ `id` の二重露出の感度解析の事前登録(凍結前)/ S4 の前の push と G2-1 承認 / PLAN-043 §12 の判断 6 件(run3 の前)/ REVIEW の R4 以下・C1/C2・R5
+- probnull の再開と評価の起動 / C の採否(評価の後・別の ADR)/ 順6 の測り直しの起動(PLAN-045 I7)/ 確率の尺度の TOST の Δ(凍結前)/ `id` の二重露出の感度解析の事前登録(凍結前)/ R5(新しい主プールの組のうち逆順がパイロットのプールにある組 199。manifest に記録)/ S4 の前の push と G2-1 承認 / PLAN-043 §12 の判断 6 件(run3 の前)/ REVIEW の R4 以下・C1/C2

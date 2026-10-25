@@ -8201,3 +8201,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 照合: 表は 10 点 × 100 反復すべて組み直しで一致。manifest に載っていた表が `p1_L05` 47・`null_L50` 62 なのは再開の既知の挙動(`manifest_pairs` の docstring)。天井 0 の点の棄却は PLAN-044 §13.1(a) と同じ数。SE が 2 係数で同じ値なのは R の出力どおり(均衡な計画の対称と考えられるが未確認)
 - 評価の config の probnull の `run_id` は null のまま(summary の `source_run_id` も null)。転記は config の変更なので人間待ちにした
 - 結果の小さいファイルを commit(probnull: 冒頭のメタデータ・summary・`cell_rates`・manifest / ceiling_remedy: 冒頭のメタデータ・summary・`reps_*.json`・`lmm_manifest_*.txt` / 鎖の status と起動ログ)。`lmm/`・`fits/`・`frames/`・R の `.log` は入れていない。`STATE.md` の 4 ブロックを置き換え、旧ブロックを `STATE-ARCHIVE.md` へ移した。`OPEN-ITEMS.md` の「C の採否の基準」の行を更新。GPU 0・pod 0
+
+## 2026-10-25(その184・引き継ぎ)   [actor: ANALYST (Claude Opus 5.5)]
+- PLAN-046 の評価の記述を終えた(`48098f0`)。`logs/HANDOFF.md` を更新した(次は PLANNER・推奨 Opus。人間に C の採否か I7 かを聞き、答えに沿って ADR を起こすか RUNNER として I7)。RunPod は使っていない(GPU 0)

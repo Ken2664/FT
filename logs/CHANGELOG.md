@@ -8194,3 +8194,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 2026-10-24T14:00:47Z に鎖を起動(スクラッチの PowerShell・`Start-Process` で切り離し・pid 7300): `power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16` → 終了コード 0 なら `ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16`。走っている間は `SetThreadExecutionState`(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)でスリープを止める(電源設定は変えない)。アプリの keep-awake も要求した(セッションが 5 分止まると切れる)
 - 起動 1 分後: python 1・Rscript 32 が動いている。`invocations.jsonl` 2 行目 = git `25e24e9`・`tracked_diff_empty` true。進み具合は `results/power_sim/ceiling_probnull_chain_20261024.status`
 - 前回の停止の原因は分かっていない(未確認。ログ 0 バイト)。GPU 0・pod 0
+
+## 2026-10-25(その184・PLAN-046 の評価の記述)   [actor: ANALYST (Claude Opus 5.5)]
+- 開始手順: 鎖は完了(status に `end probnull exit=0`・`end ceiling_remedy exit=0`・`done`。`.log.err` は 0 バイト。`L_50` fits 100・pid 7300 は終了)→ HANDOFF の分岐は ANALYST。HANDOFF の推奨モデル(Opus)と一致
+- PLAN-046 §13.1 に §6.1 の量と G1・G2 を公式 summary(`results/ceiling_remedy/ceiling_remedy_summary.json`)から転記した(解釈・C の採否は書いていない)。**G1 は閉じた**(`probnull_L05` 42/100 [0.322, 0.523]・`probnull_L50` 20/100 [0.127, 0.292])・**G2 は開いた**(判定できた 6 点で C の道の失敗 0・4 点は C の道に入った反復 0 で判定できない)[run:20261022_115546_power_sim_ceiling_probnull] [run:20261024_153943_ceiling_remedy]。§11 の該当項目に印
+- 照合: 表は 10 点 × 100 反復すべて組み直しで一致。manifest に載っていた表が `p1_L05` 47・`null_L50` 62 なのは再開の既知の挙動(`manifest_pairs` の docstring)。天井 0 の点の棄却は PLAN-044 §13.1(a) と同じ数。SE が 2 係数で同じ値なのは R の出力どおり(均衡な計画の対称と考えられるが未確認)
+- 評価の config の probnull の `run_id` は null のまま(summary の `source_run_id` も null)。転記は config の変更なので人間待ちにした
+- 結果の小さいファイルを commit(probnull: 冒頭のメタデータ・summary・`cell_rates`・manifest / ceiling_remedy: 冒頭のメタデータ・summary・`reps_*.json`・`lmm_manifest_*.txt` / 鎖の status と起動ログ)。`lmm/`・`fits/`・`frames/`・R の `.log` は入れていない。`STATE.md` の 4 ブロックを置き換え、旧ブロックを `STATE-ARCHIVE.md` へ移した。`OPEN-ITEMS.md` の「C の採否の基準」の行を更新。GPU 0・pod 0

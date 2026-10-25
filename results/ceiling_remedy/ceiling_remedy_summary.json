@@ -1,0 +1,2952 @@
+{
+  "run_id": "20261024_153943_ceiling_remedy",
+  "created_utc": "2026-10-24T15:39:43.856688+00:00",
+  "git_sha": "f755f60589e8feec27e5fad184dd1973e6ccd296",
+  "config_source": "configs\\ceiling_remedy.yaml",
+  "max_rep": 100,
+  "n_rep": 100,
+  "alpha": 0.05,
+  "lmm": {
+    "link": "identity",
+    "reml": false,
+    "optimizer": "nloptwrap"
+  },
+  "rule": "ceiling = any of the 6 cells is n/n or 0/n over all seeds x items (ADR-132 decision 2)",
+  "failure_counted_as": "non-reject, kept in the denominator (ADR-128 decision 1 (A2))",
+  "note": "synthetic data under ASSUMED values; descriptive only, NOT the real experiment (PLAN-046 trap 6)",
+  "gates": {
+    "evaluated": true,
+    "g1": {
+      "closed": true,
+      "closed_at": [
+        "ceiling_probnull_L05",
+        "ceiling_probnull_L50"
+      ],
+      "n_points": 2
+    },
+    "g2": {
+      "closed": false,
+      "closed_at": [],
+      "n_points": 10,
+      "not_evaluable_at": [
+        "ceiling_p0_L05",
+        "ceiling_p1_L05",
+        "ceiling_null_L05",
+        "ceiling_probnull_L05"
+      ]
+    },
+    "effect": "ADR-133 decision 4: if G1 or G2 is closed, C is not adopted. If both are open, adoption is decided by the human in a separate ADR after reading the description (nothing is adopted here)."
+  },
+  "sheets": {
+    "ceiling_p0_L05": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          5.3,
+          5.3,
+          0.6
+        ],
+        [
+          1.8,
+          0.8,
+          -0.4
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 0,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 100,
+            "n": 100,
+            "rate": 1.0,
+            "ci": [
+              0.9637833073548235,
+              1.0
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 100,
+                "n_reject": 100,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 0,
+                "n_reject": 0,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 0,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {},
+            "n_singular": 0,
+            "n_refit": 0,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": null,
+              "extrap_magnitude": null
+            },
+            "tost_min_margin_quantiles": null
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 69,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.978157580250842,
+                "interp": 0.978157580250842,
+                "extrap_magnitude": 0.5935631844963017
+              },
+              "T2": {
+                "id": 0.7604070934249075,
+                "interp": 0.6238156636927266,
+                "extrap_magnitude": 0.4372863885546137
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.13659142973218097,
+              "extrap_magnitude": 0.061473690884246424
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": -1.0,
+            "extrap_magnitude": 2.5
+          },
+          "g2": {
+            "count": 0,
+            "n": 0,
+            "rate": null,
+            "ci": null,
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": false,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 25.59435739996843,
+          "lmm_seconds_per_table": [
+            0.9,
+            1.1,
+            1.2,
+            1.6,
+            1.8,
+            1.9,
+            1.9,
+            1.9,
+            1.9,
+            2.0,
+            2.0,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.3,
+            3.6,
+            3.6,
+            3.6,
+            3.6,
+            3.6,
+            3.6,
+            3.7,
+            3.8,
+            3.8,
+            3.9,
+            4.0,
+            4.0,
+            4.0,
+            4.0,
+            4.1,
+            4.1,
+            4.2,
+            4.4,
+            4.4,
+            4.6,
+            5.3,
+            5.4,
+            5.4,
+            5.5,
+            5.8,
+            5.9,
+            6.0,
+            6.1,
+            6.5
+          ]
+        }
+      ]
+    },
+    "ceiling_p0_L50": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          7.512,
+          7.512,
+          0.6
+        ],
+        [
+          1.8,
+          0.8,
+          -0.4
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 28,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 19,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 13,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 92,
+            "n": 100,
+            "rate": 0.92,
+            "ci": [
+              0.848442364135579,
+              0.9648284374818372
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 72,
+                "n_reject": 72,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 28,
+                "n_reject": 20,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 28,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 28
+            },
+            "n_singular": 27,
+            "n_refit": 7,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 28,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.2761875,
+                    "0.25": -0.190625,
+                    "0.5": -0.14875,
+                    "0.75": -0.1034375,
+                    "0.95": -0.043000000000000045
+                  }
+                },
+                "se": {
+                  "n": 28,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0551944040835,
+                    "0.25": 0.058822243157499995,
+                    "0.5": 0.064084617035,
+                    "0.75": 0.06923138813,
+                    "0.95": 0.0753343260965
+                  }
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 28,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.24162499999999998,
+                    "0.25": -0.08906249999999999,
+                    "0.5": 0.0006250000000000001,
+                    "0.75": 0.0721875,
+                    "0.95": 0.16149999999999998
+                  }
+                },
+                "se": {
+                  "n": 28,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0551944040835,
+                    "0.25": 0.058822243157499995,
+                    "0.5": 0.064084617035,
+                    "0.75": 0.06923138813,
+                    "0.95": 0.0753343260965
+                  }
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": {
+                "0.05": -0.139596070267819,
+                "0.25": -0.054033570267819034,
+                "0.5": -0.012158570267819024,
+                "0.75": 0.03315392973218097,
+                "0.95": 0.09359142973218093
+              },
+              "extrap_magnitude": {
+                "0.05": -0.32198626620193577,
+                "0.25": -0.16942376620193578,
+                "0.5": -0.07973626620193579,
+                "0.75": -0.008173766201935787,
+                "0.95": 0.0811387337980642
+              }
+            },
+            "tost_min_margin_quantiles": {
+              "0.05": 0.19348695585949133,
+              "0.25": 0.23310774245535404,
+              "0.5": 0.2657682493140674,
+              "0.75": 0.33452783615395637,
+              "0.95": 0.3978846684979118
+            }
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 81,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 99,
+              "level_1": 1
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.9970451555685313,
+                "interp": 0.9970451555685313,
+                "extrap_magnitude": 0.5935631844963017
+              },
+              "T2": {
+                "id": 0.7604070934249075,
+                "interp": 0.6238156636927266,
+                "extrap_magnitude": 0.4372863885546137
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.13659142973218097,
+              "extrap_magnitude": 0.08036126620193579
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": -1.0,
+            "extrap_magnitude": 4.712
+          },
+          "g2": {
+            "count": 0,
+            "n": 28,
+            "rate": 0.0,
+            "ci": [
+              0.0,
+              0.12343611850026381
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": true,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 25.103329400066286,
+          "lmm_seconds_per_table": [
+            0.9,
+            1.1,
+            1.3,
+            1.3,
+            1.6,
+            1.6,
+            1.7,
+            1.7,
+            1.8,
+            1.8,
+            1.8,
+            2.0,
+            2.0,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.8,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.4,
+            3.4,
+            3.6,
+            3.6,
+            3.6,
+            3.7,
+            3.8,
+            3.8,
+            3.9,
+            4.0,
+            4.0,
+            4.0,
+            4.0,
+            4.1,
+            4.1,
+            4.2,
+            4.2,
+            4.3,
+            4.4,
+            4.7,
+            4.8,
+            4.9,
+            4.9,
+            5.1,
+            5.1,
+            5.2,
+            5.3,
+            5.4,
+            5.5,
+            5.5,
+            5.6,
+            5.8,
+            9.4
+          ]
+        }
+      ]
+    },
+    "ceiling_p0_Linf": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          "inf",
+          "inf",
+          0.6
+        ],
+        [
+          1.8,
+          0.8,
+          -0.4
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 100,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 100,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 100,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 78,
+            "n": 100,
+            "rate": 0.78,
+            "ci": [
+              0.6860803462136822,
+              0.8566964232501856
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 0,
+                "n_reject": 0,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 100,
+                "n_reject": 78,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 100,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            },
+            "n_singular": 95,
+            "n_refit": 17,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.24412499999999998,
+                    "0.25": -0.19593750000000001,
+                    "0.5": -0.14437499999999998,
+                    "0.75": -0.0909375,
+                    "0.95": -0.023625000000000007
+                  }
+                },
+                "se": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0529700139595,
+                    "0.25": 0.059930301445,
+                    "0.5": 0.064414239765,
+                    "0.75": 0.06849465806249999,
+                    "0.95": 0.07551104099
+                  }
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.1746875,
+                    "0.25": -0.02,
+                    "0.5": 0.0625,
+                    "0.75": 0.1696875,
+                    "0.95": 0.305125
+                  }
+                },
+                "se": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0529700139595,
+                    "0.25": 0.059930301445,
+                    "0.5": 0.064414239765,
+                    "0.75": 0.06849465806249999,
+                    "0.95": 0.07551104099
+                  }
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": {
+                "0.05": -0.10753357026781903,
+                "0.25": -0.05934607026781904,
+                "0.5": -0.0077835702678190205,
+                "0.75": 0.04565392973218097,
+                "0.95": 0.11296642973218096
+              },
+              "extrap_magnitude": {
+                "0.05": -0.25800361063340466,
+                "0.25": -0.10331611063340466,
+                "0.5": -0.02081611063340466,
+                "0.75": 0.08637138936659534,
+                "0.95": 0.22180888936659532
+              }
+            },
+            "tost_min_margin_quantiles": {
+              "0.05": 0.1773052963952517,
+              "0.25": 0.2434911098736334,
+              "0.5": 0.2833315616374733,
+              "0.75": 0.33151958773923423,
+              "0.95": 0.4230796780815842
+            }
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 78,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 1.0000000000000002,
+                "interp": 1.0000000000000002,
+                "extrap_magnitude": 0.5935631844963017
+              },
+              "T2": {
+                "id": 0.7604070934249075,
+                "interp": 0.6238156636927266,
+                "extrap_magnitude": 0.4372863885546137
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.13659142973218097,
+              "extrap_magnitude": 0.08331611063340466
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": null,
+            "extrap_magnitude": null
+          },
+          "g2": {
+            "count": 0,
+            "n": 100,
+            "rate": 0.0,
+            "ci": [
+              0.0,
+              0.03621669264517641
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": true,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 23.228313700063154,
+          "lmm_seconds_per_table": [
+            0.7,
+            0.8,
+            0.8,
+            0.9,
+            1.0,
+            1.7,
+            1.7,
+            1.8,
+            1.8,
+            1.9,
+            1.9,
+            2.0,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            2.9,
+            2.9,
+            3.0,
+            3.1,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.3,
+            3.4,
+            3.4,
+            3.4,
+            3.6,
+            3.6,
+            3.7,
+            3.8,
+            3.8,
+            3.8,
+            3.9,
+            3.9,
+            4.0,
+            4.0,
+            4.0,
+            4.0,
+            4.1,
+            4.1,
+            4.2,
+            4.2,
+            4.3,
+            4.5,
+            4.6,
+            4.6,
+            4.6,
+            4.7,
+            4.8,
+            4.9,
+            5.0,
+            5.3,
+            5.8,
+            5.8,
+            6.3
+          ]
+        }
+      ]
+    },
+    "ceiling_p1_L05": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          5.3,
+          5.3,
+          1.138832
+        ],
+        [
+          1.751066,
+          0.587766,
+          -0.938832
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 0,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 98,
+            "n": 100,
+            "rate": 0.98,
+            "ci": [
+              0.9296160675289299,
+              0.9975686631760574
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 100,
+                "n_reject": 98,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 0,
+                "n_reject": 0,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 0,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {},
+            "n_singular": 0,
+            "n_refit": 0,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": null,
+              "extrap_magnitude": null
+            },
+            "tost_min_margin_quantiles": null
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 76,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 99,
+              "level_1": 1
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.978157580250842,
+                "interp": 0.978157580250842,
+                "extrap_magnitude": 0.6732066248698831
+              },
+              "T2": {
+                "id": 0.7544392072943107,
+                "interp": 0.5916913612884193,
+                "extrap_magnitude": 0.3556310949401139
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.16274784600589143,
+              "extrap_magnitude": -0.09385715697323793
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": -1.1633,
+            "extrap_magnitude": 1.47127
+          },
+          "g2": {
+            "count": 0,
+            "n": 0,
+            "rate": null,
+            "ci": null,
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": false,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 47,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 25.705841100076213,
+          "lmm_seconds_per_table": [
+            0.7,
+            1.3,
+            1.3,
+            1.8,
+            1.8,
+            1.8,
+            1.8,
+            1.9,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.4,
+            3.4,
+            3.5,
+            3.6,
+            3.6,
+            3.6,
+            3.6,
+            3.6,
+            3.7,
+            3.8,
+            4.0,
+            4.0,
+            4.1,
+            4.1,
+            4.2,
+            4.2,
+            4.3,
+            4.4,
+            4.7,
+            4.7,
+            4.9,
+            5.0,
+            5.0,
+            5.1,
+            5.1,
+            5.2,
+            5.3,
+            5.5,
+            5.5,
+            5.8,
+            6.1,
+            6.5,
+            13.5
+          ]
+        }
+      ]
+    },
+    "ceiling_p1_L50": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          7.512,
+          7.512,
+          1.138832
+        ],
+        [
+          1.751066,
+          0.587766,
+          -0.938832
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 31,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 13,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 23,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 94,
+            "n": 100,
+            "rate": 0.94,
+            "ci": [
+              0.8739700654191771,
+              0.9776651139286836
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 69,
+                "n_reject": 69,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 31,
+                "n_reject": 25,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 31,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 31
+            },
+            "n_singular": 30,
+            "n_refit": 3,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 31,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.27125,
+                    "0.25": -0.22875,
+                    "0.5": -0.18625,
+                    "0.75": -0.12625,
+                    "0.95": -0.043750000000000004
+                  }
+                },
+                "se": {
+                  "n": 31,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.051831234295,
+                    "0.25": 0.058965487314999995,
+                    "0.5": 0.06322329032,
+                    "0.75": 0.06585772717999999,
+                    "0.95": 0.07180155727
+                  }
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 31,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.28375,
+                    "0.25": -0.22062500000000002,
+                    "0.5": -0.175,
+                    "0.75": -0.12625,
+                    "0.95": -0.0175
+                  }
+                },
+                "se": {
+                  "n": 31,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.051831234295,
+                    "0.25": 0.058965487314999995,
+                    "0.5": 0.06322329032,
+                    "0.75": 0.06585772717999999,
+                    "0.95": 0.07180155727
+                  }
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": {
+                "0.05": -0.10850215399410859,
+                "0.25": -0.06600215399410858,
+                "0.5": -0.02350215399410857,
+                "0.75": 0.03649784600589143,
+                "0.95": 0.11899784600589143
+              },
+              "extrap_magnitude": {
+                "0.05": -0.20878041834445143,
+                "0.25": -0.14565541834445145,
+                "0.5": -0.10003041834445142,
+                "0.75": -0.051280418344451434,
+                "0.95": 0.057469581655548566
+              }
+            },
+            "tost_min_margin_quantiles": {
+              "0.05": 0.2137897088059606,
+              "0.25": 0.2742720029476909,
+              "0.5": 0.3058586054981087,
+              "0.75": 0.3583666176297433,
+              "0.95": 0.40029478333789836
+            }
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 71,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.9970451555685313,
+                "interp": 0.9970451555685313,
+                "extrap_magnitude": 0.6732066248698831
+              },
+              "T2": {
+                "id": 0.7544392072943107,
+                "interp": 0.5916913612884193,
+                "extrap_magnitude": 0.3556310949401139
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.16274784600589143,
+              "extrap_magnitude": -0.07496958165554857
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": -1.1633,
+            "extrap_magnitude": 3.68327
+          },
+          "g2": {
+            "count": 0,
+            "n": 31,
+            "rate": 0.0,
+            "ci": [
+              0.0,
+              0.11218874692236995
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": true,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 22.987585100112483,
+          "lmm_seconds_per_table": [
+            1.0,
+            1.1,
+            1.3,
+            1.5,
+            1.7,
+            1.7,
+            1.7,
+            1.7,
+            1.8,
+            1.8,
+            1.9,
+            2.0,
+            2.0,
+            2.1,
+            2.1,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            2.9,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.2,
+            3.3,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.5,
+            3.6,
+            3.7,
+            3.7,
+            3.7,
+            3.7,
+            3.7,
+            3.8,
+            3.9,
+            4.0,
+            4.0,
+            4.0,
+            4.1,
+            4.1,
+            4.2,
+            4.2,
+            4.2,
+            4.2,
+            4.2,
+            4.3,
+            4.3,
+            4.5,
+            4.7,
+            4.7,
+            4.7,
+            4.8,
+            5.1,
+            5.2,
+            6.6,
+            6.7
+          ]
+        }
+      ]
+    },
+    "ceiling_p1_Linf": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          "inf",
+          "inf",
+          1.138832
+        ],
+        [
+          1.751066,
+          0.587766,
+          -0.938832
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 100,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 100,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 100,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 73,
+            "n": 100,
+            "rate": 0.73,
+            "ci": [
+              0.6319837270910251,
+              0.8139335777092593
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 0,
+                "n_reject": 0,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 100,
+                "n_reject": 73,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 100,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            },
+            "n_singular": 96,
+            "n_refit": 19,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.2990625,
+                    "0.25": -0.21875,
+                    "0.5": -0.16375,
+                    "0.75": -0.125,
+                    "0.95": -0.06368750000000001
+                  }
+                },
+                "se": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.054381618531,
+                    "0.25": 0.059018836015,
+                    "0.5": 0.06365065713500001,
+                    "0.75": 0.0697711056975,
+                    "0.95": 0.0810380258765
+                  }
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.26525,
+                    "0.25": -0.1575,
+                    "0.5": -0.063125,
+                    "0.75": 0.0328125,
+                    "0.95": 0.18081249999999996
+                  }
+                },
+                "se": {
+                  "n": 100,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.054381618531,
+                    "0.25": 0.059018836015,
+                    "0.5": 0.06365065713500001,
+                    "0.75": 0.0697711056975,
+                    "0.95": 0.0810380258765
+                  }
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": {
+                "0.05": -0.13631465399410858,
+                "0.25": -0.05600215399410857,
+                "0.5": -0.0010021539941085789,
+                "0.75": 0.03774784600589143,
+                "0.95": 0.09906034600589142
+              },
+              "extrap_magnitude": {
+                "0.05": -0.19323526277592032,
+                "0.25": -0.0854852627759203,
+                "0.5": 0.008889737224079694,
+                "0.75": 0.10482723722407969,
+                "0.95": 0.2528272372240796
+              }
+            },
+            "tost_min_margin_quantiles": {
+              "0.05": 0.20314485565609533,
+              "0.25": 0.2510531921222661,
+              "0.5": 0.29578187449579285,
+              "0.75": 0.33875526129995615,
+              "0.95": 0.4107659543532249
+            }
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 73,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 1.0000000000000002,
+                "interp": 1.0000000000000002,
+                "extrap_magnitude": 0.6732066248698831
+              },
+              "T2": {
+                "id": 0.7544392072943107,
+                "interp": 0.5916913612884193,
+                "extrap_magnitude": 0.3556310949401139
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.16274784600589143,
+              "extrap_magnitude": -0.0720147372240797
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": null,
+            "extrap_magnitude": null
+          },
+          "g2": {
+            "count": 0,
+            "n": 100,
+            "rate": 0.0,
+            "ci": [
+              0.0,
+              0.03621669264517641
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": true,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 23.364099400001578,
+          "lmm_seconds_per_table": [
+            0.9,
+            0.9,
+            1.1,
+            1.2,
+            1.3,
+            1.3,
+            1.8,
+            1.8,
+            1.8,
+            2.0,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.9,
+            2.9,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.4,
+            3.6,
+            3.6,
+            3.7,
+            3.7,
+            3.8,
+            3.9,
+            3.9,
+            3.9,
+            4.0,
+            4.0,
+            4.0,
+            4.0,
+            4.0,
+            4.1,
+            4.3,
+            4.3,
+            4.4,
+            4.4,
+            4.5,
+            4.6,
+            4.7,
+            4.7,
+            4.8,
+            4.8,
+            5.0,
+            5.1,
+            5.1,
+            5.4,
+            5.6,
+            5.8,
+            7.3
+          ]
+        }
+      ]
+    },
+    "ceiling_null_L05": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          5.3,
+          4.3,
+          3.1
+        ],
+        [
+          1.8,
+          0.8,
+          -0.4
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 0,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 1,
+            "n": 100,
+            "rate": 0.01,
+            "ci": [
+              0.0002531460329774208,
+              0.054459385392080645
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 100,
+                "n_reject": 1,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 0,
+                "n_reject": 0,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 0,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {},
+            "n_singular": 0,
+            "n_refit": 0,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": null,
+              "extrap_magnitude": null
+            },
+            "tost_min_margin_quantiles": null
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 91,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.978157580250842,
+                "interp": 0.9512914337012573,
+                "extrap_magnitude": 0.8866377626542026
+              },
+              "T2": {
+                "id": 0.7604070934249075,
+                "interp": 0.6238156636927266,
+                "extrap_magnitude": 0.4372863885546137
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.10972528318259633,
+              "extrap_magnitude": -0.2316008872736544
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": 0.0,
+            "extrap_magnitude": -4.440892098500626e-16
+          },
+          "g2": {
+            "count": 0,
+            "n": 0,
+            "rate": null,
+            "ci": null,
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": false,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 25.504056499921717,
+          "lmm_seconds_per_table": [
+            1.2,
+            1.3,
+            1.7,
+            1.7,
+            1.9,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.4,
+            3.4,
+            3.4,
+            3.5,
+            3.5,
+            3.5,
+            3.6,
+            3.6,
+            3.6,
+            3.7,
+            3.7,
+            3.7,
+            3.7,
+            3.7,
+            3.8,
+            3.8,
+            3.8,
+            3.9,
+            3.9,
+            3.9,
+            4.1,
+            4.1,
+            4.1,
+            4.1,
+            4.2,
+            4.2,
+            4.2,
+            4.2,
+            4.2,
+            4.2,
+            4.3,
+            4.4,
+            4.4,
+            4.4,
+            4.5,
+            4.5,
+            4.7,
+            4.7,
+            4.9,
+            4.9,
+            5.1,
+            5.2,
+            5.2,
+            5.2,
+            5.3,
+            5.6,
+            6.6,
+            6.7,
+            7.1
+          ]
+        }
+      ]
+    },
+    "ceiling_null_L50": {
+      "source": "ceiling",
+      "source_run_id": "20261016_130005_power_sim_ceiling",
+      "eta": [
+        [
+          7.512,
+          6.512,
+          5.311999999999999
+        ],
+        [
+          1.8,
+          0.8,
+          -0.4
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 22,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 19,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 6,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 22,
+            "n": 100,
+            "rate": 0.22,
+            "ci": [
+              0.14330357674981445,
+              0.3139196537863178
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 78,
+                "n_reject": 1,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 22,
+                "n_reject": 21,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 22,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 22
+            },
+            "n_singular": 22,
+            "n_refit": 2,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 22,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.223375,
+                    "0.25": -0.1809375,
+                    "0.5": -0.136875,
+                    "0.75": -0.09875,
+                    "0.95": -0.04362500000000002
+                  }
+                },
+                "se": {
+                  "n": 22,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0556713070365,
+                    "0.25": 0.06034682441,
+                    "0.5": 0.06377416262999999,
+                    "0.75": 0.0668061785225,
+                    "0.95": 0.074432167114
+                  }
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 22,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.4148125,
+                    "0.25": -0.395,
+                    "0.5": -0.33187500000000003,
+                    "0.75": -0.27437500000000004,
+                    "0.95": -0.17431250000000006
+                  }
+                },
+                "se": {
+                  "n": 22,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0556713070365,
+                    "0.25": 0.06034682441,
+                    "0.5": 0.06377416262999999,
+                    "0.75": 0.0668061785225,
+                    "0.95": 0.074432167114
+                  }
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": {
+                "0.05": -0.09135199806693085,
+                "0.25": -0.048914498066930844,
+                "0.5": -0.004851998066930846,
+                "0.75": 0.033273001933069146,
+                "0.95": 0.08839800193306913
+              },
+              "extrap_magnitude": {
+                "0.05": -0.11036000183360108,
+                "0.25": -0.09054750183360111,
+                "0.5": -0.027422501833601093,
+                "0.75": 0.03007749816639889,
+                "0.95": 0.13013999816639885
+              }
+            },
+            "tost_min_margin_quantiles": {
+              "0.05": 0.2802463331423613,
+              "0.25": 0.3923482802107535,
+              "0.5": 0.4405406705908811,
+              "0.75": 0.49472998991777584,
+              "0.95": 0.5259215516394257
+            }
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 97,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.9970451555685313,
+                "interp": 0.9924767277694195,
+                "extrap_magnitude": 0.9783769488646364
+              },
+              "T2": {
+                "id": 0.7604070934249075,
+                "interp": 0.6238156636927266,
+                "extrap_magnitude": 0.4372863885546137
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -0.13202300193306915,
+              "extrap_magnitude": -0.3044524981663989
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": 0.0,
+            "extrap_magnitude": 0.0
+          },
+          "g2": {
+            "count": 0,
+            "n": 22,
+            "rate": 0.0,
+            "ci": [
+              0.0,
+              0.15437251281557454
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": true,
+            "closed": false
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 62,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 22.29477030003909,
+          "lmm_seconds_per_table": [
+            1.1,
+            1.4,
+            1.9,
+            1.9,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.1,
+            2.1,
+            2.1,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            2.9,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.5,
+            3.5,
+            3.5,
+            3.6,
+            3.6,
+            3.7,
+            3.8,
+            3.8,
+            3.9,
+            3.9,
+            4.0,
+            4.0,
+            4.1,
+            4.2,
+            4.4,
+            4.5,
+            4.6,
+            4.6,
+            4.6,
+            4.8,
+            5.1,
+            6.3
+          ]
+        }
+      ]
+    },
+    "ceiling_probnull_L05": {
+      "source": "ceiling_probnull",
+      "source_run_id": null,
+      "eta": [
+        [
+          5.3,
+          4.3,
+          3.1
+        ],
+        [
+          1.8,
+          1.5847352592,
+          1.1084329182
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 0,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 42,
+            "n": 100,
+            "rate": 0.42,
+            "ci": [
+              0.321985539354797,
+              0.5228808042760862
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 100,
+                "n_reject": 42,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 0,
+                "n_reject": 0,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 0,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {},
+            "n_singular": 0,
+            "n_refit": 0,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                },
+                "se": {
+                  "n": 0,
+                  "n_non_finite": 0,
+                  "quantiles": null
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": null,
+              "extrap_magnitude": null
+            },
+            "tost_min_margin_quantiles": null
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 17,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.978157580250842,
+                "interp": 0.9512914337012573,
+                "extrap_magnitude": 0.8866377626542026
+              },
+              "T2": {
+                "id": 0.7604070934249075,
+                "interp": 0.7335409468731388,
+                "extrap_magnitude": 0.668887275830747
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": -2.1841417563450705e-12,
+              "extrap_magnitude": 2.4789059693830495e-12
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": 0.7847352591999999,
+            "extrap_magnitude": 1.5084329181999996
+          },
+          "g2": {
+            "count": 0,
+            "n": 0,
+            "rate": null,
+            "ci": null,
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": false,
+            "closed": false
+          },
+          "g1": {
+            "count": 42,
+            "n": 100,
+            "rate": 0.42,
+            "ci": [
+              0.321985539354797,
+              0.5228808042760862
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.075,
+            "evaluable": true,
+            "closed": true
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 24.868565700016916,
+          "lmm_seconds_per_table": [
+            1.2,
+            1.3,
+            1.3,
+            1.4,
+            1.4,
+            1.6,
+            1.7,
+            1.9,
+            1.9,
+            1.9,
+            2.0,
+            2.0,
+            2.1,
+            2.1,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.1,
+            3.1,
+            3.1,
+            3.1,
+            3.1,
+            3.1,
+            3.1,
+            3.2,
+            3.2,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.3,
+            3.4,
+            3.4,
+            3.4,
+            3.5,
+            3.5,
+            3.6,
+            3.6,
+            3.6,
+            3.6,
+            3.7,
+            3.7,
+            3.7,
+            3.8,
+            3.8,
+            3.8,
+            3.8,
+            3.8,
+            3.9,
+            3.9,
+            3.9,
+            3.9,
+            3.9,
+            3.9,
+            4.0,
+            4.0,
+            4.0,
+            4.0,
+            4.0,
+            4.1,
+            4.1,
+            4.3,
+            4.4,
+            4.4,
+            4.5,
+            4.5,
+            4.6,
+            4.6,
+            4.7,
+            4.7,
+            4.8,
+            4.8,
+            4.8,
+            4.9,
+            5.1,
+            5.5,
+            5.6,
+            6.5
+          ]
+        }
+      ]
+    },
+    "ceiling_probnull_L50": {
+      "source": "ceiling_probnull",
+      "source_run_id": null,
+      "eta": [
+        [
+          7.512,
+          6.512,
+          5.311999999999999
+        ],
+        [
+          1.8,
+          1.7624797985,
+          1.6491025406
+        ]
+      ],
+      "points": [
+        {
+          "n_rep": 100,
+          "ceiling": {
+            "n_ceiling": 30,
+            "by_cell": {
+              "T1.id": {
+                "all_rule": 24,
+                "no_rule": 0
+              },
+              "T1.interp": {
+                "all_rule": 8,
+                "no_rule": 0
+              },
+              "T1.extrap_magnitude": {
+                "all_rule": 1,
+                "no_rule": 0
+              },
+              "T2.id": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.interp": {
+                "all_rule": 0,
+                "no_rule": 0
+              },
+              "T2.extrap_magnitude": {
+                "all_rule": 0,
+                "no_rule": 0
+              }
+            }
+          },
+          "branched": {
+            "count": 20,
+            "n": 100,
+            "rate": 0.2,
+            "ci": [
+              0.12665555210195584,
+              0.2918426890886281
+            ],
+            "ci_level": 0.95,
+            "by_path": {
+              "logit": {
+                "n": 70,
+                "n_reject": 18,
+                "n_fit_failed": 0
+              },
+              "identity_lmm": {
+                "n": 30,
+                "n_reject": 2,
+                "n_fit_failed": 0
+              }
+            }
+          },
+          "c_path": {
+            "n": 30,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 30
+            },
+            "n_singular": 29,
+            "n_refit": 4,
+            "interaction_coefficients": {
+              "interp": {
+                "estimate": {
+                  "n": 30,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.07,
+                    "0.25": -0.01125,
+                    "0.5": 0.009375,
+                    "0.75": 0.049687499999999996,
+                    "0.95": 0.08168749999999994
+                  }
+                },
+                "se": {
+                  "n": 30,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0452814291935,
+                    "0.25": 0.0519316129575,
+                    "0.5": 0.0569847353,
+                    "0.75": 0.06300480185,
+                    "0.95": 0.07321668552799998
+                  }
+                }
+              },
+              "extrap_magnitude": {
+                "estimate": {
+                  "n": 30,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": -0.126625,
+                    "0.25": -0.075,
+                    "0.5": -0.03,
+                    "0.75": 0.013125,
+                    "0.95": 0.058937499999999955
+                  }
+                },
+                "se": {
+                  "n": 30,
+                  "n_non_finite": 0,
+                  "quantiles": {
+                    "0.05": 0.0452814291935,
+                    "0.25": 0.0519316129575,
+                    "0.5": 0.0569847353,
+                    "0.75": 0.06300480185,
+                    "0.95": 0.07321668552799998
+                  }
+                }
+              }
+            },
+            "estimate_minus_true_quantiles": {
+              "interp": {
+                "0.05": -0.07000000000563172,
+                "0.25": -0.011250000005631717,
+                "0.5": 0.009374999994368282,
+                "0.75": 0.04968749999436828,
+                "0.95": 0.08168749999436822
+              },
+              "extrap_magnitude": {
+                "0.05": -0.1266250000050666,
+                "0.25": -0.07500000000506661,
+                "0.5": -0.030000000005066613,
+                "0.75": 0.013124999994933386,
+                "0.95": 0.05893749999493334
+              }
+            },
+            "tost_min_margin_quantiles": {
+              "0.05": 0.10507899820935176,
+              "0.25": 0.13392925872752498,
+              "0.5": 0.15493680156891942,
+              "0.75": 0.17532270095484923,
+              "0.95": 0.23507343217832957
+            }
+          },
+          "lmm_all_tables": {
+            "n": 100,
+            "n_reject": 8,
+            "n_fit_failed": 0,
+            "fit_stage_counts": {
+              "level_0": 100
+            }
+          },
+          "true_values": {
+            "random_effect_variance": 3.5,
+            "marginal_rule_rate": {
+              "T1": {
+                "id": 0.9970451555685313,
+                "interp": 0.9924767277694195,
+                "extrap_magnitude": 0.9783769488646364
+              },
+              "T2": {
+                "id": 0.7604070934249075,
+                "interp": 0.7558386656314274,
+                "extrap_magnitude": 0.7417388867260792
+              }
+            },
+            "probability_scale_contrasts": {
+              "interp": 5.631717314713569e-12,
+              "extrap_magnitude": 5.066613795179364e-12
+            }
+          },
+          "true_logit_interaction_contrasts": {
+            "interp": 0.9624797985,
+            "extrap_magnitude": 2.0491025406
+          },
+          "g2": {
+            "count": 0,
+            "n": 30,
+            "rate": 0.0,
+            "ci": [
+              0.0,
+              0.11570330822202779
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.1,
+            "evaluable": true,
+            "closed": false
+          },
+          "g1": {
+            "count": 20,
+            "n": 100,
+            "rate": 0.2,
+            "ci": [
+              0.12665555210195584,
+              0.2918426890886281
+            ],
+            "ci_level": 0.95,
+            "threshold": 0.075,
+            "evaluable": true,
+            "closed": true
+          },
+          "n_item": 80,
+          "sigma": 1.0,
+          "rho": 0.0,
+          "frames_verified": 100,
+          "frames_listed_in_manifest": 100,
+          "lmm_fitted_this_invocation": 100,
+          "lmm_wall_seconds_this_invocation": 23.525053200079128,
+          "lmm_seconds_per_table": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.4,
+            1.6,
+            1.7,
+            1.8,
+            1.8,
+            1.9,
+            1.9,
+            2.0,
+            2.0,
+            2.1,
+            2.1,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.2,
+            2.3,
+            2.3,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.4,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.5,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.6,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.7,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.8,
+            2.9,
+            2.9,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.0,
+            3.1,
+            3.2,
+            3.2,
+            3.2,
+            3.3,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.4,
+            3.5,
+            3.5,
+            3.5,
+            3.5,
+            3.5,
+            3.5,
+            3.5,
+            3.6,
+            3.6,
+            3.8,
+            3.8,
+            4.1,
+            4.2,
+            4.2,
+            4.2,
+            4.3,
+            4.3,
+            4.4,
+            4.4,
+            4.4,
+            4.4,
+            4.6,
+            4.6,
+            5.0,
+            5.4,
+            5.5,
+            5.6,
+            5.8,
+            6.1
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,56 @@
+# configs/ceiling_remedy.yaml — 天井の手当て C の評価(PLAN-046 §6・I3 / ADR-132 決定4 / ADR-133)。**実験ではない。**
+#
+#   python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --dry-run
+#   python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16   # ★起動は人間
+#   (スモーク: --max-rep 1 --out-dir <scratch>。probnull の表がまだ無いときは --source-dir ceiling_probnull=<スモークの出力>)
+#
+# 既存の 8 シート(800 表。results/power_sim/ceiling の frames/・fits/)と ceiling_probnull の 2 シート(200 表)の各表に、
+# 天井の規則(I1)を当て、天井ならば恒等リンクの LMM(I2。power_sim_fit_lmm.R)、そうでなければ既存のロジットの当てはめ(fits/)の
+# LRT で棄却を数える(分岐した手続き全体)。G1・G2 の判定と CP95 を点ごとに機械的に出す(ADR-133 決定2〜4)。
+# LMM は**全部の表**に当てる(C の道に入った反復の数は表から決まる。入らなかった表の LMM は記述だけ)。
+# 当てはめの手続きの値(fit.refit・reduction_order・allfit)は、元の config の fit をそのまま使う(ADR-133 決定1: ロジットの道と同じ)。
+# 元の config どうしで fit・dgp・alpha・tost_alpha が食い違えば止まる。
+#
+# **★G1・G2 の閾値は評価の前に人間が決めた値(ADR-133)。評価の結果を見て変えない。**
+
+analysis:
+  id: ceiling_remedy
+  plan: plans/PLAN-046-ceiling-remedy.md
+
+# 表と当てはめの在り処。results_dir の <シート>/frames・<シート>/fits を読む(frames は使う前に乱数種から組み直して照合する)
+sources:
+  - id: ceiling
+    config: configs/power_sim_ceiling.yaml
+    results_dir: results/power_sim/ceiling
+    run_id: 20261016_130005_power_sim_ceiling
+  - id: ceiling_probnull
+    config: configs/power_sim_ceiling_probnull.yaml
+    results_dir: results/power_sim/ceiling_probnull
+    run_id: null              # ★本実行の後に転記する(null のあいだは run_id を記録しないだけで、評価は止めない)
+
+n_rep: 100                    # 各点の反復数(元の run の simulation.n_rep_stages の最後と同じでなければ止まる)
+
+# ---- 恒等リンクの LMM(PLAN-046 §5.6 / ADR-133 決定1)--------------------------------------------------------------
+lmm:
+  reml: false                 # ML(LRT のため)。true は受け付けない
+  # ★PLAN-046 §5.6 の実装上の注意(決定ではない): lme4 2.0.6 の lmerControl() の既定(2026-10-22 にこの機械で確認)を明示した。
+  # ロジットの道(glmer)の既定は c(bobyqa, Nelder_Mead) で、同じではない
+  optimizer: nloptwrap
+  rscript: null               # null なら PATH と既定の導入先から探す(--rscript で上書き可)
+  r_libpath: null
+  n_workers: 1                # 実行資源のつまみ(結果は依らない)。--workers で上書きする
+
+# ---- C の採否の門(PLAN-046 §6.4 / ADR-133 決定2〜4)-----------------------------------------------------------------
+gates:
+  g1:                         # 過誤の門: 分岐した手続き全体の無条件の棄却率(失敗・実施不能は非棄却・分母から除かない)
+    sheets: [ceiling_probnull_L05, ceiling_probnull_L50]
+    ci_level: 0.95
+    closes_if_lower_above: 0.075   # どちらかの点で CP95 下端 > これ なら閉じる
+  g2:                         # 実行可能性の門: C の道に入った反復のうち、LMM が §5.6 の最後でも当てはまらなかった率(全点)
+    ci_level: 0.95
+    closes_if_lower_above: 0.10    # どれかの点で CP95 下端 > これ なら閉じる(C の道に入った反復が 0 の点は判定できない)
+
+# ---- 記述(§6.1)------------------------------------------------------------------------------------------------------
+report:
+  ci_level: 0.95
+  quantiles: [0.05, 0.25, 0.5, 0.75, 0.95]

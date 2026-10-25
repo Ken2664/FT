@@ -1,0 +1,6 @@
+{
+  "run_id": "20261022_115546_power_sim_ceiling_probnull",
+  "created_utc": "2026-10-22T11:55:46.828262+00:00",
+  "git_sha": "7a0df660e6b441e662f9b737ce5c4b1aa4dae3f9",
+  "config_source": "configs\\power_sim_ceiling_probnull.yaml"
+}

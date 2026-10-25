@@ -1,0 +1,14 @@
+{
+  "run_id": "20261022_115546_power_sim_ceiling_probnull",
+  "stage": 1,
+  "n_rep": 100,
+  "role": "ceiling_probe",
+  "failed_rate": {
+    "ceiling_probnull_L05": {
+      "80_1_0": 0.0
+    },
+    "ceiling_probnull_L50": {
+      "80_1_0": 0.01
+    }
+  }
+}

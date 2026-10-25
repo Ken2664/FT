@@ -10646,3 +10646,36 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: 開始手順 → probnull の停止を確かめた(L_50 fits 0・プロセス無し)→ ADR-130・131・REVIEW R3/R5/§D.3・`pool.py`・`eval_pool.py` を読んだ → 読み取りだけのスクリプトで現行の割当を再現し、フィルタ後の供給を数えた(スクリプトはスクラッチ。数は I2 で manifest に記録して再現する)→ PLAN-045 草案
 > **★やっていないこと**: probnull の再開(人間)・`code/`・config・データの変更・push・GPU
+
+## 2026-10-25(その182・183 の STATE.md の旧ブロック。その184 で置き換え)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-24(その182。PLAN-045 I1〜I6 を実装(主プールの `interp` セルから逆順が K にある組を除く・`mirror_in_K` の列・主プールと交差プールを作り直した)。probnull は L_50 で停止のまま(触っていない)。Claude Opus 5.5(IMPLEMENTER)。GPU 0・pod 0)
+**★追記 2026-10-24T14:00:47Z(その183)**: 人間の指示で probnull の生成を再開し、終わったら評価(`ceiling_remedy`)を続けて起動する鎖を起動した(pid 7300。進み具合は `results/power_sim/ceiling_probnull_chain_20261024.status`)。
+(**次: 鎖の完了を確かめる → ANALYST が PLAN-046 §6.1 と G1・G2。順6 の測り直し(PLAN-045 I7)の起動は人間**。)
+
+### いま何をしているか
+
+> **★★2026-10-24(その182・最新)。Phase 0。Claude Opus 5.5(IMPLEMENTER)。PLAN-045 I1〜I6 を実装した。GPU 0・pod 0**
+> - **やったこと**: `pool.mirror_in_k`(a ≠ b かつ (b, a) ∈ K)と候補の事前フィルタ / 欄 `eval.interp_mirror_filter`(主の config 4 本だけ真。パイロットの config は欄なし)/ T1c の先頭の組にも同じ欄 / `frame.py` に列 `mirror_in_K`(記録だけ)/ 主プールと `main_t2_cross` を作り直した(2 回生成でバイト一致)。manifest に出た数は PLAN-045 §3 と一致(組合せ論的な計数): 除いた組 473(carry 115・nocarry 358)・`interp` 14 セルの `mirror_in_K` は 0・`id` は T1 21・T2 26 のまま・`id`/`extrap_magnitude` のセルは不変。主 `pairs_hash` `c20991dd…`・`items_sha256` `6bb6084d…`(旧 `13e8479c…`・`d272204f…`)。パイロットのプールは不変(テスト)。詳細は PLAN-045 §11
+> - ~~**★probnull の生成は途中で止まったまま**: `ceiling_probnull_L05` fits 100/100・`ceiling_probnull_L50` fits 0(その182 の開始時に確認。触っていない)。**再開は人間が決める**(HANDOFF その179 のコマンド)~~ → **★その183(2026-10-24T14:00:47Z)人間の指示で再開した**: 同じコマンドで再開(済んだ反復は飛ばす = `power_sim.py` の `run_sheet_stage`)し、終了コード 0 なら `ceiling_remedy --workers 16` を続けて起動する鎖(スクラッチの PowerShell・pid 7300・走っている間は `SetThreadExecutionState` でスリープを止める。電源設定は変えない)。`invocations.jsonl` の 2 行目: git `25e24e9`・`tracked_diff_empty` true。起動の後で 7a0df66..HEAD の差分は `data_gen/`・`frame.py`・主の config だけ(`power_sim`・R・probnull・remedy の config は不変)。ログ `results/power_sim/ceiling_probnull_launch_20261024.log(.err)`・`results/ceiling_remedy_launch_20261024.log(.err)`。見込み(推算): L_50 は L_05 の実測 83 分と同じくらい → 評価は数分
+> - **★順6 の印は旧い主プールで付いた**(`interp` セルはほぼ全部入れ替わった)。測り直し(PLAN-045 I7)の起動は人間
+> - **天井のシートの数値の正本は PLAN-044 §13.1**
+
+### 次のアクション
+
+> **★★2026-10-24(その182・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. ~~**★人間: probnull の生成の再開を決める**~~ **★その183 で再開・評価まで鎖で起動済み(pid 7300)。次は完了の確認(status ファイルの `end ceiling_remedy exit=0`・L_50 fits 100・`results/ceiling_remedy` の summary)**(L_50 が fits 0 で停止。`python -m code.analysis.power_sim --config configs/power_sim_ceiling_probnull.yaml --out-dir results/power_sim/ceiling_probnull --through-stage 1 --keep-frames --workers 16`)→ 評価 `python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16` → ANALYST が PLAN-046 §6.1 と G1・G2 を記述 → 人間が C の採否(別の ADR)
+> 2. **人間: 順6 の測り直し(PLAN-045 I7)の起動を決める**(作り直した主プールで R1 の設定を 1 run。RUNNER。S4 と同じ pod でよい。旧い印と新しい印を並べて記録・解釈は人間)
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。2 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 の C の採否と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(パイロット用プールを揃えるか。**新しい主プールの組のうち逆順がパイロットのプールにある組は 199**。manifest の `fill.interp_mirror_filter.reverse_in_counterpart_pool`)/ その166 の 5 の項目 / 確率の尺度の TOST の Δ(ADR-132 決定5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)
+
+### 引き継ぎ
+
+> **★★2026-10-24(その182・最新)。Claude Opus 5.5(IMPLEMENTER。HANDOFF の推奨は Sonnet)。PLAN-045 I1〜I6 を実装し commit した。次は人間が probnull の再開と I7 の起動を決める。**
+>
+> **★やったこと**: 開始手順(probnull は L_50 fits 0 のまま → IMPLEMENTER の分岐)→ skill `code-style` → `pool.py`・`eval_pool.py`・`composition_pool.py`・`frame.py`・config 4 本 → 主プールと交差プールを作り直した → テスト `test_interp_mirror_filter.py`(新)・`test_frame.py`・`test_order6b_pilot.py` → PLAN-001/002 の注・PLAN-023/037 の旧いハッシュ → PLAN-045 §9・§11
+> **★やっていないこと**: probnull の再開・I7(順6 の測り直し)・`05_STATISTICS.md`(感度解析の登録)・R5 の判断・push・GPU。worktree `claude/great-bardeen-9c1ac4` は main に取り込み済みで変更なし(登録簿に無いが触っていない)

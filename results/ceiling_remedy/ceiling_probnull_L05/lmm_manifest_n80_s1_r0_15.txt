@@ -1,0 +1,17 @@
+loglik_tolerance=0.001
+beta_move_tolerance=0.01
+use_refit_for_lrt=true
+max_reduction_level=3
+allfit_optimizers=bobyqa,Nelder_Mead,nlminbwrap,nloptwrap.NLOPT_LN_NELDERMEAD,nloptwrap.NLOPT_LN_BOBYQA
+allfit_start_from_mle=false
+allfit_min_aligned=2
+expected_r_version=4.6.1
+expected_lme4_version=2.0.6
+fit=C:/Users/keenk/paper/FT/results/power_sim/ceiling_probnull/ceiling_probnull_L05/frames/frame_n80_s1_r0_0094.csv|results/ceiling_remedy/ceiling_probnull_L05/lmm/lmm_n80_s1_r0_0094.json
+fit=C:/Users/keenk/paper/FT/results/power_sim/ceiling_probnull/ceiling_probnull_L05/frames/frame_n80_s1_r0_0095.csv|results/ceiling_remedy/ceiling_probnull_L05/lmm/lmm_n80_s1_r0_0095.json
+fit=C:/Users/keenk/paper/FT/results/power_sim/ceiling_probnull/ceiling_probnull_L05/frames/frame_n80_s1_r0_0096.csv|results/ceiling_remedy/ceiling_probnull_L05/lmm/lmm_n80_s1_r0_0096.json
+fit=C:/Users/keenk/paper/FT/results/power_sim/ceiling_probnull/ceiling_probnull_L05/frames/frame_n80_s1_r0_0097.csv|results/ceiling_remedy/ceiling_probnull_L05/lmm/lmm_n80_s1_r0_0097.json
+fit=C:/Users/keenk/paper/FT/results/power_sim/ceiling_probnull/ceiling_probnull_L05/frames/frame_n80_s1_r0_0098.csv|results/ceiling_remedy/ceiling_probnull_L05/lmm/lmm_n80_s1_r0_0098.json
+fit=C:/Users/keenk/paper/FT/results/power_sim/ceiling_probnull/ceiling_probnull_L05/frames/frame_n80_s1_r0_0099.csv|results/ceiling_remedy/ceiling_probnull_L05/lmm/lmm_n80_s1_r0_0099.json
+lmm_optimizer=nloptwrap
+lmm_reml=false

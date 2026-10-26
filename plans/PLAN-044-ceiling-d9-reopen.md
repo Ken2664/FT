@@ -259,7 +259,7 @@
 - [x] `--dry-run` とスモーク(各シート 1 表)が通る(その173。8 表とも当てはめ失敗 0・`allFit` の段に着いたのは 2 表。時間は §13。**配線確認だけで、値は主張・効果量に使わない**)
 - [x] 天井のシートを回した(人間が起動)。`results/power_sim/ceiling/` に §3.1 の量と表が残った(その175 で確認。8 シート x 100 反復 = 800 fits・`power_sim_summary.json`・`cell_rates_*.json`・`frames/`。run_id `20261016_130005_power_sim_ceiling`。**git の扱いは人間待ち**: 未追跡のまま)
 - [x] ANALYST が記述した / `STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` を更新した(その175。§13.1。解釈なし)
-- [ ] 手当ての PLAN へ引き継いだ(Q5 (a))
+- [x] 手当ての PLAN へ引き継いだ(Q5 (a))。PLAN-046(ADR-132・133)→ 2026-10-26 ADR-135 で C は採らない・手当ては B(天井なら主要検定は実施不能)・A は感度解析
 
 ---
 

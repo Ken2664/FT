@@ -8204,3 +8204,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-10-25(その184・引き継ぎ)   [actor: ANALYST (Claude Opus 5.5)]
 - PLAN-046 の評価の記述を終えた(`48098f0`)。`logs/HANDOFF.md` を更新した(次は PLANNER・推奨 Opus。人間に C の採否か I7 かを聞き、答えに沿って ADR を起こすか RUNNER として I7)。RunPod は使っていない(GPU 0)
+
+## 2026-10-26(その185・C の採否 = ADR-135)   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その184)と `git log`・`STATE.md` は一致。追跡ファイルの差分なし(未追跡は HANDOFF の大きい結果と `.claude/commands/`)。HANDOFF の推奨モデル(Opus)と一致
+- 判断材料の表(PLAN-046 §13.1(d) の G1・G2・ADR-133 決定4 の文言・G1 の棄却の道ごとの内訳・B と A の利点と代償)をチャットで示し、`AskUserQuestion` 1 回 3 問 → **人間は 3 問とも推奨**: ADR-133 決定4 を適用して C は採らない / 次の道は B(A は感度解析のまま)/ config の probnull の `run_id` を転記
+- ADR-135 を起こした(提案 エージェント / 採択 人間)。`Documents/05_STATISTICS.md` §2 の天井の弱点欄の「手当ては未決」を打ち消して B を書き、下限規則の段落に「天井の規則が当たったときも実施不能」の 1 行 / `configs/ceiling_remedy.yaml` の `ceiling_probnull` の `run_id` = `20261022_115546_power_sim_ceiling_probnull` / PLAN-044 §11 の最後の項目・PLAN-046 §11 の残り 2 項目を閉じた(PLAN-046 は完了)/ `OPEN-ITEMS.md` の「C の採否の基準」の行を閉じた
+- **まだ**: B を主要解析のコードと run3 の検出力のシミュレーションに入れること(ADR-135 リスク欄。次の PLAN)。`code/` は不変。`pytest code/tests -q` を通した。GPU 0・pod 0

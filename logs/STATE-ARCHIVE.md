@@ -10679,3 +10679,35 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: 開始手順(probnull は L_50 fits 0 のまま → IMPLEMENTER の分岐)→ skill `code-style` → `pool.py`・`eval_pool.py`・`composition_pool.py`・`frame.py`・config 4 本 → 主プールと交差プールを作り直した → テスト `test_interp_mirror_filter.py`(新)・`test_frame.py`・`test_order6b_pilot.py` → PLAN-001/002 の注・PLAN-023/037 の旧いハッシュ → PLAN-045 §9・§11
 > **★やっていないこと**: probnull の再開・I7(順6 の測り直し)・`05_STATISTICS.md`(感度解析の登録)・R5 の判断・push・GPU。worktree `claude/great-bardeen-9c1ac4` は main に取り込み済みで変更なし(登録簿に無いが触っていない)
+
+## 2026-10-26(その184 の STATE.md の旧ブロック。その185 で置き換え)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-10-25(その184。ANALYST が PLAN-046 §6.1 の量と G1・G2 を公式 summary から §13.1 に記述した [run:20261024_153943_ceiling_remedy]。**G1 は 2 点とも閉じた・G2 は開いた**(機械的な判定)。解釈・C の採否は書いていない。Claude Opus 5.5(ANALYST)。GPU 0・pod 0)
+(**次: 人間が C の採否(ADR-133 決定4 の適用の確認と、B か A に戻るか)を別の ADR で決める。順6 の測り直し(PLAN-045 I7)の起動も人間**。)
+
+### いま何をしているか
+
+> **★★2026-10-25(その184・最新)。Phase 0。Claude Opus 5.5(ANALYST)。PLAN-046 の評価の記述を終えた。GPU 0・pod 0**
+> - **鎖は完了**: probnull の生成(2 回目の起動。`L_50` 100 表・終了コード 0)→ 評価 `ceiling_remedy`(終了コード 0)[run:20261022_115546_power_sim_ceiling_probnull] [run:20261024_153943_ceiling_remedy]。status ファイルに `done`
+> - **G1(過誤の門)は閉じた**: 分岐した手続き全体の棄却 `probnull_L05` 42/100 [CP95 0.322, 0.523]・`probnull_L50` 20/100 [0.127, 0.292](閉じる条件 = 下端 > 0.075)。**G2(実行可能性の門)は開いた**: C の道の当てはめ失敗は判定できた 6 点すべてで 0(C の道に入った反復が 0 の 4 点は判定できない)。数値の正本は **PLAN-046 §13.1**
+> - ADR-133 決定4 の文言は「G1 か G2 のどちらかが閉じたら C は採らない」。**適用の確認と次の道(B か A か)は人間が別の ADR**。エージェントは解釈を書いていない
+> - **★順6 の印は旧い主プールで付いた**。測り直し(PLAN-045 I7)の起動は人間 / 天井のシートの数値の正本は PLAN-044 §13.1
+
+### 次のアクション
+
+> **★★2026-10-25(その184・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **★人間: C の採否を別の ADR で決める**(PLAN-046 §13.1 の記述。G1 閉・G2 開。ADR-133 決定4 の効力の適用の確認と、B か A に戻るか)→ `05_STATISTICS.md` §2 の弱点欄と PLAN-044 §11 の最後の項目を閉じる(PLAN-046 §11)。あわせて `configs/ceiling_remedy.yaml` の probnull の `run_id`(null)を転記するか
+> 2. **人間: 順6 の測り直し(PLAN-045 I7)の起動を決める**(作り直した主プールで R1 の設定を 1 run。RUNNER。S4 と同じ pod でよい。旧い印と新しい印を並べて記録・解釈は人間)
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。2 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 の C の採否と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(新しい主プールの組のうち逆順がパイロットのプールにある組 199。manifest の `fill.interp_mirror_filter.reverse_in_counterpart_pool`)/ その166 の 5 の項目 / 確率の尺度の TOST の Δ(ADR-132 決定5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)
+
+### 引き継ぎ
+
+> **★★2026-10-25(その184・最新)。Claude Opus 5.5(ANALYST。HANDOFF の推奨と一致)。PLAN-046 §6.1 と G1・G2 を §13.1 に記述し commit した。次は人間が C の採否。**
+>
+> **★やったこと**: 開始手順 → 鎖の完了を確認(`done`・両方 exit=0・`L_50` fits 100・pid 7300 は終了)→ 公式 summary から §6.1 の量・G1・G2 を PLAN-046 §13.1 に転記 → 照合(表の組み直し 100/100 × 10 点・天井 0 の点はロジットの棄却が PLAN-044 §13.1(a) と同じ数)→ 結果の小さいファイル(summary・config・`reps_*.json`・manifest)を commit(`lmm/`・`fits/`・`frames/`・`.log` は入れていない)
+> **★やっていないこと**: 解釈・C の採否・config の `run_id` の転記・I7・push・GPU。worktree `claude/great-bardeen-9c1ac4` は触っていない

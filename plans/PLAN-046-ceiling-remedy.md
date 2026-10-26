@@ -4,7 +4,7 @@
 > 変更したら `logs/CHANGELOG.md` に記録し、git commit する。
 
 - 作成日: 2026-10-22
-- 最終更新: 2026-10-22(その177。§5.6 の縮退の扱いと §6.4 の採否の基準 = ADR-133)
+- 最終更新: 2026-10-26(その185。C は採らない・次の道は B = ADR-135)
 - ステータス: **`採択`(ADR-132。2026-10-22 その176。§4 の Q1〜Q7 は 7 問とも推奨 (a)。C の採否は評価の後に別の ADR)** ~~`草案`(人間のレビュー待ち。§4 の Q1〜Q7 は人間が決める)~~
 - ~~**実装の前に残っているもの**: §5 の恒等リンクの LMM の縮退の扱い(PLANNER が書き人間が確認)/ §6.4 の C の採否の基準の値(人間。評価の起動の前)~~ → **★2026-10-22(その177)ADR-133 で埋めた**(§5.6・§6.4)。実装(§7 の I1〜I5)に進める
 - 担当: PLANNER(草案 = Opus 5.5)/ 実装は IMPLEMENTER / 評価の run の起動は人間 / 評価の記述は ANALYST / 手当ての採否は人間
@@ -273,8 +273,8 @@
 - [x] I1〜I4 を実装し `pytest code/tests -q` が通る(`c11164d`・`02cc6ce`。2605 passed)
 - [x] I5 のスモーク(probnull のロジット 2 表・評価の LMM 10 表・`--dry-run`)と §13 の時間・算術。起動は人間(§13 の 2026-10-22 その179 の行)
 - [x] 評価を回した(人間が起動)・ANALYST が §6.1 を記述した(§13.1。2026-10-25 その184)
-- [ ] 人間が C の採否を決めた(別の ADR)・`05_STATISTICS.md` §2 の弱点欄と PLAN-044 §11 の最後の項目を閉じた
-- [ ] `STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` を更新した
+- [x] 人間が C の採否を決めた(別の ADR)・`05_STATISTICS.md` §2 の弱点欄と PLAN-044 §11 の最後の項目を閉じた。ADR-135(C は採らない・B・A は感度解析)
+- [x] `STATE.md`・`logs/CHANGELOG.md`・`logs/OPEN-ITEMS.md` を更新した(その185)
 
 ---
 
@@ -293,6 +293,7 @@
 | §6.4 G1 過誤の門(その177) | (a) `ceiling_probnull` の `L_05`・`L_50` のどちらかで分岐した手続き全体の棄却率の CP95 下端 > 0.075 なら閉じる | 2026-10-22 |
 | §6.4 G2 実行可能性の門(その177) | (a) 全 10 点の各点で C の道の LMM の当てはめ失敗率の CP95 下端 > 0.10 なら閉じる | 2026-10-22 |
 | §6.4 効力と検出力(その177) | (a) 検出力は記述だけ。門が閉じたら C は採らない。両方開いても採否は人間が別の ADR で | 2026-10-22 |
+| C の採否(その185。ADR-135) | ADR-133 決定4 を適用して C は採らない(G1 が 2 点とも閉じた)/ 次の道は B(天井の規則が当たれば主要検定は実施不能)・A は感度解析のまま / config の probnull の `run_id` を転記 | 2026-10-26 |
 | §6.2 `ceiling_probnull` の DGP(その178。提案 エージェント / 採択 人間) | 案 A: T1 の行 = `ceiling_null` と同じ(P0 の T1 の行を T1 × `id` = `L` にずらす)・T2 × `id` = P0 の 1.8・T2 の interp・extrap を周辺確率の差の差が 0 になるよう解く(他の案: B = T1 の行を `ceiling_p0` と同じ [L, L, 0.6]・C = T2 の行を P0 のまま T1 の interp・extrap を解く) | 2026-10-22 |
 
 ---
@@ -307,6 +308,7 @@
 | 2026-10-22 | **I1〜I4 の実装(その178)**: I1 `ceiling_remedy.ceiling_rule`(セルが欠ける表は判定せず止まる)/ I2 `power_sim_fit_lmm.R`(新しいファイル。`power_sim_fit.R` は不変 = SHA-256 をテストで固定。最適化は lme4 2.0.6 の `lmer` の既定 `nloptwrap` を config に明示)/ I3 `ceiling_remedy.py` + `configs/ceiling_remedy.yaml`(全部の表に LMM・表は乱数種から組み直して照合・G1・G2 を点ごと)/ I4 `ceiling_probnull.py` + `configs/power_sim_ceiling_probnull.yaml`(案 A。`solved` は null。`rng_seed` 20261022)・`power_sim.py` に `probability_null` のずらし方。`pytest` 2604 passed。**配線の確認(主張に使わない)**: 既存の 8 シートの反復 0 に `--max-rep 1` で当て、LMM は 1 表 1.5〜4.1 秒(スクラッチ)。**未了**: 解く処理の本実行と転記・probnull のスモーク(ロジット 2 表)・評価の probnull 側のスモーク | — | IMPLEMENTER (Opus 5.5) |
 | 2026-10-22 | **I4 の残りと I5(その179)**: (1) `python -m code.analysis.ceiling_probnull --config configs/power_sim_ceiling_probnull.yaml` を作業ツリーがきれいな状態(`tracked_diff_empty` true)で本実行 → `solved` = L_05: T2.interp 1.5847352592・T2.extrap_magnitude 1.1084329182 / L_50: 1.7624797985・1.6491025406(最大 \|残差\| 2.5e-12 / 5.6e-12)。試行の値と一致。そのまま config に転記し、出力 JSON との一致をテストで固定して当てはめの前に commit(`02cc6ce`)。(2) **スモーク(スクラッチ。主張に使わない)**: ロジット = probnull の config の写し(`n_rep_stages: [1]`)で `--through-stage 1 --keep-frames --workers 2`。2 表(L_05・L_50 各 1)が並行して **04:30:24Z → 04:46:58Z = 994 秒**で終了(1 表あたり 994 秒以下の壁時計。表の生成を含む)・当てはめ失敗 0/0 [run:20261022_043027_power_sim_ceiling_probnull]。評価 = `ceiling_remedy --max-rep 1 --workers 8 --source-dir ceiling_probnull=<スモークの出力>` で 10 表に LMM: **1 表 1.4〜3.1 秒(平均 1.86 秒)・コマンド全体 36 秒**、終了コード 0 [run:20261022_044738_ceiling_remedy]。`--dry-run` も通った(表 1000・probnull 200 表)。(3) **算術(推算。並列時の遅れは未測定)**: probnull の生成 200 表 × 994 秒 ÷ 16 並列 ≈ 12,400 秒 ≈ **3.5 時間**(PLAN-044 I5 の 1 表平均 853.75 秒なら ≈ 3.0 時間)/ 評価の LMM 1000 表 × 1.86 秒 ≈ 1,860 秒 ≈ 31 分(直列)・÷ 16 並列 ≈ 2 分 + R の起動と表の組み直し(10 表のスモークの 36 秒が示すように固定費がある)。なお `ceiling_remedy --dry-run` の cost 行の「1 表約 2 秒」はスモークの平均 1.86 秒と整合(コード・config の文言は変えていない)。(4) 未了: probnull の本生成(`--out-dir results/power_sim/ceiling_probnull --workers 16`)と評価の本実行(`--out-dir results/ceiling_remedy --workers 16`)= **人間が起動**。GPU 0・pod 0 | [run:20261022_041749_ceiling_probnull_solve] | IMPLEMENTER (Sonnet 5.5) |
 | 2026-10-25 | **評価の記述(その184)**: 生成は人間の指示で 2026-10-24T14:00:48Z に再開(同じ run の 2 回目の起動。`L_05` の 100 本は飛ばした)→ 終了コード 0(15:39:38Z。`L_50` 100 表で 5,930 秒 = 16 並列)→ 評価 `ceiling_remedy --workers 16` が続けて起動 → 終了コード 0(15:44:12Z)。`invocations.jsonl` は両方とも `tracked_diff_empty` true(生成の 2 回目 git `25e24e9`・評価 git `f755f60`)。§6.1 の量と G1・G2 を公式 summary(`results/ceiling_remedy/ceiling_remedy_summary.json`)から §13.1 に転記した。**G1 は 2 点とも閉じた・G2 は開いた**(機械的な判定)。解釈・C の採否は書いていない(人間が別の ADR)。`code/`・config は不変 | [run:20261022_115546_power_sim_ceiling_probnull] [run:20261024_153943_ceiling_remedy] | ANALYST (Opus 5.5) |
+| 2026-10-26 | **C の採否(その185)**: 人間が ADR-133 決定4 の適用を確認し C は採らない・次の道は B・A は感度解析のまま・config の probnull の `run_id` を転記(ADR-135。3 問とも推奨)。`05_STATISTICS.md` §2 の弱点欄と PLAN-044 §11 を閉じた。`code/` は不変。**この PLAN は完了** | — | PLANNER (Opus 5.5) / 採択 人間 |
 
 ### 13.1 C の評価の記述 [run:20261024_153943_ceiling_remedy](すべて記述。**解釈・C の採否は書かない**)
 

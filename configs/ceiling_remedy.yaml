@@ -26,7 +26,7 @@ sources:
   - id: ceiling_probnull
     config: configs/power_sim_ceiling_probnull.yaml
     results_dir: results/power_sim/ceiling_probnull
-    run_id: null              # ★本実行の後に転記する(null のあいだは run_id を記録しないだけで、評価は止めない)
+    run_id: 20261022_115546_power_sim_ceiling_probnull   # 2026-10-26 転記(ADR-135 決定4。評価 20261024_153943_ceiling_remedy は転記の前に回ったので summary の source_run_id は null)
 
 n_rep: 100                    # 各点の反復数(元の run の simulation.n_rep_stages の最後と同じでなければ止まる)
 

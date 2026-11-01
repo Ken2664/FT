@@ -1,9 +1,9 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-10-26(その185)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: 「このセッションでやること」を終えた(人間の C の採否を ADR-135 に起こした。`3ecbbcb`)+ context-guard(約 144k トークン)
+生成: 2026-11-01(その187)/ 直前セッションの役割: PLANNER
+直前セッションが終了した理由: PLAN 完了(PLAN-047 の草案を書いた。`b1c7b20`)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Opus — B を主要解析と run3 に入れる範囲の PLAN の起草(`10_CONTEXT_POLICY.md` §7 の設計判断・統計の行)。人間が I7 を選んだ場合だけ Sonnet(RUNNER)でよい
+**推奨モデル(次のセッション)**: Opus — PLAN-047 §4 の人間の回答を ADR に起こす(`10_CONTEXT_POLICY.md` §7 の設計判断・統計の行)。人間が I7 を選んだ場合だけ Sonnet(RUNNER)でよい
 
 ---
 
@@ -13,7 +13,7 @@
 
 ## 分岐(最初に人間に 1 回だけ聞く。推奨を先頭に)
 
-- **★(A) B を入れる PLAN の草案**: ADR-135 リスク欄の「天井の規則は主要解析のコードにまだ入っていない」を受け、`plans/PLAN-047-*.md` を起草する。範囲 = (1) 実データの主要解析で、当てはめの前に天井の規則(ADR-132 決定2。`code/analysis/ceiling_remedy.py` の `ceiling_rule`)を判定し、当たれば「実施不能」と記録・報告する経路 (2) run3 の検出力のシミュレーションで天井の反復をどう数えるか(ADR-128 決定1 (A2) と同じく非棄却か)(3) C 用に作った確率の尺度の TOST の Δ(ADR-132 決定5)が要るかどうか。**人間が決める問いは判断材料の表と推奨付きで §4 に並べ、決めない**。草案を書いたら commit して人間のレビュー待ちで止まる
+- **★(A) PLAN-047 §4 の Q1〜Q7 を人間に諮り、ADR に起こす**: `plans/PLAN-047-ceiling-b-into-primary-and-run3.md` §4 の要約の表と各問いの表をチャットで先に示し(ADR-097 決定6)、`AskUserQuestion` で Q1〜Q7 を聞く(1 回 4 問まで → 2 回)。答えを ADR-137 に起こす(提案 エージェント / 採択 人間)・PLAN-047 のステータス・§10 記入欄・`OPEN-ITEMS.md`(Q7 の扱い)を更新して commit。実装(I1〜I5)は次の IMPLEMENTER
 - **(B) 順6 の測り直し(PLAN-045 I7)**: 人間が起動を指示したら RUNNER として `infra/RUNPOD.md` §4 の手順で 1 run(設定は順6 R1・作り直した主プール)。10 GPU 時間を超えるなら起動前に承認
 
 ## このセッションでやること(1つだけ)
@@ -22,23 +22,22 @@
 
 ## 直前セッションで確定したこと(ファイルに書き込み済み)
 
-- **ADR-135(人間が 3 問とも推奨)**: ADR-133 決定4 を適用し **C は採らない**(G1 = `probnull_L05` 42/100 [CP95 0.322, 0.523]・`probnull_L50` 20/100 [0.127, 0.292] で 2 点とも閉じた [run:20261024_153943_ceiling_remedy])/ **次の道は B**(天井の規則が当たれば主要検定は「実施不能」= `05_STATISTICS.md` §2 の下限規則と同じ扱い)/ A は感度解析のまま / `configs/ceiling_remedy.yaml` の probnull の `run_id` を転記
-- `05_STATISTICS.md` §2 の天井の弱点欄と下限規則の段落・PLAN-044 §11・PLAN-046 §11〜13(PLAN-046 は完了)・`OPEN-ITEMS.md` の行を閉じた
-- B の下での分岐した手続き全体の棄却の算術(ANALYST の記述ではない)は ADR-135 リスク欄にある
-- `pytest code/tests -q` 2624 passed。`code/` は不変
+- PLAN-047 草案(ステータス `草案`)。§3 の事実: 実データの主要解析 `code/analysis/primary.py` は**未実装**(PLAN-016 §7-5)/ `ceiling_rule` は `code/analysis/ceiling_remedy.py` にだけあり、`ceiling_remedy` が `power_sim` を import しているので `power_sim` から使うには別モジュールへ移す必要がある / `power_sim.summarise_point` に天井の判定を受け取る口は無い / run3 のシートで天井が何回当たるかは未測定
+- §4 の推奨はすべて (a): Q1 規則を共有モジュールへ移し `primary.py` 本体は別 PLAN / Q2 フィルタ → df → 天井 → 当てはめ / Q3 GLMM は当てて出力に記録・報告は「実施不能(天井)」/ Q4 run3 は表を組んだ直後に判定・天井の反復は非棄却・TOST Δ = +∞ / Q5 実行可能性の門には入れない / Q6 config に欄を足さない・`ceiling_probe` には当てない / Q7 ADR-132 決定5 は C 用として閉じ、ADR-114 決定6 の手続きと Δ は S5
+- `code/` は不変。GPU 0・pod 0
 
 ## 触ってよいファイル / 読むべき範囲
 
-- (A): `logs/DECISIONS.md` の ADR-132・133・135(`grep -n '^## ADR-13[2-5]'`)・`Documents/05_STATISTICS.md` §2(下限規則 = 62〜100 行付近・天井の弱点欄)・`plans/PLAN-046-ceiling-remedy.md` §5・§8・`code/analysis/ceiling_remedy.py` の `ceiling_rule`・主要解析の入口(`grep -rn` で探す)・run3 の config / PLAN-043 §12。新しい PLAN ファイルだけを書く
+- (A): `plans/PLAN-047-*.md`(全体。短い)・`logs/DECISIONS.md` の ADR-135・136(`grep -n '^## ADR-13[5-6]'`)と末尾の形式・`logs/OPEN-ITEMS.md`(`grep -n`)。書くのは ADR・PLAN-047 の §10・ステータス・`OPEN-ITEMS.md`・`STATE.md`・`CHANGELOG.md`
 - (B): `infra/RUNPOD.md` §4・順6 R1 の config・`runs/<id>/`
 
 ## やってはいけないこと
 
-- PLAN の §4 の問いの答えを先に決める / `code/` を書き換える(PLANNER の範囲外)
-- 門・天井の規則の値を変える(ADR-133・132 で凍結)
+- 人間の答えの前に §4 を決める / `code/` を書き換える(PLANNER の範囲外)
+- 天井の規則・門の値・run3 の格子・`rng_seed` 20261008 を変える(ADR-132・133・129 で凍結)
 - `git add -A` を使う(未追跡の大きい結果がある: `results/power_sim/ceiling/*/frames/`・`results/ceiling_remedy/*/lmm/` など)
 - 主プール・パイロットのプールを作り直す(PLAN-045 で確定済み)
 
 ## 未解決 / 人間の承認待ち
 
-- 順6 の測り直しの起動(PLAN-045 I7)/ 確率の尺度の TOST の Δ(要るかも含めて。凍結前)/ `id` の二重露出の感度解析の事前登録(凍結前)/ R5(逆順がパイロットのプールにある組 199)/ S4 の前の push と G2-1 承認 / PLAN-043 §12 の判断 6 件(run3 の前)/ REVIEW の R4 以下・C1/C2
+- PLAN-047 Q1〜Q7 / 順6 の測り直しの起動(PLAN-045 I7)/ `primary.py` 本体の PLAN(Q1 (a) の場合)/ `id` の二重露出の感度解析の事前登録(凍結前)/ R5(組 199)/ S4 の前の push と G2-1 承認 / PLAN-043 §12 の判断 6 件(run3 の前)/ REVIEW の R4 以下・C1/C2

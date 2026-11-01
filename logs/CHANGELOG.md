@@ -8223,3 +8223,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 分岐を人間に 1 回聞いた → **(A) B を入れる PLAN の草案**(推奨)
 - `plans/PLAN-047-ceiling-b-into-primary-and-run3.md` を起草した(ステータス `草案`)。§3 の事実: 実データの主要解析 `code/analysis/primary.py` は未実装(PLAN-016 §7-5)/ `ceiling_rule` は `ceiling_remedy.py` にだけあり、`ceiling_remedy` が `power_sim` を import しているので `power_sim` から使うには別モジュールへ移す必要がある / `summarise_point` に天井の判定を受け取る口は無い / run3 のシートで天井が何回当たるかは未測定。§4 に Q1〜Q7(主要解析への入れ方・判定の順・天井のとき何を計算し報告するか・run3 での数え方・門・config・確率の尺度の TOST の Δ)を判断材料の表と推奨 (a) 付きで並べた。**決めていない**
 - `STATE.md` の 4 ブロックを置き換え、旧ブロックを `STATE-ARCHIVE.md` へ移した。`code/` は不変。GPU 0・pod 0
+
+## 2026-11-01(その187・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- PLAN-047 の草案を書き終えた(`b1c7b20`)。`logs/HANDOFF.md` を更新した(次は PLANNER・推奨 Opus。人間に PLAN-047 Q1〜Q7 を諮って ADR に起こすか、I7 かを聞く)。RunPod は使っていない(GPU 0)

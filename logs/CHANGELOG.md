@@ -8217,3 +8217,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 ## 2026-10-26(その186・`CLAUDE.md` §7.1 = ADR-136)   [actor: PLANNER (Claude Opus 5.5)]
 - **人間の指示**: 「文書と既存のコードが食い違うときはコードに従い、食い違いを最後の返答ですべて挙げる」一文を足して `CLAUDE.md` を改良する
 - `CLAUDE.md` に §7.1 を足した(書き方はコード / 事前登録・§2・ADR の決定は文書が正本で、食い違えば止めて聞く / 食い違いは最後の返答に全部)。冒頭に §7.1 への参照。節番号は変えていない(テストの docstring が §2・§6・§7 を参照)。ADR-136(2026-11-01 に人間が採択。例外の範囲はエージェントの案のまま)。`code/` は不変。GPU 0・pod 0
+
+## 2026-11-01(その187・PLAN-047 草案)   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その185)と `git log`・`STATE.md` は一致。HANDOFF に無いコミットは `50c8b65`(その186・ADR-136。CHANGELOG にある)。追跡ファイルの差分なし。HANDOFF の推奨モデル(Opus)と一致
+- 分岐を人間に 1 回聞いた → **(A) B を入れる PLAN の草案**(推奨)
+- `plans/PLAN-047-ceiling-b-into-primary-and-run3.md` を起草した(ステータス `草案`)。§3 の事実: 実データの主要解析 `code/analysis/primary.py` は未実装(PLAN-016 §7-5)/ `ceiling_rule` は `ceiling_remedy.py` にだけあり、`ceiling_remedy` が `power_sim` を import しているので `power_sim` から使うには別モジュールへ移す必要がある / `summarise_point` に天井の判定を受け取る口は無い / run3 のシートで天井が何回当たるかは未測定。§4 に Q1〜Q7(主要解析への入れ方・判定の順・天井のとき何を計算し報告するか・run3 での数え方・門・config・確率の尺度の TOST の Δ)を判断材料の表と推奨 (a) 付きで並べた。**決めていない**
+- `STATE.md` の 4 ブロックを置き換え、旧ブロックを `STATE-ARCHIVE.md` へ移した。`code/` は不変。GPU 0・pod 0

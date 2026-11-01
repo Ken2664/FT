@@ -8233,3 +8233,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - PLAN-047 §4 の要約と各問いの表をチャットで先に示し(ADR-097 決定6)、`AskUserQuestion` 2 回(Q1〜Q4・Q5〜Q7)で聞いた → **7 問とも推奨 (a)**
 - ADR-137 を起こした(提案 エージェント / 採択 人間)。PLAN-047 のステータスを `採択` に・§9 の 1 項目目・§10・§11 を記入。`OPEN-ITEMS.md`: C の採否の行の残りを閉じ、新しい 2 行(確率の尺度の手続きと Δ = ADR-114 決定6・S5 / `primary.py` 本体の PLAN)を足した
 - `STATE.md` の 4 ブロックを置き換え、旧ブロックを `STATE-ARCHIVE.md` へ移した。`code/` は不変。GPU 0・pod 0
+
+## 2026-11-01(その188・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- ADR-137 を起こした(`8cb8a1f`)。PLAN 完了で切る。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet。人間に PLAN-047 I1〜I5 か I7 かを聞く)。RunPod は使っていない(GPU 0)

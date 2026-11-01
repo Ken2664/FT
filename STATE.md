@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-01(その187。PLANNER が **PLAN-047 の草案**を書いた: 天井の手当て B を主要解析と run3 の検出力のシミュレーションに入れる範囲。§4 の Q1〜Q7 は人間のレビュー待ち。`code/` は不変)
-(**次: 人間が PLAN-047 §4 の Q1〜Q7 を決める → PLANNER が ADR / 順6 の測り直し(PLAN-045 I7)の起動は人間**。)
+最終更新: 2026-11-01(その188。PLANNER が人間の答えを **ADR-137** に起こした: **PLAN-047 を採択**(7 問とも推奨 (a))。天井の規則を共有モジュールへ移す・実データは フィルタ → df → 天井 → 当てはめ・天井でも当てて記録し報告は「実施不能」・run3 は天井の反復を非棄却 / TOST Δ = +∞・config 不変・ADR-132 決定5 は閉じた。`code/` は不変)
+(**次: IMPLEMENTER(Sonnet)が PLAN-047 I1〜I5 / 順6 の測り直し(PLAN-045 I7)の起動は人間**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,9 +67,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-01(その187・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-047 草案(人間のレビュー待ち)。GPU 0・pod 0**
-> - **PLAN-047**(`plans/PLAN-047-ceiling-b-into-primary-and-run3.md`): B(天井の規則が当たれば主要検定は実施不能。ADR-135)を実データの主要解析と run3 にどう入れるか。§4 に Q1〜Q7(推奨付き・決めていない)
-> - **事実(§3)**: 実データの主要解析 `code/analysis/primary.py` は**未実装**(PLAN-016 §7-5)/ `ceiling_rule` は `ceiling_remedy.py` にだけあり、`power_sim` から使うには別モジュールへ移す必要がある(循環 import)/ run3 のシートで天井が何回当たるかは未測定
+> **★★2026-11-01(その188・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-047 を ADR-137 で採択。GPU 0・pod 0**
+> - **ADR-137**(PLAN-047 §4 を 7 問とも推奨 (a)): Q1 `ceiling_rule` を共有モジュール(例: `code/analysis/ceiling.py`)へ移す・`primary.py` 本体は別 PLAN / Q2 フィルタ → df → 天井 → 当てはめ・理由は両方記録 / Q3 天井でも GLMM は当てて出力に記録・論文は「実施不能(天井)」で p 値・TOST を出さない / Q4 run3 は `draw_frame` 直後に判定・当てはめは全反復・天井の反復は非棄却・TOST Δ = +∞ / Q5 実行可能性の門には入れない / Q6 config 不変・`ceiling_probe` には当てない / Q7 ADR-132 決定5 は閉じた・第 2 の尺度(ADR-114 決定6)は `OPEN-ITEMS.md` に残し S5
+> - **未実装**: `code/` は不変(PLAN-047 I1〜I5 は IMPLEMENTER)/ I6 の文書(PLAN-016 §7-5・`05_STATISTICS.md` §6.8・`06_THREATS.md`)は文言を人間が承認
 > - **★順6 の印は旧い主プールで付いた**。測り直し(PLAN-045 I7)の起動は人間 / 天井のシートの数値の正本は PLAN-044 §13.1・C の評価は PLAN-046 §13.1
 
 
@@ -322,23 +322,23 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-01(その187・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-11-01(その188・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **人間: PLAN-047 §4 の Q1〜Q7 を決める**(推奨はすべて (a))→ PLANNER が ADR に起こす → IMPLEMENTER(Sonnet)が I1〜I5 → I6 の文書は人間が承認
+> 1. **IMPLEMENTER(Sonnet): PLAN-047 I1〜I5**(規則の移動・`power_sim` での判定と集計・テスト・smoke。ADR-137)→ I6 の文書は人間が文言を承認
 > 2. **人間: 順6 の測り直し(PLAN-045 I7)の起動を決める**(作り直した主プールで R1 の設定を 1 run。RUNNER。S4 と同じ pod でよい。旧い印と新しい印を並べて記録・解釈は人間)
 > 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。2 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 4. run3 は 1 と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
-> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(逆順がパイロットのプールにある組 199)/ その166 の 5 の項目 / 確率の尺度の TOST の Δ(PLAN-047 Q7 で扱いを決める)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ `primary.py` 本体の PLAN(PLAN-047 Q1 (a) の場合)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(逆順がパイロットのプールにある組 199)/ その166 の 5 の項目 / 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(ADR-114 決定6。S5。`OPEN-ITEMS.md`)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ `primary.py` 本体の PLAN の起票の時期(ADR-137 決定1。`OPEN-ITEMS.md`)
 
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-11-01(その187・最新)。Claude Opus 5.5(PLANNER。HANDOFF の推奨と一致)。PLAN-047 の草案を書いた。**
+> **★★2026-11-01(その188・最新)。Claude Opus 5.5(PLANNER。HANDOFF の推奨と一致)。PLAN-047 の答えを ADR-137 に起こした。**
 >
-> **★やったこと**: 開始手順 → 分岐を人間に聞いた((A) PLAN 草案を選択)→ ADR-132・133・135・`05_STATISTICS.md` §2・PLAN-046 §5・§8・`ceiling_rule`・`power_sim.summarise_point`・`frame.py`・PLAN-016 §7-5 を読んだ → PLAN-047 草案
-> **★やっていないこと**: §4 の問いの決定・ADR・`code/` の変更・I7・push・GPU。worktree `claude/great-bardeen-9c1ac4` は触っていない
+> **★やったこと**: 開始手順 → 分岐を人間に聞いた((A) を選択)→ PLAN-047 §4 の表をチャットで示した → `AskUserQuestion` 2 回で Q1〜Q7(7 問とも推奨 (a))→ ADR-137・PLAN-047 のステータス・§9・§10・§11・`OPEN-ITEMS.md`(C の採否の行の残り・新しい 2 行)
+> **★やっていないこと**: `code/` の変更(I1〜I5)・I6 の文書・I7・push・GPU。worktree `claude/great-bardeen-9c1ac4` は触っていない
 
 
 ---

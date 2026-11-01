@@ -10747,3 +10747,34 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 > **★やったこと**: 開始手順 → 判断材料の表(G1・G2・決定4 の文言・G1 の道ごとの内訳・B と A)→ `AskUserQuestion` 1 回 3 問(3 問とも推奨)→ ADR-135 / `05_STATISTICS.md` §2(天井の弱点欄・下限規則に B の 1 行)/ `configs/ceiling_remedy.yaml` の probnull の `run_id` / PLAN-044 §11・PLAN-046 §11〜13 / `OPEN-ITEMS.md`
 > **★やっていないこと**: B のコードへの実装・run3 の設計の変更・I7・push・GPU。worktree `claude/great-bardeen-9c1ac4` は触っていない
 
+
+## 2026-11-01(その187 の STATE.md の旧ブロック。その188 で置き換え)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-11-01(その187。PLANNER が **PLAN-047 の草案**を書いた: 天井の手当て B を主要解析と run3 の検出力のシミュレーションに入れる範囲。§4 の Q1〜Q7 は人間のレビュー待ち。`code/` は不変)
+(**次: 人間が PLAN-047 §4 の Q1〜Q7 を決める → PLANNER が ADR / 順6 の測り直し(PLAN-045 I7)の起動は人間**。)
+
+### いま何をしているか
+
+> **★★2026-11-01(その187・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-047 草案(人間のレビュー待ち)。GPU 0・pod 0**
+> - **PLAN-047**(`plans/PLAN-047-ceiling-b-into-primary-and-run3.md`): B(天井の規則が当たれば主要検定は実施不能。ADR-135)を実データの主要解析と run3 にどう入れるか。§4 に Q1〜Q7(推奨付き・決めていない)
+> - **事実(§3)**: 実データの主要解析 `code/analysis/primary.py` は**未実装**(PLAN-016 §7-5)/ `ceiling_rule` は `ceiling_remedy.py` にだけあり、`power_sim` から使うには別モジュールへ移す必要がある(循環 import)/ run3 のシートで天井が何回当たるかは未測定
+> - **★順6 の印は旧い主プールで付いた**。測り直し(PLAN-045 I7)の起動は人間 / 天井のシートの数値の正本は PLAN-044 §13.1・C の評価は PLAN-046 §13.1
+
+### 次のアクション
+
+> **★★2026-11-01(その187・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: PLAN-047 §4 の Q1〜Q7 を決める**(推奨はすべて (a))→ PLANNER が ADR に起こす → IMPLEMENTER(Sonnet)が I1〜I5 → I6 の文書は人間が承認
+> 2. **人間: 順6 の測り直し(PLAN-045 I7)の起動を決める**(作り直した主プールで R1 の設定を 1 run。RUNNER。S4 と同じ pod でよい。旧い印と新しい印を並べて記録・解釈は人間)
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。2 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(逆順がパイロットのプールにある組 199)/ その166 の 5 の項目 / 確率の尺度の TOST の Δ(PLAN-047 Q7 で扱いを決める)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ `primary.py` 本体の PLAN(PLAN-047 Q1 (a) の場合)
+
+### 引き継ぎ
+
+> **★★2026-11-01(その187・最新)。Claude Opus 5.5(PLANNER。HANDOFF の推奨と一致)。PLAN-047 の草案を書いた。**
+>
+> **★やったこと**: 開始手順 → 分岐を人間に聞いた((A) PLAN 草案を選択)→ ADR-132・133・135・`05_STATISTICS.md` §2・PLAN-046 §5・§8・`ceiling_rule`・`power_sim.summarise_point`・`frame.py`・PLAN-016 §7-5 を読んだ → PLAN-047 草案
+> **★やっていないこと**: §4 の問いの決定・ADR・`code/` の変更・I7・push・GPU。worktree `claude/great-bardeen-9c1ac4` は触っていない

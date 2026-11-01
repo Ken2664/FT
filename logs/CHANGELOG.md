@@ -8226,3 +8226,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-01(その187・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - PLAN-047 の草案を書き終えた(`b1c7b20`)。`logs/HANDOFF.md` を更新した(次は PLANNER・推奨 Opus。人間に PLAN-047 Q1〜Q7 を諮って ADR に起こすか、I7 かを聞く)。RunPod は使っていない(GPU 0)
+
+## 2026-11-01(その188・ADR-137 = PLAN-047 採択)   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その187)と `git log`・`STATE.md` は一致。追跡ファイルの差分なし。HANDOFF の推奨モデル(Opus)と一致
+- 分岐を人間に 1 回聞いた → **(A) PLAN-047 §4 を諮って ADR**(推奨)
+- PLAN-047 §4 の要約と各問いの表をチャットで先に示し(ADR-097 決定6)、`AskUserQuestion` 2 回(Q1〜Q4・Q5〜Q7)で聞いた → **7 問とも推奨 (a)**
+- ADR-137 を起こした(提案 エージェント / 採択 人間)。PLAN-047 のステータスを `採択` に・§9 の 1 項目目・§10・§11 を記入。`OPEN-ITEMS.md`: C の採否の行の残りを閉じ、新しい 2 行(確率の尺度の手続きと Δ = ADR-114 決定6・S5 / `primary.py` 本体の PLAN)を足した
+- `STATE.md` の 4 ブロックを置き換え、旧ブロックを `STATE-ARCHIVE.md` へ移した。`code/` は不変。GPU 0・pod 0

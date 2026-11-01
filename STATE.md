@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-01(その188。PLANNER が人間の答えを **ADR-137** に起こした: **PLAN-047 を採択**(7 問とも推奨 (a))。天井の規則を共有モジュールへ移す・実データは フィルタ → df → 天井 → 当てはめ・天井でも当てて記録し報告は「実施不能」・run3 は天井の反復を非棄却 / TOST Δ = +∞・config 不変・ADR-132 決定5 は閉じた。`code/` は不変)
-(**次: IMPLEMENTER(Sonnet)が PLAN-047 I1〜I5 / 順6 の測り直し(PLAN-045 I7)の起動は人間**。)
+最終更新: 2026-11-01(その189。IMPLEMENTER が PLAN-047 I1〜I3 を作業ツリーに実装(未コミット・既存テスト 2 本が要修正)。ADR-137 の決定どおり。`code/` の変更はコミットされていない)
+(**次: IMPLEMENTER(Sonnet)が PLAN-047 の続き(HANDOFF) / 順6 の測り直し(PLAN-045 I7)の起動は人間**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-01(その188・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-047 を ADR-137 で採択。GPU 0・pod 0**
-> - **ADR-137**(PLAN-047 §4 を 7 問とも推奨 (a)): Q1 `ceiling_rule` を共有モジュール(例: `code/analysis/ceiling.py`)へ移す・`primary.py` 本体は別 PLAN / Q2 フィルタ → df → 天井 → 当てはめ・理由は両方記録 / Q3 天井でも GLMM は当てて出力に記録・論文は「実施不能(天井)」で p 値・TOST を出さない / Q4 run3 は `draw_frame` 直後に判定・当てはめは全反復・天井の反復は非棄却・TOST Δ = +∞ / Q5 実行可能性の門には入れない / Q6 config 不変・`ceiling_probe` には当てない / Q7 ADR-132 決定5 は閉じた・第 2 の尺度(ADR-114 決定6)は `OPEN-ITEMS.md` に残し S5
-> - **未実装**: `code/` は不変(PLAN-047 I1〜I5 は IMPLEMENTER)/ I6 の文書(PLAN-016 §7-5・`05_STATISTICS.md` §6.8・`06_THREATS.md`)は文言を人間が承認
-> - **★順6 の印は旧い主プールで付いた**。測り直し(PLAN-045 I7)の起動は人間 / 天井のシートの数値の正本は PLAN-044 §13.1・C の評価は PLAN-046 §13.1
+> **★★2026-11-01(その189・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-047 I1〜I3 を作業ツリーに書いた(★未コミット・既存テスト 2 本が落ちている)。GPU 0・pod 0**
+> - **書いた(未コミット)**: `code/analysis/ceiling.py`(新規。規則の移動 I1)/ `ceiling_remedy.py`(import の差し替え)/ `power_sim.py`(I2 `draw_frame` の直後に判定して `<シート>/ceiling_verdicts/verdict_<点>_<rep>.json` に記録・I3 `GridPoint` の欄と `summarise_point`・`point_record`・区間・門の表の横)/ `code/tests/test_power_sim_ceiling.py`(新規 15 本 pass)
+> - **未了**: 既存テスト 2 本の直し・`pytest code/tests -q` 全体・`--dry-run`・I5 の smoke(HEAD との突き合わせ)・PLAN-047 §11・CHANGELOG・コミット。I6 の文書は人間の承認前に書かない
+> - **★順6 の印は旧い主プールで付いた**。測り直し(PLAN-045 I7)の起動は人間
 
 
 ---
@@ -322,9 +322,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-01(その188・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-11-01(その189・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **IMPLEMENTER(Sonnet): PLAN-047 I1〜I5**(規則の移動・`power_sim` での判定と集計・テスト・smoke。ADR-137)→ I6 の文書は人間が文言を承認
+> 1. **IMPLEMENTER(Sonnet): PLAN-047 I1〜I5 の続き**(`logs/HANDOFF.md`。既存テスト 2 本の直し → 全体 pytest → `--dry-run` → smoke → 記録 → コミット)→ I6 の文書は人間が文言を承認
 > 2. **人間: 順6 の測り直し(PLAN-045 I7)の起動を決める**(作り直した主プールで R1 の設定を 1 run。RUNNER。S4 と同じ pod でよい。旧い印と新しい印を並べて記録・解釈は人間)
 > 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。2 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 4. run3 は 1 と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
@@ -335,10 +335,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 引き継ぎ
 
-> **★★2026-11-01(その188・最新)。Claude Opus 5.5(PLANNER。HANDOFF の推奨と一致)。PLAN-047 の答えを ADR-137 に起こした。**
+> **★★2026-11-01(その189・最新)。Claude Sonnet 5.5(IMPLEMENTER。HANDOFF の推奨と一致)。PLAN-047 I1〜I3 を実装の途中で切った(コンテキスト超過)。**
 >
-> **★やったこと**: 開始手順 → 分岐を人間に聞いた((A) を選択)→ PLAN-047 §4 の表をチャットで示した → `AskUserQuestion` 2 回で Q1〜Q7(7 問とも推奨 (a))→ ADR-137・PLAN-047 のステータス・§9・§10・§11・`OPEN-ITEMS.md`(C の採否の行の残り・新しい 2 行)
-> **★やっていないこと**: `code/` の変更(I1〜I5)・I6 の文書・I7・push・GPU。worktree `claude/great-bardeen-9c1ac4` は触っていない
+> **★やったこと**: 分岐を人間に聞いた((A) を選択)→ I1 規則の移動 → I2 判定 → I3 集計 → 新テスト 15 本。**コードは未コミット**(テストが落ちているため。作業ツリーに残してある)
+> **★設計の選択(エージェントの案。人間のレビュー待ち)**: ① `CeilingRuleError` の基底を `RuntimeError` にした(`PowerSimError` を継ぐと循環 import。誰も `except PowerSimError` していない)② 判定は `fits/` を触らず `ceiling_verdicts/` に別ファイルで残し、集計時に反復の記録へ合流 ③ 判定のある反復とない反復が混ざる点は `summarise_point` が止める(別の版で当てた反復を黙って B の外に置かない)④ `n_reject` = 天井でない成功した反復の棄却数・`n_reject_success` = 成功した反復の棄却数(天井を含む・従来の意味)⑤ 判定のない点は天井の欄を出力に出さない(`point_record`)⑥ 天井の件数の区間の水準は `failure_level`(= 実行可能性の門の水準)
+> **★落ちている既存テスト 2 本(`code/tests/test_power_sim.py`)**: `test_resumed_run_fits_only_the_missing_replications`(手で置いた済みの fit に判定の記録が無く混在で止まる → 判定の記録を一緒に置く)/ `test_run_writes_one_directory_per_sheet_and_the_records`(1951 行 `len(tost_min_margins) == 2`。smoke の小さい表は本物の規則で天井に当たり、最小 Δ が減る → `ceiling_rule` を天井なしに差し替えるか、`len(margins) + tost_n_ceiling + tost_n_failed == 2` に改める)。どちらも**挙動の変更に合わせたテストの直し**であって、判断は直前のコミットの ADR-137 決定4 に含まれる
+> **★注意**: 途中のバックグラウンド pytest が「exit 0・出力空」と返したが信用しない(その後の個別実行で上の 2 本が落ちた)。全体は必ず自分で走らせて出力を見る
 
 
 ---

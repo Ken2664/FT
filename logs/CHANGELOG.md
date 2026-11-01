@@ -8236,3 +8236,12 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-01(その188・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - ADR-137 を起こした(`8cb8a1f`)。PLAN 完了で切る。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet。人間に PLAN-047 I1〜I5 か I7 かを聞く)。RunPod は使っていない(GPU 0)
+
+## 2026-11-01(その189・PLAN-047 I1〜I3 の途中)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- 開始手順: HANDOFF(その188)と `git log`・`STATE.md` は一致。追跡ファイルの差分なし。推奨モデル(Sonnet)と一致。分岐を人間に 1 回聞いた → **(A) PLAN-047 I1〜I5**
+- **作業ツリーに実装(未コミット。テストが落ちているため)**: I1 `code/analysis/ceiling.py`(規則の移動。`ceiling_remedy` は import。`test_ceiling_remedy.py` 23 本は通った)/ I2 `power_sim.run_sheet_stage` が `draw_frame` の直後に判定して `ceiling_verdicts/` に記録(`fits/`・R は不変。`ceiling_probe` は判定しない)/ I3 `summarise_point`・`GridPoint`・`point_record`・区間・門の表の横 / I4 `code/tests/test_power_sim_ceiling.py` 15 本 pass
+- **落ちている既存テスト 2 本**: `test_resumed_run_fits_only_the_missing_replications`・`test_run_writes_one_directory_per_sheet_and_the_records`(ADR-137 の挙動変更に合わせて直す。HANDOFF に手順)。全体 pytest は未確認(バックグラウンドの「exit 0」は出力が空で信用しない)
+- 設計の選択 6 点は HANDOFF の「直前セッションで確定したこと」に列挙。`code/` はコミットしていない。GPU 0・pod 0
+
+## 2026-11-01(その189・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- コンテキスト超過(hook `context-guard` 約 203k)で切った。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet。PLAN-047 の続き)。RunPod は使っていない(GPU 0)

@@ -5,7 +5,7 @@
 
 - 作成日: 2026-11-01
 - 最終更新: 2026-11-01(その188。ADR-137 で採択)
-- ステータス: **`採択`(2026-11-01 その188。ADR-137。§4 の Q1〜Q7 は人間が 7 問とも推奨 (a)。次は IMPLEMENTER の I1〜I5 → 人間が I6 の文言を承認)**
+- ステータス: **`完了`(2026-11-02 その191。§9 全項目済み)** ~~`採択`(2026-11-01 その188。ADR-137。§4 の Q1〜Q7 は人間が 7 問とも推奨 (a)。次は IMPLEMENTER の I1〜I5 → 人間が I6 の文言を承認)~~
 - 担当: PLANNER(草案 = Opus 5.5)/ 実装は IMPLEMENTER / 問いの決定は人間
 - 関連: **ADR-135 決定2・リスク欄**(この PLAN の正本)/ ADR-132 決定2(天井の規則)・決定5(確率の尺度の TOST の Δ)/ ADR-133 / ADR-112 決定1(df < 2 は実施不能)/ ADR-128 決定1 (A2)・決定3・決定4 = PLAN-043 P2〜P5 / ADR-129 / ADR-114 決定5・6 / ADR-060・ADR-061(A)/ ADR-097 決定6 / ADR-039 決定3
 - 判断材料: `Documents/05_STATISTICS.md` §2(下限規則・天井の弱点欄)/ `plans/PLAN-046-ceiling-remedy.md` §5・§8・§13.1 / `code/analysis/ceiling_remedy.py` の `ceiling_rule` / `code/analysis/power_sim.py` の `summarise_point` / `code/analysis/frame.py` の冒頭の docstring / `plans/PLAN-016-fitting-engine.md` §7-5 / `configs/power_sim.yaml`
@@ -179,8 +179,8 @@
 
 - [x] §4 の Q1〜Q7 を人間が決め、ADR に記録する(提案 エージェント / 採択 人間)— ADR-137(2026-11-01)
 - [x] I1〜I5 を実装し `pytest code/tests -q` が通る — 2640 passed(2026-11-02 その190。`--dry-run` exit 0・smoke は新しい欄を除いて HEAD と同じ)
-- [ ] I6 の文書を人間が承認する
-- [ ] `STATE.md` の次のアクションで run3 の前提から「B が入っていない」を外す
+- [x] I6 の文書を人間が承認する — 2026-11-02 その191(4 件とも承認。設計の選択 6 点も採択 = ADR-137 追記)
+- [x] `STATE.md` の次のアクションで run3 の前提から「B が入っていない」を外す — 2026-11-02 その191
 
 ---
 
@@ -206,3 +206,4 @@
 | 2026-11-01 | 人間が §4 の Q1〜Q7 を 7 問とも推奨 (a) で決めた → ADR-137。§9 の 1 項目目が済んだ | — | 人間 / 記録 PLANNER (Opus 5.5。その188) |
 | 2026-11-01 | I1〜I3 を作業ツリーに実装(`ceiling.py`・`power_sim.py` の判定と集計・`test_power_sim_ceiling.py` 15 本) | — | IMPLEMENTER (Sonnet 5.5。その189) |
 | 2026-11-02 | I4・I5 を終えた: 既存テスト 2 本を直し(`never_ceiling`・済みの fit の隣に判定の記録)・`pytest code/tests -q` 2640 passed・`--dry-run` exit 0・smoke(HEAD と作業ツリー(天井なしに差し替え)の `power_sim_summary.json` の差が新しい欄と `run_id` だけ・`fits/` 26 枚がバイト一致)。I6 は人間の承認待ち | — | IMPLEMENTER (Sonnet 5.5。その190) |
+| 2026-11-02 | 人間が設計の選択 6 点(① 基底 `RuntimeError` ② `ceiling_verdicts/` ③ 混在で止める ④ `n_reject`/`n_reject_success` の意味 ⑤ 判定なしは欄を出さない ⑥ CP の水準 `failure_level`)を採り(ADR-137 追記)、I6 の文言 4 件を承認 → 書き込んだ(PLAN-016 §7 の 5.・`05_STATISTICS.md` §6.8・`06_THREATS.md` T8・`OPEN-ITEMS.md`)。§9 全項目済み → 完了 | — | 人間 / 記録 PLANNER (Opus 5.5。その191) |

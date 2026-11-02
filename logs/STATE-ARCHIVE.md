@@ -10836,3 +10836,37 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 >
 > **★やったこと**: 開始手順 → 分岐を人間に聞いた((A) PLAN 草案を選択)→ ADR-132・133・135・`05_STATISTICS.md` §2・PLAN-046 §5・§8・`ceiling_rule`・`power_sim.summarise_point`・`frame.py`・PLAN-016 §7-5 を読んだ → PLAN-047 草案
 > **★やっていないこと**: §4 の問いの決定・ADR・`code/` の変更・I7・push・GPU。worktree `claude/great-bardeen-9c1ac4` は触っていない
+
+## 2026-11-02(その190 の STATE.md の旧ブロック。その191 で置き換え)
+
+### ヘッダ(最終更新)
+
+最終更新: 2026-11-02(その190。IMPLEMENTER が **PLAN-047 I1〜I5 を完了**: 天井の規則を `code/analysis/ceiling.py` へ移し、`power_sim` が表を組んだ直後に判定して(`ceiling_verdicts/`)天井の反復を非棄却・TOST Δ = +∞ で数える。`pytest code/tests -q` = 2640 passed・`--dry-run` exit 0・smoke は新しい欄を除いて HEAD と同じ。I6 の文書は人間の承認待ち)
+(**次: 人間が設計の選択 6 点と I6 の文言を決める / 順6 の測り直し(PLAN-045 I7)の起動は人間**。)
+
+### いま何をしているか
+
+> **★★2026-11-02(その190・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-047 I1〜I5 を実装し終え、コミットした。GPU 0・pod 0**
+> - **書いた**: `code/analysis/ceiling.py`(新規。規則の移動 I1)/ `ceiling_remedy.py`(import の差し替え)/ `power_sim.py`(I2 `draw_frame` の直後に判定して `<シート>/ceiling_verdicts/verdict_<点>_<rep>.json` に記録・I3 `GridPoint` の欄と `summarise_point`・`point_record`・区間・門の表の横)/ `code/tests/test_power_sim_ceiling.py`(新規 15 本)/ `code/tests/test_power_sim.py`(既存 2 本を ADR-137 決定4 の挙動に合わせて直した)
+> - **確認した**: `pytest code/tests -q` = **2640 passed in 750.90s**(出力の最後の行を自分で見た)/ `power_sim --dry-run` exit 0 / **I5 の smoke**: HEAD を `git archive` で別ディレクトリに取り出し、同じ smoke config・同じ偽の当てはめ(p 値は表のファイル名から決める)で HEAD と作業ツリー(`ceiling_rule` を天井なしに差し替え)を走らせ、`power_sim_summary.json` の差が**新しい欄(`CEILING_POINT_FIELDS` の 7 つ・`intervals` の 3 つ・`ceiling_counted_as`・門の行の `n_ceiling`/`ceiling_ci`・margin 表の `n_ceiling`)と `run_id` だけ**であること、`stage_000{1,2}_summary.json` も同じこと、`fits/` 26 枚がバイト一致であることを確かめた
+> - **未了**: I6 の文書(PLAN-016 §7-5・`05_STATISTICS.md` §6.8・`06_THREATS.md`・`OPEN-ITEMS.md`)は**人間が文言を承認するまで書かない** / 設計の選択 6 点(下の「引き継ぎ」)のレビュー
+> - **★順6 の印は旧い主プールで付いた**。測り直し(PLAN-045 I7)の起動は人間
+
+### 次のアクション
+
+> **★★2026-11-02(その190・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **人間: PLAN-047 の設計の選択 6 点のレビューと I6 の文言の承認**(エージェントの案は最後の返答と `logs/CHANGELOG.md` その190)→ 承認後に IMPLEMENTER が I6 を書く(`primary.py` 本体は別 PLAN。起票の時期は人間。`OPEN-ITEMS.md`)
+> 2. **人間: 順6 の測り直し(PLAN-045 I7)の起動を決める**(作り直した主プールで R1 の設定を 1 run。RUNNER。S4 と同じ pod でよい。旧い印と新しい印を並べて記録・解釈は人間)
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。2 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに。PLAN-047 の実装は済んだので「B が入っていない」は I6 の承認で外れる)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(逆順がパイロットのプールにある組 199)/ その166 の 5 の項目 / 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(ADR-114 決定6。S5。`OPEN-ITEMS.md`)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ `primary.py` 本体の PLAN の起票の時期(ADR-137 決定1。`OPEN-ITEMS.md`)
+
+### 引き継ぎ
+
+> **★★2026-11-02(その190・最新)。Claude Sonnet 5.5(IMPLEMENTER。HANDOFF の推奨と一致)。PLAN-047 I1〜I5 を完了してコミットした。**
+>
+> **★やったこと**: 開始手順 → 既存テスト 2 本の直し → 全体 pytest(2640 passed)→ `--dry-run` → I5 の smoke → 記録 → コミット。I6 は文言の案だけ(書き込んでいない)
+> **★既存テスト 2 本の直し方**: `test_resumed_run_fits_only_the_missing_replications` は手で置いた済みの fit の隣に判定の記録(`power_sim.verdict_name`・`ceiling.verdict_record`)を置いた / `test_run_writes_one_directory_per_sheet_and_the_records` は `ceiling_rule` を「どの表も天井でない」に差し替える `never_ceiling` を `test_power_sim.py` に足して使った(件数の式に改める方は採らなかった)
+> **★設計の選択(エージェントの案。人間のレビュー待ち)**: ① `CeilingRuleError` の基底を `RuntimeError` に(`PowerSimError` を継ぐと循環 import)② 判定は `fits/` でなく `ceiling_verdicts/` の別ファイル ③ 判定のある反復とない反復が混ざる点は止める ④ `n_reject` は天井でない成功した反復の棄却数、`n_reject_success` は天井を含む成功した反復の棄却数 ⑤ 判定のない点は天井の欄を出力に出さない ⑥ 天井の件数の CP の水準は `failure_level`
+> **★注意**: バックグラウンドの pytest が「exit 0」と返しても外側のシェルが終わっただけのことがある。出力ファイルの `EXIT=` 行と最後の行を自分で見る

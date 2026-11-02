@@ -8264,3 +8264,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 書いた: `logs/DECISIONS.md`(ADR-137 追記・関連 commit を埋めた)/ `plans/PLAN-016-fitting-engine.md`(§7 の 5. に注記)/ `Documents/05_STATISTICS.md`(§6.8 に天井の反復の数え方)/ `Documents/06_THREATS.md`(T8 に 1 項)/ `logs/OPEN-ITEMS.md`(C の採否の基準の行に完了の印)/ `plans/PLAN-047-…md`(§9 全項目・§11・ステータス `完了`)/ `STATE.md` / `logs/STATE-ARCHIVE.md`
 - HANDOFF との食い違い 2 件: 「`06_THREATS.md`(E9 の行)」の E9 は PLAN-047 §3 の事実の番号(`06_THREATS.md` に天井の行は無かった → T8 に置いた)/ ADR-132 決定5 を閉じた記録は `OPEN-ITEMS.md` の第 2 の尺度の行にすでにあった(行は足さなかった)
 - `code/` は不変・テストは走らせていない(文書だけ)。GPU 0・pod 0
+
+## 2026-11-02(その191・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- PLAN-047 の完了(`873398a`)で切る。`logs/HANDOFF.md` を更新した(次の作業は人間が「次のアクション」から選ぶ。(A) RUNNER・Sonnet で順6 の測り直し / (B) PLANNER・Opus で `primary.py` の PLAN 草案)。RunPod は使っていない(GPU 0・pod 0)

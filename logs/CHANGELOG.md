@@ -8267,3 +8267,11 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-02(その191・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - PLAN-047 の完了(`873398a`)で切る。`logs/HANDOFF.md` を更新した(次の作業は人間が「次のアクション」から選ぶ。(A) RUNNER・Sonnet で順6 の測り直し / (B) PLANNER・Opus で `primary.py` の PLAN 草案)。RunPod は使っていない(GPU 0・pod 0)
+
+## 2026-11-02(その192・PLAN-048 の起草と採択)   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その191)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果と `.claude/commands/` だけ。HANDOFF の冒頭に人間の選択が無かったので聞いた → 人間が (B)(`primary.py` の PLAN 草案)を選んだ。推奨モデル(Opus)と一致
+- `grep -n primary.py` で、文書が `primary.py` に預けた仕事を棚卸しした(14 件。PLAN-048 §3.2 の W1〜W14)。`power_sim_fit.R`(`family = binomial` 固定・版の照合)・`ceiling.py`(欠けたセルで止まる)・`frame.py`(`COLUMNS`・`gate_id_rates`)・`power_sim.py`(`write_fit_manifest`・`run_fits`・`equivalence_margin`)の口を読んだ
+- `plans/PLAN-048-primary-analysis-script.md` を起草(§4 に Q1〜Q6 と推奨)。判断材料の表をチャットで先に示した
+- **人間が決めた(`AskUserQuestion` 2 回・6 問とも推奨 (a))** → `logs/DECISIONS.md` に ADR-138: 範囲は主要検定の本体だけ / `power_sim_fit.R` を変えずに呼び `configs/power_sim.yaml` の `fit` 節を読む / N5 の閾値・TOST の Δ は `null` で実データでは止まる / `--shuffle-labels` は被覆の水準の中で項目単位に `task` / `--simulate` は `draw_frame` で P0・P1 / 判定を p 値より左に置く固定の表
+- 書いた: PLAN-048(ステータス `採択`・§9 の 1 項目め・§10・§11)/ `logs/OPEN-ITEMS.md`(`primary.py` 本体の行)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md` へ)
+- `code/` は不変・テストは走らせていない(文書だけ)。GPU 0・pod 0

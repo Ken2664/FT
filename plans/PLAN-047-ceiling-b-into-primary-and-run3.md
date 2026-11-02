@@ -178,7 +178,7 @@
 ## 9. 完了条件
 
 - [x] §4 の Q1〜Q7 を人間が決め、ADR に記録する(提案 エージェント / 採択 人間)— ADR-137(2026-11-01)
-- [ ] I1〜I5 を実装し `pytest code/tests -q` が通る
+- [x] I1〜I5 を実装し `pytest code/tests -q` が通る — 2640 passed(2026-11-02 その190。`--dry-run` exit 0・smoke は新しい欄を除いて HEAD と同じ)
 - [ ] I6 の文書を人間が承認する
 - [ ] `STATE.md` の次のアクションで run3 の前提から「B が入っていない」を外す
 
@@ -204,3 +204,5 @@
 |---|---|---|---|
 | 2026-11-01 | 草案(§3 の事実はコードと文書を読んで書いた) | — | PLANNER (Opus 5.5。その187) |
 | 2026-11-01 | 人間が §4 の Q1〜Q7 を 7 問とも推奨 (a) で決めた → ADR-137。§9 の 1 項目目が済んだ | — | 人間 / 記録 PLANNER (Opus 5.5。その188) |
+| 2026-11-01 | I1〜I3 を作業ツリーに実装(`ceiling.py`・`power_sim.py` の判定と集計・`test_power_sim_ceiling.py` 15 本) | — | IMPLEMENTER (Sonnet 5.5。その189) |
+| 2026-11-02 | I4・I5 を終えた: 既存テスト 2 本を直し(`never_ceiling`・済みの fit の隣に判定の記録)・`pytest code/tests -q` 2640 passed・`--dry-run` exit 0・smoke(HEAD と作業ツリー(天井なしに差し替え)の `power_sim_summary.json` の差が新しい欄と `run_id` だけ・`fits/` 26 枚がバイト一致)。I6 は人間の承認待ち | — | IMPLEMENTER (Sonnet 5.5。その190) |

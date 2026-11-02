@@ -6,7 +6,7 @@
     python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --dry-run
     python -m code.analysis.ceiling_remedy --config configs/ceiling_remedy.yaml --out-dir results/ceiling_remedy --workers 16
 
-- **I1** `ceiling_rule`: 天井の判定(純粋関数)。セルが欠ける表は判定せず止まる(df < 2 の表は適格性フィルタの側の話で、
+- **I1** `ceiling_rule`: 天井の判定(純粋関数。★ADR-137 決定1 で `code/analysis/ceiling.py` へ移した。中身は同じ)。セルが欠ける表は判定せず止まる(df < 2 の表は適格性フィルタの側の話で、
   ここで黙って「天井でない」にしない)
 - **I3**: 元の run の表(`frames/`)を乱数種から組み直して照合し(§8 罠8)、ロジットの当てはめ(`fits/`)を読み、全部の表に
   恒等リンクの LMM(`power_sim_fit_lmm.R`)を当て、道ごとに数える。G1・G2 の判定と CP95 を点ごとに出す
@@ -32,12 +32,17 @@ from typing import Any
 
 from code import artifacts
 from code.analysis import power_sim
+from code.analysis.ceiling import (  # noqa: F401  (CeilingRuleError・ceiling_rule は ADR-137 決定1 で移した。ここからも引ける)
+    DIRECTION_ALL_RULE,
+    DIRECTION_NO_RULE,
+    CeilingRuleError,
+    CeilingVerdict,
+    ceiling_rule,
+)
 from code.config import ConfigError, load_config, require, resolve_repo_path
 
 LMM_FIT_SCRIPT = Path(__file__).resolve().parent / "power_sim_fit_lmm.R"
 
-DIRECTION_ALL_RULE = "all_rule"      # n/n
-DIRECTION_NO_RULE = "no_rule"        # 0/n
 PATH_LOGIT = "logit"                 # 天井でない: 今の手続き(ロジットの GLMM の LRT)
 PATH_C = "identity_lmm"              # 天井: C(恒等リンクの LMM の LRT)
 PRIMARY_DF = power_sim.PRIMARY_INTERACTION_DF
@@ -47,59 +52,6 @@ RUN_INFO_FILE = "run_info.json"
 INVOCATIONS_FILE = "invocations.jsonl"
 RESOLVED_CONFIG_FILE = "config_resolved.json"
 R_SECONDS_PATTERN = re.compile(r"-> (\S+) \((\d+(?:\.\d+)?)s\)")
-
-
-class CeilingRuleError(power_sim.PowerSimError):
-    """天井の規則が判定できない表(セルが欠ける・未知のセル・0/1 でない応答)。"""
-
-
-# --------------------------------------------------------------------------
-# I1 天井の判定(PLAN-046 §5 手順 1 / ADR-132 決定2)
-# --------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class CeilingVerdict:
-    """天井の判定。答える問い: この表は天井か、どのセルが、どちら向きに当てたか。
-
-    `hits` は `(タスク型, 被覆, all_rule | no_rule)`。`n_per_cell` はセルの行数(タスク型 × 被覆の順)。
-    """
-
-    ceiling: bool
-    hits: tuple[tuple[str, str, str], ...]
-    n_per_cell: tuple[int, ...]
-
-
-def ceiling_rule(
-    rows: Sequence[tuple[Any, ...]], tasks: Sequence[str], coverages: Sequence[str]
-) -> CeilingVerdict:
-    """答える問い: 6 セル(タスク型 × 被覆)のどれかが、全シード・全項目で n/n か 0/n か(ADR-132 決定2)。
-
-    n はそのセルの全行(= 全シード × 全項目)。**判定は当てはめの前に、表だけから行う。**
-    行は `(seed, task, coverage, item, template, is_rule)`。セルが 1 つでも欠ける表・宣言に無いセルの行・
-    0/1 でない応答は判定せずに止まる(黙って「天井でない」に倒さない。`CLAUDE.md` §7)。
-    """
-    counts = {(t, c): [0, 0] for t in tasks for c in coverages}
-    for row in rows:
-        cell = (row[1], row[2])
-        if cell not in counts:
-            raise CeilingRuleError(f"宣言に無いセルの行がある: {cell}")
-        if row[5] not in (0, 1):
-            raise CeilingRuleError(f"is_rule が 0/1 でない: {row[5]!r}")
-        counts[cell][0] += 1
-        counts[cell][1] += row[5]
-    missing = [f"{t}.{c}" for (t, c), (n, _) in counts.items() if n == 0]
-    if missing:
-        raise CeilingRuleError(f"セルが欠ける表は天井の規則で判定しない: {missing}")
-    hits = []
-    for (task, coverage), (n, n_rule) in counts.items():
-        if n_rule == n:
-            hits.append((task, coverage, DIRECTION_ALL_RULE))
-        elif n_rule == 0:
-            hits.append((task, coverage, DIRECTION_NO_RULE))
-    return CeilingVerdict(
-        ceiling=bool(hits), hits=tuple(hits), n_per_cell=tuple(n for n, _ in counts.values())
-    )
 
 
 # --------------------------------------------------------------------------

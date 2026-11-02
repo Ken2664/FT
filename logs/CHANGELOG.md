@@ -8245,3 +8245,11 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-01(その189・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
 - コンテキスト超過(hook `context-guard` 約 203k)で切った。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet。PLAN-047 の続き)。RunPod は使っていない(GPU 0)
+
+## 2026-11-02(その190・PLAN-047 I1〜I5 の完了)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- 開始手順: HANDOFF(その189)と `git log`・`STATE.md` は一致。HANDOFF の未コミットの変更(`ceiling_remedy.py`・`power_sim.py`・`ceiling.py`・`test_power_sim_ceiling.py`)がそのまま作業ツリーにあった。推奨モデル(Sonnet)と一致
+- 既存テスト 2 本を直した(`code/tests/test_power_sim.py`): `test_resumed_run_fits_only_the_missing_replications` は済みの fit の隣に判定の記録を置いた / `test_run_writes_one_directory_per_sheet_and_the_records` は **`ceiling_rule` を「どの表も天井でない」に差し替える方**(`never_ceiling`)を採った(件数の式に改める方は採っていない)。理由: このテストは天井でない表の配線(反復ごとの最小 Δ が全点に入る)を見るものなので、天井の反復の扱いは `test_power_sim_ceiling.py` に任せる
+- `pytest code/tests -q` = **2640 passed in 750.90s**(出力ファイルの `EXIT=0` と最後の行を自分で見た)/ `python -m code.analysis.power_sim --config configs/power_sim.yaml --dry-run` exit 0
+- **I5 の smoke**: HEAD を `git archive` で空のディレクトリに取り出し、同じ `configs/power_sim_smoke.yaml`・同じ偽の当てはめ(p 値は表のファイル名の crc32 から決める)で HEAD と作業ツリー(`ceiling_rule` を天井なしに差し替え)を `through_stage=2` まで走らせた。`power_sim_summary.json` の差は**新しい欄だけと `run_id`(時刻入り)**(格子の 7 欄 = `CEILING_POINT_FIELDS`・`intervals` の `ceiling`/`rejection_noceiling_only`/`rejection_ceiling_descriptive_only`・シートの `ceiling_counted_as`・門の行の `n_ceiling`/`ceiling_ci`・margin 表の `n_ceiling`)。`stage_0001/0002_summary.json` も同じ。`fits/` 26 枚はバイト一致。作業ツリー側にだけ `ceiling_verdicts/` が 26 枚できる
+- 変えたもの: `code/analysis/ceiling.py`(新規)/ `ceiling_remedy.py` / `power_sim.py` / `code/tests/test_power_sim_ceiling.py`(新規)/ `code/tests/test_power_sim.py` / `plans/PLAN-047-…md`(§9・§11)/ `STATE.md` / `logs/STATE-ARCHIVE.md`。**天井の規則の中身・門の値・run3 の格子・`configs/power_sim.yaml`・`rng_seed` 20261008・R・`fits/` の形は変えていない**。I6 の文書は書いていない
+- エージェントの設計の選択(人間のレビュー待ち): ① `CeilingRuleError` の基底を `RuntimeError` に ② 判定は `ceiling_verdicts/` の別ファイル ③ 判定のある反復とない反復が混ざる点は止める ④ `n_reject` は天井でない成功した反復の棄却数・`n_reject_success` は天井を含む成功した反復の棄却数 ⑤ 判定のない点は天井の欄を出力に出さない ⑥ 天井の件数の CP の水準は `failure_level`。GPU 0・pod 0

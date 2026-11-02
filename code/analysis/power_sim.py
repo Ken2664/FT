@@ -112,6 +112,7 @@ from scipy.special import expit
 from scipy.stats import beta as beta_distribution
 
 from code import artifacts
+from code.analysis.ceiling import ceiling_rule, record_verdict, verdict_record
 from code.config import ConfigError, load_config, require
 
 FIT_SCRIPT = Path(__file__).resolve().parent / "power_sim_fit.R"
@@ -740,6 +741,15 @@ class GridPoint:
     **TOST の読みでは失敗も数える**(ADR-125 → ADR-128 決定4): `tost_n_failed` 件を、どのシートでも
     Δ = +∞(同等と言えない)として `tost_power` と `margin_quantiles` に渡す
     (`tost_failed_as_equivalent` は常に偽。記録のため欄は残す)。無限大は JSON に書かないので、件数と向きで持つ。
+
+    **★PLAN-047 I3 / ADR-137 決定4・5: 天井の規則(`ceiling.py`)が当たった反復は、当てはめが成功していても分母に入れて
+    非棄却に数え、TOST は Δ = +∞ とする**(実データで主要検定が「実施不能」になる手続きの数え方)。
+    `n_reject` は天井でない成功した反復の棄却数、`n_reject_success` は天井も含めた成功した反復の棄却数(記述。ADR-128 の欄の
+    意味のまま)。天井の判定を持つ反復の数 `n_ceiling_judged`(判定しない役割・旧い出力は 0 = 判定なし。全部か 0 かのどちらか)、
+    天井の件数 `n_ceiling`、天井でない反復の数 `n_noceiling` と、その棄却数 `n_reject_noceiling`(= `n_reject`)、
+    天井で成功した反復の記述の p 値の件数 `n_ceiling_descriptive` のうち `alpha` 未満 `n_ceiling_descriptive_reject`
+    (**どの門にも使わない**)、TOST の Δ = +∞ に数える天井(成功した反復)の件数 `tost_n_ceiling` を持つ。
+    実行可能性の門の分子は当てはめ失敗だけで、天井は入らない(`failed_rate`)。
     """
 
     n_item: int
@@ -768,10 +778,40 @@ class GridPoint:
     n_floor_base_errored: int = 0
     n_failed_descriptive: int = 0
     n_failed_descriptive_reject: int = 0
+    # ★PLAN-047 I3 / ADR-137: 天井の規則。判定しない(役割 `ceiling_probe`・旧い出力)点は全部 0 で、`point_record` は
+    # これらの欄を出力に出さない(旧い出力・`ceiling_probe` の要約と同じ形を保つ)
+    n_ceiling_judged: int = 0
+    n_ceiling: int = 0
+    n_noceiling: int = 0
+    n_reject_noceiling: int = 0
+    n_ceiling_descriptive: int = 0
+    n_ceiling_descriptive_reject: int = 0
+    tost_n_ceiling: int = 0
 
     @property
     def key(self) -> PointKey:
         return PointKey(self.n_item, self.sigma, self.rho)
+
+    @property
+    def tost_n_infinite(self) -> int:
+        """答える問い: TOST の読みで Δ = +∞(同等と言えない)に数える反復は何件か(当てはめ失敗 + 天井で成功した反復)。"""
+        return self.tost_n_failed + self.tost_n_ceiling
+
+
+# 判定しない点では出力から外す欄(`GridPoint` の天井の欄すべて)
+CEILING_POINT_FIELDS = (
+    "n_ceiling_judged", "n_ceiling", "n_noceiling", "n_reject_noceiling",
+    "n_ceiling_descriptive", "n_ceiling_descriptive_reject", "tost_n_ceiling",
+)
+
+
+def point_record(point: GridPoint) -> dict[str, Any]:
+    """答える問い: この点を JSON にすると何か。天井の判定が無い点は、天井の欄を出さない(= ADR-137 より前と同じ形)。"""
+    record = dataclasses.asdict(point)
+    if point.n_ceiling_judged == 0:
+        for name in CEILING_POINT_FIELDS:
+            del record[name]
+    return record
 
 
 def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
@@ -785,11 +825,12 @@ def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
     **★ADR-128 決定1 (A2): 当てはめ失敗(`fit_failed`。床の `allFit` の段の後でも収束しない / 床の土台が例外)は、
     どのシートでも分母に入れて非棄却に数える**(~~過誤のシートでは棄却。ADR-124 D2'~~)。
     **分母から除かない**(除くと「うまく当たった表の中の率」になる。PLAN-041 §3.3 罠2)。
-    だから `n_reject` は成功した反復の棄却数と一致し、成功だけの率は `n_reject_success / n_success` で別に読む。
+    だから `n_reject` は(天井の判定が無ければ)成功した反復の棄却数と一致し、成功だけの率は `n_reject_success / n_success` で別に読む。
     失敗の隠れ(失敗が過誤と結びつくのに過誤の門に見えない)は、実行可能性の門と
     失敗した反復の記述の p 値(`p_value_failed_descriptive`)が見る(PLAN-043 罠5)。
     `fit_failed` でないのに p 値が null の反復は、黙って数えず止まる(`CLAUDE.md` §7)。
-    旧い出力(run2。新しい欄を持たない)も読める。
+    旧い出力(run2。新しい欄を持たない)も読める(天井は「判定なし」= 全反復が天井でない扱いで、従来と同じ数)。
+    **天井の判定を持つ反復と持たない反復が混ざる点は止まる**(黙って一部だけ B を掛けない。別の `--out-dir` で回し直す)。
     """
     if not results:
         raise PowerSimError(f"{key} の結果が 0 件である")
@@ -803,17 +844,29 @@ def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
             + (f"(当てはめの例外: {reasons})" if reasons else "")
         )
     n = len(results)
+    verdicts = [record_verdict(r) for r in results]
+    n_judged = sum(1 for v in verdicts if v is not None)
+    if 0 < n_judged < n:
+        raise PowerSimError(
+            f"{key} の {n} 反復のうち天井の判定があるのは {n_judged} 件だけである。"
+            "判定のある反復とない反復(別の版のコードで当てた反復)が混ざっている。別の --out-dir で回し直すこと"
+        )
+    on_ceiling = [bool(v) for v in verdicts]    # 判定なし(None)は天井でない扱い = 従来と同じ数
     done = [r for r, f in zip(results, failed) if not f]
     failures = [r for r, f in zip(results, failed) if f]
     n_failed = len(failures)
-    n_reject = sum(1 for r in done if r["p_value"] < alpha)
+    done_ceiling = [r for r, f, c in zip(results, failed, on_ceiling) if c and not f]
+    done_plain = [r for r, f, c in zip(results, failed, on_ceiling) if not c and not f]
+    n_reject = sum(1 for r in done_plain if r["p_value"] < alpha)
+    n_reject_success = sum(1 for r in done if r["p_value"] < alpha)
+    n_ceiling = sum(on_ceiling)
     described = [
         r["p_value_failed_descriptive"]
         for r in failures
         if r.get("p_value_failed_descriptive") is not None
     ]
     margins = (
-        tuple(sorted(equivalence_margin(r, tost) for r in done))
+        tuple(sorted(equivalence_margin(r, tost) for r in done_plain))
         if tost is not None
         else ()
     )
@@ -838,11 +891,18 @@ def summarise_point(key: PointKey, results: Sequence[Mapping[str, Any]],
         tost_n_failed=n_failed if tost is not None else 0,
         tost_failed_as_equivalent=False,
         n_success=len(done),
-        n_reject_success=n_reject,
+        n_reject_success=n_reject_success,
         n_rescued=sum(1 for r in results if r.get("rescued_by_allfit", False)),
         n_floor_base_errored=sum(1 for r in results if r.get("floor_base_errored", False)),
         n_failed_descriptive=len(described),
         n_failed_descriptive_reject=sum(1 for p in described if p < alpha),
+        n_ceiling_judged=n_judged,
+        n_ceiling=n_ceiling,
+        n_noceiling=n_judged - n_ceiling,
+        n_reject_noceiling=n_reject if n_judged else 0,
+        n_ceiling_descriptive=len(done_ceiling),
+        n_ceiling_descriptive_reject=sum(1 for r in done_ceiling if r["p_value"] < alpha),
+        tost_n_ceiling=len(done_ceiling) if tost is not None else 0,
     )
 
 
@@ -1038,9 +1098,10 @@ def margin_quantile_table(
             rows.setdefault(str(point.n_item), {})[sheet_id] = {
                 "n_rep": point.n_rep,
                 "n_failed": point.tost_n_failed,
+                **({"n_ceiling": point.tost_n_ceiling} if point.n_ceiling_judged else {}),
                 "quantiles": margin_quantiles(
                     point.tost_min_margins, axes.margin_quantiles,
-                    n_failed=point.tost_n_failed,
+                    n_failed=point.tost_n_infinite,
                     failed_as_equivalent=point.tost_failed_as_equivalent,
                 ),
             }
@@ -1184,12 +1245,13 @@ def _rate_with_interval(count: int, n: int, level: float) -> dict[str, Any]:
 
 def point_intervals(point: GridPoint, rejection_level: float, failure_level: float) -> dict[str, Any]:
     """答える問い: この点の棄却率・成功だけの棄却率・失敗率・失敗した反復だけの棄却率は、区間つきでいくつか。
+    (天井の判定がある点は、天井の件数・天井でない反復だけの棄却率・天井の反復の記述の p 値の棄却率も足す。ADR-137)
 
     ★PLAN-043 I2 / ADR-129 決定3。**並べるだけ**で、どの門にも使わない(成功だけ・失敗だけの率を
     「本当の過誤」と読まない。選択の偏りがある。PLAN-043 罠2)。`rejection` は失敗を非棄却に数えた
     無条件の率で、誤指定の門が見る量である。
     """
-    return {
+    intervals = {
         "rejection": _rate_with_interval(point.n_reject, point.n_rep, rejection_level),
         "rejection_success_only": _rate_with_interval(
             point.n_reject_success, point.n_success, rejection_level
@@ -1200,6 +1262,31 @@ def point_intervals(point: GridPoint, rejection_level: float, failure_level: flo
         "rejection_failed_descriptive_only": _rate_with_interval(
             point.n_failed_descriptive_reject, point.n_failed_descriptive, rejection_level
         ),
+    }
+    if point.n_ceiling_judged:
+        # ★ADR-137 決定4・5: 天井の件数(区間の水準は件数を見る実行可能性の門と同じ `failure_level`)・天井でない反復だけの
+        # 棄却率・天井の反復の記述の p 値。並べるだけで、どの門にも使わない
+        intervals["ceiling"] = _rate_with_interval(point.n_ceiling, point.n_rep, failure_level)
+        intervals["rejection_noceiling_only"] = _rate_with_interval(
+            point.n_reject_noceiling, point.n_noceiling, rejection_level
+        )
+        intervals["rejection_ceiling_descriptive_only"] = _rate_with_interval(
+            point.n_ceiling_descriptive_reject, point.n_ceiling_descriptive, rejection_level
+        )
+    return intervals
+
+
+def _ceiling_beside_gate(point: GridPoint, level: float) -> dict[str, Any]:
+    """答える問い: 門の表の横に置く、この点の天井の件数と区間は何か(判定が無い点は空 = 従来の行のまま)。
+
+    ★ADR-137 決定5: **門の判定(`exceeds`)には使わない**。過誤の門は天井を非棄却に入れた無条件の率、
+    実行可能性の門の分子は当てはめ失敗だけで、天井の件数はここに並べて記録するだけである。
+    """
+    if not point.n_ceiling_judged:
+        return {}
+    return {
+        "n_ceiling": point.n_ceiling,
+        "ceiling_ci": clopper_pearson_interval(point.n_ceiling, point.n_rep, level),
     }
 
 
@@ -1216,7 +1303,7 @@ def _gate_rows(
             )
         point = matching[0]
         lower = clopper_pearson_lower(point.n_reject, point.n_rep, gate.ci_level)
-        rows.append({
+        row = {
             "tau": tau,
             "n_item": point.n_item,
             "n_rep": point.n_rep,
@@ -1228,7 +1315,9 @@ def _gate_rows(
             "ci_level": gate.ci_level,
             "ci_lower": lower,
             "exceeds": lower > gate.lower_bound_above,
-        })
+        }
+        row.update(_ceiling_beside_gate(point, gate.ci_level))
+        rows.append(row)
     return rows
 
 
@@ -1310,7 +1399,7 @@ def _feasibility_rows(
     for point in points:
         n_failed = round(point.failed_rate * point.n_rep)
         lower = clopper_pearson_lower(n_failed, point.n_rep, gate.ci_level)
-        rows.append({
+        row = {
             "n_item": point.n_item,
             "sigma": point.sigma,
             "rho": point.rho,
@@ -1322,7 +1411,9 @@ def _feasibility_rows(
             "ci_level": gate.ci_level,
             "ci_lower": lower,
             "exceeds": lower > gate.lower_bound_above,
-        })
+        }
+        row.update(_ceiling_beside_gate(point, gate.ci_level))
+        rows.append(row)
     return rows
 
 
@@ -1809,12 +1900,15 @@ def sheet_summary(
         "failure_counted_as": "retain",
         "grid": [
             {
-                **dataclasses.asdict(point),
+                **point_record(point),
                 "intervals": point_intervals(point, rejection_level, failure_level),
             }
             for point in points
         ],
     }
+    # ★ADR-137 決定4: 天井の規則が当たった反復も分母に入れて非棄却・TOST は Δ = +∞(判定のある点があるシートだけが持つ)
+    if any(point.n_ceiling_judged for point in points):
+        summary["ceiling_counted_as"] = "retain"
     # tau が 0 でない検出力のシート(P1 の確認点。ADR-124 D6)は軸を持たない 1 点なので逆問題を解かない
     if sheet.role == ROLE_POWER and sheet.tau == TAU_ZERO:
         summary["inverse_problem"] = inverse_problem(points, axes, target_power)
@@ -1918,6 +2012,27 @@ class RunContext:
     keep_frames: bool
 
 
+# 天井の規則を判定する役割(ADR-137 決定6)。`ROLES` の 4 つすべてで、役割 `ceiling_probe`(`ROLES` の外)には当てない
+ROLES_WITH_CEILING_RULE = ROLES
+VERDICTS_DIR = "ceiling_verdicts"
+
+
+def verdict_name(tag: str, rep: int) -> str:
+    """答える問い: この点のこの反復の天井の判定は、どのファイルか。"""
+    return f"verdict_{tag}_{rep:04d}.json"
+
+
+def load_rep_result(fit_path: Path, verdict_path: Path | None) -> dict[str, Any]:
+    """答える問い: この反復の記録(R の当てはめ + あれば天井の判定)は何か。
+
+    判定のファイルが無ければ当てはめだけを返す(判定なし。`summarise_point` が旧い出力として読む)。
+    """
+    result: dict[str, Any] = json.loads(fit_path.read_text(encoding="ascii"))
+    if verdict_path is not None and verdict_path.exists():
+        result.update(json.loads(verdict_path.read_text(encoding="utf-8")))
+    return result
+
+
 def run_sheet_stage(
     ctx: RunContext, sheet: Sheet, profile: EffectProfile, tost: TostSpec, n_rep: int
 ) -> list[GridPoint]:
@@ -1926,12 +2041,20 @@ def run_sheet_stage(
     **当てはめ済みの反復は表を組まない**(反復の表は `replication_rng` だけで決まり、他の反復に
     依らないので、飛ばしても残りの表は変わらない)。R に渡すのは未済の反復だけである
     (済んだ反復を混ぜると、連続ブロックの切り分けで負荷が偏る)。
+
+    **★PLAN-047 I2 / ADR-137 決定4: 表を組んだ直後、当てはめの前に天井の規則を判定して反復の記録(`ceiling_verdicts/`)に残す**
+    (役割 `ceiling_probe` は判定しない。決定6)。当てはめ・R・`fits/` の形は変えない。記録は表と当てはめの前に書くので、
+    当てはめ済みの反復には必ず記録がある(旧い版で当てた反復だけが持たず、`summarise_point` が混在を止める)。
     """
     sheet_dir = ctx.out_dir / sheet.sheet_id
     frames_dir = sheet_dir / "frames"
     fits_dir = sheet_dir / "fits"
+    verdicts_dir = sheet_dir / VERDICTS_DIR
+    judges_ceiling = sheet.role in ROLES_WITH_CEILING_RULE
     frames_dir.mkdir(parents=True, exist_ok=True)
     fits_dir.mkdir(exist_ok=True)
+    if judges_ceiling:
+        verdicts_dir.mkdir(exist_ok=True)
 
     seed_direction = (
         None
@@ -1959,6 +2082,11 @@ def run_sheet_stage(
                 tau=frame_tau(sheet, key.sigma),
                 seed_direction=seed_direction,
             )
+            if judges_ceiling:
+                write_json_atomic(
+                    verdicts_dir / verdict_name(tag, rep),
+                    verdict_record(ceiling_rule(rows, levels.tasks, levels.coverages)),
+                )
             write_frame_csv(rows, csv_path)
             pending.append((csv_path, out_path))
 
@@ -1967,7 +2095,10 @@ def run_sheet_stage(
                 ctx.rscript, ctx.libpath, sheet_dir / f"manifest_{tag}", pending,
                 ctx.refit, ctx.max_level, ctx.allfit, ctx.n_workers,
             )
-        results = [json.loads(out.read_text(encoding="ascii")) for out in outputs]
+        results = [
+            load_rep_result(out, verdicts_dir / verdict_name(tag, rep) if judges_ceiling else None)
+            for rep, out in enumerate(outputs)
+        ]
         points.append(summarise_point(key, results, ctx.alpha, tost))
         if not ctx.keep_frames:
             for csv_path, _ in pending:
@@ -2509,7 +2640,7 @@ def ceiling_point_record(
 ) -> dict[str, Any]:
     """答える問い: この点について §3.1 の量(記述だけ)は何か。門には使わない。"""
     return {
-        **dataclasses.asdict(point),
+        **point_record(point),
         "intervals": point_intervals(point, probe.ci_level, probe.ci_level),
         "fit_stage_counts": fit_stage_counts(results),
         "interaction_coefficients": summarise_coefficients(results, profile.coverages, probe.quantiles),

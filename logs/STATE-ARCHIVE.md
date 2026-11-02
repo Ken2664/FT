@@ -18,6 +18,36 @@
 
 ---
 
+## ★2026-11-02(その189)—— STATE.md から移したブロック(ADR-063 運用規約1)
+
+### いま何をしているか
+
+> **★★2026-11-01(その189・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-047 I1〜I3 を作業ツリーに書いた(★未コミット・既存テスト 2 本が落ちている)。GPU 0・pod 0**
+> - **書いた(未コミット)**: `code/analysis/ceiling.py`(新規。規則の移動 I1)/ `ceiling_remedy.py`(import の差し替え)/ `power_sim.py`(I2 `draw_frame` の直後に判定して `<シート>/ceiling_verdicts/verdict_<点>_<rep>.json` に記録・I3 `GridPoint` の欄と `summarise_point`・`point_record`・区間・門の表の横)/ `code/tests/test_power_sim_ceiling.py`(新規 15 本 pass)
+> - **未了**: 既存テスト 2 本の直し・`pytest code/tests -q` 全体・`--dry-run`・I5 の smoke(HEAD との突き合わせ)・PLAN-047 §11・CHANGELOG・コミット。I6 の文書は人間の承認前に書かない
+> - **★順6 の印は旧い主プールで付いた**。測り直し(PLAN-045 I7)の起動は人間
+
+### 次のアクション
+
+> **★★2026-11-01(その189・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. **IMPLEMENTER(Sonnet): PLAN-047 I1〜I5 の続き**(`logs/HANDOFF.md`。既存テスト 2 本の直し → 全体 pytest → `--dry-run` → smoke → 記録 → コミット)→ I6 の文書は人間が文言を承認
+> 2. **人間: 順6 の測り直し(PLAN-045 I7)の起動を決める**(作り直した主プールで R1 の設定を 1 run。RUNNER。S4 と同じ pod でよい。旧い印と新しい印を並べて記録・解釈は人間)
+> 3. 人間: `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。2 の測り直しを同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 4. run3 は 1 と 3 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 5. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(逆順がパイロットのプールにある組 199)/ その166 の 5 の項目 / 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(ADR-114 決定6。S5。`OPEN-ITEMS.md`)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ `primary.py` 本体の PLAN の起票の時期(ADR-137 決定1。`OPEN-ITEMS.md`)
+
+### 引き継ぎ
+
+> **★★2026-11-01(その189・最新)。Claude Sonnet 5.5(IMPLEMENTER。HANDOFF の推奨と一致)。PLAN-047 I1〜I3 を実装の途中で切った(コンテキスト超過)。**
+>
+> **★やったこと**: 分岐を人間に聞いた((A) を選択)→ I1 規則の移動 → I2 判定 → I3 集計 → 新テスト 15 本。**コードは未コミット**(テストが落ちているため。作業ツリーに残してある)
+> **★設計の選択(エージェントの案。人間のレビュー待ち)**: ① `CeilingRuleError` の基底を `RuntimeError` にした(`PowerSimError` を継ぐと循環 import。誰も `except PowerSimError` していない)② 判定は `fits/` を触らず `ceiling_verdicts/` に別ファイルで残し、集計時に反復の記録へ合流 ③ 判定のある反復とない反復が混ざる点は `summarise_point` が止める(別の版で当てた反復を黙って B の外に置かない)④ `n_reject` = 天井でない成功した反復の棄却数・`n_reject_success` = 成功した反復の棄却数(天井を含む・従来の意味)⑤ 判定のない点は天井の欄を出力に出さない(`point_record`)⑥ 天井の件数の区間の水準は `failure_level`(= 実行可能性の門の水準)
+> **★落ちている既存テスト 2 本(`code/tests/test_power_sim.py`)**: `test_resumed_run_fits_only_the_missing_replications`(手で置いた済みの fit に判定の記録が無く混在で止まる → 判定の記録を一緒に置く)/ `test_run_writes_one_directory_per_sheet_and_the_records`(1951 行 `len(tost_min_margins) == 2`。smoke の小さい表は本物の規則で天井に当たり、最小 Δ が減る → `ceiling_rule` を天井なしに差し替えるか、`len(margins) + tost_n_ceiling + tost_n_failed == 2` に改める)。どちらも**挙動の変更に合わせたテストの直し**であって、判断は直前のコミットの ADR-137 決定4 に含まれる
+> **★注意**: 途中のバックグラウンド pytest が「exit 0・出力空」と返したが信用しない(その後の個別実行で上の 2 本が落ちた)。全体は必ず自分で走らせて出力を見る
+
+---
+
 ## ★2026-11-01(その188)—— STATE.md から移したブロック(ADR-063 運用規約1)
 
 ### いま何をしているか

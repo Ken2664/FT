@@ -24,7 +24,7 @@ import numpy as np
 import pytest
 import yaml
 
-from code.analysis import power_sim
+from code.analysis import ceiling, power_sim
 from code.config import ConfigError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1916,10 +1916,20 @@ def smoke_config() -> dict[str, Any]:
     return load(SMOKE_CONFIG)
 
 
+def never_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    """天井の規則を「どの表も天井でない」に差し替える。**smoke の小さい表は本物の規則だと天井に当たる**ので、
+    天井でない表の配線(最小 Δ の件数など)を見るテストはこれを使う(ADR-137 決定4。天井の反復の扱いは test_power_sim_ceiling.py)。
+    """
+    monkeypatch.setattr(
+        power_sim, "ceiling_rule", lambda rows, tasks, coverages: ceiling.CeilingVerdict(False, (), ())
+    )
+
+
 def test_run_writes_one_directory_per_sheet_and_the_records(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake_fits(monkeypatch)
+    never_ceiling(monkeypatch)
     summary = power_sim.run(
         smoke_config(), tmp_path, None, keep_frames=False, through_stage=2,
         config_path=SMOKE_CONFIG,
@@ -2000,6 +2010,12 @@ def test_resumed_run_fits_only_the_missing_replications(
     done = resumed_dir / "p1" / "fits" / "fit_n2_s0_r0_0000.json"
     done.parent.mkdir(parents=True)
     done.write_text(json.dumps(fit_result(0.5)), encoding="ascii")
+    # 済んだ反復には判定の記録もある(表と当てはめの前に書く。ADR-137 決定4)。無いと summarise_point が「混ざって」と止まる
+    verdicts = done.parent.parent / power_sim.VERDICTS_DIR
+    verdicts.mkdir()
+    (verdicts / power_sim.verdict_name("n2_s0_r0", 0)).write_text(
+        json.dumps(ceiling.verdict_record(ceiling.CeilingVerdict(False, (), ()))), encoding="utf-8"
+    )
     calls: list[Path] = []
     fake_fits(monkeypatch, calls)
     power_sim.run(smoke_config(), resumed_dir, None, keep_frames=True, through_stage=2)

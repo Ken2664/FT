@@ -8275,3 +8275,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **人間が決めた(`AskUserQuestion` 2 回・6 問とも推奨 (a))** → `logs/DECISIONS.md` に ADR-138: 範囲は主要検定の本体だけ / `power_sim_fit.R` を変えずに呼び `configs/power_sim.yaml` の `fit` 節を読む / N5 の閾値・TOST の Δ は `null` で実データでは止まる / `--shuffle-labels` は被覆の水準の中で項目単位に `task` / `--simulate` は `draw_frame` で P0・P1 / 判定を p 値より左に置く固定の表
 - 書いた: PLAN-048(ステータス `採択`・§9 の 1 項目め・§10・§11)/ `logs/OPEN-ITEMS.md`(`primary.py` 本体の行)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md` へ)
 - `code/` は不変・テストは走らせていない(文書だけ)。GPU 0・pod 0
+
+## 2026-11-02(その192・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- PLAN-048 の採択(`d34cf68`)で切る。ADR-138 の関連 commit を埋めた。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet。PLAN-048 I1〜I10)。RunPod は使っていない(GPU 0・pod 0)

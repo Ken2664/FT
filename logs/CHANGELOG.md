@@ -8295,3 +8295,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - **人間が決めた(`AskUserQuestion` 1 回・4 問とも推奨)**: ①③④⑤⑥ は実装のまま採る / ② は (b) = 人間が確定した一覧を `input.order6_dropped_cells` に書き、`fails` の和集合と照合して食い違えば止める
 - 書いた: `logs/DECISIONS.md`(ADR-138 追記)/ `plans/PLAN-048-…md`(ステータス `採択`・§5 に I11・§9 に 2 項目・§11)/ `logs/OPEN-ITEMS.md`(`primary.py` 本体の行)/ `STATE.md`(4 か所。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`
 - `code/` は不変・テストは走らせていない(文書だけ)。`results/primary/` の 2 run はコミットしていない(人間)。GPU 0・pod 0
+
+## 2026-11-03(その195・PLAN-048 I11 の実装)   [actor: IMPLEMENTER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その194)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果と `.claude/commands/` だけ。worktree `claude/great-bardeen-9c1ac4` は `STATE.md` の登録簿に記載済み。**推奨モデル(Sonnet)と不一致**(Opus 5.5。実装なので止めずに進めた)
+- `configs/primary.yaml` に `input.order6_dropped_cells: null`(値は入れていない)。`code/analysis/primary.py` に `declared_order6_cells`・`confirmed_order6_cells`。`--frame-dir` 付きの `--shuffle-labels` と、実データの経路(`--order6-gonogo` と一覧の両方があるとき、ほかの未決で止まる前)で `fails` の和集合と照合し、食い違えば両側を出して止める。`null` なら未決として止める(`pending_decisions` は 5 項目)。`--simulate` と合成の shuffle は不変
+- `code/tests/test_primary.py` に I11 のテスト 9 本。`pytest code/tests -q` = 2695 passed(734.70 秒・skip 0。R を通す 1 本を含む)
+- 書いた: PLAN-048(§9 全項目済み・§11・ステータス `完了`)/ `logs/OPEN-ITEMS.md` の行 / `STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`)。GPU 0・pod 0

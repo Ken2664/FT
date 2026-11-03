@@ -4,8 +4,8 @@
 > 変更したら `logs/CHANGELOG.md` に記録し、git commit する。
 
 - 作成日: 2026-11-02
-- 最終更新: 2026-11-03(その194。§11 の選択 ①〜⑥ を人間が採否。② は (b) に改める → I11 を追加)
-- ステータス: **`採択`(2026-11-03 その194。I11(順6 で落とすセルの確定した一覧との照合)の実装待ち。ADR-138 追記)** ~~`完了`(2026-11-03 その193。I1〜I10 を実装)~~ ~~`採択`(2026-11-02 その192。ADR-138。§4 の Q1〜Q6 は人間が 6 問とも推奨 (a)。次は IMPLEMENTER の I1〜I10)** ~~`草案`~~
+- 最終更新: 2026-11-03(その195。I11 を実装。§9 は全項目済み → `完了`)
+- ステータス: **`完了`(2026-11-03 その195。I11 を実装)** ~~`採択`(2026-11-03 その194。I11(順6 で落とすセルの確定した一覧との照合)の実装待ち。ADR-138 追記)~~ ~~`完了`(2026-11-03 その193。I1〜I10 を実装)~~ ~~`採択`(2026-11-02 その192。ADR-138。§4 の Q1〜Q6 は人間が 6 問とも推奨 (a)。次は IMPLEMENTER の I1〜I10)** ~~`草案`~~
 - 担当: PLANNER(草案 = Opus 5.5)/ 実装は IMPLEMENTER / 問いの決定は人間
 - 関連: **ADR-137 決定1〜3・リスク欄**(起票の根拠)/ PLAN-016 §7-5・§7-6 / ADR-059(収束の定義・閾値)/ ADR-069 決定4 の (2)(当て直したほうを LRT に入れる)/ ADR-124(新しい項・縮退順序・当てはめ失敗)/ ADR-128 決定1 (A3)・ADR-129 決定1・2(床の `allFit`)/ ADR-112 決定1(df < 2 は実施不能)/ ADR-064 決定2(df のランク規則)/ ADR-076 決定1(順6 の #2 で落としたセル)/ ADR-041 決定1(適格性フィルタ 0.70)/ ADR-062 決定4・6・7(frame の層の責務)/ ADR-114 決定5・6(平行性の TOST・第 2 の尺度)/ ADR-135 決定2(天井 = 実施不能)/ ADR-097 決定6 / ADR-039 決定3
 - 判断材料: `Documents/05_STATISTICS.md` §2・§3.2・§5・§8 / `code/analysis/frame.py` / `code/analysis/ceiling.py` / `code/analysis/power_sim_fit.R` / `code/analysis/power_sim.py` の `run_fits`・`write_fit_manifest`・`tost_spec`・`equivalence_margin` / `configs/power_sim.yaml` の `fit` 節
@@ -207,7 +207,7 @@
 - [x] `python -m code.analysis.primary --shuffle-labels --seed 0` が走った(run `20261103_051849_primary_t1t2_shuffle`。結果の読みは人間)
 - [x] `logs/OPEN-ITEMS.md` の「`primary.py` 本体の PLAN」の行を更新した
 - [x] §11 の選択 ①〜⑥ に人間が答え、ADR-138 に追記した(2026-11-03 その194。② は (b))
-- [ ] I11 を実装し、`pytest code/tests -q` が通った
+- [x] I11 を実装し、`pytest code/tests -q` が通った(2695 passed・skip 0。R を通す 1 本を含む。その195)
 
 ---
 
@@ -234,3 +234,8 @@
   - **PLAN に書いていなかった選択(人間のレビュー待ち)**: ① `input.order6_gonogo` を `null` に(実データの実行が止まる項目が 2 つ → 3 つ)② 順6 の `gonogo.json` は `runs[].cells[].fails` の和集合 ③ 閾値が入っても門の順が未決なので止める(二値化・不等号の向きは決めていない)④ `--shuffle-labels` は `--frame-dir` が無ければ合成 P1 ⑤ 報告は対象ごとの節に固定の表 ⑥ `ceiling_rule` は残ったセルを 1 つずつ宣言して呼ぶ
   - **食い違い**: `frame.py` の docstring が `primary.py` を「未実装」と書いている(触っていない)
 - 2026-11-03(その194・PLANNER, Opus 5.5): 選択 ①〜⑥ の判断材料の表をチャットで示し、人間が採否を決めた(`AskUserQuestion` 1 回・4 問とも推奨)→ ADR-138 追記。**①③④⑤⑥ は実装のまま採る。② は (b) に改める**: `gonogo.json` の `note` と ADR-076 決定1 は「落ちたセルの一覧の確定は人間」としており、`fails` の和集合をそのまま一覧に使う形はその確定を飛ばしていた → 人間が確定した一覧を config に置き、和集合と照合する(§5 の I11)。ステータスを `採択` に戻した。`code/` は不変
+- 2026-11-03(その195・IMPLEMENTER, Opus 5.5。推奨は Sonnet): I11 を実装。`configs/primary.yaml` に `input.order6_dropped_cells: null`(**値は入れていない**)/ `primary.py` に `declared_order6_cells`(リストでない・主軸のセルでない名前は `ConfigError`)と `confirmed_order6_cells`(`null` → `PendingDecisionError`・`fails` の和集合と集合として違えば両側を出して `PrimaryError`・一致すれば宣言の一覧を返す)。`--frame-dir` 付きの `--shuffle-labels` は `confirmed_order6_cells` を通す。`pending_decisions` の未決は 4 → 5 項目。`--simulate` と合成の shuffle は不変
+  - **実装の選択(報告)**: 実データの経路は `require_decided` で必ず止まるが、`--order6-gonogo` と一覧の両方があれば**止まる前に照合する**(I11 の「`gonogo.json` を読む経路(実データ・…)」に当たる。一覧が `null` のときは `pending_decisions` の 1 項目として出るだけ)
+  - テスト(`test_primary.py` +9 本): 一致で通る / 食い違いで止まる(両側が出る・未決の例外ではない)/ `null` で止まる / `[]` と `fails` 無しが一致し `[]` は未決に数えない / 主軸外・`.` の無い名前・リストでない値で止まる(3 本)/ `--frame-dir` 付きの shuffle でも照合する / 実データの経路で照合が他の未決より先
+  - 確認: `pytest code/tests -q` = **2695 passed**(734.70 秒・skip 0)。`--simulate` / `--shuffle-labels` の run は回していない(経路は不変)
+  - 気づいたこと(判断はしない): いまの `results/gonogo_order6/gonogo.json` の run は `condition` が `p2` で、`fails` は T3・T1b のセルだけ(主軸の T1・T2 には無い)= 主軸に限った和集合は空。人間は (c)(`runs[].condition` の検査)を選んでいないので検査は足していない

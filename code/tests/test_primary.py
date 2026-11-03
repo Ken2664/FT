@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import itertools
@@ -97,6 +98,7 @@ def test_the_undecided_values_stay_null_and_the_fit_settings_are_not_duplicated(
     """ADR-138 決定2・3: 閾値と Δ は null のまま(エージェントは値を入れない)。当てはめの設定は持たない。"""
     assert config["analysis_gate"]["threshold"] is None
     assert config["tost"]["delta"] is None
+    assert config["input"]["order6_dropped_cells"] is None
     assert not {"fit", "refit", "allfit", "reduction_order", "alpha", "tost_alpha"} & set(config)
 
 
@@ -119,11 +121,11 @@ def test_the_simulate_targets_are_points_of_the_power_sim_grid(config, power_con
 # --------------------------------------------------------------------------
 
 
-def test_all_four_undecided_items_are_listed_and_an_override_removes_only_its_own(config) -> None:
+def test_all_five_undecided_items_are_listed_and_an_override_removes_only_its_own(config) -> None:
     listed = primary.pending_decisions(config, None, None)
-    assert len(listed) == 4
-    assert len(primary.pending_decisions(config, Path("f"), None)) == 3
-    assert len(primary.pending_decisions(config, Path("f"), Path("g"))) == 2
+    assert len(listed) == 5 and primary.PENDING_ORDER6_LIST in listed
+    assert len(primary.pending_decisions(config, Path("f"), None)) == 4
+    assert len(primary.pending_decisions(config, Path("f"), Path("g"))) == 3
 
 
 def test_a_real_run_stops_when_anything_is_null_and_writes_nothing(config, tmp_path, capsys) -> None:
@@ -237,6 +239,81 @@ def test_the_order6_cells_are_the_union_of_failing_cells_in_the_design(spec, tmp
     path.write_text(json.dumps({"runs": []}), encoding="utf-8")
     with pytest.raises(primary.PrimaryError):
         primary.order6_dropped_cells(path, spec)
+
+
+# --------------------------------------------------------------------------
+# I11 順6 で落とすセルの確定した一覧との照合(ADR-138 追記 ②)
+# --------------------------------------------------------------------------
+
+
+def write_gonogo(path: Path, failing: set[tuple[str, str]]) -> Path:
+    cells = [{"task": t, "coverage": c, "fails": (t, c) in failing} for t in ("t1", "t2", "t3") for c in COVERAGES]
+    path.write_text(json.dumps({"runs": [{"cells": cells}]}), encoding="utf-8")
+    return path
+
+
+def with_order6_list(config: dict[str, Any], labels: list[str] | None) -> dict[str, Any]:
+    copied = json.loads(json.dumps(config))
+    copied["input"]["order6_dropped_cells"] = labels
+    return copied
+
+
+def test_the_declared_order6_list_passes_when_it_matches_the_fails(config, spec, tmp_path) -> None:
+    path = write_gonogo(tmp_path / "gonogo.json", {("t1", "id"), ("t3", "id")})
+    filled = with_order6_list(config, ["t1.id"])
+    assert primary.confirmed_order6_cells(filled, path, spec) == {("t1", "id")}
+
+
+def test_a_declared_order6_list_that_disagrees_stops_and_shows_both_sides(config, spec, tmp_path) -> None:
+    path = write_gonogo(tmp_path / "gonogo.json", {("t1", "id")})
+    filled = with_order6_list(config, ["t2.interp"])
+    with pytest.raises(primary.PrimaryError) as caught:
+        primary.confirmed_order6_cells(filled, path, spec)
+    assert not isinstance(caught.value, primary.PendingDecisionError)
+    assert "['t2.interp']" in str(caught.value) and "['t1.id']" in str(caught.value)
+
+
+def test_a_null_order6_list_stops_as_undecided(config, spec, tmp_path) -> None:
+    path = write_gonogo(tmp_path / "gonogo.json", set())
+    with pytest.raises(primary.PendingDecisionError, match="order6_dropped_cells"):
+        primary.confirmed_order6_cells(config, path, spec)
+
+
+def test_an_empty_order6_list_matches_a_report_with_no_fails_and_is_not_null(config, spec, tmp_path) -> None:
+    path = write_gonogo(tmp_path / "gonogo.json", set())
+    assert primary.confirmed_order6_cells(with_order6_list(config, []), path, spec) == set()
+    assert primary.PENDING_ORDER6_LIST not in primary.pending_decisions(with_order6_list(config, []), None, None)
+
+
+@pytest.mark.parametrize("labels", [["t3.id"], ["t1"], "t1.id"])
+def test_an_order6_list_with_a_name_off_the_main_axis_or_not_a_list_stops(config, spec, labels) -> None:
+    with pytest.raises(ConfigError):
+        primary.declared_order6_cells(with_order6_list(config, labels), spec)
+
+
+def shuffle_args(frame_dir: Path, order6: Path) -> argparse.Namespace:
+    return argparse.Namespace(frame_dir=frame_dir, order6_gonogo=order6, simulate=False, shuffle_labels=True, seed=0)
+
+
+def test_shuffle_with_a_frame_checks_the_order6_list_too(config, power_config, spec, tmp_path) -> None:
+    write_frame_dir(tmp_path / "f", make_rows())
+    path = write_gonogo(tmp_path / "gonogo.json", {("t2", "extrap_magnitude")})
+    with pytest.raises(primary.PendingDecisionError):
+        primary.build_targets(shuffle_args(tmp_path / "f", path), config, power_config, spec)
+    with pytest.raises(primary.PrimaryError, match="食い違う"):
+        primary.build_targets(shuffle_args(tmp_path / "f", path), with_order6_list(config, []), power_config, spec)
+    filled = with_order6_list(config, ["t2.extrap_magnitude"])
+    ((label, _, dropped, _),) = primary.build_targets(shuffle_args(tmp_path / "f", path), filled, power_config, spec)
+    assert label == "shuffled" and dropped == {("t2", "extrap_magnitude")}
+
+
+def test_a_real_run_checks_the_order6_list_before_stopping_on_the_other_null_values(config, power_config, spec, tmp_path) -> None:
+    path = write_gonogo(tmp_path / "gonogo.json", {("t1", "id")})
+    args = argparse.Namespace(frame_dir=None, order6_gonogo=path, simulate=False, shuffle_labels=False, seed=None)
+    with pytest.raises(primary.PrimaryError, match="食い違う"):
+        primary.build_targets(args, with_order6_list(config, []), power_config, spec)
+    with pytest.raises(primary.PendingDecisionError, match="tost.delta"):
+        primary.build_targets(args, with_order6_list(config, ["t1.id"]), power_config, spec)
 
 
 # --------------------------------------------------------------------------

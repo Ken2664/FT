@@ -63,6 +63,7 @@ VERDICT_FIT = "実施不能: 当てはめ失敗"
 # 適格性フィルタで落ちた理由(ADR-076 決定1 の和集合)
 REASON_REFERENCE = "ident"
 REASON_ORDER6 = "order6_go_nogo_2"
+PENDING_ORDER6_LIST = "input.order6_dropped_cells: 人間が確定した、順6 の #2 で落とすセルの一覧([] は「落とすセルは無い」)"
 
 # `power_sim_fit.R` が基準水準として書き込んでいる被覆(F2)。TOST は基準以外の係数を見る
 BASELINE_COVERAGE = COVERAGE_ID
@@ -173,6 +174,8 @@ def pending_decisions(
         pending.append("input.frame_dir(または --frame-dir): 凍結した frame の在り処")
     if order6_gonogo is None and declared(config, "input.order6_gonogo") is None:
         pending.append("input.order6_gonogo(または --order6-gonogo): 順6 の Go/No-Go #2 の gonogo.json")
+    if declared(config, "input.order6_dropped_cells") is None:
+        pending.append(PENDING_ORDER6_LIST)
     if declared(config, "analysis_gate.threshold") is None:
         pending.append("analysis_gate.threshold: 解析門の閾値(N5)と、門を順のどこに入れるか")
     if declared(config, "tost.delta") is None:
@@ -299,6 +302,42 @@ def order6_dropped_cells(path: Path, spec: Spec) -> set[Cell]:
         if cell["fails"] and (cell["task"], cell["coverage"]) in spec.cells
     }
     return dropped
+
+
+def declared_order6_cells(config: Mapping[str, Any], spec: Spec) -> set[Cell] | None:
+    """答える問い: 人間が確定した、順6 の #2 で落とすセルの一覧はどれか(`null` なら未決で `None`)。
+
+    `[]` は「確かめて落とすセルは無い」で、`null` とは違う(PLAN-048 I11)。主軸のセルでない名前は書き損じとして止める。
+    """
+    labels = declared(config, "input.order6_dropped_cells")
+    if labels is None:
+        return None
+    if not isinstance(labels, list):
+        raise ConfigError(f"input.order6_dropped_cells は <task>.<coverage> のリストである: {labels!r}")
+    names = [str(label) for label in labels]
+    unknown = sorted(name for name in names if tuple(name.split(".", 1)) not in spec.cells)
+    if unknown:
+        raise ConfigError(f"input.order6_dropped_cells に主軸のセルでない名前がある: {unknown}")
+    return set(cells_from_labels(names))
+
+
+def confirmed_order6_cells(config: Mapping[str, Any], path: Path, spec: Spec) -> set[Cell]:
+    """答える問い: 人間が確定した一覧は、`gonogo.json` の `fails` の和集合と同じか(同じなら、その一覧を使う)。
+
+    `fails` は基準を割ったかの印で、落とすセルの確定は人間(ADR-076 決定1・ADR-138 追記 ②)。
+    一覧が未決なら止め、食い違えば両側を出して止める(どちらかに黙って倒さない)。
+    """
+    declared_cells = declared_order6_cells(config, spec)
+    if declared_cells is None:
+        raise PendingDecisionError(f"未決の値がある(ADR-138 追記 ②):\n  - {PENDING_ORDER6_LIST}")
+    marked = order6_dropped_cells(path, spec)
+    if declared_cells != marked:
+        raise PrimaryError(
+            "順6 で落とすセルの一覧が gonogo.json の fails と食い違う(ADR-138 追記 ②):\n"
+            f"  input.order6_dropped_cells: {sorted(cell_label(c) for c in declared_cells)}\n"
+            f"  {path} の fails の和集合: {sorted(cell_label(c) for c in marked)}"
+        )
+    return declared_cells
 
 
 def eligibility(
@@ -687,9 +726,12 @@ def build_targets(
         else:
             if order6 is None:
                 raise PrimaryError("--frame-dir を渡したときは --order6-gonogo も要る(適格性フィルタを同じにするため)")
-            rows, dropped = read_frame(frame_dir), order6_dropped_cells(order6, spec)
+            rows, dropped = read_frame(frame_dir), confirmed_order6_cells(config, order6, spec)
         shuffled, record = shuffle_task_labels(rows, spec, np.random.default_rng(seed))
         return [("shuffled", shuffled, dropped, {"seed": seed, **record})]
+    if order6 is not None and declared_order6_cells(config, spec) is not None:
+        # 実データの経路も gonogo.json を読む経路なので、ほかの未決で止まる前に照合しておく(PLAN-048 I11)
+        confirmed_order6_cells(config, order6, spec)
     require_decided(config, frame_dir, order6)
     raise AssertionError("require_decided は必ず例外を投げる")   # pragma: no cover
 

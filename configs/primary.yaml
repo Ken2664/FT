@@ -26,6 +26,11 @@ input:
   # 順6(none)の Go/No-Go #2 の gonogo.json(code/analysis/gonogo.py の出力)。
   # ★順6 の印は旧い主プールで付いた。測り直し(PLAN-045 I7)の後に在り処を決める(STATE.md)
   order6_gonogo: null
+  # 人間が確定した、順6 の #2 で落とすセルの一覧(<task>.<coverage> のリスト。ADR-138 追記 ② / PLAN-048 I11)。
+  # gonogo.json の fails は「基準を割ったか」の印にすぎず、一覧の確定は人間(ADR-076 決定1)。
+  # primary.py は fails の和集合(主軸のセル)とこの一覧を照合し、食い違えば止める。
+  # **[] は「確かめて落とすセルは無い」で、null(未決)とは違う**
+  order6_dropped_cells: null
 
 # ---- 主解析集合(§2 / ADR-112 / ADR-041)-------------------------------------------------
 design:

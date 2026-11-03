@@ -8288,3 +8288,10 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-03(その193・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
 - context-guard(約 262k)で切る。`logs/HANDOFF.md` を更新した(次は人間が選ぶ。既定は PLANNER・推奨 Opus で選択 ①〜⑥ の採否を諮る)。RunPod は使っていない(GPU 0・pod 0)
+
+## 2026-11-03(その194・PLAN-048 §11 の選択 ①〜⑥ の採否)   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その193)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果(`results/primary/` を含む)と `.claude/commands/` だけ。推奨モデル(Opus)と一致。**食い違い 1 件**: `STATE.md` の「最終更新」と「次のアクション」1 が「IMPLEMENTER 後始末」を次の作業としていたが、`07091a8` で PLAN-048 §9・§11・OPEN-ITEMS は済んでいた(このセッションで差し替えた)
+- 選択 ①〜⑥ を `5872175` のコード(`primary.py`・`gonogo.py`・`ceiling.py`)と突き合わせ、判断材料の表(実装の形・代案・推奨・確かめたこと)をチャットで示した。② には代案 (b) 照合・(c) run 1 本の検査を足した(`gonogo.json` の `note` と ADR-076 決定1 が一覧の確定を人間としているため)
+- **人間が決めた(`AskUserQuestion` 1 回・4 問とも推奨)**: ①③④⑤⑥ は実装のまま採る / ② は (b) = 人間が確定した一覧を `input.order6_dropped_cells` に書き、`fails` の和集合と照合して食い違えば止める
+- 書いた: `logs/DECISIONS.md`(ADR-138 追記)/ `plans/PLAN-048-…md`(ステータス `採択`・§5 に I11・§9 に 2 項目・§11)/ `logs/OPEN-ITEMS.md`(`primary.py` 本体の行)/ `STATE.md`(4 か所。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`
+- `code/` は不変・テストは走らせていない(文書だけ)。`results/primary/` の 2 run はコミットしていない(人間)。GPU 0・pod 0

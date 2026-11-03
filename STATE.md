@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-03(その193。IMPLEMENTER が **PLAN-048 I1〜I10 を実装**(`5872175`): 実データの主要解析 `primary.py`。次: 後始末(PLAN-048 §9・§11・OPEN-ITEMS・CHANGELOG)→ 人間の判断待ち)
-(**次: IMPLEMENTER(Sonnet)が PLAN-048 I1〜I10 / 順6 の測り直し(PLAN-045 I7)の起動・push と G2-1 承認は人間**。)
+最終更新: 2026-11-03(その194。PLANNER が **PLAN-048 §11 の選択 ①〜⑥ を人間に諮った**(ADR-138 追記): ①③④⑤⑥ は実装のまま採り、② は確定した一覧との照合に改める = PLAN-048 I11)
+(**次: IMPLEMENTER(Sonnet)が PLAN-048 I11 / 順6 の測り直し(PLAN-045 I7)の起動・push と G2-1 承認は人間**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-03(その193・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-048 I1〜I10 を実装した(`5872175`)。GPU 0・pod 0**
-> - **作ったもの**: `configs/primary.yaml` / `code/analysis/primary.py`(subset → 適格性フィルタ → df のランク規則 → 天井 → `power_sim_fit.R` で当てはめ → TOST の最小 Δ。判定を p 値より左に置く表)/ `code/tests/test_primary.py`(45 本)。`power_sim_fit.R`・`configs/power_sim.yaml`・`ceiling.py`・`frame.py` は不変
-> - **確かめたこと**: `pytest code/tests -q` = 2685 passed + R を通す 1 本は別に通過(35.75 秒・720 行)/ R の `qr()$rank` と Python の df が 6 セルの 46 部分集合で一致 / `--shuffle-labels --seed 0` が最後まで走った(run `20261103_051849_primary_t1t2_shuffle`・276 秒。結果の読みはしていない)/ `--simulate` が P0・P1 で最後まで走り `report.md` が ADR-138 決定6 の表の形になった(run `20261103_051849_primary_t1t2_simulate`・約 9 分。配線の確認で、結果の読みはしていない。`results/primary/` は未コミット)
-> - **未決のまま**: `analysis_gate.threshold`・`tost.delta`・`input.order6_gonogo`(在り処)は `null`。実データの実行は理由を出して終了コード 2 で止まる。閾値が入っても門の順が未決なのでこの版は止まる
+> **★★2026-11-03(その194・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-048 §11 の選択 ①〜⑥ を人間が採否した(ADR-138 追記)。GPU 0・pod 0**
+> - **採ったもの**: ① `input.order6_gonogo` は `null` / ③ 閾値が入っても門の順が決まるまで止める / ④ `--frame-dir` が無ければ合成 P1 で shuffle / ⑤ 対象ごとの節に固定の表 / ⑥ `ceiling_rule` は残ったセル 1 つずつ。**実装(`5872175`)のまま**
+> - **改めるもの**: ② 順6 で落とすセルを `fails` の和集合からそのまま取らない。人間が確定した一覧を `input.order6_dropped_cells` に書き、和集合と照合して食い違えば止める(PLAN-048 I11。**未実装**。PLAN-048 は `採択` に戻した)
+> - **`code/` は不変**。`results/primary/` の 2 run(その193)は未コミットのまま(コミットするかは人間)
 
 
 ---
@@ -322,23 +322,23 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-03(その193・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-11-03(その194・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **IMPLEMENTER 後始末(Sonnet 可)**: PLAN-048 §9 の 2〜5 項目め・§11(入れ替えの回帰は 200 回・R 1 本 35.75 秒・`--simulate` 約 9 分・`--shuffle-labels` 276 秒)・`logs/OPEN-ITEMS.md` の `primary.py` 本体の行 → CHANGELOG → コミット(HANDOFF 参照。`results/primary/` の 2 run をコミットするかは人間)
+> 1. **IMPLEMENTER(Sonnet 可)**: PLAN-048 I11(`input.order6_dropped_cells` と `fails` の和集合の照合。§5)→ pytest → PLAN-048 §9 の最後の項目 → CHANGELOG → コミット
 > 2. 人間: 順6 の測り直し(PLAN-045 I7)の起動 / `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。I7 を同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 3. run3 は 2 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
-> 4. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ・順6 の gonogo.json の在り処(ADR-138 決定3)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN**
+> 4. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ・順6 の gonogo.json の在り処と落とすセルの確定した一覧(ADR-138 決定3・追記)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)**
 
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-11-03(その193・最新)。Claude Sonnet 5.5(IMPLEMENTER。推奨と一致)。PLAN-048 I1〜I10 を実装しコミットした(`5872175`)。**
+> **★★2026-11-03(その194・最新)。Claude Opus 5.5(PLANNER。推奨と一致)。PLAN-048 §11 の選択 ①〜⑥ の採否を人間に諮り、ADR-138 に追記した。**
 >
-> **★やったこと**: 開始手順 → PLAN-048・ADR-138・呼ぶ側のコード(`power_sim`・`ceiling`・`frame`・`power_sim_fit.R`)を読む → `configs/primary.yaml`・`primary.py`・`test_primary.py` → テスト・R 実走
-> **★エージェントの設計の選択(人間のレビュー待ち。PLAN に書いていなかった点)**: ① `input.order6_gonogo` を `null`(在り処は測り直しの後)にした = 実データの実行が止まる項目が PLAN の 2 つ(閾値・Δ)から 3 つになった ② 順6 の `gonogo.json` は `runs[].cells[].fails` の和集合で読む ③ 閾値が入っても解析門の順が未決なので止める(二値化・不等号の向きは決めていない)④ `--shuffle-labels` は `--frame-dir` が無ければ合成の P1 を入れ替える ⑤ 報告は対象ごとの節に固定の表を置く(行の先頭にラベル列を足さない)⑥ `ceiling_rule` は残ったセルを 1 つずつ宣言して呼ぶ
-> **★食い違い(CLAUDE.md §7.1)**: `code/analysis/frame.py` の冒頭と `gate_id_rates` の docstring は `primary.py` を「未実装」と書いている(`frame.py:11` 付近)。コードの docstring なので触っていない
+> **★やったこと**: 開始手順 → 選択 ①〜⑥ を `5872175` のコードと突き合わせて判断材料の表 → `AskUserQuestion` 1 回(4 問とも推奨)→ ADR-138 追記・PLAN-048(ステータス・I11・§9・§11)・`logs/OPEN-ITEMS.md` の行
+> **★② を改めた理由**: `results/gonogo_order6/gonogo.json` の `note` と ADR-076 決定1 は「落ちたセルの一覧の確定は人間」。`fails` の和集合をそのまま一覧に使うと確定を飛ばし、`runs[].condition` も見ない
+> **★食い違い(CLAUDE.md §7.1。その193 から持ち越し)**: `code/analysis/frame.py` の冒頭と `gate_id_rates` の docstring が `primary.py` を「未実装」と書いている。直すかは人間
 
 
 ---

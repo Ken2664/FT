@@ -8301,3 +8301,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - `configs/primary.yaml` に `input.order6_dropped_cells: null`(値は入れていない)。`code/analysis/primary.py` に `declared_order6_cells`・`confirmed_order6_cells`。`--frame-dir` 付きの `--shuffle-labels` と、実データの経路(`--order6-gonogo` と一覧の両方があるとき、ほかの未決で止まる前)で `fails` の和集合と照合し、食い違えば両側を出して止める。`null` なら未決として止める(`pending_decisions` は 5 項目)。`--simulate` と合成の shuffle は不変
 - `code/tests/test_primary.py` に I11 のテスト 9 本。`pytest code/tests -q` = 2695 passed(734.70 秒・skip 0。R を通す 1 本を含む)
 - 書いた: PLAN-048(§9 全項目済み・§11・ステータス `完了`)/ `logs/OPEN-ITEMS.md` の行 / `STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`)。GPU 0・pod 0
+
+## 2026-11-03(その195・引き継ぎ)   [actor: IMPLEMENTER (Claude Opus 5.5)]
+- PLAN-048 の完了(`9f7c7b1`)と context-guard(約 138k)で切る。`logs/HANDOFF.md` を更新した(次の作業は人間が選ぶ。(A) RUNNER・Sonnet で順6 の測り直し / (B) PLANNER・Opus で凍結前に要るものの PLAN 草案)。RunPod は使っていない(GPU 0・pod 0)

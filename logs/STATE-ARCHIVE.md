@@ -18,6 +18,39 @@
 
 ---
 
+## ★2026-11-03(その195)—— STATE.md から移したブロック(ADR-063 運用規約1。その196 で置き換え)
+
+### 最終更新
+
+最終更新: 2026-11-03(その195。IMPLEMENTER が **PLAN-048 I11 を実装**(`input.order6_dropped_cells` と `fails` の和集合の照合)。PLAN-048 は `完了`)
+(**次: 人間が「次のアクション」から選ぶ。順6 の測り直し(PLAN-045 I7)の起動・push と G2-1 承認は人間**。)
+
+### いま何をしているか
+
+> **★★2026-11-03(その195・最新)。Phase 0。Claude Opus 5.5(IMPLEMENTER。推奨は Sonnet)。PLAN-048 I11 を実装した。GPU 0・pod 0**
+> - `configs/primary.yaml` に `input.order6_dropped_cells: null`(人間が凍結の場で書く)。`primary.py` は `gonogo.json` を読む経路で、`null` なら未決として止め、`fails` の和集合(主軸のセル)と違えば両側を出して止める
+> - `pytest code/tests -q` = 2695 passed(skip 0)。**PLAN-048 は `完了`**
+> - `results/primary/` の 2 run(その193)は未コミットのまま(コミットするかは人間)
+
+### 次のアクション
+
+> **★★2026-11-03(その195・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. 人間: 順6 の測り直し(PLAN-045 I7)の起動 / `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。I7 を同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
+> 2. run3 は 1 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ・順6 の gonogo.json の在り処と `input.order6_dropped_cells` の確定した一覧(ADR-138 決定3・追記)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)**
+
+### 引き継ぎ
+
+> **★★2026-11-03(その195・最新)。Claude Opus 5.5(IMPLEMENTER。推奨の Sonnet と不一致・実装なので進めた)。PLAN-048 I11 を実装した。**
+>
+> **★やったこと**: 開始手順 → `configs/primary.yaml`・`primary.py`(`declared_order6_cells`・`confirmed_order6_cells`)・テスト 9 本 → pytest 2695 passed → PLAN-048 `完了`・CHANGELOG・OPEN-ITEMS
+> **★実装の選択(PLAN-048 §11 に記録)**: 実データの経路は、`--order6-gonogo` と一覧の両方があれば、ほかの未決で止まる前に照合する
+> **★気づいたこと(判断なし)**: いまの `results/gonogo_order6/gonogo.json` の run は `condition` = `p2` で、主軸のセルに `fails` は無い
+> **★食い違い(CLAUDE.md §7.1。その193 から持ち越し)**: `code/analysis/frame.py` の冒頭と `gate_id_rates` の docstring が `primary.py` を「未実装」と書いている。直すかは人間
+
+---
+
 ## ★2026-11-03(その194)—— STATE.md から移したブロック(ADR-063 運用規約1。その195 で置き換え)
 
 ### 最終更新

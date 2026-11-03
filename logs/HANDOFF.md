@@ -1,47 +1,48 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-11-03(その195)/ 直前セッションの役割: IMPLEMENTER
-直前セッションが終了した理由: PLAN 完了(PLAN-048 I11 を実装し `完了`。`9f7c7b1`)+ context-guard(約 138k)
+生成: 2026-11-03(その196)/ 直前セッションの役割: RUNNER
+直前セッションが終了した理由: コンテキスト超過(context-guard 約 127k)+ 人間の承認待ち(pod 起動・GPU)
 直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: 人間が選ぶ作業による — (A) を選ぶなら Sonnet(`10_CONTEXT_POLICY.md` §7 の「実装・集計・データ生成」= RUNNER の定型実行)/ (B) を選ぶなら Opus(「設計判断・統計」= PLANNER)
+**推奨モデル(次のセッション)**: Sonnet — `10_CONTEXT_POLICY.md` §7 の「実装・集計・データ生成」(RUNNER の定型実行)
 
 ---
 
-**人間へ: 貼る前に、下の (A) / (B) のどちらか(または別の作業)を 1 行目に書き足してください。**書かれていなければ、エージェントは作業を始めずに聞くこと。
+**人間へ: 貼る前に、下の承認を 1 行目に書き足してください**(例: 「I7 の pod 起動を承認。上限 1.0 時間 / $1.00。push は先にする / しない」)。
+**書かれていなければ、エージェントは pod を起動せずに聞くこと。**
 
-- **(A) RUNNER**: 順6 の測り直し(PLAN-045 I7)を起動する。**起動・push・G2-1 の承認は人間**(10 GPU 時間の上限と RunPod の課金。`CLAUDE.md` §2)。人間の承認が無ければ dry-run まで
-- **(B) PLANNER**: 凍結前に要るものの 1 つ(例: PLAN-048 で外したリンク 3 本・ADR-060 のベイズの PLAN 草案)を起草する。どれにするかは人間
-
-あなたは上で選ばれた役割です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは RUNNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
 `CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
 ## このセッションでやること(1つだけ)
 
-人間が選んだ (A) か (B) の 1 つ。(A) なら `infra/RUNPOD.md` §4 の手順と PLAN-045 I7 に従う。(B) なら `plans/PLAN-0XX-*.md` の草案を書き、問いと推奨を判断材料の表にして人間に諮る(ADR-097 決定6)
+順6 の測り直し(PLAN-045 I7)を pod で 1 run 回し、回収し、`gonogo.py` で印を付けて記録する(解釈は人間)。
 
-## 直前セッションで確定したこと(ファイルに書き込み済み)
+1. RunPod の操作の前に skill `runpod:runpod-mcp` を読む。既存の pod `9matkiq0jozcgm`(`EXITED`)とボリューム `r963j7swke` を `get-pod` で読み、**単価を人間に示してから**起動する(新規作成はしない。在庫が無ければ止めて人間へ)
+2. code は `git bundle create ft.bundle main` → scp(`-o IPQoS=none`)→ `git clone -b main`(`infra/RUNPOD.md` 45 行目)。追跡外の `data/generated/battery/main/items.jsonl`(SHA-256 `6bb6084d…`)と `data/generated/ft/exp_phase1_main_{p2,p2d,arb,x2,ident}/train.jsonl` を送り、pod 上の SHA-256 を manifest と照合する
+3. `HF_HOME=/workspace/.cache/huggingface HF_HUB_OFFLINE=1` で `python infra/preflight.py --config configs/exp_phase1_main.yaml --run-dir runs/<id>_order6_r1_remeasure`(FAIL 0 でなければ止める)→ 同じ `--run-dir` で `python -m code.eval.run --config configs/exp_phase1_main.yaml --run-dir ...`
+4. 回収 → **pod を stop**(`date -u` で上限を見張る)→ `python -m code.analysis.gonogo --runs "runs/*order6_r1_remeasure*" --out-dir results/gonogo_order6_remeasure`(**旧い `results/gonogo_order6/` は上書きしない**)→ `metrics.json`・`config.yaml` をコミット `[run:...]` → PLAN-045 §9 の最後の項目と §11 に run_id を記録
 
-- PLAN-048 I11 を実装(`9f7c7b1`): `configs/primary.yaml` に `input.order6_dropped_cells: null`。`primary.py` は `gonogo.json` を読む経路で、`null` なら未決として止め、`fails` の和集合(主軸のセル)と違えば両側を出して止める。`[]` は「落とすセルは無い」で `null` と別
-- `pytest code/tests -q` = 2695 passed(skip 0・R を通す 1 本を含む)。**PLAN-048 は `完了`**
-- 実装の選択(PLAN-048 §11): 実データの経路も、`--order6-gonogo` と一覧の両方があれば、ほかの未決で止まる前に照合する
+## 直前セッションで確定したこと
+
+- 人間が (A) を選んだ。`configs/exp_phase1_main.yaml` と R1 [run:20260911_141547_order6_r1] の config の差は `counterpart_manifest`・`interp_mirror_filter: true` の 2 欄だけ
+- 手元の dry-run は exit 0・1,640 項目(配線確認)。手元の preflight は pytest の 600 秒タイムアウト以外すべて PASS(GPU WARN・ボリューム SKIP は手元のため)
+- main は origin より 138 commit 先(`origin/main` = `102c2d5`)。pod へは bundle で送れる
 
 ## 触ってよいファイル / 読むべき範囲
 
-- `STATE.md` の「次のアクション」と `logs/OPEN-ITEMS.md` の該当行(`grep -n`)
-- (A) `plans/PLAN-045-*.md` の I7・`infra/RUNPOD.md` §4 / (B) `plans/PLAN-048-primary-analysis-script.md` §3.2 の W9・W11 と ADR-138 決定1
-- 全文 `cat` せず `grep -n` → `sed -n 'X,Yp'`
+- `plans/PLAN-045-interp-mirror-filter.md` §5 I7・§9・§11 / `infra/RUNPOD.md` §3〜§5・§7(`grep -n` → `sed -n`)
+- `runs/*/log.txt` は `tail` / `grep` だけ
 
 ## やってはいけないこと
 
-- `input.order6_dropped_cells`・`input.order6_gonogo`・`analysis_gate.threshold`・`tost.delta` に値を入れる(人間が凍結の場で決める)
-- 人間の承認なしに pod を起動する・10 GPU 時間超のジョブを回す・push する
-- `--simulate` / `--shuffle-labels` の p 値や判定を解釈する(`CLAUDE.md` §8)
+- 人間の承認なしに pod を起動する / 上限を超えて回す / push する
+- `results/gonogo_order6/gonogo.json` を上書きする(旧い印と並べて残す)
+- 印や 4 値を解釈する・`input.order6_dropped_cells` に値を入れる(`CLAUDE.md` §8)
 - `git add -A`(未追跡の大きい結果がある)。コミットはファイルを名指しする
 
 ## 未解決 / 人間の承認待ち
 
-- `results/primary/` の 2 run(その193 の `--simulate`・`--shuffle-labels`)をコミットするか
-- 食い違い(CLAUDE.md §7.1): `code/analysis/frame.py` の冒頭と `gate_id_rates` の docstring が `primary.py` を「未実装」と書いている。直すかは人間
-- 気づいたこと(判断なし): いまの `results/gonogo_order6/gonogo.json` の run は `condition` = `p2` で、主軸のセルに `fails` は無い(順6 の測り直しの後に在り処と一覧を決める)
-- 順6 の測り直し(PLAN-045 I7)の起動 / `01cf60f` 以降の push と G2-1 承認 → S4 / 順6 の gonogo.json の在り処と落とすセルの確定した一覧 / N5 の閾値と門の順・TOST の Δ / 実データの frame での `--shuffle-labels` / 第 2 の尺度の手続き(S5)/ `id` の二重露出の感度解析 / R5(組 199)/ PLAN-043 §12 の判断 6 件 / REVIEW の R4 以下・C1/C2 / PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN
+- I7 の pod 起動と GPU の上限(推算 1 時間以内)/ 先に push するか
+- I7 を S4 と同じ pod で束ねるか(STATE の「次のアクション」は束ねる形。S4 はまだ準備していない)
+- `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)

@@ -8304,3 +8304,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-03(その195・引き継ぎ)   [actor: IMPLEMENTER (Claude Opus 5.5)]
 - PLAN-048 の完了(`9f7c7b1`)と context-guard(約 138k)で切る。`logs/HANDOFF.md` を更新した(次の作業は人間が選ぶ。(A) RUNNER・Sonnet で順6 の測り直し / (B) PLANNER・Opus で凍結前に要るものの PLAN 草案)。RunPod は使っていない(GPU 0・pod 0)
+
+## 2026-11-03(その196・順6 の測り直し(PLAN-045 I7)の準備)   [actor: RUNNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その195)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果と `.claude/commands/` だけ。worktree `claude/great-bardeen-9c1ac4` は登録簿に記載済み。HANDOFF の (A)/(B) の指定が無かったので作業前に人間に聞き、人間が (A) を選んだ。**推奨モデル(Sonnet)と不一致**(Opus 5.5。定型なので進めた)
+- `configs/exp_phase1_main.yaml` と R1 [run:20260911_141547_order6_r1] の config の差は `counterpart_manifest`・`interp_mirror_filter: true` の 2 欄だけ。手元の `items.jsonl` の SHA-256 は manifest の `files` と一致(`6bb6084d…`)
+- dry-run(`code.eval.run --dry-run`)は exit 0・1,640 項目。手元の preflight(run dir は scratchpad)は pytest の 600 秒タイムアウトの FAIL 1 件のほか、データ・プール・トークンの検査はすべて PASS
+- **pod は起動していない**(起動・GPU・push は人間の承認)。`logs/HANDOFF.md` を更新した(次は RUNNER・推奨 Sonnet。承認があれば I7 を回す)。`STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`)。`code/` は不変。GPU 0・pod 0

@@ -8,7 +8,7 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-02(その192。PLANNER が **PLAN-048 を起草し ADR-138 で採択**: 実データの主要解析 `code/analysis/primary.py` 本体の範囲と形。人間が 6 問とも推奨。`code/` は不変)
+最終更新: 2026-11-03(その193。IMPLEMENTER が **PLAN-048 I1〜I10 を実装**(`5872175`): 実データの主要解析 `primary.py`。次: 後始末(PLAN-048 §9・§11・OPEN-ITEMS・CHANGELOG)→ 人間の判断待ち)
 (**次: IMPLEMENTER(Sonnet)が PLAN-048 I1〜I10 / 順6 の測り直し(PLAN-045 I7)の起動・push と G2-1 承認は人間**。)
 ---
 
@@ -67,11 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-02(その192・最新)。Phase 0。Claude Opus 5.5(PLANNER)。PLAN-048(`primary.py` 本体)を起草し、ADR-138 で採択した。GPU 0・pod 0**
-> - **人間が選んだ**: HANDOFF の (B)(`primary.py` の PLAN 草案)。§4 の Q1〜Q6 は 6 問とも推奨 (a)
-> - **決まったこと(ADR-138)**: 範囲は主要検定の本体だけ(subset・適格性フィルタ・df・天井・当てはめ・TOST の最小 Δ・解析門の口)/ 当てはめは `power_sim_fit.R` を変えずに呼び `configs/power_sim.yaml` の `fit` 節を読む / 解析門の閾値(N5)・TOST の Δ は `null` で実データでは止まる / `--shuffle-labels` は被覆の水準の中で項目単位に `task` を入れ替える / `--simulate` は `draw_frame` で P0・P1 / 報告は判定を p 値より左に置く固定の表
-> - **外したもの(凍結までに別に要る)**: リンク 3 本(R がロジット固定)・第 2 の尺度・ADR-060 のベイズ・#5b・`id` の二重露出。N5 の閾値と門の順・TOST の Δ
-> - **`code/` は不変**。★順6 の印は旧い主プールで付いた。測り直し(PLAN-045 I7)の起動は人間
+> **★★2026-11-03(その193・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER)。PLAN-048 I1〜I10 を実装した(`5872175`)。GPU 0・pod 0**
+> - **作ったもの**: `configs/primary.yaml` / `code/analysis/primary.py`(subset → 適格性フィルタ → df のランク規則 → 天井 → `power_sim_fit.R` で当てはめ → TOST の最小 Δ。判定を p 値より左に置く表)/ `code/tests/test_primary.py`(45 本)。`power_sim_fit.R`・`configs/power_sim.yaml`・`ceiling.py`・`frame.py` は不変
+> - **確かめたこと**: `pytest code/tests -q` = 2685 passed + R を通す 1 本は別に通過(35.75 秒・720 行)/ R の `qr()$rank` と Python の df が 6 セルの 46 部分集合で一致 / `--shuffle-labels --seed 0` が最後まで走った(run `20261103_051849_primary_t1t2_shuffle`・276 秒。結果の読みはしていない)/ `--simulate` が P0・P1 で最後まで走り `report.md` が ADR-138 決定6 の表の形になった(run `20261103_051849_primary_t1t2_simulate`・約 9 分。配線の確認で、結果の読みはしていない。`results/primary/` は未コミット)
+> - **未決のまま**: `analysis_gate.threshold`・`tost.delta`・`input.order6_gonogo`(在り処)は `null`。実データの実行は理由を出して終了コード 2 で止まる。閾値が入っても門の順が未決なのでこの版は止まる
 
 
 ---
@@ -323,23 +322,23 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-02(その192・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-11-03(その193・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 1. **IMPLEMENTER(Sonnet): PLAN-048 I1〜I10**(`configs/primary.yaml`・`code/analysis/primary.py`・テスト。CPU のみ。R を実際に呼ぶテストは 1 本)
+> 1. **IMPLEMENTER 後始末(Sonnet 可)**: PLAN-048 §9 の 2〜5 項目め・§11(入れ替えの回帰は 200 回・R 1 本 35.75 秒・`--simulate` 約 9 分・`--shuffle-labels` 276 秒)・`logs/OPEN-ITEMS.md` の `primary.py` 本体の行 → CHANGELOG → コミット(HANDOFF 参照。`results/primary/` の 2 run をコミットするかは人間)
 > 2. 人間: 順6 の測り直し(PLAN-045 I7)の起動 / `01cf60f` 以降の main の push と G2-1 承認 → S4(RUNNER。I7 を同じ pod で)→ T2 の文面・step 数の決定(ADR-130 決定2)
 > 3. run3 は 2 の後(PLAN-043 §12 の判断 6 件の確認もそのときに)
-> 4. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ その166 の 5 の項目 / 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(ADR-114 決定6。S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ(ADR-138 決定3)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN**
+> 4. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ・順6 の gonogo.json の在り処(ADR-138 決定3)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN**
 
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-11-02(その192・最新)。Claude Opus 5.5(PLANNER。人間が選んだ (B) の推奨と一致)。PLAN-048 を起草し、人間に諮って ADR-138 で採択した。**
+> **★★2026-11-03(その193・最新)。Claude Sonnet 5.5(IMPLEMENTER。推奨と一致)。PLAN-048 I1〜I10 を実装しコミットした(`5872175`)。**
 >
-> **★やったこと**: 開始手順 → HANDOFF に人間の選択が無かったので聞いた((B))→ 文書が `primary.py` に預けた仕事を `grep -n primary.py` で棚卸し(14 件)→ `power_sim_fit.R`・`ceiling.py`・`frame.py`・`power_sim.py` の口を読んで草案 → 判断材料の表 → `AskUserQuestion` 2 回(6 問とも推奨)→ ADR-138・PLAN-048 §10・`OPEN-ITEMS.md` → コミット
-> **★HANDOFF との食い違い**: 無し(`git log`・`STATE.md` と一致。未追跡の結果と `.claude/commands/` は従来どおり)
-> **★次のセッション**: IMPLEMENTER(Sonnet)が PLAN-048 I1〜I10。§5 の手順どおり。統計の判断が出たら止めて PLANNER へ
+> **★やったこと**: 開始手順 → PLAN-048・ADR-138・呼ぶ側のコード(`power_sim`・`ceiling`・`frame`・`power_sim_fit.R`)を読む → `configs/primary.yaml`・`primary.py`・`test_primary.py` → テスト・R 実走
+> **★エージェントの設計の選択(人間のレビュー待ち。PLAN に書いていなかった点)**: ① `input.order6_gonogo` を `null`(在り処は測り直しの後)にした = 実データの実行が止まる項目が PLAN の 2 つ(閾値・Δ)から 3 つになった ② 順6 の `gonogo.json` は `runs[].cells[].fails` の和集合で読む ③ 閾値が入っても解析門の順が未決なので止める(二値化・不等号の向きは決めていない)④ `--shuffle-labels` は `--frame-dir` が無ければ合成の P1 を入れ替える ⑤ 報告は対象ごとの節に固定の表を置く(行の先頭にラベル列を足さない)⑥ `ceiling_rule` は残ったセルを 1 つずつ宣言して呼ぶ
+> **★食い違い(CLAUDE.md §7.1)**: `code/analysis/frame.py` の冒頭と `gate_id_rates` の docstring は `primary.py` を「未実装」と書いている(`frame.py:11` 付近)。コードの docstring なので触っていない
 
 
 ---

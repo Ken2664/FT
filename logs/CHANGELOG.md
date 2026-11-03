@@ -8278,3 +8278,13 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-02(その192・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - PLAN-048 の採択(`d34cf68`)で切る。ADR-138 の関連 commit を埋めた。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet。PLAN-048 I1〜I10)。RunPod は使っていない(GPU 0・pod 0)
+
+## 2026-11-03(その193・PLAN-048 I1〜I10 の実装)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- 開始手順: HANDOFF(その192)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果と `.claude/commands/` だけ。推奨モデル(Sonnet)と一致
+- `configs/primary.yaml`・`code/analysis/primary.py`・`code/tests/test_primary.py`(45 本)を実装(`5872175`)。順は subset → 適格性フィルタ → df のランク規則 → 天井 → `power_sim_fit.R` で当てはめ → TOST の最小 Δ。判定を p 値より左に置く固定の表。`power_sim_fit.R`・`configs/power_sim.yaml`・`ceiling.py`・`frame.py`・`rng_seed` は不変
+- 確認: `pytest code/tests -q` = 2685 passed + R を通す 1 本(35.75 秒)/ R のランクと Python の df が 46 部分集合で一致 / `--simulate` [run:20261103_051849_primary_t1t2_simulate](約 9 分)/ `--shuffle-labels --seed 0` [run:20261103_051849_primary_t1t2_shuffle](276 秒)。**結果の読みはしていない**
+- PLAN に書いていなかった選択 6 点(PLAN-048 §11)は人間のレビュー待ち。`frame.py` の docstring の「未実装」は食い違いとして報告のみ
+- 書いた: PLAN-048(完了・§9・§11)/ `logs/OPEN-ITEMS.md` の行 / `STATE.md`(3 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。GPU 0・pod 0
+
+## 2026-11-03(その193・引き継ぎ)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- context-guard(約 262k)で切る。`logs/HANDOFF.md` を更新した(次は人間が選ぶ。既定は PLANNER・推奨 Opus で選択 ①〜⑥ の採否を諮る)。RunPod は使っていない(GPU 0・pod 0)

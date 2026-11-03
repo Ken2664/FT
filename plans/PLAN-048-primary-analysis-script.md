@@ -4,8 +4,8 @@
 > 変更したら `logs/CHANGELOG.md` に記録し、git commit する。
 
 - 作成日: 2026-11-02
-- 最終更新: 2026-11-02(その192。ADR-138 で採択)
-- ステータス: **`採択`(2026-11-02 その192。ADR-138。§4 の Q1〜Q6 は人間が 6 問とも推奨 (a)。次は IMPLEMENTER の I1〜I10)** ~~`草案`~~
+- 最終更新: 2026-11-03(その193。I1〜I10 を実装 `5872175`)
+- ステータス: **`完了`(2026-11-03 その193。I1〜I10 を実装)** ~~`採択`(2026-11-02 その192。ADR-138。§4 の Q1〜Q6 は人間が 6 問とも推奨 (a)。次は IMPLEMENTER の I1〜I10)** ~~`草案`~~
 - 担当: PLANNER(草案 = Opus 5.5)/ 実装は IMPLEMENTER / 問いの決定は人間
 - 関連: **ADR-137 決定1〜3・リスク欄**(起票の根拠)/ PLAN-016 §7-5・§7-6 / ADR-059(収束の定義・閾値)/ ADR-069 決定4 の (2)(当て直したほうを LRT に入れる)/ ADR-124(新しい項・縮退順序・当てはめ失敗)/ ADR-128 決定1 (A3)・ADR-129 決定1・2(床の `allFit`)/ ADR-112 決定1(df < 2 は実施不能)/ ADR-064 決定2(df のランク規則)/ ADR-076 決定1(順6 の #2 で落としたセル)/ ADR-041 決定1(適格性フィルタ 0.70)/ ADR-062 決定4・6・7(frame の層の責務)/ ADR-114 決定5・6(平行性の TOST・第 2 の尺度)/ ADR-135 決定2(天井 = 実施不能)/ ADR-097 決定6 / ADR-039 決定3
 - 判断材料: `Documents/05_STATISTICS.md` §2・§3.2・§5・§8 / `code/analysis/frame.py` / `code/analysis/ceiling.py` / `code/analysis/power_sim_fit.R` / `code/analysis/power_sim.py` の `run_fits`・`write_fit_manifest`・`tost_spec`・`equivalence_margin` / `configs/power_sim.yaml` の `fit` 節
@@ -201,10 +201,10 @@
 ## 9. 完了条件
 
 - [x] §4 の Q1〜Q6 に人間が答え、ADR に記録した(提案者と採択者を分ける)(ADR-138)
-- [ ] I1〜I10 を実装し、`pytest code/tests -q` が通った
-- [ ] `python -m code.analysis.primary --simulate` が P0・P1 で最後まで走り、`report.md` が Q6 の形になった
-- [ ] `python -m code.analysis.primary --shuffle-labels --seed 0` が走った(結果の読みは人間)
-- [ ] `logs/OPEN-ITEMS.md` の「`primary.py` 本体の PLAN」の行を更新した
+- [x] I1〜I10 を実装し、`pytest code/tests -q` が通った(2685 passed + R を通す 1 本は別に通過。`5872175`)
+- [x] `python -m code.analysis.primary --simulate` が P0・P1 で最後まで走り、`report.md` が Q6 の形になった(run `20261103_051849_primary_t1t2_simulate`)
+- [x] `python -m code.analysis.primary --shuffle-labels --seed 0` が走った(run `20261103_051849_primary_t1t2_shuffle`。結果の読みは人間)
+- [x] `logs/OPEN-ITEMS.md` の「`primary.py` 本体の PLAN」の行を更新した
 
 ---
 
@@ -225,3 +225,8 @@
 
 - 2026-11-02(その192): 草案(PLANNER, Opus 5.5)。人間が HANDOFF の (B) を選んだ
 - 2026-11-02(その192): 人間が §4 の Q1〜Q6 に答えた(`AskUserQuestion` 2 回・6 問とも推奨 (a))→ ADR-138。§9 の 1 項目め済み。`code/` は不変
+- 2026-11-03(その193・IMPLEMENTER, Sonnet 5.5): I1〜I10 を実装(`5872175`)。`configs/primary.yaml`・`code/analysis/primary.py`・`code/tests/test_primary.py`(45 本)。`power_sim_fit.R`・`configs/power_sim.yaml`・`ceiling.py`・`frame.py`・`rng_seed` 20261008 は不変
+  - **壁時計**: R を通すテスト 1 本 = 35.75 秒(720 行・12 項目/セル)/ `--simulate`(4,800 行 × 2)= 約 9 分 / `--shuffle-labels --seed 0`(4,800 行)= 276 秒。R の `qr()$rank` と Python の df は 6 セルの 46 部分集合で一致
+  - **入れ替えの回帰**: R を使わず、項目ごとの経験ロジット平均への OLS の `task:coverage` F 検定(df = 2)を代役に、合成 P1 を **200 回**入れ替えて、棄却が `binom.ppf(0.99, 200, α)` 以下であることを固定した(元の表では棄却する)。本番の LRT の入れ替えは `--shuffle-labels` の 1 回(seed 0)だけ
+  - **PLAN に書いていなかった選択(人間のレビュー待ち)**: ① `input.order6_gonogo` を `null` に(実データの実行が止まる項目が 2 つ → 3 つ)② 順6 の `gonogo.json` は `runs[].cells[].fails` の和集合 ③ 閾値が入っても門の順が未決なので止める(二値化・不等号の向きは決めていない)④ `--shuffle-labels` は `--frame-dir` が無ければ合成 P1 ⑤ 報告は対象ごとの節に固定の表 ⑥ `ceiling_rule` は残ったセルを 1 つずつ宣言して呼ぶ
+  - **食い違い**: `frame.py` の docstring が `primary.py` を「未実装」と書いている(触っていない)

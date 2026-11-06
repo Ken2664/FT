@@ -8177,3 +8177,12 @@
   - **② の実装(PLAN-048 I11。IMPLEMENTER)**: `configs/primary.yaml` に `input.order6_dropped_cells: null`(`<task>.<coverage>` のリスト。`[]` は「人間が確かめて落とすセルは無い」で、`null` とは違う)。`gonogo.json` を読む経路(実データ・`--frame-dir` 付きの `--shuffle-labels`)では、`null` なら未決として止め、`fails` の和集合(主軸のセルに限る)と集合として違えば両側を出して止める。`--simulate` と合成の `--shuffle-labels` は今のまま
   - 影響: `code/` は不変(このコミット)。PLAN-048 のステータスを `採択`(I11 の追加)に戻した。凍結前に要る値に「順6 で落とすセルの確定した一覧」が 1 つ加わる(`logs/OPEN-ITEMS.md` の `primary.py` 本体の行)
   - 関連 commit: `5872175`(I1〜I10)/ 本追記のコミット
+- **★追記 ③(2026-11-06 その199)— 順6 の在り処と落とすセルの確定した一覧(`configs/primary.yaml` の `input.order6_gonogo`・`input.order6_dropped_cells`)**:
+  - 提案・採択: **提案 エージェント(PLANNER, Opus 5.5。旧い R1 と測り直しの印を並べた表・案・推奨はその199)/ 採択 人間(2026-11-06 その199。`AskUserQuestion` 1 回・2 問とも推奨)**。判断材料の表(セルごとの 4 値と #2 の `fails`、両方の run_id 付き)をチャットで先に示した(ADR-097 決定6)
+  - 材料(数値の正本は各 `gonogo.json`): 主軸の T1・T2 × {`id`, `interp`, `extrap_magnitude`} の 6 セルは、旧い R1 [run:20260911_141547_order6_r1](主プール `d272204f…`)でも測り直し [run:20261106_021031_order6_r1_remeasure](主プール `6bb6084d…`)でも #2 の `fails` が False(correct は旧い R1 で .975〜1.000、測り直しで 1.000。閾値 0.7)。**主軸のセルに限った `fails` の和集合は両方とも空**。T3・T1b の 6 セルは両方で `fails` True(探索。`primary.py` の照合の外。ADR-112)。#3 は `t1b.interp` だけが旧い R1 で False・測り直しで True
+  - **決定**:
+    1. `input.order6_gonogo` = `results/gonogo_order6_remeasure/gonogo.json`(いまの主プールで付いた印。旧い `results/gonogo_order6/gonogo.json` は使わない。ADR-038 決定4 と同じ考え方)
+    2. `input.order6_dropped_cells` = `[]`(人間が確かめて、主軸で落とすセルは無い)。ADR-078 決定6(T1・T2 の 6 セルは主解析に残る)と食い違わない
+  - 代案と却下理由(人間が選んだ): 決定1 (b) 旧い R1 — 旧い主プールで付いた印で、入れ替わった項目に印が無い / 決定2 (b) `null` のまま — 実データの実行が止まる項目が 1 つ残るだけで、材料は揃っている
+  - リスク・未解決: **人間は 2 問とも推奨を選んだ**。**結果を見る前か後か**: 順6 は素のモデル(adapter null)の印で、`p2` の実データは無い(凍結前)。**T3・T1b の 6 セルの扱い(ADR-078 決定6 の保留)はこの追記では決めていない**
+  - 影響: `configs/primary.yaml`(2 欄)/ `code/tests/test_primary.py`(本物の config の値を固定する 2 本を足し、未決の振る舞いを確かめる 4 本は写しを null に戻して確かめる形にした)。`pytest code/tests/test_primary.py -q` = 56 passed。**実データの実行が止まる項目は frame の在り処・N5 の閾値・TOST の Δ の 3 つになった**(解析門の順は決定3 のとおり別に止まる)。`code/analysis/` は不変

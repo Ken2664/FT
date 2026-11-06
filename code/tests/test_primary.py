@@ -98,8 +98,15 @@ def test_the_undecided_values_stay_null_and_the_fit_settings_are_not_duplicated(
     """ADR-138 決定2・3: 閾値と Δ は null のまま(エージェントは値を入れない)。当てはめの設定は持たない。"""
     assert config["analysis_gate"]["threshold"] is None
     assert config["tost"]["delta"] is None
-    assert config["input"]["order6_dropped_cells"] is None
     assert not {"fit", "refit", "allfit", "reduction_order", "alpha", "tost_alpha"} & set(config)
+
+
+def test_the_order6_values_are_the_ones_the_human_decided(config, spec) -> None:
+    """ADR-138 追記 ③: 順6 の在り処は測り直しの印、落とすセルは無い([])。一覧は印の fails と食い違わない。"""
+    assert config["input"]["order6_gonogo"] == "results/gonogo_order6_remeasure/gonogo.json"
+    assert config["input"]["order6_dropped_cells"] == []
+    path = resolve_repo_path(config["input"]["order6_gonogo"])
+    assert primary.confirmed_order6_cells(config, path, spec) == set()
 
 
 def test_the_spec_reads_alpha_and_tost_alpha_from_power_sim(spec, power_config) -> None:
@@ -121,11 +128,26 @@ def test_the_simulate_targets_are_points_of_the_power_sim_grid(config, power_con
 # --------------------------------------------------------------------------
 
 
+def undecided_order6(config: dict[str, Any]) -> dict[str, Any]:
+    """順6 の 2 つの値を未決(null)に戻した写し(ADR-138 追記 ③ で本物の config は決まったため)。"""
+    copied = json.loads(json.dumps(config))
+    copied["input"]["order6_gonogo"] = None
+    copied["input"]["order6_dropped_cells"] = None
+    return copied
+
+
 def test_all_five_undecided_items_are_listed_and_an_override_removes_only_its_own(config) -> None:
-    listed = primary.pending_decisions(config, None, None)
+    undecided = undecided_order6(config)
+    listed = primary.pending_decisions(undecided, None, None)
     assert len(listed) == 5 and primary.PENDING_ORDER6_LIST in listed
-    assert len(primary.pending_decisions(config, Path("f"), None)) == 4
-    assert len(primary.pending_decisions(config, Path("f"), Path("g"))) == 3
+    assert len(primary.pending_decisions(undecided, Path("f"), None)) == 4
+    assert len(primary.pending_decisions(undecided, Path("f"), Path("g"))) == 3
+
+
+def test_the_decided_config_leaves_only_the_frame_and_the_two_values(config) -> None:
+    """ADR-138 追記 ③ の後、本物の config で未決なのは frame の在り処・N5 の閾値・TOST の Δ の 3 つ。"""
+    listed = primary.pending_decisions(config, None, None)
+    assert len(listed) == 3 and primary.PENDING_ORDER6_LIST not in listed
 
 
 def test_a_real_run_stops_when_anything_is_null_and_writes_nothing(config, tmp_path, capsys) -> None:
@@ -276,7 +298,7 @@ def test_a_declared_order6_list_that_disagrees_stops_and_shows_both_sides(config
 def test_a_null_order6_list_stops_as_undecided(config, spec, tmp_path) -> None:
     path = write_gonogo(tmp_path / "gonogo.json", set())
     with pytest.raises(primary.PendingDecisionError, match="order6_dropped_cells"):
-        primary.confirmed_order6_cells(config, path, spec)
+        primary.confirmed_order6_cells(with_order6_list(config, None), path, spec)
 
 
 def test_an_empty_order6_list_matches_a_report_with_no_fails_and_is_not_null(config, spec, tmp_path) -> None:
@@ -299,7 +321,7 @@ def test_shuffle_with_a_frame_checks_the_order6_list_too(config, power_config, s
     write_frame_dir(tmp_path / "f", make_rows())
     path = write_gonogo(tmp_path / "gonogo.json", {("t2", "extrap_magnitude")})
     with pytest.raises(primary.PendingDecisionError):
-        primary.build_targets(shuffle_args(tmp_path / "f", path), config, power_config, spec)
+        primary.build_targets(shuffle_args(tmp_path / "f", path), with_order6_list(config, None), power_config, spec)
     with pytest.raises(primary.PrimaryError, match="食い違う"):
         primary.build_targets(shuffle_args(tmp_path / "f", path), with_order6_list(config, []), power_config, spec)
     filled = with_order6_list(config, ["t2.extrap_magnitude"])
@@ -657,9 +679,13 @@ def test_shuffle_labels_runs_the_synthetic_p1_when_no_frame_is_given(tmp_path, m
     assert result["shuffle"]["mixed_templates"]
 
 
-def test_shuffle_with_a_frame_needs_the_order6_file(tmp_path, capsys) -> None:
+def test_shuffle_with_a_frame_needs_the_order6_file(config, tmp_path, capsys) -> None:
     write_frame_dir(tmp_path / "f", make_rows())
-    code = primary.main(["--shuffle-labels", "--frame-dir", str(tmp_path / "f"), "--out-dir", str(tmp_path / "o")])
+    undecided = tmp_path / "primary_undecided.yaml"
+    undecided.write_text(json.dumps(undecided_order6(config)), encoding="utf-8")
+    code = primary.main(
+        ["--config", str(undecided), "--shuffle-labels", "--frame-dir", str(tmp_path / "f"), "--out-dir", str(tmp_path / "o")]
+    )
     assert code == primary.EXIT_ERROR and "order6" in capsys.readouterr().out
 
 

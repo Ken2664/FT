@@ -18,6 +18,37 @@
 
 ---
 
+## ★2026-11-06(その198)—— STATE.md から移したブロック(ADR-063 運用規約1。その199 で置き換え)
+
+### 冒頭
+
+最終更新: 2026-11-06(その198。RUNNER が順6 の測り直し(PLAN-045 I7)を**新しい pod `oorrti5on9opnb`**(人間が (a) を選んだ)で回し、回収し、`gonogo.py` で印を付けた [run:20261106_021031_order6_r1_remeasure]。pod は停止済み・約 $0.19)
+(**次: 人間が印を読み、旧い R1 と並べ、`input.order6_dropped_cells` を確定する。pod 2 つの扱いと push も人間**。)
+
+### いま何をしているか
+
+> **★★2026-11-06(その198・最新)。Phase 0。Claude Opus 5.5(RUNNER。推奨は Sonnet)。順6 の測り直し(PLAN-045 I7)を回した。pod は停止済み**
+> - 人間の指示(その198): pod は (a) 同じ形で新規作成・上限 1 時間・push しない → **push していない**。旧 pod `9matkiq0jozcgm` の `start` は auto mode の分類器に拒否され試していない(`EXITED`)
+> - 新しい pod `oorrti5on9opnb`(RTX 4090・SECURE・EU-RO-1・ボリューム `r963j7swke`・$0.89/時)02:08:53Z 作成 → 02:21:40Z 停止(`EXITED` を確認)。pod の旧い checkout は `/workspace/pod_moved_aside_order6r`
+> - [run:20261106_021031_order6_r1_remeasure]: preflight FAIL 0(pytest 2681 passed・14 skipped)・1,640 項目・`items_sha256` `6bb6084d…`(manifest と一致)・4 値の合計は全ブロックで 1.0。印は `results/gonogo_order6_remeasure/gonogo.json`(旧い `results/gonogo_order6/` は不変)。commit `886155b`。**解釈はしていない**
+
+### 次のアクション
+
+> **★★2026-11-06(その198・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. 人間: 順6 の測り直しの印 [run:20261106_021031_order6_r1_remeasure](`results/gonogo_order6_remeasure/gonogo.json`)を読み、旧い R1 の印(`results/gonogo_order6/gonogo.json`)と並べ、`input.order6_dropped_cells` の確定した一覧を決める(ADR-138 追記 ②)。pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか。push
+> 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ・順6 の gonogo.json の在り処と `input.order6_dropped_cells` の確定した一覧(ADR-138 決定3・追記)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)**
+
+### 引き継ぎ
+
+> **★★2026-11-06(その198・最新)。Claude Opus 5.5(RUNNER。推奨の Sonnet と不一致・定型なので進めた)。PLAN-045 I7 を回した。PLAN-045 §9 は全項目済み**
+>
+> **★やったこと**: 開始手順 → 単価・在庫の読み($0.89/時・`LOW`)→ pod の新規作成 → bundle・tgz を送り SHA-256 を照合 → preflight → `code.eval.run` → 回収(tgz の SHA-256 一致)→ **pod 停止** → `gonogo.py` → commit `886155b` → PLAN-045 §9・§11 / `logs/OPEN-ITEMS.md` の行
+> **★気づいたこと(判断なし)**: 1 回目の連鎖スクリプトは ssh の heredoc で変数が書き込み時に展開されて壊れた(argparse で止まり run dir は作られていない)。Write でファイルに書いて scp で直した / preflight の WARN は未追跡の run dir だけ(`git_diff.patch` 0 バイト)。`git_sha.txt` の `dirty: true` も同じ理由 / R1 には `cost.txt` が無かった。今回は書いた
+
+---
+
 ## ★2026-11-06(その197)—— STATE.md から移したブロック(ADR-063 運用規約1。その198 で置き換え)
 
 ### 冒頭

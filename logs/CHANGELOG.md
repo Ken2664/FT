@@ -8323,3 +8323,12 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 旧い checkout(`102c2d5`)を `/workspace/pod_moved_aside_order6r` へ移し、bundle(`8135f35`)から clone。追跡外の 7 本の SHA-256 は pod 上で manifest と一致。1 回目の連鎖スクリプトは heredoc の展開で壊れ argparse で止まった(run dir なし)。Write で書き直して scp
 - preflight FAIL 0(WARN 1 = 未追跡の run dir。pytest 2681 passed・14 skipped)→ `code.eval.run` [run:20261106_021031_order6_r1_remeasure](215 秒・1,640 項目・4 値の合計は全ブロックで 1.0・`items_sha256` 一致)→ 回収 → **pod 停止(02:21:40Z・約 $0.19・`EXITED` を確認)** → `gonogo.py` → `results/gonogo_order6_remeasure/`(旧い印は不変)。commit `886155b`。**解釈はしていない**
 - 書いた: PLAN-045 §9(全項目済み)・§11 / `logs/OPEN-ITEMS.md` の行 / `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。push していない。`code/` は不変
+
+## 2026-11-06(その199・順6 の印の並べ方と `input.order6_dropped_cells` の確定)   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その198)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果・`.claude/commands/`・`runs/20261106_021031_order6_r1_remeasure/preflight_stdout.log`(未追跡)だけ。推奨モデル(Opus)と一致
+- 旧い R1 [run:20260911_141547_order6_r1] と測り直し [run:20261106_021031_order6_r1_remeasure] の印を並べた表(セルごとの 4 値・#2 の `fails`)と、`configs/primary.yaml` の 2 欄の案・推奨をチャットで示した
+- **人間が決めた(`AskUserQuestion` 1 回・2 問とも推奨)**: `input.order6_gonogo` = `results/gonogo_order6_remeasure/gonogo.json` / `input.order6_dropped_cells` = `[]`
+- 書いた: `logs/DECISIONS.md`(ADR-138 追記 ③)/ `configs/primary.yaml` / `code/tests/test_primary.py`(本物の config の値を固定する 2 本を追加。未決の振る舞いを本物の config に頼っていた 4 本は写しを null に戻して確かめる形に直した)/ `logs/OPEN-ITEMS.md`(2 行)/ PLAN-045 §11 / `STATE.md`。`pytest code/tests/test_primary.py -q` = 56 passed。`code/analysis/` は不変。GPU 0・pod 0。push していない
+
+## 2026-11-06(その199・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- HANDOFF の 1 つを済ませたので切る。`logs/HANDOFF.md` を更新した(次は人間が選ぶ。(A) RUNNER・Sonnet で S4(push と G2-1 承認の後)/ (B) PLANNER・Opus で N5・解析門の順・TOST の Δ の判断材料の PLAN 草案)。RunPod は使っていない(GPU 0・pod 0)

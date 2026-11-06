@@ -206,3 +206,8 @@
 - preflight: FAIL 0・WARN 1(未追跡の run dir だけ。`git_diff.patch` は 0 バイト)。pytest 2681 passed・14 skipped
 - **run [run:20261106_021031_order6_r1_remeasure]**: 1,640 項目・`items_sha256` `6bb6084d…`・4 値の合計は全ブロックで 1.0。合計 215 秒(読み込み 59 秒・生成 152 秒)
 - `gonogo.py` の印(`results/gonogo_order6_remeasure/gonogo.json`。旧い `results/gonogo_order6/` は不変): #1 は 3 群とも fails=False / #2 は T3・T1b の 6 セルが fails=True(T1・T2 の 6 セルは False)/ #3 は T3・T1b の 6 セルが fails=True。**旧い R1 の印との並べ方・解釈・`input.order6_dropped_cells` は人間**
+
+### 2026-11-06(その199・印の並べ方と一覧の確定)   [actor: PLANNER (Claude Opus 5.5)]
+
+- 旧い R1 [run:20260911_141547_order6_r1] と測り直し [run:20261106_021031_order6_r1_remeasure] の印をセルごとに並べた表(4 値・#2 の `fails`)を人間に示した。主軸の T1・T2 の 6 セルは両方で #2 が False、T3・T1b の 6 セルは両方で True。#3 は `t1b.interp` だけが食い違う(旧い R1 で False・測り直しで True)
+- 人間が決めた(ADR-138 追記 ③。2 問とも推奨): `configs/primary.yaml` の `input.order6_gonogo` = `results/gonogo_order6_remeasure/gonogo.json` / `input.order6_dropped_cells` = `[]`。`pytest code/tests/test_primary.py -q` = 56 passed

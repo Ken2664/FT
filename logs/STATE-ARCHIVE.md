@@ -18,6 +18,37 @@
 
 ---
 
+## ★2026-11-06(その199)—— STATE.md から移したブロック(ADR-063 運用規約1。その200 で置き換え)
+
+### 冒頭
+
+最終更新: 2026-11-06(その199。PLANNER が順6 の旧い R1 と測り直しの印を並べて示し、人間が `configs/primary.yaml` の `input.order6_gonogo` = 測り直しの印・`input.order6_dropped_cells` = `[]` を決めた(ADR-138 追記 ③)。GPU 0・pod 0)
+(**次: 人間が次の作業を選ぶ。pod 2 つの扱い・push・`results/primary/` の 2 run も人間**。)
+
+### いま何をしているか
+
+> **★★2026-11-06(その199・最新)。Phase 0。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。順6 の在り処と落とすセルの一覧を人間が決めた。GPU 0・pod 0**
+> - 旧い R1 [run:20260911_141547_order6_r1] と測り直し [run:20261106_021031_order6_r1_remeasure] の印: 主軸の T1・T2 の 6 セルは両方で #2 の `fails` が False、T3・T1b の 6 セルは両方で True。#3 は `t1b.interp` だけが食い違う(旧い R1 で False・測り直しで True)。**解釈はしていない**
+> - 人間の決定(ADR-138 追記 ③。2 問とも推奨): `input.order6_gonogo` = `results/gonogo_order6_remeasure/gonogo.json` / `input.order6_dropped_cells` = `[]`。`pytest code/tests/test_primary.py -q` = 56 passed
+> - 実データの `primary.py` が止まる未決は frame の在り処・N5 の閾値・TOST の Δ の 3 つ(解析門の順は ADR-138 追記 ①③ のとおり別に止まる)
+
+### 次のアクション
+
+> **★★2026-11-06(その199・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)
+> 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ(ADR-138 決定3・追記。~~順6 の在り処と確定した一覧~~ は追記 ③ で決着)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)**
+
+### 引き継ぎ
+
+> **★★2026-11-06(その199・最新)。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。HANDOFF の 1 つ(印の並べ方と一覧の確定)を済ませた**
+>
+> **★やったこと**: 開始手順 → 2 つの `gonogo.json` をセルごとに並べた表(4 値・#2 の `fails`)→ 2 欄の案と推奨 → `AskUserQuestion`(2 問とも推奨)→ ADR-138 追記 ③・`configs/primary.yaml`・`code/tests/test_primary.py` → `logs/OPEN-ITEMS.md` 2 行・PLAN-045 §11
+> **★気づいたこと(判断なし)**: `test_primary.py` の 4 本が本物の config の `null` に頼っていた(値を入れると落ちる)。写しを `null` に戻して確かめる形に直した / この機械に `jq` は無い(Python で読んだ)/ `runs/20261106_021031_order6_r1_remeasure/preflight_stdout.log` は未追跡のまま / T3・T1b の 6 セルの扱い(ADR-078 決定6 の保留)には手を付けていない
+
+---
+
 ## ★2026-11-06(その198)—— STATE.md から移したブロック(ADR-063 運用規約1。その199 で置き換え)
 
 ### 冒頭

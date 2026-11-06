@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-06(その199。PLANNER が順6 の旧い R1 と測り直しの印を並べて示し、人間が `configs/primary.yaml` の `input.order6_gonogo` = 測り直しの印・`input.order6_dropped_cells` = `[]` を決めた(ADR-138 追記 ③)。GPU 0・pod 0)
-(**次: 人間が次の作業を選ぶ。pod 2 つの扱い・push・`results/primary/` の 2 run も人間**。)
+最終更新: 2026-11-06(その200。PLANNER が N5(解析門の閾値・主要検定に掛けるか・順)と平行性の TOST の Δ の判断材料と推奨を `plans/PLAN-049-n5-gate-and-tost-delta.md` の草案に書いた。値は決めていない。GPU 0・pod 0)
+(**次: 人間が PLAN-049 §4 の Q1〜Q5 を決める(PLANNER・Opus が表を示して諮る)。pod 2 つの扱い・push・`results/primary/` の 2 run も人間**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-06(その199・最新)。Phase 0。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。順6 の在り処と落とすセルの一覧を人間が決めた。GPU 0・pod 0**
-> - 旧い R1 [run:20260911_141547_order6_r1] と測り直し [run:20261106_021031_order6_r1_remeasure] の印: 主軸の T1・T2 の 6 セルは両方で #2 の `fails` が False、T3・T1b の 6 セルは両方で True。#3 は `t1b.interp` だけが食い違う(旧い R1 で False・測り直しで True)。**解釈はしていない**
-> - 人間の決定(ADR-138 追記 ③。2 問とも推奨): `input.order6_gonogo` = `results/gonogo_order6_remeasure/gonogo.json` / `input.order6_dropped_cells` = `[]`。`pytest code/tests/test_primary.py -q` = 56 passed
-> - 実データの `primary.py` が止まる未決は frame の在り処・N5 の閾値・TOST の Δ の 3 つ(解析門の順は ADR-138 追記 ①③ のとおり別に止まる)
+> **★★2026-11-06(その200・最新)。Phase 0。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。PLAN-049 草案(N5・解析門の順・TOST の Δ)。GPU 0・pod 0**
+> - 人間が HANDOFF の (B) を選んだ。`plans/PLAN-049-n5-gate-and-tost-delta.md` §3 に事実(G1〜G11・D1〜D8・算術)、§4 に Q1〜Q5 の表と推奨。**値は決めていない**
+> - 気づいた食い違い(判断なし): 解析門を「門あり主 + 門なし感度」と決めたのは順1b だけ(ADR-055 決定3・`05_STATISTICS.md:380`)。§2 の主要検定の前処理に門は無いが、`primary.py` には口がある(ADR-138 決定1・3)。主要検定に門を掛けるかは未決 → PLAN-049 Q1
+> - 実データの `primary.py` が止まる未決は frame の在り処・N5 の閾値・TOST の Δ の 3 つ(解析門の順は ADR-138 追記 ①③ のとおり別に止まる)。変わっていない
 
 ---
 
@@ -321,20 +321,22 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-06(その199・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-11-06(その200・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 0. 人間: PLAN-049 §4 の Q1〜Q5(主要検定に門を掛けるか・閾値と量・門の順と `k`・TOST の Δ・Δ を決める時期)を決める → ADR-139(PLANNER)→ I2〜I5(IMPLEMENTER)
 >
 > 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)
 > 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
-> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ(ADR-138 決定3・追記。~~順6 の在り処と確定した一覧~~ は追記 ③ で決着)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)**
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ(ADR-138 決定3・追記。~~順6 の在り処と確定した一覧~~ は追記 ③ で決着。★その200: 材料は PLAN-049 草案 = 上の 0)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)**
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-11-06(その199・最新)。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。HANDOFF の 1 つ(印の並べ方と一覧の確定)を済ませた**
+> **★★2026-11-06(その200・最新)。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。HANDOFF の (B)(PLAN-049 草案)を済ませた**
 >
-> **★やったこと**: 開始手順 → 2 つの `gonogo.json` をセルごとに並べた表(4 値・#2 の `fails`)→ 2 欄の案と推奨 → `AskUserQuestion`(2 問とも推奨)→ ADR-138 追記 ③・`configs/primary.yaml`・`code/tests/test_primary.py` → `logs/OPEN-ITEMS.md` 2 行・PLAN-045 §11
-> **★気づいたこと(判断なし)**: `test_primary.py` の 4 本が本物の config の `null` に頼っていた(値を入れると落ちる)。写しを `null` に戻して確かめる形に直した / この機械に `jq` は無い(Python で読んだ)/ `runs/20261106_021031_order6_r1_remeasure/preflight_stdout.log` は未追跡のまま / T3・T1b の 6 セルの扱い(ADR-078 決定6 の保留)には手を付けていない
+> **★やったこと**: 開始手順 → (A)/(B) を人間に聞き (B) → ADR-054・055・062・114・138、`05_STATISTICS.md` §2・§3.2・§5・§6.8、`frame.py`・`primary.py` の門の箇所、パイロットの #4 の 4 値を確かめた → PLAN-049 草案 → `logs/OPEN-ITEMS.md` 3 行(N5・★C・TOST の Δ)に PLAN-049 を書き足した
+> **★気づいたこと(判断なし)**: 推奨はどれも凍結済みの値(#4 の 0.90・ADR-052 の RMS 0.353)から導いた。Q4 の Δ = 0.4988 は算術(√2 × 0.352767)で、実験結果ではない / `code/` と `configs/` は不変 / T3・T1b の 6 セルの扱い(ADR-078 決定6 の保留)には手を付けていない
 
 ---
 

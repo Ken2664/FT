@@ -8332,3 +8332,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-06(その199・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - HANDOFF の 1 つを済ませたので切る。`logs/HANDOFF.md` を更新した(次は人間が選ぶ。(A) RUNNER・Sonnet で S4(push と G2-1 承認の後)/ (B) PLANNER・Opus で N5・解析門の順・TOST の Δ の判断材料の PLAN 草案)。RunPod は使っていない(GPU 0・pod 0)
+
+## 2026-11-06(その200・N5・解析門の順・平行性の TOST の Δ の判断材料(PLAN-049 草案))   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その199)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果・`.claude/commands/`・`runs/20261106_021031_order6_r1_remeasure/preflight_stdout.log` だけ。HANDOFF に (A)/(B) の指定が無かったので作業前に人間に聞き、人間が (B) を選んだ(推奨)。推奨モデル(Opus)と一致
+- `plans/PLAN-049-n5-gate-and-tost-delta.md`(新規・`草案`): §3 に事実(解析門 G1〜G11・TOST D1〜D8・RMS と Δ の算術)、§4 に Q1 主要検定に門を掛けるか / Q2 閾値と量 / Q3 門の順と残りの本数 `k` / Q4 Δ の値 / Q5 Δ を決める時期 の表と推奨(★ はエージェント (Opus 5.5) が付けた)。**値は決めていない**
+- 気づいた食い違い(判断なし): 「門あり主 + 門なし感度」は順1b の決定(ADR-055 決定3・`Documents/05_STATISTICS.md:380`)。§2 の主要検定の前処理(`05_STATISTICS.md:28`)に門は無いが、`code/analysis/primary.py:478-487` に口がある(ADR-138 決定1・3)。どちらも書き換えず PLAN-049 Q1 に置いた
+- 書いた: PLAN-049 / `logs/OPEN-ITEMS.md`(N5・★C・TOST の Δ の 3 行に書き足し)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。`code/`・`configs/` は不変。GPU 0・pod 0。push していない

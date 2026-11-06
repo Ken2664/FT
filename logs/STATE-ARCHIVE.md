@@ -18,6 +18,37 @@
 
 ---
 
+## ★2026-11-06(その197)—— STATE.md から移したブロック(ADR-063 運用規約1。その198 で置き換え)
+
+### 冒頭
+
+最終更新: 2026-11-06(その197。RUNNER が順6 の測り直し(PLAN-045 I7)の pod を起動しようとしたが、**既存の pod `9matkiq0jozcgm` はホストの GPU が空かず起動できなかった**(400・2 回)。pod は `EXITED` のまま・課金 0)
+(**次: 人間が pod の扱いを決める(同じ形の pod の新規作成 / 待って旧 pod を再試行 / 別の GPU 型)。決まれば RUNNER(Sonnet)が I7 を回す**。)
+
+### いま何をしているか
+
+> **★★2026-11-06(その197・最新)。Phase 0。Claude Opus 5.5(RUNNER。推奨は Sonnet)。順6 の測り直し(PLAN-045 I7)は pod の在庫で止まった。GPU 0・pod 0**
+> - 人間の承認(その197): pod は上限 1 時間。push には触れていない → **push していない**。S4 とは束ねていない
+> - 2026-11-05 12:23Z ごろ `pod-action start` を 2 回 → 2 回とも「There are not enough free GPUs on the host machine」(400)。止めた pod は元のホストの GPU が空くまで起動できない。直後の `get-pod` で `EXITED` を確かめた
+> - RunPod の読み(その197): RTX 4090 SECURE・EU-RO-1 の在庫は `LOW`(あり)・$0.89/時。ボリューム `r963j7swke` は EU-RO-1・50 GB・STANDARD → 同じ DC に同じ形の pod を新規に作ればボリュームを付けられる(**作っていない**。HANDOFF の「新規作成はしない」)
+> - 手元の追跡外のファイルの SHA-256 は manifest の `files` と一致: 主プール `items.jsonl` `6bb6084d…` / pilot `items.jsonl` `c5072f48…`(`counterpart_manifest` の相手)/ `train.jsonl` 5 本 `p2` `58be98e5…`・`p2d` `4b6a06d8…`・`arb` `0f248520…`・`x2` `e58a4187…`・`ident` `0ff65faf…`。bundle と tgz は scratchpad に作ったがセッションと一緒に消えるので、次の RUNNER が作り直す
+
+### 次のアクション
+
+> **★★2026-11-06(その197・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 1. 人間: 順6 の測り直し(PLAN-045 I7)の **pod の扱い**(既存の `9matkiq0jozcgm` はホストの GPU が空かず起動できない。案: 同じ形 = RTX 4090・SECURE・EU-RO-1・同じイメージ・ボリューム `r963j7swke` の pod を新規作成 / 待って旧 pod を再試行 / 別の GPU 型)。上限 1 時間の承認は済(その197)。push はまだ承認されていない → 決まれば RUNNER(Sonnet)が I7(bundle で code を送り、`items.jsonl` 2 本・`train.jsonl` 5 本を送って SHA-256 を照合 → pod で preflight(pytest 込み)→ `code.eval.run` → 回収 → `code.analysis.gonogo` で印。解釈は人間)
+> 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ **N5 の閾値と解析門の順・平行性の TOST の Δ・順6 の gonogo.json の在り処と `input.order6_dropped_cells` の確定した一覧(ADR-138 決定3・追記)/ PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)**
+
+### 引き継ぎ
+
+> **★★2026-11-06(その197・最新)。Claude Opus 5.5(RUNNER。推奨の Sonnet と不一致・定型なので進めた)。人間が pod を上限 1 時間で承認。起動は在庫切れで失敗。**
+>
+> **★やったこと**: 開始手順 → `infra/RUNPOD.md` §3〜§7・skill `runpod:runpod-mcp` → `get-pod`(単価 $0.89/時を示した)→ 追跡外のファイルの SHA-256 の照合 → bundle・tgz を作った → `pod-action start` 2 回(400)→ 在庫とボリュームの読み
+> **★止めた理由**: HANDOFF の「新規作成はしない。在庫が無ければ止めて人間へ」。人間に案の表を出したが、人間がその問いを閉じ、アプリが落ちた。context-guard(約 156k)
+> **★気づいたこと(判断なし)**: R1 [run:20260911_141547_order6_r1] は RTX 4090。旧い印と並べるなら同じ GPU 型のほうが `RUNPOD.md` §6 のハードウェアの統制に沿う。pod の新規作成と旧 pod の terminate は人間
+
 ## ★2026-11-03(その196)—— STATE.md から移したブロック(ADR-063 運用規約1。その197 で置き換え)
 
 ### 最終更新

@@ -158,8 +158,8 @@
 - [x] §4 の Q1〜Q5 に人間が答え、採択の ADR を書いた(ADR-134)
 - [x] I1〜I6 を実装し、主プールを作り直して 2 回生成のバイト一致を確かめた。パイロットのプールが 1 バイトも変わっていないことをテストで確かめた(2026-10-24 その182。§11)
 - [x] 作り直した主プールの `interp` セルで `mirror_in_K` が 0 件であることをテストで固定した(`code/tests/test_interp_mirror_filter.py`)
-- [ ] `pytest code/tests -q` が通った
-- [ ] (Q5 (a) の場合)順6 の測り直しの run_id と印を記録した
+- [x] `pytest code/tests -q` が通った(2026-11-06 その198。pod 上の preflight の検査で 2681 passed・14 skipped。commit `8135f35`。§11)
+- [x] (Q5 (a) の場合)順6 の測り直しの run_id と印を記録した([run:20261106_021031_order6_r1_remeasure]・`results/gonogo_order6_remeasure/gonogo.json`。§11。**印の解釈は人間**)
 
 ## 10. 記入欄(人間の回答)
 
@@ -197,3 +197,12 @@
 - 人間が pod を上限 1 時間で承認(push は未承認)。既存の pod `9matkiq0jozcgm` の `start` は 2 回とも「ホストに空き GPU が無い」(400)。**run は作っていない**・GPU 0・課金 0
 - 手元の追跡外のファイルの SHA-256 は manifest と一致(主プール `6bb6084d…`・pilot `c5072f48…`・`train.jsonl` 5 本)
 - 次: pod の扱いは人間(`logs/OPEN-ITEMS.md` の「★順6 の測り直し(PLAN-045 I7)の pod」)
+
+### 2026-11-06(その198・I7 の実行)RUNNER(Claude Opus 5.5。推奨は Sonnet)
+
+- 人間の指示: pod は (a) 同じ形で新規作成・上限 1 時間・push しない。旧 pod `9matkiq0jozcgm` の `start` は auto mode の分類器に拒否されたので試していない(`EXITED` のまま・terminate していない)
+- 新しい pod `oorrti5on9opnb`(RTX 4090・SECURE・EU-RO-1・同じイメージ・ボリューム `r963j7swke`・$0.89/時)。02:08:53Z 作成 → 02:21:40Z 停止(約 $0.19)
+- pod の旧い checkout(`102c2d5`)は `/workspace/pod_moved_aside_order6r` へ移し、bundle(`main` = `8135f35`)から clone。追跡外の 7 本の SHA-256 は pod 上で manifest の `files` と一致
+- preflight: FAIL 0・WARN 1(未追跡の run dir だけ。`git_diff.patch` は 0 バイト)。pytest 2681 passed・14 skipped
+- **run [run:20261106_021031_order6_r1_remeasure]**: 1,640 項目・`items_sha256` `6bb6084d…`・4 値の合計は全ブロックで 1.0。合計 215 秒(読み込み 59 秒・生成 152 秒)
+- `gonogo.py` の印(`results/gonogo_order6_remeasure/gonogo.json`。旧い `results/gonogo_order6/` は不変): #1 は 3 群とも fails=False / #2 は T3・T1b の 6 セルが fails=True(T1・T2 の 6 セルは False)/ #3 は T3・T1b の 6 セルが fails=True。**旧い R1 の印との並べ方・解釈・`input.order6_dropped_cells` は人間**

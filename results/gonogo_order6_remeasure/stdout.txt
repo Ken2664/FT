@@ -1,0 +1,30 @@
+印(fails)は基準を割ったかどうかだけである。Go/No-Go の判断・落ちたセルの一覧の確定・T1b の扱いは人間が決める(CLAUDE.md §8 / ADR-076 決定1 / ADR-047 決定2)。極性別の参照線と近接同点の感度の行は印に使わない(ADR-078 決定9 / ADR-079 決定8)
+=== run 20261106_021031_order6_r1_remeasure(condition=p2 / seed=None)
+  experiment=exp_phase1_main pool=main adapter=None templates=eval_main preamble=なし task_subset=None
+#1 parse_fail_rate < 0.02(judged=False は参考)
+  bare_sum             n=240  correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 judged=True fails=False
+  word_problem         n=240  correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 judged=True fails=False
+  specificity          n=120  correct=0.867 rule=0.000 other_error=0.133 parse_fail=0.000 judged=True fails=False
+  bare_sum_instructed  n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 judged=False fails=False
+#2 correct_rate >= 0.7(12 セル。解いたタスク型 ['t1', 't2', 't3', 't1b'])
+  t1   id                n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   interp            n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t1   extrap_magnitude  n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t2   id                n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t2   interp            n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t2   extrap_magnitude  n=80   correct=1.000 rule=0.000 other_error=0.000 parse_fail=0.000 fails=False
+  t3   id                n=160  correct=0.256 rule=0.744 other_error=0.000 parse_fail=0.000 fails=True
+  t3   interp            n=160  correct=0.263 rule=0.738 other_error=0.000 parse_fail=0.000 fails=True
+  t3   extrap_magnitude  n=160  correct=0.481 rule=0.519 other_error=0.000 parse_fail=0.000 fails=True
+  t1b  id                n=160  correct=0.500 rule=0.500 other_error=0.000 parse_fail=0.000 fails=True
+  t1b  interp            n=160  correct=0.494 rule=0.506 other_error=0.000 parse_fail=0.000 fails=True
+  t1b  extrap_magnitude  n=160  correct=0.400 rule=0.600 other_error=0.000 parse_fail=0.000 fails=True
+#3 実測の correct_rate > 定数戦略の理論値(T3 / T1b)。極性別の値は参照線
+  t3   id                n=160  correct=0.256 always_yes=0.500 always_no=0.500 fails=True | Yes|gt=39/80 Yes|lt=0/80 gt_no_lt_yes=1.000 gt_yes_lt_no=0.000
+  t3   interp            n=160  correct=0.263 always_yes=0.500 always_no=0.500 fails=True | Yes|gt=38/80 Yes|lt=0/80 gt_no_lt_yes=1.000 gt_yes_lt_no=0.000
+  t3   extrap_magnitude  n=160  correct=0.481 always_yes=0.500 always_no=0.500 fails=True | Yes|gt=3/80 Yes|lt=0/80 gt_no_lt_yes=1.000 gt_yes_lt_no=0.000
+  t1b  id                n=160  correct=0.500 always_yes=0.500 always_no=0.500 fails=True | Yes|gt=65/80 Yes|lt=65/80 gt_no_lt_yes=1.000 gt_yes_lt_no=0.000
+  t1b  interp            n=160  correct=0.494 always_yes=0.500 always_no=0.500 fails=True | Yes|gt=69/80 Yes|lt=68/80 gt_no_lt_yes=1.000 gt_yes_lt_no=0.000
+  t1b  extrap_magnitude  n=160  correct=0.400 always_yes=0.500 always_no=0.500 fails=True | Yes|gt=74/80 Yes|lt=58/80 gt_no_lt_yes=1.000 gt_yes_lt_no=0.000
+近接同点の感度の行: なし(config に gonogo.near_tie_margin が無い)
+-> results\gonogo_order6_remeasure\gonogo.json

@@ -8310,3 +8310,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - `configs/exp_phase1_main.yaml` と R1 [run:20260911_141547_order6_r1] の config の差は `counterpart_manifest`・`interp_mirror_filter: true` の 2 欄だけ。手元の `items.jsonl` の SHA-256 は manifest の `files` と一致(`6bb6084d…`)
 - dry-run(`code.eval.run --dry-run`)は exit 0・1,640 項目。手元の preflight(run dir は scratchpad)は pytest の 600 秒タイムアウトの FAIL 1 件のほか、データ・プール・トークンの検査はすべて PASS
 - **pod は起動していない**(起動・GPU・push は人間の承認)。`logs/HANDOFF.md` を更新した(次は RUNNER・推奨 Sonnet。承認があれば I7 を回す)。`STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`)。`code/` は不変。GPU 0・pod 0
+
+## 2026-11-05〜06(その197・順6 の測り直し(PLAN-045 I7)の pod の起動の試み)   [actor: RUNNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その196)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果と `.claude/commands/` だけ。**推奨モデル(Sonnet)と不一致**(Opus 5.5。定型なので進めた)。人間の承認は「pod は上限 1 時間」(push には触れていない → push していない・S4 とは束ねない)
+- `get-pod`: `9matkiq0jozcgm` = `EXITED`・RTX 4090・SECURE・EU-RO-1・$0.89/時(人間に示した)。手元の主プール・pilot の `items.jsonl` と `train.jsonl` 5 本の SHA-256 は manifest と一致。bundle(`main` 全体 6.4 MB / `102c2d5..main` 2.1 MB)と tgz(535 KB)を scratchpad に作った
+- `pod-action start` を 2 回 → 2 回とも 400「There are not enough free GPUs on the host machine」。在庫の読み: RTX 4090 SECURE・EU-RO-1 は `LOW`・ボリューム `r963j7swke` は EU-RO-1。**新規作成はしていない**(HANDOFF)。人間に案の表を出したが問いは閉じられ、アプリが落ちた
+- context-guard(約 156k)で切る。書いた: `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/OPEN-ITEMS.md`(I7 の pod の行)/ `plans/PLAN-045` §11 / `logs/HANDOFF.md`。`code/` は不変。GPU 0・pod 0(`EXITED` を `get-pod` で確認)

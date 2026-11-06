@@ -191,3 +191,9 @@
 - **I6** PLAN-002 §4.5.1 の表と PLAN-001 の案A の注に「主プールの `interp` セルはさらに (b, a) ∉ K の組から引く。ラベルの定義は不変」を足した。PLAN-023・PLAN-037 の旧いハッシュに打ち消し線と新しい値
 - `pytest code/tests -q`: **2624 passed**(309 秒)
 - **I7(順6 の測り直し)は起動していない**(GPU。人間)
+
+### 2026-11-05(その197・I7 の起動の試み)RUNNER(Claude Opus 5.5。推奨は Sonnet)
+
+- 人間が pod を上限 1 時間で承認(push は未承認)。既存の pod `9matkiq0jozcgm` の `start` は 2 回とも「ホストに空き GPU が無い」(400)。**run は作っていない**・GPU 0・課金 0
+- 手元の追跡外のファイルの SHA-256 は manifest と一致(主プール `6bb6084d…`・pilot `c5072f48…`・`train.jsonl` 5 本)
+- 次: pod の扱いは人間(`logs/OPEN-ITEMS.md` の「★順6 の測り直し(PLAN-045 I7)の pod」)

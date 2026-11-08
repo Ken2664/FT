@@ -8347,3 +8347,12 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 
 ## 2026-11-08(その201・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
 - PLAN-049 を採択(ADR-139。`2e8a12b`)したので切る。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet が PLAN-049 I2〜I5)。RunPod は使っていない(GPU 0・pod 0)
+
+## 2026-11-08(その202・PLAN-049 I2〜I5 の実装(解析門と平行性の TOST の Δ))   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- 開始手順: HANDOFF(その201)と `git log`・`STATE.md` は一致(HEAD `cc93847`・追跡ファイルの未コミット変更なし)。推奨モデル(Sonnet)と一致
+- `configs/primary.yaml`(I2): `analysis_gate` = role `sensitivity` / task `t1` / threshold 0.90 / direction `ge` / min_runs 5、`tost.delta` = 0.4988(ADR-139 の値をそのまま写した。エージェントが決めた値は無い)
+- `code/analysis/primary.py`(I3): 順 = 選ぶ → 門 → 適格性フィルタ → df → 天井 → 当てはめ。`analyse` を `fit_stage`(主・感度に共通)と `sensitivity_stage` に分けた。主は門なし(`design.n_seed` の検査のまま)・感度は通った `p2` が 5 本以上で同じ手続き・未満は `実施不能: 解析門`。`--simulate`・`--shuffle-labels` は門を掛けない(`apply_gate` 偽)。報告に「解析門」と「感度解析」の節。`pending_decisions` の門・Δ の項目は null のときだけ残る(本物の config では外れ、未決は `input.frame_dir` だけ)。`require_decided` は未決が無ければ何もせず、`build_targets` が実データの経路(frame 読み → 順6 の一覧の照合 → `actual`)を持つ
+- `code/tests/test_primary.py`(I4): §3.3 の算術(P1 の 2 係数から RMS 0.352767・Δ = 0.4988 で正方形の角の RMS ≤ 下限・0.50 と 0.4989 は超える)/ 境界 9/10 = 0.9 ちょうどは通過 / 主と感度で p 値が分かれる合成の frame / 主の結果は門に依らない / k = 5 ちょうどは当てる・4 本と 0 本は `実施不能: 解析門` / 門は T1 × `id` だけ・量を作れない run は止まる / 順(門がフィルタの前)/ 報告 / `main` で frame を渡した実データの経路 / `--simulate`・`--shuffle-labels` は門なし / 本物の config の値。`pytest code/tests -q` **2713 passed**(537 秒)。R の実行は 1 本(`test_one_real_fit_goes_through_power_sim_fit_r_and_returns_a_verdict`)を含む
+- PLAN-049 §8 を更新、§11 に PLAN に無い選択 ①〜⑧ を記録(**人間の採否待ち**。`logs/OPEN-ITEMS.md` に 1 行)。`STATE.md` を更新(旧ブロックは `logs/STATE-ARCHIVE.md`)
+- 食い違い(`CLAUDE.md` §7.1): ADR-139 決定2 は量を `frame.py` の `gate_id_by_task["t1"]` と書くが `primary.py` は CSV だけを読むので、同じ行の集合から数えた(コードの読み先に従った。§11 ①)/ `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の値 −0.3266 の差 1e-6(eta の 6 桁丸め。テストの許容 5e-6。どちらも書き換えていない)
+- GPU 0・pod 0。push していない

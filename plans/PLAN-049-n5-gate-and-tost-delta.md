@@ -4,7 +4,7 @@
 > **この PLAN は値を決めない。**値・採否はすべて人間(`CLAUDE.md` §8・ADR-039)。エージェントは表と推奨を出すだけ。
 
 - 作成日: 2026-11-06
-- 最終更新: 2026-11-08(その201。人間が Q1〜Q5 を決めた = ADR-139)
+- 最終更新: 2026-11-08(その202。IMPLEMENTER が I2〜I5 を実装。選択は §11)
 - ステータス: ~~`草案`(人間のレビュー待ち。§4 の Q1〜Q5)~~ → **`採択`**(2026-11-08。ADR-139。5 問と `k` のすべてで推奨 (a) / `k` = 5。I1 済み。I2〜I5 は IMPLEMENTER)
 - 担当: PLANNER(Claude Opus 5.5。その200)→ 採否は人間 → 実装は IMPLEMENTER
 - 関連する問い: `Documents/05_STATISTICS.md` §2(主要検定)・§3.2(順1b)・§5(TOST)・§6.8(TOST の形)
@@ -157,7 +157,10 @@
 
 - [x] 人間が Q1〜Q5 を決める(2026-11-08 その201。ADR-139)
 - [x] I1(PLANNER。ADR-139・`05_STATISTICS.md` §2・§3.2・§4・§5・`logs/OPEN-ITEMS.md`)
-- [ ] I2〜I5(IMPLEMENTER)
+- [x] I2(`configs/primary.yaml`: 門の欄と `tost.delta` = 0.4988。2026-11-08 その202)
+- [x] I3(`primary.py`: 選ぶ直後の門・主と感度の 2 節・報告に門の行。選択は §11)
+- [x] I4(`test_primary.py`: §3.3 の算術・主と感度が分かれる frame・`k` 未満・本物の config の値)
+- [x] I5(`pytest code/tests -q` = 2713 passed / CHANGELOG / commit)
 
 ## 9. 決定の記録
 
@@ -170,3 +173,16 @@
 | Q5 | **(a)** いま(run3 の D5 の表を見る前)。run3 の後に Δ は変えない | 2026-11-08(ADR-139 決定5) |
 
 提案 エージェント(PLANNER, Opus 5.5。その200)/ 採択 人間(その201。`AskUserQuestion` 2 回)。
+
+## 11. 実装で PLAN に無い選択をした点(2026-11-08 その202・IMPLEMENTER Sonnet 5.5。**人間の採否待ち**。ADR-139 の値・規則は変えていない)
+
+| # | 選択 | 理由 / 代案 |
+|---|---|---|
+| ① | **門の量は frame.csv の行から数える**(`gate_task` × `id` の `is_rule` の run ごとの平均)。ADR-139 決定2 の文言は `frame.py` の `gate_id_by_task["t1"]` だが、それは `frame_manifest.json` 側にあり、`primary.py` が読むのは CSV だけ | `gate_id_rates` と同じ行の集合(その task・`id`・seed あり。T1 は主軸の task)なので値は同じはず。代案: manifest を読む(`read_frame` の照合を広げる)。**実 frame が出来たら両者が一致することを確かめる(未検証)** |
+| ② | **config に `role`・`task`・`direction` の欄を足し、実装している値(`sensitivity`・frame の task・`ge`)以外は `ConfigError` で止める** | 決めていない手続き(門あり主など)を config の書き換えだけで黙って走らせないため。`task` は `design.tasks` の中でなければ止まる |
+| ③ | **感度の適格性フィルタは `ident` の行(frame 全体)で決め、門で絞らない** | ADR-139 決定3 の順(選ぶ → 門 → 適格性フィルタ)でフィルタは `ident` だけで決まる(PLAN-049 G10)。感度に残る p2 の run のシードと `ident` のシードは対応づけていない |
+| ④ | 門の量を作れない run(`gate_task` × `id` の行が無い)は止まる。通過/落ちに倒さない | `CLAUDE.md` §7 |
+| ⑤ | `pending_decisions` に `analysis_gate.threshold`・`tost.delta` の null 検査を**残した**(本物の config では外れ、frame の在り処だけが残る)。`require_decided` は未決が無ければ何もしない | ADR-138 決定3(null は止まる)を保つ。HANDOFF の「2 項目が外れる」は本物の config での話と読んだ |
+| ⑥ | `build_targets` の実データの経路を足した(未決が無ければ frame を読み、`confirmed_order6_cells` で順6 の一覧を照合して `actual` として解析する)。**`input.frame_dir` が `null` の間は止まる**ので、実データはまだ走らない | `require_decided` が通ったとき `AssertionError` で終わる旧い形のままでは感度解析が走らない。frame の在り処は決めていない |
+| ⑦ | 感度の当てはめの作業ディレクトリは主の隣(`<fit>_gate`)。出力は `result["sensitivity"] = {verdict, n_runs_passed, min_runs, result}` と `result["analysis_gate"]`(run ごとの量・`passes`・`n_passed`・`n_total`)。報告に「解析門」と「感度解析」の節 | 形は PLAN-049 に無かったので実装で決めた |
+| ⑧ | 順1b の門は実装していない(順1b のコードがまだ無い。ADR-139 決定3 も順1b のコードを決めていない) | — |

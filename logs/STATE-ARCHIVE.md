@@ -11196,3 +11196,31 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 > **★やったこと**: 開始手順 → 6 点を `d364462` のコードと突き合わせて表にした(④ は「成功だけ」の率に天井の p 値が混ざる点を注記・⑥ はいまの config では両門 0.95 で差が出ない)→ `AskUserQuestion` 1 回(3 問とも推奨)→ ADR-137 追記・I6 の 4 文書・PLAN-047・記録 → コミット
 > **★HANDOFF との食い違い 2 件**: 「`06_THREATS.md`(E9 の行)」の E9 は PLAN-047 §3 の事実の番号で `06_THREATS.md` に天井の行は無かった → T8 に置いた / ADR-132 決定5 を閉じた記録は `OPEN-ITEMS.md` の第 2 の尺度の行(その188)にすでにあった → 行を足さなかった
 > **★次のセッション**: 1 つに決まっていない。人間が「次のアクション」の 1〜4 から選ぶ(多くは人間の判断か RUNNER)
+
+## 2026-11-08(その201 の STATE.md の旧ブロック。その202 で置き換え)
+
+### 最終更新(冒頭)
+
+最終更新: 2026-11-08(その201。PLANNER が PLAN-049 §4 の Q1〜Q5 を表を示して人間に諮り、人間が 5 問と `k` のすべてで推奨を選んだ = ADR-139。解析門は主要検定に掛けない(門ありは感度)・門 = T1 × `id` の `rule_rate` ≥ 0.90・選んだ直後・`k` = 5・TOST の Δ = 0.4988。`code/`・`configs/` は不変。GPU 0・pod 0)
+(**次: IMPLEMENTER(Sonnet)が PLAN-049 I2〜I5(`configs/primary.yaml` の値・`primary.py` の門と感度の節・テスト)。pod 2 つの扱い・push・`results/primary/` の 2 run は人間**。)
+
+### いま何をしているか
+
+> **★★2026-11-08(その201・最新)。Phase 0。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。PLAN-049 を採択(ADR-139)。GPU 0・pod 0**
+> - 人間が決めた(5 問と `k` とも推奨): 主要検定(T1 × T2)は解析門を掛けない・門ありは探索の感度解析 / 門 = T1 × `id` の `rule_rate` ≥ 0.90(順1b も同じ。順1b は門ありが主のまま)/ 主軸の行を選んだ直後・門ありの側で `p2` が 5 本未満なら「実施不能: 解析門」/ TOST の Δ = 0.4988 ロジット(√2 × 0.352767 を切り捨て。算術)/ Δ は run3 の前に決めた
+> - 文書に反映済み: `05_STATISTICS.md` §2 前処理・§3.2 順1b・§4 順1b の注・§5 の「勾配が平行」の行(旧文は打ち消し線と日付)/ `logs/OPEN-ITEMS.md`(N5・★C・TOST の Δ・`primary.py` 本体の行)
+> - **`configs/primary.yaml` の `analysis_gate.threshold`・`tost.delta` はまだ `null`**(I2 = IMPLEMENTER)。反映後、実データの `primary.py` が止まる未決は frame の在り処だけになる
+
+### 次のアクション(項目 0)
+
+> **★★2026-11-08(その201・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 0. IMPLEMENTER(Sonnet): PLAN-049 I2〜I5(`configs/primary.yaml` の `analysis_gate.threshold` = 0.90・`tost.delta` = 0.4988・門の役割 / 量 / `k` = 5 の欄 → `primary.py` の門(選んだ直後)と主・感度の 2 節・報告の表 → テスト(§3.3 の算術を P1 から計算して固定・門が run を落とす合成の frame・`k` 未満で「実施不能: 解析門」)→ `pytest code/tests -q`)
+
+### 引き継ぎ
+
+> **★★2026-11-08(その201・最新)。Claude Opus 5.5(PLANNER。推奨の Opus と一致)。HANDOFF の 1 つ(PLAN-049 の Q1〜Q5 を諮る)を済ませた**
+>
+> **★やったこと**: 開始手順 → PLAN-049 §3 の事実と §3.3 の算術の表をチャットで示した(算術は検算: P1 の RMS = 0.352767・正方形の中の最大 RMS = Δ / √2)→ `AskUserQuestion` 2 回 → ADR-139 → PLAN-049 §8・§9・ステータス `採択` → `05_STATISTICS.md` の 5 か所 → `logs/OPEN-ITEMS.md` 4 行
+> **★気づいたこと(判断なし)**: `05_STATISTICS.md` §4 順1b の注「#4 / #4b の 0.90 は流用していない」は「揃える」の定義の話で、門の閾値 0.90 とは別(書き換えず、注を足した)/ `logs/OPEN-ITEMS.md` の N5(ADR-028 決定1)の行の (1) と #4b の書き方は未決のまま / `code/`・`configs/` は不変
+

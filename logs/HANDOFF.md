@@ -1,41 +1,44 @@
 # HANDOFF — 次のセッションに貼るプロンプト
 
-生成: 2026-11-08(その201)/ 直前セッションの役割: PLANNER
-直前セッションが終了した理由: PLAN完了(PLAN-049 の Q1〜Q5 を人間が決めた = ADR-139)
-直前セッションの実モデル: Claude Opus 5.5
-**推奨モデル(次のセッション)**: Sonnet — 採択済みの決定を config・コード・テストに写す実装(`10_CONTEXT_POLICY.md` §7 の「実装・集計」)
+生成: 2026-11-08(その202)/ 直前セッションの役割: IMPLEMENTER
+直前セッションが終了した理由: PLAN完了(PLAN-049 I2〜I5 を実装・`pytest code/tests -q` 2713 passed・commit)
+直前セッションの実モデル: Claude Sonnet 5.5
+**推奨モデル(次のセッション)**: Opus — 設計判断(PLAN-049 §11 の選択 ①〜⑧ を人間に諮る)。`10_CONTEXT_POLICY.md` §7 の「設計判断・統計・解釈」
 
 ---
 
-あなたは IMPLEMENTER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
+あなたは PLANNER です。**最初の発言で、自分の実モデル名と、上の推奨モデルとの一致・不一致を 1 行で述べること**
 (Sonnet で判断系の作業になっているなら止めて人間に伝える。`10_CONTEXT_POLICY.md` §7.3)。
-`CLAUDE.md` §1 の開始手順を実行し、skill `code-style` を読んでから作業を始めてください。
+`CLAUDE.md` §1 の開始手順を実行してから作業を始めてください。
 
 ## このセッションでやること(1つだけ)
 
-- `plans/PLAN-049-n5-gate-and-tost-delta.md` §5 の **I2〜I5** を ADR-139 の決定どおりに実装し、`pytest code/tests -q` を通してコミットする
-  - I2: `configs/primary.yaml` の `analysis_gate.threshold` = 0.90・`tost.delta` = 0.4988、門の役割(主要検定は感度だけ)・量(T1 × `id` の `rule_rate`、参照規則は run の条件の規則)・向き(≥ で通過)・`k` = 5 の欄
-  - I3: `code/analysis/primary.py` の門 = 主軸の行を選んだ直後(選ぶ → 門 → 適格性フィルタ → df → 天井 → 当てはめ)。**主(門なし。今のシード数の検査 `n_seed` = 10 のまま)と感度(門あり。残った `p2` の本数を記録・5 本未満なら「実施不能: 解析門」)の 2 節**を出し、報告の表に門の行。`--simulate`・`--shuffle-labels` は門を掛けない現状のまま(ADR-138 決定3)。`pending_decisions` から門・Δ の 2 項目が外れること
-  - I4: テスト — §3.3 の算術(`configs/power_sim.yaml` の P1 の 2 係数から RMS = 0.352767 を計算し、Δ = 0.4988 で正方形の角の RMS ≤ 下限・0.50 では超える)/ 門が run を落とす合成の frame で主と感度が分かれる / `k` 未満で「実施不能: 解析門」/ 本物の config の値を固定
-  - I5: `pytest code/tests -q`・PLAN-049 §8 のチェック・CHANGELOG・commit
+- `plans/PLAN-049-n5-gate-and-tost-delta.md` **§11 の選択 ①〜⑧ を人間に諮り、採否を ADR-139 に追記する**(提案 = IMPLEMENTER・採択 = 人間を分けて書く。ADR-097 決定6: 判断材料の表と推奨を先に見せる。`AskUserQuestion` で聞く)
+  - ① 門の量を frame.csv の行から数えた(ADR-139 決定2 の文言は `frame.py` の `gate_id_by_task["t1"]` = manifest 側)。代案: manifest を読む。**実 frame が出来たら両者が一致することを確かめる(未検証)**
+  - ② config に `role`・`task`・`direction` の欄を足し、実装外の値は `ConfigError`
+  - ③ 感度の適格性フィルタは `ident` 全体で決め、門で絞らない
+  - ④ 量を作れない run は止まる / ⑤ `pending_decisions` に null 検査を残した / ⑥ 実データの経路を足した(`input.frame_dir` が null の間は止まる)/ ⑦ 感度の出力の形 / ⑧ 順1b の門は未実装
+  - 採否が決まったら PLAN-049 §11・`logs/OPEN-ITEMS.md`(その202 の行)・`STATE.md` を更新。コード変更が要る採否(① を manifest 読みに改める等)は次の IMPLEMENTER への HANDOFF に切り出す(PLANNER は `code/`・`configs/` を書かない)
 
 ## 直前セッションで確定したこと
 
-- ADR-139(`logs/DECISIONS.md` 末尾。commit `2e8a12b`): 主要検定は門なし主・門ありは探索の感度(Holm に入れない)/ 門 = T1 × `id` の `rule_rate` ≥ 0.90(順1b も同じ。順1b は門あり主のまま)/ 選んだ直後・`k` = 5 / Δ = 0.4988 ロジット / Δ は run3 の前に決めた。人間が採択(5 問と `k` とも推奨)
-- `Documents/05_STATISTICS.md` §2 前処理・§3.2 順1b・§4 順1b の注・§5 の表は書き換え済み。`configs/`・`code/` は不変
+- `configs/primary.yaml`: `analysis_gate`(role = sensitivity・task = t1・threshold = 0.90・direction = ge・min_runs = 5)・`tost.delta` = 0.4988(ADR-139 の値の写し)
+- `code/analysis/primary.py`: 順 = 選ぶ → 門 → 適格性フィルタ → df → 天井 → 当てはめ。主(門なし・`n_seed` = 10 の検査のまま)と感度(門あり・通った `p2` が 5 本未満なら「実施不能: 解析門」)。`--simulate`・`--shuffle-labels` は門を掛けない。実データで止まる未決は `input.frame_dir` だけ
+- `code/tests/test_primary.py`: §3.3 の算術・境界 0.9 ちょうど・主と感度が分かれる frame・k 未満・本物の config の値。`pytest code/tests -q` 2713 passed
+- 食い違い(どちらも書き換えていない): ADR-139 決定2 の読み先(manifest)と実装の読み先(CSV)/ `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の −0.3266(差 1e-6)
 
 ## 触ってよいファイル / 読むべき範囲
 
-- PLAN-049 §3.1 G4〜G10・§3.3・§5 / ADR-139(`grep -n '^## ADR-139' logs/DECISIONS.md`)
-- `configs/primary.yaml:48-52` / `code/analysis/primary.py:140-200`(spec・`pending_decisions`)・`:240-255`(シード数)・`:478-545`(門の記録と順)/ `code/analysis/frame.py:471-496`(`gate_id_by_task`)/ `code/tests/test_primary.py`
-- 書いてよい: `configs/primary.yaml`・`code/analysis/primary.py`・`code/tests/test_primary.py`・PLAN-049 §8・§11(実装で PLAN に無い選択をしたら記録)・`logs/CHANGELOG.md`・`STATE.md`
+- `plans/PLAN-049-n5-gate-and-tost-delta.md` §11 / `logs/DECISIONS.md` ADR-139(`grep -n '^## ADR-139' logs/DECISIONS.md`)/ `code/analysis/primary.py`(`gate_quantities`・`analysis_gate_record`・`fit_stage`・`sensitivity_stage`・`analyse`・`build_targets`)/ `code/analysis/frame.py:471-496`
+- 書いてよい: `logs/DECISIONS.md`(ADR-139 追記)・PLAN-049・`logs/OPEN-ITEMS.md`・`STATE.md`・`logs/CHANGELOG.md`
 
 ## やってはいけないこと
 
-- ADR-139 に無い値・規則を足す(迷ったら PLAN-049 §11 に選択として書き、人間に諮る)/ 主要検定の手続き・天井の規則・`configs/power_sim.yaml`・`power_sim_fit.R` を変える / `git add -A`(未追跡の大きい結果がある)/ 承認なしに pod を起動する・push する
+- 採否を人間に聞かずに決める / `code/`・`configs/` を書く(PLANNER の範囲外)/ ADR-139 の値(0.90・k = 5・Δ = 0.4988)を動かす / `git add -A`(未追跡の大きい結果がある)/ 承認なしに pod を起動する・push する
 
 ## 未解決 / 人間の承認待ち
 
+- PLAN-049 §11 ①〜⑧(上)
 - pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push
 - `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)
-- N5 の (1)(`p2d` の交互作用を副次に)と #4b の事前登録での書き方 / T3・T1b の 6 セルの扱い(ADR-078 決定6)/ S4(`01cf60f` 以降の push と G2-1 承認の後。RUNNER)
+- N5 の (1)(`p2d` の交互作用を副次に)と #4b の事前登録での書き方 / T3・T1b の 6 セルの扱い(ADR-078 決定6)/ S4(`01cf60f` 以降の push と G2-1 承認の後。RUNNER)/ frame の在り処(`input.frame_dir`)

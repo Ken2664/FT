@@ -7,9 +7,9 @@
     python -m code.analysis.primary --shuffle-labels --seed 0
     python -m code.analysis.primary --frame-dir results/<frame> --order6-gonogo results/<gonogo>/gonogo.json
 
-**順は固定である**(ADR-137 決定2): 主軸の subset(W1)→ 適格性フィルタ(W2)→ df のランク規則(W3)→
-天井の規則(W4)→ 当てはめ(W5)→ TOST の最小の Δ(W7)。判定は `実施可` / `実施不能: df < 2` /
-`実施不能: 天井` / `実施不能: 当てはめ失敗` のどれか 1 つで、**p 値は `実施可` の行にだけ表に出す**
+**順は固定である**(ADR-137 決定2・ADR-139 決定3): 主軸の subset(W1)→ 解析門(W8。感度だけ)→ 適格性フィルタ(W2)→
+df のランク規則(W3)→ 天井の規則(W4)→ 当てはめ(W5)→ TOST(W7)。判定は `実施可` / `実施不能: df < 2` /
+`実施不能: 天井` / `実施不能: 当てはめ失敗` / `実施不能: 解析門`(感度だけ)のどれか 1 つで、**p 値は `実施可` の行にだけ表に出す**
 (ADR-137 決定3・ADR-138 決定6)。すべての値は `primary.json` に残る。**結果の読みは書かない**(`CLAUDE.md` §8)。
 
 **当てはめはここで実装しない**: `power_sim_fit.R` を変えずに `power_sim.write_fit_manifest` / `run_fits` で呼ぶ
@@ -19,9 +19,12 @@
 `draw_frame`・`equivalence_margin`)・`ceiling`(天井の規則)・`frame`(列と `CORRECT`)を呼ぶ。
 ADR-138 決定2・決定5 で人間がそう決めた —— 写しを作ると run3 の検出力と実データの手続きがずれる。
 
-**解析門(W8)は口だけ**: 閾値(N5)と順が未決なので、実データの実行は `analysis_gate.threshold` と `tost.delta` が
-`null` なら止まり、`null` でなくても順が未決なので止まる。二値化(不等号の向き)は決めていない。
-`--simulate` と `--shuffle-labels` は止めず、run ごとの `id` 到達度の生の量だけを記録する。
+**解析門(W8。ADR-139)**: 主要検定は門なしが**主**(今のシード数の検査 `design.n_seed` のまま)で、門を通った run
+だけで同じ手続きを当てたものを**感度解析**として併記する(探索的。Holm に入れない。主と感度が食い違えば両方を報告する)。
+量は `analysis_gate.task` × 基準水準 `id` の `rule_rate`(run ごと)、`>= analysis_gate.threshold` で通過。
+門ありの側で残った `p2` の run が `analysis_gate.min_runs`(k)本未満なら `実施不能: 解析門`。
+`--simulate` と `--shuffle-labels` は門を掛けず、run ごとの量を記録するだけ(ADR-138 決定3)。
+実データの実行が止まる未決は `input.frame_dir`(frame の在り処)だけである。
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ import argparse
 import csv
 import hashlib
 import json
+import operator
 import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -59,6 +63,7 @@ VERDICT_OK = "実施可"
 VERDICT_DF = "実施不能: df < 2"
 VERDICT_CEILING = "実施不能: 天井"
 VERDICT_FIT = "実施不能: 当てはめ失敗"
+VERDICT_GATE = "実施不能: 解析門"   # 感度解析だけが取る(門を通った run が k 本未満。ADR-139 決定3)
 
 # 適格性フィルタで落ちた理由(ADR-076 決定1 の和集合)
 REASON_REFERENCE = "ident"
@@ -70,6 +75,13 @@ BASELINE_COVERAGE = COVERAGE_ID
 # LRT の自由度の下限(ADR-112 決定1)。これ未満なら実施不能
 MIN_DF = 2
 
+# 解析門の role / direction の値(ADR-139)。config がこれ以外なら止まる(決めていない手続きを黙って走らせない)
+GATE_ROLE_SENSITIVITY = "sensitivity"
+GATE_DIRECTIONS: dict[str, Callable[[float, float], bool]] = {"ge": operator.ge}
+# 感度解析の当てはめの作業ディレクトリは、主のそれの隣に置く
+SENSITIVITY_DIR_SUFFIX = "_gate"
+
+ACTUAL_LABEL = "actual"   # 実データの対象のラベル(報告・primary.json のキー)
 MODE_ACTUAL = "actual"
 MODE_SIMULATE = "simulate"
 MODE_SHUFFLE = "shuffle"
@@ -119,6 +131,9 @@ class Spec:
     tost_alpha: float
     delta: float | None
     gate_threshold: float | None
+    gate_task: str
+    gate_direction: str
+    gate_min_runs: int
 
     @property
     def cells(self) -> tuple[Cell, ...]:
@@ -144,6 +159,7 @@ def load_spec(config: Mapping[str, Any], power_config: Mapping[str, Any]) -> Spe
     """config から主解析の定義を組む。答える問い: 決まっている値はすべて埋まっているか。
 
     `analysis_gate.threshold` と `tost.delta` は `null` を許す(ここでは読むだけ。止めるのは `pending_decisions`)。
+    門の役割・向きが実装している値でなければ止まる(ADR-139 決定1・2 以外の手続きを黙って走らせない)。
     """
     tasks = tuple(require(config, "design.tasks"))
     coverages = tuple(require(config, "design.coverages"))
@@ -151,6 +167,14 @@ def load_spec(config: Mapping[str, Any], power_config: Mapping[str, Any]) -> Spe
         raise ConfigError(f"design.coverages に基準水準 {BASELINE_COVERAGE!r} が無い(power_sim_fit.R の基準)")
     delta = declared(config, "tost.delta")
     threshold = declared(config, "analysis_gate.threshold")
+    role, direction = str(require(config, "analysis_gate.role")), str(require(config, "analysis_gate.direction"))
+    if role != GATE_ROLE_SENSITIVITY:
+        raise ConfigError(f"analysis_gate.role は {GATE_ROLE_SENSITIVITY!r} だけ(ADR-139 決定1): {role!r}")
+    if direction not in GATE_DIRECTIONS:
+        raise ConfigError(f"analysis_gate.direction は {sorted(GATE_DIRECTIONS)} のどれか(ADR-139 決定2): {direction!r}")
+    gate_task = str(require(config, "analysis_gate.task"))
+    if gate_task not in tasks:
+        raise ConfigError(f"analysis_gate.task {gate_task!r} が design.tasks {list(tasks)} に無い")
     return Spec(
         condition=str(require(config, "design.primary_condition")),
         reference_condition=str(require(config, "design.reference_condition")),
@@ -162,6 +186,9 @@ def load_spec(config: Mapping[str, Any], power_config: Mapping[str, Any]) -> Spe
         tost_alpha=float(require(power_config, "simulation.tost_alpha")),
         delta=None if delta is None else float(delta),
         gate_threshold=None if threshold is None else float(threshold),
+        gate_task=gate_task,
+        gate_direction=direction,
+        gate_min_runs=int(require(config, "analysis_gate.min_runs")),
     )
 
 
@@ -177,27 +204,23 @@ def pending_decisions(
     if declared(config, "input.order6_dropped_cells") is None:
         pending.append(PENDING_ORDER6_LIST)
     if declared(config, "analysis_gate.threshold") is None:
-        pending.append("analysis_gate.threshold: 解析門の閾値(N5)と、門を順のどこに入れるか")
+        pending.append("analysis_gate.threshold: 解析門の閾値(N5。ADR-139 決定2)")
     if declared(config, "tost.delta") is None:
-        pending.append("tost.delta: 平行性の TOST の Δ(ADR-114 決定5)")
+        pending.append("tost.delta: 平行性の TOST の Δ(ADR-139 決定4)")
     return pending
 
 
 def require_decided(
     config: Mapping[str, Any], frame_dir: Path | None, order6_gonogo: Path | None
 ) -> None:
-    """実データの実行の入口。答える問い: 決まっていない門を黙って通っていないか。
+    """実データの実行の入口。答える問い: 決まっていない値を黙って通っていないか。
 
-    `null` が 1 つでもあれば止まる(ADR-138 決定3)。閾値が入っていても、解析門を順のどこに入れるかは未決なので、
-    この版は適用せずに止まる(黙って無視すると、決めた閾値が掛かっていない結果が出る)。
+    `null` が 1 つでもあれば止まる(ADR-138 決定3)。全部決まっていれば何もしない
+    (ADR-139 で門の閾値・順と Δ が決まったので、残る未決は frame の在り処だけ)。
     """
     pending = pending_decisions(config, frame_dir, order6_gonogo)
     if pending:
         raise PendingDecisionError("未決の値がある。実データの実行は止める(ADR-138 決定3):\n  - " + "\n  - ".join(pending))
-    raise PendingDecisionError(
-        "解析門を順のどこに入れるかが未決である(N5)。閾値が入ったので、順を PLAN で決めて primary.py に足すこと"
-        "(この版は二値化も適用もしない。ADR-138 決定3)"
-    )
 
 
 # --------------------------------------------------------------------------
@@ -475,16 +498,56 @@ def tost_record(fit: Mapping[str, Any], spec: Spec) -> dict[str, Any] | None:
     }
 
 
-def analysis_gate_record(rows: Sequence[Mapping[str, Any]], spec: Spec) -> dict[str, Any]:
-    """W8 の口: 答える問い: run ごとの `id` 到達度の生の量は何か。
+def gate_quantities(primary: Sequence[Mapping[str, Any]], spec: Spec) -> dict[str, dict[str, Any]]:
+    """W8: 答える問い: run ごとの門の量(`gate_task` × 基準水準 `id` の `rule_rate`)はいくつか(ADR-139 決定2)。
 
-    **二値化も適用もしない**(閾値 N5・不等号の向き・順が未決。ADR-138 決定3)。閾値は記録するだけである。
+    frame の `is_rule` は run の条件の規則での判定なので、参照規則は run の条件の規則になっている。
+    frame.py の `gate_id_by_task[gate_task]` と同じ行の集合(その task・`id`・seed あり)を数える。
+    量を作れない run(その task の `id` の行が無い)は止まる(黙って「落ちた」「通った」に倒さない。`CLAUDE.md` §7)。
     """
-    runs: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        if row["condition"] == spec.condition:
-            runs.setdefault(row["run_id"], {"gate_id_rule_rate": row["gate_id_rule_rate"], "gate_id_n": row["gate_id_n"]})
-    return {"applied": False, "threshold": spec.gate_threshold, "runs": runs}
+    n_rule: dict[str, int] = {}
+    n_all: dict[str, int] = {}
+    pooled: dict[str, tuple[float | None, int]] = {}
+    for row in primary:
+        run_id = row["run_id"]
+        pooled.setdefault(run_id, (row["gate_id_rule_rate"], row["gate_id_n"]))
+        if row["task"] == spec.gate_task and row["coverage"] == BASELINE_COVERAGE:
+            n_all[run_id] = n_all.get(run_id, 0) + 1
+            n_rule[run_id] = n_rule.get(run_id, 0) + int(row["is_rule"])
+    missing = sorted(set(pooled) - set(n_all))
+    if missing:
+        raise PrimaryError(f"{spec.gate_task} × {BASELINE_COVERAGE} の行が無い run がある(門の量を作れない): {missing}")
+    return {
+        run_id: {
+            "rule_rate": n_rule[run_id] / n_all[run_id], "n": n_all[run_id],
+            "gate_id_rule_rate": pooled[run_id][0], "gate_id_n": pooled[run_id][1],
+        }
+        for run_id in sorted(pooled)
+    }
+
+
+def analysis_gate_record(primary: Sequence[Mapping[str, Any]], spec: Spec, apply_gate: bool) -> dict[str, Any]:
+    """W8: 答える問い: 各 run は門(量 `>=` 閾値)を通ったか。通った run は何本か。
+
+    `apply_gate` が偽(`--simulate`・`--shuffle-labels`)のときは量を記録するだけで、通過の判定を付けない(ADR-138 決定3)。
+    `gate_id_rule_rate` / `gate_id_n` は frame に入っている 4 タスク型プールの生の量(記録のみ。門には使わない)。
+    """
+    runs = gate_quantities(primary, spec)
+    record: dict[str, Any] = {
+        "applied": apply_gate, "role": GATE_ROLE_SENSITIVITY, "task": spec.gate_task, "coverage": BASELINE_COVERAGE,
+        "threshold": spec.gate_threshold, "direction": spec.gate_direction, "min_runs": spec.gate_min_runs,
+        "runs": runs,
+    }
+    if not apply_gate:
+        return record
+    if spec.gate_threshold is None:
+        raise PendingDecisionError("analysis_gate.threshold が null のまま門を掛けられない(ADR-139 決定2)")
+    passes = GATE_DIRECTIONS[spec.gate_direction]
+    for entry in runs.values():
+        entry["passes"] = passes(entry["rule_rate"], spec.gate_threshold)
+    record["n_passed"] = sum(1 for entry in runs.values() if entry["passes"])
+    record["n_total"] = len(runs)
+    return record
 
 
 # --------------------------------------------------------------------------
@@ -503,20 +566,20 @@ def verdict_of(df: int, ceiling_hit: bool, fit: Mapping[str, Any] | None) -> str
     return VERDICT_OK
 
 
-def analyse(
+def fit_stage(
+    primary: Sequence[Mapping[str, Any]],
     rows: Sequence[Mapping[str, Any]],
     order6_dropped: set[Cell],
     spec: Spec,
     fitter: Fitter,
     work_dir: Path,
 ) -> dict[str, Any]:
-    """答える問い: この frame に主要検定を、フィルタ → df → 天井 → 当てはめの順で当てると、何が出るか。
+    """答える問い: 選んだ行に、適格性フィルタ → df → 天井 → 当てはめの順で主要検定を当てると、何が出るか。
 
     **df < 2 のときは当てない。天井のときは当てて記録する**(p 値は `fit` に残り、表には出さない。ADR-137 決定3)。
     R の LRT の df が計画行列のランクの差と違えば止まる(どちらかが間違っている)。
+    適格性フィルタは `ident` の行(`rows` 全体)だけで決まり、`primary`(門で絞った行かもしれない)に依らない。
     """
-    primary = select_primary_rows(rows, spec)
-    gate = analysis_gate_record(primary, spec)
     filtered = eligibility(reference_correct_rates(rows, spec), order6_dropped, spec)
     kept = cells_from_labels(filtered["kept"])
     ranks = design_ranks(kept, spec)
@@ -530,15 +593,60 @@ def analyse(
             raise PrimaryError(f"R の LRT の df {fit['df']} が計画行列のランクの差 {ranks['df']} と違う")
     return {
         "verdict": verdict_of(ranks["df"], verdict.ceiling, fit),
-        "n_seed": spec.n_seed,
+        "n_seed": len({r["seed"] for r in primary}),
         "n_rows": len(used),
         "eligibility": filtered,
         "df": ranks,
         "ceiling": {**ceiling.verdict_record(verdict), "judged_cells": [cell_label(c) for c in kept]},
         "fit": fit,
         "tost": None if fit is None else tost_record(fit, spec),
-        "analysis_gate": gate,
     }
+
+
+def sensitivity_stage(
+    primary: Sequence[Mapping[str, Any]],
+    gate: Mapping[str, Any],
+    rows: Sequence[Mapping[str, Any]],
+    order6_dropped: set[Cell],
+    spec: Spec,
+    fitter: Fitter,
+    work_dir: Path,
+) -> dict[str, Any]:
+    """答える問い: 門を通った run だけに同じ手続きを当てると、何が出るか(探索的な感度解析。ADR-139 決定1・3)。
+
+    通った run が `min_runs` 本未満なら当てずに `実施不能: 解析門`。Holm のファミリーに入れない。
+    """
+    passed = {run_id for run_id, entry in gate["runs"].items() if entry["passes"]}
+    record: dict[str, Any] = {"n_runs_passed": len(passed), "min_runs": spec.gate_min_runs, "result": None}
+    if len(passed) < spec.gate_min_runs:
+        return {**record, "verdict": VERDICT_GATE}
+    stage = fit_stage(
+        [r for r in primary if r["run_id"] in passed], rows, order6_dropped, spec, fitter,
+        work_dir.with_name(work_dir.name + SENSITIVITY_DIR_SUFFIX),
+    )
+    return {**record, "verdict": stage["verdict"], "result": stage}
+
+
+def analyse(
+    rows: Sequence[Mapping[str, Any]],
+    order6_dropped: set[Cell],
+    spec: Spec,
+    fitter: Fitter,
+    work_dir: Path,
+    apply_gate: bool = False,
+) -> dict[str, Any]:
+    """答える問い: この frame に主要検定を、選ぶ → 門 → フィルタ → df → 天井 → 当てはめの順で当てると、何が出るか。
+
+    **主は門なし**(今のシード数の検査 `design.n_seed` のまま)。`apply_gate` が真(実データ)のときだけ、
+    門ありの感度解析を `sensitivity` に足す(ADR-139 決定1・3)。`--simulate`・`--shuffle-labels` は偽(ADR-138 決定3)。
+    """
+    primary = select_primary_rows(rows, spec)
+    gate = analysis_gate_record(primary, spec, apply_gate)
+    result = fit_stage(primary, rows, order6_dropped, spec, fitter, work_dir)
+    result["analysis_gate"] = gate
+    if apply_gate:
+        result["sensitivity"] = sensitivity_stage(primary, gate, rows, order6_dropped, spec, fitter, work_dir)
+    return result
 
 
 # --------------------------------------------------------------------------
@@ -579,6 +687,41 @@ def report_row(result: Mapping[str, Any]) -> list[str]:
     ]
 
 
+GATE_HEADER = ("run", "量(rule_rate)", "n", "門")
+
+
+def gate_rows(gate: Mapping[str, Any]) -> list[list[str]]:
+    """答える問い: 門の表の各行(run・量・項目数・通過/落ちた)は何か。"""
+    return [
+        [run_id, format_number(entry["rule_rate"], ".4f"), str(entry["n"]), "通過" if entry["passes"] else "落ちた"]
+        for run_id, entry in gate["runs"].items()
+    ]
+
+
+def render_gate(label: str, result: Mapping[str, Any]) -> list[str]:
+    """答える問い: 解析門の行(量・閾値・通過した本数・各 run)と感度解析の判定は、報告でどう見えるか。
+
+    門は主要検定(上の表)には掛けていない。感度解析は探索的で Holm に入れない(ADR-139 決定1)。
+    感度解析が出せるときは、主と同じ列の表を出す。主と食い違っても両方残す。
+    """
+    gate, sensitivity = result["analysis_gate"], result["sensitivity"]
+    lines = [
+        "", f"### {label}: 解析門(ADR-139)", "",
+        f"- 量: {gate['task']} × {gate['coverage']} の rule_rate(参照規則は run の条件の規則)/ 閾値: {gate['direction']} {format_number(gate['threshold'])}"
+        f" / 通過 {gate['n_passed']} / {gate['n_total']} 本",
+        "", "| " + " | ".join(GATE_HEADER) + " |", "|" + "---|" * len(GATE_HEADER),
+        *("| " + " | ".join(row) + " |" for row in gate_rows(gate)),
+        "", f"### {label}: 感度解析(門あり。探索的・Holm に入れない。主と食い違えば両方を報告する)", "",
+    ]
+    if sensitivity["result"] is None:
+        lines.append(f"- **{sensitivity['verdict']}**: 通った run {sensitivity['n_runs_passed']} 本 < k = {sensitivity['min_runs']}")
+    else:
+        lines += [f"- 通った run {sensitivity['n_runs_passed']} 本(k = {sensitivity['min_runs']})", "",
+                  "| " + " | ".join(REPORT_HEADER) + " |", "|" + "---|" * len(REPORT_HEADER),
+                  "| " + " | ".join(report_row(sensitivity["result"])) + " |"]
+    return lines
+
+
 REPORT_HEADER = ("判定", "落ちたセル", "df", "天井(セルと向き)", "縮退の段", "LRT の p 値", "TOST の最小 Δ", "Δ", "同等か")
 
 
@@ -594,6 +737,8 @@ def render_report(meta: Mapping[str, Any], targets: Mapping[str, Mapping[str, An
     for label, result in targets.items():
         lines += ["", f"## {label}", "", "| " + " | ".join(REPORT_HEADER) + " |", "|" + "---|" * len(REPORT_HEADER),
                   "| " + " | ".join(report_row(result)) + " |"]
+        if "sensitivity" in result:
+            lines += render_gate(label, result)
         notes = result.get("shuffle")
         if notes:
             lines += ["", f"- 入れ替え(seed {notes['seed']}): " + ("template が複数の task に跨る: " + ", ".join(notes["mixed_templates"]) if notes["mixed_templates"] else "template は 1 つの task に収まる")]
@@ -733,7 +878,9 @@ def build_targets(
         # 実データの経路も gonogo.json を読む経路なので、ほかの未決で止まる前に照合しておく(PLAN-048 I11)
         confirmed_order6_cells(config, order6, spec)
     require_decided(config, frame_dir, order6)
-    raise AssertionError("require_decided は必ず例外を投げる")   # pragma: no cover
+    if frame_dir is None or order6 is None:   # require_decided が止めているはず(型の絞り込み)
+        raise AssertionError("frame_dir / order6 が None のまま require_decided を通った")   # pragma: no cover
+    return [(ACTUAL_LABEL, read_frame(frame_dir), confirmed_order6_cells(config, order6, spec), None)]
 
 
 def run(args: argparse.Namespace) -> int:
@@ -749,7 +896,7 @@ def run(args: argparse.Namespace) -> int:
     fitter = make_r_fitter(power_config, args.rscript)
     results: dict[str, dict[str, Any]] = {}
     for label, rows, dropped, shuffle in prepared:
-        results[label] = analyse(rows, dropped, spec, fitter, run_dir / label / FIT_DIR)
+        results[label] = analyse(rows, dropped, spec, fitter, run_dir / label / FIT_DIR, apply_gate=mode == MODE_ACTUAL)
         if shuffle is not None:
             results[label]["shuffle"] = shuffle
     meta = {"run_id": run_id, "mode": mode, "git_sha": artifacts.capture_git_head_sha(),

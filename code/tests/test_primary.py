@@ -13,7 +13,9 @@ import argparse
 import csv
 import hashlib
 import itertools
+import dataclasses
 import json
+import math
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -62,10 +64,12 @@ def one_row(
     }
 
 
-def make_rows(rule=lambda t, c, k, s: (k + s) % 2, correct=lambda t, c, k: 1) -> list[dict[str, Any]]:
-    """p2 の行(10 シード × 6 セル × `N_ITEM` 項目)と ident の行。`rule` / `correct` で形を決める。"""
+def make_rows(
+    rule=lambda t, c, k, s: (k + s) % 2, correct=lambda t, c, k: 1, n_item: int = N_ITEM,
+) -> list[dict[str, Any]]:
+    """p2 の行(10 シード × 6 セル × `n_item` 項目)と ident の行。`rule` / `correct` で形を決める。"""
     rows = []
-    for (task, coverage), seed, k in itertools.product(CELLS, range(N_SEED), range(N_ITEM)):
+    for (task, coverage), seed, k in itertools.product(CELLS, range(N_SEED), range(n_item)):
         item = f"{task}.{coverage}.{k:04d}"
         rows.append(one_row("p2", seed, item, task, coverage, rule(task, coverage, k, seed)))
         ok = correct(task, coverage, k)
@@ -94,10 +98,14 @@ def analyse(rows, spec, fitter, tmp_path, dropped=frozenset()):
 # --------------------------------------------------------------------------
 
 
-def test_the_undecided_values_stay_null_and_the_fit_settings_are_not_duplicated(config) -> None:
-    """ADR-138 決定2・3: 閾値と Δ は null のまま(エージェントは値を入れない)。当てはめの設定は持たない。"""
-    assert config["analysis_gate"]["threshold"] is None
-    assert config["tost"]["delta"] is None
+def test_the_gate_and_the_tost_delta_are_the_values_the_human_decided_in_adr_139(config, spec) -> None:
+    """ADR-139: 門 = T1 × id の rule_rate ≥ 0.90・k = 5・役割は感度 / Δ = 0.4988。当てはめの設定は持たない(ADR-138 決定2)。"""
+    gate = config["analysis_gate"]
+    assert (gate["role"], gate["task"], gate["threshold"], gate["direction"], gate["min_runs"]) == (
+        "sensitivity", "t1", 0.90, "ge", 5)
+    assert config["tost"]["delta"] == 0.4988
+    assert (spec.gate_task, spec.gate_threshold, spec.gate_direction, spec.gate_min_runs, spec.delta) == (
+        "t1", 0.90, "ge", 5, 0.4988)
     assert not {"fit", "refit", "allfit", "reduction_order", "alpha", "tost_alpha"} & set(config)
 
 
@@ -136,33 +144,54 @@ def undecided_order6(config: dict[str, Any]) -> dict[str, Any]:
     return copied
 
 
+def undecided_all(config: dict[str, Any]) -> dict[str, Any]:
+    """5 つの未決をすべて null に戻した写し(ADR-139 で門の閾値と Δ も本物の config は決まったため)。"""
+    copied = undecided_order6(config)
+    copied["analysis_gate"]["threshold"] = None
+    copied["tost"]["delta"] = None
+    return copied
+
+
 def test_all_five_undecided_items_are_listed_and_an_override_removes_only_its_own(config) -> None:
-    undecided = undecided_order6(config)
+    undecided = undecided_all(config)
     listed = primary.pending_decisions(undecided, None, None)
     assert len(listed) == 5 and primary.PENDING_ORDER6_LIST in listed
     assert len(primary.pending_decisions(undecided, Path("f"), None)) == 4
     assert len(primary.pending_decisions(undecided, Path("f"), Path("g"))) == 3
 
 
-def test_the_decided_config_leaves_only_the_frame_and_the_two_values(config) -> None:
-    """ADR-138 追記 ③ の後、本物の config で未決なのは frame の在り処・N5 の閾値・TOST の Δ の 3 つ。"""
+def test_the_decided_config_leaves_only_the_frame(config) -> None:
+    """ADR-139 の後、本物の config で未決なのは frame の在り処だけ(門の閾値と Δ は外れた)。"""
     listed = primary.pending_decisions(config, None, None)
-    assert len(listed) == 3 and primary.PENDING_ORDER6_LIST not in listed
+    assert len(listed) == 1 and "frame_dir" in listed[0]
+    assert primary.pending_decisions(config, Path("f"), None) == []
 
 
 def test_a_real_run_stops_when_anything_is_null_and_writes_nothing(config, tmp_path, capsys) -> None:
     code = primary.main(["--out-dir", str(tmp_path)])
     assert code == primary.EXIT_PENDING
     assert list(tmp_path.iterdir()) == []
-    assert "tost.delta" in capsys.readouterr().out
+    assert "input.frame_dir" in capsys.readouterr().out
 
 
-def test_a_filled_threshold_still_stops_because_the_gate_position_is_undecided(config) -> None:
-    filled = json.loads(json.dumps(config))
-    filled["analysis_gate"]["threshold"] = 0.5
-    filled["tost"]["delta"] = 0.5
-    with pytest.raises(primary.PendingDecisionError, match="順"):
-        primary.require_decided(filled, Path("f"), Path("g"))
+def test_a_null_gate_threshold_or_delta_still_stops_and_a_fully_decided_config_passes(config) -> None:
+    """null は未決として止まる(門を黙って外さない)。全部決まっていれば require_decided は何もしない。"""
+    assert primary.require_decided(config, Path("f"), Path("g")) is None
+    for section, key in (("analysis_gate", "threshold"), ("tost", "delta")):
+        nulled = json.loads(json.dumps(config))
+        nulled[section][key] = None
+        with pytest.raises(primary.PendingDecisionError, match=f"{section}.{key}"):
+            primary.require_decided(nulled, Path("f"), Path("g"))
+
+
+@pytest.mark.parametrize(
+    ("key", "value"), [("role", "primary"), ("direction", "gt"), ("task", "t9")],
+)
+def test_a_gate_role_direction_or_task_the_adr_does_not_define_stops(config, power_config, key, value) -> None:
+    changed = json.loads(json.dumps(config))
+    changed["analysis_gate"][key] = value
+    with pytest.raises(ConfigError, match=f"analysis_gate.{key}"):
+        primary.load_spec(changed, power_config)
 
 
 def write_frame_dir(directory: Path, rows: list[dict[str, Any]], **tamper: Any) -> None:
@@ -334,7 +363,7 @@ def test_a_real_run_checks_the_order6_list_before_stopping_on_the_other_null_val
     args = argparse.Namespace(frame_dir=None, order6_gonogo=path, simulate=False, shuffle_labels=False, seed=None)
     with pytest.raises(primary.PrimaryError, match="食い違う"):
         primary.build_targets(args, with_order6_list(config, []), power_config, spec)
-    with pytest.raises(primary.PendingDecisionError, match="tost.delta"):
+    with pytest.raises(primary.PendingDecisionError, match="input.frame_dir"):
         primary.build_targets(args, with_order6_list(config, ["t1.id"]), power_config, spec)
 
 
@@ -497,20 +526,196 @@ def test_tost_gives_the_minimum_delta_and_judges_equivalence_only_when_delta_is_
                               interaction_extrap_magnitude_est=0.05, interaction_extrap_magnitude_se=0.2)
     z = 1.6448536269514722
     expected = max(0.1 + z * 0.1, 0.05 + z * 0.2)
-    undecided = primary.tost_record(fit, spec)
+    undecided = primary.tost_record(fit, dataclasses.replace(spec, delta=None))
     assert undecided["min_delta"] == pytest.approx(expected) and undecided["equivalent"] is None
-    import dataclasses
     assert primary.tost_record(fit, dataclasses.replace(spec, delta=expected + 0.01))["equivalent"] is True
     assert primary.tost_record(fit, dataclasses.replace(spec, delta=expected - 0.01))["equivalent"] is False
     assert primary.tost_record(ps_tests.failed_fit(), spec) is None
 
 
-def test_the_gate_records_the_raw_rates_and_applies_nothing(spec, tmp_path) -> None:
+def test_without_the_gate_the_raw_rates_are_recorded_and_no_pass_flag_is_set(spec, tmp_path) -> None:
+    """`--simulate`・`--shuffle-labels` の経路(`apply_gate` 偽。ADR-138 決定3): 量を記録するだけで、通過の判定も感度解析も無い。"""
     result = analyse(make_rows(), spec, FakeFitter(), tmp_path)
     gate = result["analysis_gate"]
-    assert gate["applied"] is False and gate["threshold"] is None
-    assert gate["runs"]["p2_s0"] == {"gate_id_rule_rate": 0.5, "gate_id_n": 40}
-    assert len(gate["runs"]) == N_SEED
+    assert gate["applied"] is False and gate["threshold"] == 0.90 and "sensitivity" not in result
+    assert gate["runs"]["p2_s0"]["gate_id_rule_rate"] == 0.5 and gate["runs"]["p2_s0"]["gate_id_n"] == 40
+    assert all("passes" not in entry for entry in gate["runs"].values()) and len(gate["runs"]) == N_SEED
+
+
+# --------------------------------------------------------------------------
+# 解析門(ADR-139。PLAN-049 I3・I4)
+# --------------------------------------------------------------------------
+
+GATE_N_ITEM = 10   # 閾値 0.90 の境界(9/10 = 0.9 ちょうど)を作るのに要る項目数
+
+
+def rows_with_t1_id_hits(hits_by_seed: dict[int, int], n_item: int = GATE_N_ITEM) -> list[dict[str, Any]]:
+    """seed ごとに T1 × id の規則適用の項目数を指定した frame。ほかのセルは天井・床にならない形(`(k+s) % 2`)。
+
+    T1 × id は seed ごとに規則適用の数が違うので、10 seed をプールしても全部規則・全部非規則にはならない
+    (全 seed が 0 のときだけ床。そういう形は感度の実施不能の検査にだけ使い、主の判定は見ない)。
+    """
+    return make_rows(
+        rule=lambda t, c, k, s: int(k < hits_by_seed[s]) if (t, c) == ("t1", "id") else (k + s) % 2, n_item=n_item)
+
+
+class SeedCountFitter:
+    """表に載ったシード数で p 値が変わる偽の当てはめ(主と感度が分かれるのを見る)。"""
+
+    def __init__(self) -> None:
+        self.seed_counts: list[int] = []
+
+    def __call__(self, table, work_dir):
+        n_seed = len({row[0] for row in table})
+        self.seed_counts.append(n_seed)
+        return ps_tests.fit_result(0.01 if n_seed == N_SEED else 0.20, df=2.0, reduction_label="none")
+
+
+def test_the_gate_threshold_is_inclusive_and_the_main_keeps_all_ten_runs_while_the_sensitivity_drops_the_failures(spec, tmp_path) -> None:
+    """9/10 = 0.9 ちょうどは通過(≥)。主は門なしの 10 本、感度は通った 7 本。p 値は分かれる(両方を残す)。"""
+    rows = rows_with_t1_id_hits({s: 9 if s < 7 else 8 for s in range(N_SEED)})
+    fitter = SeedCountFitter()
+    result = primary.analyse(rows, set(), spec, fitter, tmp_path, apply_gate=True)
+    gate, sensitivity = result["analysis_gate"], result["sensitivity"]
+    assert gate["applied"] is True and (gate["n_passed"], gate["n_total"]) == (7, N_SEED)
+    assert {r for r, e in gate["runs"].items() if e["passes"]} == {f"p2_s{s}" for s in range(7)}
+    assert gate["runs"]["p2_s0"]["rule_rate"] == 0.9 and gate["runs"]["p2_s9"]["rule_rate"] == 0.8
+    assert fitter.seed_counts == [N_SEED, 7]
+    assert result["verdict"] == primary.VERDICT_OK and result["fit"]["p_value"] == 0.01 and result["n_seed"] == N_SEED
+    assert (sensitivity["verdict"], sensitivity["n_runs_passed"]) == (primary.VERDICT_OK, 7)
+    assert sensitivity["result"]["fit"]["p_value"] == 0.20 and sensitivity["result"]["n_seed"] == 7
+
+
+def test_the_main_result_does_not_depend_on_the_gate(spec, tmp_path) -> None:
+    """主要検定は門なし: 門を掛ける経路でも、主の結果(`analysis_gate`・`sensitivity` 以外)は掛けない経路と同じ。"""
+    rows = rows_with_t1_id_hits({s: 9 if s < 3 else 5 for s in range(N_SEED)})
+    with_gate = primary.analyse(rows, set(), spec, FakeFitter(), tmp_path, apply_gate=True)
+    without = primary.analyse(rows, set(), spec, FakeFitter(), tmp_path, apply_gate=False)
+    drop = {"analysis_gate", "sensitivity"}
+    assert {k: v for k, v in with_gate.items() if k not in drop} == {k: v for k, v in without.items() if k not in drop}
+
+
+def test_the_main_still_requires_ten_seeds_but_the_sensitivity_only_requires_k_runs(spec, tmp_path) -> None:
+    """主の `design.n_seed` の検査は変えない(9 本なら止まる)。感度は通った本数が 10 未満でも k 以上なら当てる。"""
+    rows = rows_with_t1_id_hits({s: 9 for s in range(N_SEED)})
+    with pytest.raises(primary.PrimaryError, match="シード数"):
+        primary.analyse([r for r in rows if r["seed"] != 9], set(), spec, FakeFitter(), tmp_path, apply_gate=True)
+    rows = rows_with_t1_id_hits({s: 9 if s < 5 else 1 for s in range(N_SEED)})
+    result = primary.analyse(rows, set(), spec, FakeFitter(), tmp_path, apply_gate=True)
+    assert result["sensitivity"]["n_runs_passed"] == 5 and result["sensitivity"]["verdict"] == primary.VERDICT_OK
+
+
+@pytest.mark.parametrize("n_pass", [0, 4])
+def test_fewer_than_k_passing_runs_is_not_feasible_for_the_sensitivity_only(spec, tmp_path, n_pass) -> None:
+    """k = 5 未満なら感度は「実施不能: 解析門」で当てはめない。主は門なしのまま 10 本で出る。"""
+    rows = rows_with_t1_id_hits({s: 9 if s < n_pass else 1 for s in range(N_SEED)})
+    fitter = FakeFitter()
+    result = primary.analyse(rows, set(), spec, fitter, tmp_path, apply_gate=True)
+    sensitivity = result["sensitivity"]
+    assert sensitivity["verdict"] == primary.VERDICT_GATE == "実施不能: 解析門" and sensitivity["result"] is None
+    assert (sensitivity["n_runs_passed"], sensitivity["min_runs"]) == (n_pass, 5)
+    assert len(fitter.calls) == 1 and result["verdict"] == primary.VERDICT_OK
+
+
+def test_the_gate_looks_at_t1_id_only_and_a_missing_t1_id_row_stops(spec) -> None:
+    """T2 × id の規則適用が 0 でも、T1 × id が 9/10 なら通る。T1 × id の行が無い run は量を作れず止まる。"""
+    def rule(t, c, k, s):
+        if (t, c) == ("t1", "id"):
+            return int(k < 9)
+        return 0 if (t, c) == ("t2", "id") else (k + s) % 2
+
+    rows = make_rows(rule=rule, n_item=GATE_N_ITEM)
+    gate = primary.analysis_gate_record(primary.select_primary_rows(rows, spec), spec, True)
+    assert gate["n_passed"] == N_SEED
+    no_t1_id = [r for r in rows if not (r["condition"] == "p2" and r["seed"] == 3 and (r["task"], r["coverage"]) == ("t1", "id"))]
+    with pytest.raises(primary.PrimaryError, match="p2_s3"):
+        primary.analysis_gate_record(primary.select_primary_rows(no_t1_id, spec), spec, True)
+
+
+def test_the_gate_comes_right_after_choosing_the_rows_and_before_the_eligibility_filter(spec, tmp_path) -> None:
+    """順: 選ぶ → 門 → 適格性フィルタ。T1 × id が ident で落ちても、門の量はフィルタの前の p2 の行から出る。"""
+    rows = rows_with_t1_id_hits({s: 9 for s in range(N_SEED)})
+    rows = [dict(r, classification="other_error") if r["condition"] == "ident" and (r["task"], r["coverage"]) == ("t1", "id") else r
+            for r in rows]
+    result = primary.analyse(rows, set(), spec, FakeFitter(), tmp_path, apply_gate=True)
+    assert result["analysis_gate"]["n_passed"] == N_SEED
+    assert result["verdict"] == primary.VERDICT_DF and result["sensitivity"]["verdict"] == primary.VERDICT_DF
+
+
+def test_the_report_shows_the_gate_row_and_the_sensitivity_next_to_the_main(spec, tmp_path) -> None:
+    meta = {"run_id": "r", "mode": "actual", "git_sha": "g"}
+    ok = primary.analyse(rows_with_t1_id_hits({s: 9 if s < 7 else 8 for s in range(N_SEED)}), set(), spec,
+                         SeedCountFitter(), tmp_path, apply_gate=True)
+    text = primary.render_report(meta, {"actual": ok})
+    assert "### actual: 解析門(ADR-139)" in text and "通過 7 / 10 本" in text and "| p2_s9 | 0.8000 | 10 | 落ちた |" in text
+    assert "### actual: 感度解析(門あり。探索的・Holm に入れない" in text
+    assert text.index("## actual") < text.index("解析門(ADR-139)") < text.index("感度解析")
+    assert "0.01" in text and "0.2" in text   # 主と感度の p 値が両方出る
+    short = primary.analyse(rows_with_t1_id_hits({s: 9 if s < 4 else 1 for s in range(N_SEED)}), set(), spec,
+                            FakeFitter(), tmp_path, apply_gate=True)
+    assert "**実施不能: 解析門**: 通った run 4 本 < k = 5" in primary.render_report(meta, {"actual": short})
+
+
+def test_a_real_run_with_a_frame_writes_the_main_and_the_sensitivity(tmp_path, monkeypatch) -> None:
+    """frame_dir を渡せば実データの経路が走る(順6 の一覧・TOST の Δ・門は config のまま)。出力に感度と Δ が残る。"""
+    calls = fake_main_fitter(monkeypatch)
+    write_frame_dir(tmp_path / "f", rows_with_t1_id_hits({s: 9 if s < 6 else 1 for s in range(N_SEED)}))
+    assert primary.main(["--frame-dir", str(tmp_path / "f"), "--out-dir", str(tmp_path / "o")]) == primary.EXIT_OK
+    (run_dir,) = list((tmp_path / "o").iterdir())
+    payload = json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))
+    actual = payload["targets"][primary.ACTUAL_LABEL]
+    assert payload["mode"] == primary.MODE_ACTUAL and calls == [6 * GATE_N_ITEM * N_SEED, 6 * GATE_N_ITEM * 6]
+    assert actual["tost"]["delta"] == 0.4988 and actual["sensitivity"]["n_runs_passed"] == 6
+    assert "解析門(ADR-139)" in (run_dir / primary.REPORT_MD).read_text(encoding="utf-8")
+
+
+def test_simulate_and_shuffle_do_not_apply_the_gate(tmp_path, monkeypatch) -> None:
+    fake_main_fitter(monkeypatch)
+    assert primary.main(["--simulate", "--out-dir", str(tmp_path / "a")]) == primary.EXIT_OK
+    assert primary.main(["--shuffle-labels", "--out-dir", str(tmp_path / "b")]) == primary.EXIT_OK
+    for out in ("a", "b"):
+        (run_dir,) = list((tmp_path / out).iterdir())
+        for target in json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))["targets"].values():
+            assert target["analysis_gate"]["applied"] is False and "sensitivity" not in target
+
+
+# --------------------------------------------------------------------------
+# TOST の Δ(ADR-139 決定4。PLAN-049 §3.3 の算術)
+# --------------------------------------------------------------------------
+
+
+def interaction_rms(c1: float, c2: float) -> float:
+    """答える問い: 交互作用の 2 係数(処理対比・基準 T1 × id)から、非加法性 RMS(df = 2)はいくつか。
+
+    `power_sim.build_profile` と同じ定義(二重中心化した 2 × 3 の残差の 2 乗和 / df)を、係数から直接組む。
+    """
+    delta = np.array([[0.0, 0.0, 0.0], [0.0, c1, c2]])
+    centred = delta - delta.mean(axis=0, keepdims=True) - delta.mean(axis=1, keepdims=True) + delta.mean()
+    return float(np.sqrt((centred**2).sum() / 2))
+
+
+def square_corner_rms_max(delta: float) -> float:
+    """答える問い: 正方形 |c1| ≤ Δ, |c2| ≤ Δ の中で RMS が一番大きいのはいくつか(RMS は係数について凸なので角で最大)。"""
+    return max(interaction_rms(s1 * delta, s2 * delta) for s1 in (1, -1) for s2 in (1, -1))
+
+
+def test_the_p1_floor_rms_is_0_352767_from_the_two_coefficients_in_power_sim_yaml(power_config) -> None:
+    profile = power_sim.build_profile(power_config["effect"], "P1")
+    c1, c2 = (profile.interaction_contrasts[c] for c in ("interp", "extrap_magnitude"))
+    assert (c1, c2) == (pytest.approx(-0.326599, abs=5e-6), pytest.approx(-0.979796, abs=5e-6))
+    assert interaction_rms(c1, c2) == pytest.approx(profile.nonadditivity_rms, abs=1e-12)
+    assert profile.nonadditivity_rms == pytest.approx(0.352767, abs=5e-7)
+
+
+def test_delta_is_sqrt2_times_the_floor_rms_cut_down_to_four_digits_so_the_square_stays_inside_the_floor(config, power_config) -> None:
+    """Δ = 0.4988 なら「同等」の正方形の中の RMS はどの形でも下限以下。0.50 では超える(切り捨ての理由)。"""
+    floor = power_sim.build_profile(power_config["effect"], "P1").nonadditivity_rms
+    delta = config["tost"]["delta"]
+    assert math.floor(math.sqrt(2) * floor * 1e4) / 1e4 == pytest.approx(delta, abs=1e-12)
+    assert square_corner_rms_max(delta) == pytest.approx(delta / math.sqrt(2), abs=1e-12)
+    assert square_corner_rms_max(delta) <= floor
+    assert square_corner_rms_max(0.50) > floor
+    assert square_corner_rms_max(0.4989) > floor   # 4 桁目を 1 つ上げても超える(切り捨てが最大の 4 桁)
 
 
 # --------------------------------------------------------------------------

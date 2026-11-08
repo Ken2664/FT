@@ -8344,3 +8344,6 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - PLAN-049 §3 の事実(G2・G3・G5〜G9・G11・D2・D5・D6)と §3.3 の算術の表をチャットで示した(算術を検算: P1 の RMS = 0.352767・正方形の中の最大 RMS = Δ / √2)
 - **人間が決めた(`AskUserQuestion` 2 回・5 問と `k` のすべてで推奨)**: Q1 主要検定は門なし主・門ありは探索の感度 / Q2 T1 × `id` の `rule_rate` ≥ 0.90(順1b も同じ)/ Q3 主軸の行を選んだ直後・`k` = 5 / Q4 Δ = 0.4988 / Q5 いま(run3 の前)
 - 書いた: `logs/DECISIONS.md`(ADR-139)/ PLAN-049(§8・§9・ステータス `採択`)/ `Documents/05_STATISTICS.md`(§2 前処理・§3.2 順1b のコメントと「適格な run」・§4 順1b の注・§5 の「勾配が平行」の行。旧文は打ち消し線と日付)/ `logs/OPEN-ITEMS.md`(N5・★C・TOST の Δ・`primary.py` 本体の 4 行)/ `STATE.md`(4 ブロックと 1 行。旧ブロックは `logs/STATE-ARCHIVE.md`)。`code/`・`configs/` は不変(I2〜I5 = IMPLEMENTER)。GPU 0・pod 0。push していない
+
+## 2026-11-08(その201・引き継ぎ)   [actor: PLANNER (Claude Opus 5.5)]
+- PLAN-049 を採択(ADR-139。`2e8a12b`)したので切る。`logs/HANDOFF.md` を更新した(次は IMPLEMENTER・推奨 Sonnet が PLAN-049 I2〜I5)。RunPod は使っていない(GPU 0・pod 0)

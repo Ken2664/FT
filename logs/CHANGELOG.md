@@ -8338,3 +8338,9 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - `plans/PLAN-049-n5-gate-and-tost-delta.md`(新規・`草案`): §3 に事実(解析門 G1〜G11・TOST D1〜D8・RMS と Δ の算術)、§4 に Q1 主要検定に門を掛けるか / Q2 閾値と量 / Q3 門の順と残りの本数 `k` / Q4 Δ の値 / Q5 Δ を決める時期 の表と推奨(★ はエージェント (Opus 5.5) が付けた)。**値は決めていない**
 - 気づいた食い違い(判断なし): 「門あり主 + 門なし感度」は順1b の決定(ADR-055 決定3・`Documents/05_STATISTICS.md:380`)。§2 の主要検定の前処理(`05_STATISTICS.md:28`)に門は無いが、`code/analysis/primary.py:478-487` に口がある(ADR-138 決定1・3)。どちらも書き換えず PLAN-049 Q1 に置いた
 - 書いた: PLAN-049 / `logs/OPEN-ITEMS.md`(N5・★C・TOST の Δ の 3 行に書き足し)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。`code/`・`configs/` は不変。GPU 0・pod 0。push していない
+
+## 2026-11-08(その201・N5(解析門)と平行性の TOST の Δ の決定(PLAN-049 採択・ADR-139))   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その200)と `git log`・`STATE.md` は一致。未コミットは未追跡の結果・`.claude/commands/`・`runs/20261106_021031_order6_r1_remeasure/preflight_stdout.log` だけ。推奨モデル(Opus)と一致
+- PLAN-049 §3 の事実(G2・G3・G5〜G9・G11・D2・D5・D6)と §3.3 の算術の表をチャットで示した(算術を検算: P1 の RMS = 0.352767・正方形の中の最大 RMS = Δ / √2)
+- **人間が決めた(`AskUserQuestion` 2 回・5 問と `k` のすべてで推奨)**: Q1 主要検定は門なし主・門ありは探索の感度 / Q2 T1 × `id` の `rule_rate` ≥ 0.90(順1b も同じ)/ Q3 主軸の行を選んだ直後・`k` = 5 / Q4 Δ = 0.4988 / Q5 いま(run3 の前)
+- 書いた: `logs/DECISIONS.md`(ADR-139)/ PLAN-049(§8・§9・ステータス `採択`)/ `Documents/05_STATISTICS.md`(§2 前処理・§3.2 順1b のコメントと「適格な run」・§4 順1b の注・§5 の「勾配が平行」の行。旧文は打ち消し線と日付)/ `logs/OPEN-ITEMS.md`(N5・★C・TOST の Δ・`primary.py` 本体の 4 行)/ `STATE.md`(4 ブロックと 1 行。旧ブロックは `logs/STATE-ARCHIVE.md`)。`code/`・`configs/` は不変(I2〜I5 = IMPLEMENTER)。GPU 0・pod 0。push していない

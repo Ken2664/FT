@@ -1,0 +1,64 @@
+# configs/primary.yaml — 実データの主要解析 code/analysis/primary.py(PLAN-048 / ADR-138)。
+#
+#   python -m code.analysis.primary --simulate                     # draw_frame の P0・P1 を全経路に通す
+#   python -m code.analysis.primary --shuffle-labels --seed 0      # 合成の P1 の task を被覆の中で入れ替える
+#   python -m code.analysis.primary --frame-dir results/<frame> --order6-gonogo results/<gonogo>/gonogo.json
+#
+# **null は「まだ決めていない」であって「良きに計らえ」ではない**(configs/template.yaml の冒頭 / skill code-style §5)。
+# 実データの実行は null が 1 つでも残っていれば理由を出して非 0 で終わる(ADR-138 決定3)。
+# --simulate と --shuffle-labels は null のまま走る(門は掛けない・TOST は最小の Δ だけ出す)。
+# **エージェントは null に値を入れない**(CLAUDE.md §8。値は凍結の場で人間が決める)。
+#
+# **当てはめの設定(縮退順序・ADR-059 の閾値・床の allFit・R と lme4 の版・有意水準・tost_alpha)はここに置かない。**
+# configs/power_sim.yaml の fit 節と simulation 節を読む(値を 2 か所に書かない。ADR-138 決定2)。
+
+analysis:
+  id: primary_t1t2
+  plan: plans/PLAN-048-primary-analysis-script.md
+  section: Documents/05_STATISTICS.md#2
+
+power_sim_config: configs/power_sim.yaml
+
+# ---- 入力の在り処(パスは --frame-dir / --order6-gonogo で上書きできる)-------------------
+input:
+  # frame.py が results/ に凍結したディレクトリ(frame.csv と frame_manifest.json)。実データはまだ無い(ADR-062 決定7)
+  frame_dir: null
+  # 順6(none)の Go/No-Go #2 の gonogo.json(code/analysis/gonogo.py の出力)。
+  # ★順6 の印は旧い主プールで付いた。測り直し(PLAN-045 I7)の後に在り処を決める(STATE.md)
+  order6_gonogo: null
+
+# ---- 主解析集合(§2 / ADR-112 / ADR-041)-------------------------------------------------
+design:
+  primary_condition: p2          # 主要検定の解析対象(p2 のみ)
+  reference_condition: ident     # 適格性フィルタの基準(PLAN-003 §6.3)
+  tasks: [t1, t2]                # frame の task(T1・T2。T1b・T3 は探索)
+  coverages: [id, interp, extrap_magnitude]
+  n_seed: 10                     # ADR-028。p2 のシード数がこれと違えば止まる
+
+eligibility:
+  min_reference_correct_rate: 0.70   # ADR-041 決定1。ident の correct_rate のシード平均がこれ未満のセルを落とす
+
+# ---- まだ決まっていない値(ADR-138 決定3)--------------------------------------------------
+analysis_gate:
+  threshold: null    # N5(run 単位の id 到達度の閾値)。解析門を順のどこに入れるかも N5 と一緒に決める
+tost:
+  delta: null        # 平行性の TOST の Δ(ADR-114 決定5)。null の間は同等と言える最小の Δ だけ出す
+
+output:
+  root: results/primary
+
+# ---- --simulate(ADR-138 決定5)-------------------------------------------------------------
+# **ここに出る数は実験結果ではない**(配線の確認。CLAUDE.md §2)。点は configs/power_sim.yaml の格子の点でなければ止まる。
+simulate:
+  seed: 0                          # --seed の既定
+  reference_correct_rate: 0.90     # 合成の ident の correct_rate(各セル同じ。フィルタの経路を通すための置き値)
+  task_names: {T1: t1, T2: t2}     # draw_frame の task 名 → frame の task 名
+  targets:
+    P0: {profile: P0, n_item: 80, sigma: 1.0, rho: 0.0}
+    P1: {profile: P1, n_item: 80, sigma: 1.0, rho: 0.0}
+
+# ---- --shuffle-labels(ADR-138 決定4)---------------------------------------------------------
+# 入力は --frame-dir の frame。渡さなければ simulate.targets の P1 を入力にする(入れ替えで交互作用が壊れるのを見る)
+shuffle:
+  seed: 0                          # --seed の既定
+  source_target: P1

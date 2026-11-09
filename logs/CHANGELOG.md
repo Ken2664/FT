@@ -8364,3 +8364,4 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 残り: ① の一致(frame.csv から数えた門の量と manifest の `gate_id_by_task`)は実 frame ができるまで未検証。実データの `primary.py` が止まる未決は `input.frame_dir` だけ
 - 食い違い(`CLAUDE.md` §7.1。どちらも書き換えていない): ADR-139 決定2 の読み先(manifest)と実装の読み先(CSV)= ADR-139 追記 ①で CSV を採った / `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の −0.3266(差 1e-6)
 - GPU 0・pod 0。push していない
+- 引き継ぎ(その203 の終わり): 人間が次の作業に「frame の在り処を決める」を選んだが、コンテキストが 149k を超えた(hook `context_guard`)ので着手せず `logs/HANDOFF.md` を書き直した(次は PLANNER・推奨 Opus)

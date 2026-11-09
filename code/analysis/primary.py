@@ -880,9 +880,15 @@ def run_dir_for(root: Path, config: Mapping[str, Any], mode: str) -> tuple[Path,
 
 
 def resolve_frame_dir(args: argparse.Namespace, config: Mapping[str, Any]) -> Path | None:
-    """答える問い: 読む frame の在り処は(`--frame-dir` が先。無ければ config の `input.frame_dir`。どちらも無ければ None)。"""
+    """答える問い: 読む frame の在り処は(`--frame-dir` が先。無ければ config の `input.frame_dir`。どちらも無ければ None)。
+
+    `--shuffle-labels` は `--frame-dir` を明示したときだけ実 frame を読む(ADR-140 追記 ① I5)。config に `input.frame_dir` が
+    あっても読まず None(合成の入れ替え)。凍結前の確かめを、凍結する configs/primary.yaml そのもので回せるようにするため。
+    """
     if args.frame_dir:
         return Path(args.frame_dir)
+    if args.shuffle_labels:
+        return None
     if declared(config, "input.frame_dir") is None:
         return None
     return resolve_repo_path(config["input"]["frame_dir"])
@@ -936,7 +942,7 @@ def run(args: argparse.Namespace) -> int:
         results[label] = analyse(rows, dropped, spec, fitter, run_dir / label / FIT_DIR, apply_gate=mode == MODE_ACTUAL)
         if shuffle is not None:
             results[label]["shuffle"] = shuffle
-    # --simulate は frame を読まない(config に frame_dir があっても)。--shuffle-labels は frame_dir があるときだけ読む
+    # --simulate は frame を読まない(config に frame_dir があっても)。--shuffle-labels は --frame-dir を明示したときだけ読む(resolve_frame_dir)
     frame_read = None if args.simulate else resolve_frame_dir(args, config)
     meta = {"run_id": run_id, "mode": mode, "git_sha": artifacts.capture_git_head_sha(),
             "alpha": spec.alpha, "tost_alpha": spec.tost_alpha, **frame_record(frame_read)}

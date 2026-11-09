@@ -1,7 +1,8 @@
 # configs/primary.yaml — 実データの主要解析 code/analysis/primary.py(PLAN-048 / ADR-138)。
 #
 #   python -m code.analysis.primary --simulate                     # draw_frame の P0・P1 を全経路に通す
-#   python -m code.analysis.primary --shuffle-labels --seed 0      # input.frame_dir の frame の task を被覆の中で入れ替える(ADR-140 の後。frame が無ければ止まる)
+#   python -m code.analysis.primary --shuffle-labels --seed 0      # 合成の frame(shuffle.source_target)の task を被覆の中で入れ替える。input.frame_dir は読まない(ADR-140 追記 ①)
+#   python -m code.analysis.primary --shuffle-labels --frame-dir results/<frame> --order6-gonogo ...   # 実 frame の task を入れ替える(--frame-dir を明示したときだけ)
 #   python -m code.analysis.primary --frame-dir results/<frame> --order6-gonogo results/<gonogo>/gonogo.json
 #
 # **null は「まだ決めていない」であって「良きに計らえ」ではない**(configs/template.yaml の冒頭 / skill code-style §5)。

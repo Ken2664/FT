@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-09(その206。PLANNER 役を Claude Opus 5.5 が務めた(推奨と一致)。その205 の PLAN に無い選択 ①〜⑥ を人間が採否した(ADR-140 追記 ①。3 問とも推奨): ④ は改める = `--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ(I5 = IMPLEMENTER)/ ①②③⑤⑥ は実装のまま。`code/`・`configs/` は不変。GPU 0・pod 0)
-(**次: IMPLEMENTER が ADR-140 追記 ① の I5。ADR-139 追記 ① の一致は実 frame ができるまで未検証**。)
+最終更新: 2026-11-09(その207。IMPLEMENTER 役を Claude Sonnet 5.5 が務めた(推奨と一致)。ADR-140 追記 ① の I5 を実装: `--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ(`resolve_frame_dir`)。既定は合成で、本物の config(`input.frame_dir` あり)のまま回る。`pytest code/tests -q` 2719 passed。PLAN に無い選択なし。GPU 0・pod 0)
+(**次: 人間が次のアクションから選ぶ。ADR-139 追記 ① の一致は実 frame ができるまで未検証**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-09(その206・最新)。Phase 0。Claude Opus 5.5(PLANNER 役。推奨の Opus と一致)。GPU 0・pod 0**
-> - その205 の PLAN に無い選択 ①〜⑥ を人間が採否した(ADR-140 追記 ①。`AskUserQuestion` 1 回・3 問とも推奨。提案 = IMPLEMENTER その205・表と推奨 = PLANNER その206・採択 = 人間)
-> - **④ を改める(I5。まだ実装していない)**: `--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ。既定は合成(tag の前の確かめを凍結する `configs/primary.yaml` そのもので回せるようにする)。**①②③⑤⑥ は実装のまま**
-> - いまのコードは実装のまま(本物の config で `--shuffle-labels` を回すと frame が無いので止まる)。`results/frame_exp_phase1_main/` は作っていない
+> **★★2026-11-09(その207・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER 役。推奨の Sonnet と一致)。GPU 0・pod 0**
+> - ADR-140 追記 ① の I5 を実装した(`pytest code/tests -q` = 2719 passed(前回 2717 + 新 2)): `primary.py` の `resolve_frame_dir` が `--shuffle-labels` で `--frame-dir` が無ければ None を返す。`build_targets` の分岐と `run` の meta(`frame_dir`・`frame_csv_sha256`)は同じ関数を通るので同じ規則
+> - 本物の config で `--shuffle-labels`(`--frame-dir` なし)が合成で通り、meta の 2 欄は null。`--frame-dir` を渡すと frame を読んで 2 欄に記録する。run に写る config は凍結する `configs/primary.yaml` そのもの。`--simulate` と実データの経路は不変
+> - `configs/primary.yaml` 冒頭のコマンド例の注釈だけ直した(値は不変)。`results/frame_exp_phase1_main/` は作っていない(本実験の run が無い)
 
 ---
 
@@ -321,9 +321,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-09(その206・最新)。FT までの道筋の正本は PLAN-035 §5。**(その205 の選択 ①〜⑥ は ADR-140 追記 ① で決着。旧ブロックは `logs/STATE-ARCHIVE.md`)
+> **★★2026-11-09(その207・最新)。FT までの道筋の正本は PLAN-035 §5。**(ADR-140 追記 ① の I5 は済んだ。項目 0 は消した。旧ブロックは `logs/STATE-ARCHIVE.md`)
 >
-> 0. IMPLEMENTER(Sonnet): **ADR-140 追記 ① の I5**(`--shuffle-labels` は `--frame-dir` を明示したときだけ実 frame を読む・テスト・`configs/primary.yaml` 4 行目の注釈)。その後、人間: `05_STATISTICS.md:1497-1501` の入れ替えの読み(合成か実データか)は PLAN-016 §7-6 と同じ場
+> 0. 人間: `05_STATISTICS.md:1497-1501` の入れ替えの読み(合成か実データか。I5 の後は既定で合成)は PLAN-016 §7-6 と同じ場で決める
 >
 > 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py:10` の「未実装」の docstring の食い違い(その193 から持ち越し)/ 実 frame ができたら ADR-139 追記 ① の一致を検査する
 > 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
@@ -333,12 +333,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 引き継ぎ
 
-> **★★2026-11-09(その206・最新)。Claude Opus 5.5(PLANNER 役。推奨と一致)。その205 の選択 ①〜⑥ の採否を人間に諮った**
+> **★★2026-11-09(その207・最新)。Claude Sonnet 5.5(IMPLEMENTER 役。推奨と一致)。ADR-140 追記 ① の I5 を実装した**
 >
-> **★やったこと**: 開始手順(HANDOFF その205・`git log`・`STATE.md` は一致。HEAD `f484e7f`)→ `primary.py` の `read_frame`・`frame_record`・`resolve_frame_dir`・`build_targets`・`run`、`frame.py` の `write_frame`、`05_STATISTICS.md` §8、PLAN-016 R9 を読む → 判断材料の表と推奨 → 人間が `AskUserQuestion` で採否(3 問とも推奨)→ ADR-140 追記 ①
-> **★決まったこと**: ④ を改める(I5)/ ③ 実装のまま(sha は解析の後に読み直す・repo の外は絶対パス)/ ①②⑤⑥ 実装のまま
-> **★食い違い(`CLAUDE.md` §7.1。書き換えていない)**: `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(I5 の後は既定で合成)/ `frame.py:10` の docstring「未実装」(その193 から)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
-> **★次**: IMPLEMENTER が I5 / 実 frame ができたら ADR-139 追記 ① の一致の検査(未検証)。frame を組んでコミットしてから `primary.py` を回す(ADR-140 決定3)
+> **★やったこと**: 開始手順(HANDOFF その206・`git log`・`STATE.md` は一致。HEAD `87bebe0`。worktree `claude/great-bardeen-9c1ac4` は登録簿の既存)→ `resolve_frame_dir` に `--shuffle-labels` の分岐を 1 つ足す(`--frame-dir` が先 → `--shuffle-labels` なら None → config)/ `run` のコメントを新しい規則に / `configs/primary.yaml` のコマンド例 / テスト: 本物の config で合成が通り meta の 2 欄が null かつ run に写る config の `frame_dir` が本物のまま・`--frame-dir` を渡すと frame を読み記録する・`resolve_frame_dir` の 3 分岐。`--simulate` と合成の `--shuffle-labels` のテストは null の写しから本物の config に戻した(`config_file_without_frame` は実データの実行が null で止まるテストにだけ残る)
+> **★PLAN に無い選択**: なし(ADR-140 追記 ① の I5 の記述どおり)
+> **★食い違い(`CLAUDE.md` §7.1。書き換えていない)**: `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(I5 の後は既定で合成。人間待ち)/ `frame.py:10` の docstring「未実装」(その193 から。気づいたので報告のみ)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
+> **★次**: 人間が「次のアクション」から選ぶ / 実 frame ができたら ADR-139 追記 ① の一致の検査(未検証)。frame を組んでコミットしてから `primary.py` を回す(ADR-140 決定3)
 
 ---
 

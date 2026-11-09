@@ -152,7 +152,7 @@ def undecided_frame(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def config_file_without_frame(config: dict[str, Any], directory: Path) -> Path:
-    """frame_dir が null の config の写しをファイルにして返す(--config で渡す。合成の --shuffle-labels を回す用)。"""
+    """frame_dir が null の config の写しをファイルにして返す(--config で渡す。frame_dir が null のとき実データの実行が止まることの確認用)。"""
     path = directory / "primary_no_frame.yaml"
     path.write_text(json.dumps(undecided_frame(config)), encoding="utf-8")
     return path
@@ -713,8 +713,7 @@ def test_the_frame_record_is_repo_relative_and_null_when_no_frame_was_read(tmp_p
 def test_simulate_and_shuffle_do_not_apply_the_gate(config, tmp_path, monkeypatch) -> None:
     fake_main_fitter(monkeypatch)
     assert primary.main(["--simulate", "--out-dir", str(tmp_path / "a")]) == primary.EXIT_OK
-    no_frame = str(config_file_without_frame(config, tmp_path))
-    assert primary.main(["--config", no_frame, "--shuffle-labels", "--out-dir", str(tmp_path / "b")]) == primary.EXIT_OK
+    assert primary.main(["--shuffle-labels", "--out-dir", str(tmp_path / "b")]) == primary.EXIT_OK   # 本物の config(frame_dir あり)のまま
     for out in ("a", "b"):
         (run_dir,) = list((tmp_path / out).iterdir())
         meta = json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))
@@ -920,14 +919,44 @@ def test_simulate_runs_p0_and_p1_through_every_stage_and_writes_the_outputs(tmp_
     assert (run_dir / "git_sha.txt").exists()
 
 
-def test_shuffle_labels_runs_the_synthetic_p1_when_no_frame_is_given(config, tmp_path, monkeypatch) -> None:
+def test_shuffle_labels_runs_the_synthetic_p1_with_the_real_config_when_no_frame_dir_is_given(config, tmp_path, monkeypatch) -> None:
+    """ADR-140 追記 ① I5: 本物の config に input.frame_dir があっても、--frame-dir を明示しなければ読まず合成で回る。"""
+    assert config["input"]["frame_dir"] is not None   # 本物の config(null の写しではない)
     fake_main_fitter(monkeypatch)
-    no_frame = str(config_file_without_frame(config, tmp_path))
-    assert primary.main(["--config", no_frame, "--shuffle-labels", "--seed", "0", "--out-dir", str(tmp_path / "o")]) == primary.EXIT_OK
+    assert primary.main(["--shuffle-labels", "--seed", "0", "--out-dir", str(tmp_path / "o")]) == primary.EXIT_OK
     (run_dir,) = list((tmp_path / "o").iterdir())
-    result = json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))["targets"]["shuffled"]
+    payload = json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))
+    result = payload["targets"]["shuffled"]
     assert result["shuffle"]["seed"] == 0 and result["shuffle"]["n_items_moved"] > 0
     assert result["shuffle"]["mixed_templates"]
+    assert payload["frame_dir"] is None and payload["frame_csv_sha256"] is None   # frame を読んでいない
+    # run に写った config は凍結する configs/primary.yaml そのもの(null の写しではない)
+    assert load_config(run_dir / primary.PRIMARY_CONFIG_COPY)["input"]["frame_dir"] == config["input"]["frame_dir"]
+
+
+def test_shuffle_labels_reads_and_records_the_frame_only_when_frame_dir_is_given(config, tmp_path, monkeypatch) -> None:
+    """--frame-dir を明示すると実 frame を読み、在り処と csv_sha256 を meta に残す(合成は回らない)。"""
+    fake_main_fitter(monkeypatch)
+    write_frame_dir(tmp_path / "f", make_rows())
+    code = primary.main(["--shuffle-labels", "--seed", "0", "--frame-dir", str(tmp_path / "f"), "--out-dir", str(tmp_path / "o")])
+    assert code == primary.EXIT_OK
+    (run_dir,) = list((tmp_path / "o").iterdir())
+    payload = json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))
+    manifest = json.loads((tmp_path / "f" / frame.FRAME_MANIFEST_FILENAME).read_text(encoding="utf-8"))
+    assert payload["frame_dir"] == (tmp_path / "f").resolve().as_posix() and payload["frame_csv_sha256"] == manifest["csv_sha256"]
+    assert payload["mode"] == primary.MODE_SHUFFLE and list(payload["targets"]) == ["shuffled"]
+
+
+def test_resolve_frame_dir_for_shuffle_ignores_the_config_and_follows_the_flag(config) -> None:
+    def ns(**kw: Any) -> argparse.Namespace:
+        return argparse.Namespace(frame_dir=None, order6_gonogo=None, simulate=False, shuffle_labels=False, seed=None, **kw)
+
+    assert primary.resolve_frame_dir(ns(), config) == primary.resolve_repo_path(config["input"]["frame_dir"])   # 実データは config
+    shuffle = ns()
+    shuffle.shuffle_labels = True
+    assert primary.resolve_frame_dir(shuffle, config) is None                       # 合成(config に frame_dir があっても)
+    shuffle.frame_dir = "elsewhere"
+    assert primary.resolve_frame_dir(shuffle, config) == Path("elsewhere")          # 明示したときだけ読む
 
 
 def test_shuffle_with_a_frame_needs_the_order6_file(config, tmp_path, capsys) -> None:

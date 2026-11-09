@@ -18,6 +18,40 @@
 
 ---
 
+## ★2026-11-09(その206)—— STATE.md から移したブロック(ADR-063 運用規約1。その207 で置き換え)
+
+### 冒頭
+
+最終更新: 2026-11-09(その206。PLANNER 役を Claude Opus 5.5 が務めた(推奨と一致)。その205 の PLAN に無い選択 ①〜⑥ を人間が採否した(ADR-140 追記 ①。3 問とも推奨): ④ は改める = `--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ(I5 = IMPLEMENTER)/ ①②③⑤⑥ は実装のまま。`code/`・`configs/` は不変。GPU 0・pod 0)
+(**次: IMPLEMENTER が ADR-140 追記 ① の I5。ADR-139 追記 ① の一致は実 frame ができるまで未検証**。)
+
+### いま何をしているか
+
+> **★★2026-11-09(その206・最新)。Phase 0。Claude Opus 5.5(PLANNER 役。推奨の Opus と一致)。GPU 0・pod 0**
+> - その205 の PLAN に無い選択 ①〜⑥ を人間が採否した(ADR-140 追記 ①。`AskUserQuestion` 1 回・3 問とも推奨。提案 = IMPLEMENTER その205・表と推奨 = PLANNER その206・採択 = 人間)
+> - **④ を改める(I5。まだ実装していない)**: `--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ。既定は合成(tag の前の確かめを凍結する `configs/primary.yaml` そのもので回せるようにする)。**①②③⑤⑥ は実装のまま**
+> - いまのコードは実装のまま(本物の config で `--shuffle-labels` を回すと frame が無いので止まる)。`results/frame_exp_phase1_main/` は作っていない
+
+---
+
+### 次のアクション(項目 0 まで)
+
+> **★★2026-11-09(その206・最新)。FT までの道筋の正本は PLAN-035 §5。**(その205 の選択 ①〜⑥ は ADR-140 追記 ① で決着。旧ブロックは `logs/STATE-ARCHIVE.md`)
+>
+> 0. IMPLEMENTER(Sonnet): **ADR-140 追記 ① の I5**(`--shuffle-labels` は `--frame-dir` を明示したときだけ実 frame を読む・テスト・`configs/primary.yaml` 4 行目の注釈)。その後、人間: `05_STATISTICS.md:1497-1501` の入れ替えの読み(合成か実データか)は PLAN-016 §7-6 と同じ場
+
+### 引き継ぎ
+
+> **★★2026-11-09(その206・最新)。Claude Opus 5.5(PLANNER 役。推奨と一致)。その205 の選択 ①〜⑥ の採否を人間に諮った**
+>
+> **★やったこと**: 開始手順(HANDOFF その205・`git log`・`STATE.md` は一致。HEAD `f484e7f`)→ `primary.py` の `read_frame`・`frame_record`・`resolve_frame_dir`・`build_targets`・`run`、`frame.py` の `write_frame`、`05_STATISTICS.md` §8、PLAN-016 R9 を読む → 判断材料の表と推奨 → 人間が `AskUserQuestion` で採否(3 問とも推奨)→ ADR-140 追記 ①
+> **★決まったこと**: ④ を改める(I5)/ ③ 実装のまま(sha は解析の後に読み直す・repo の外は絶対パス)/ ①②⑤⑥ 実装のまま
+> **★食い違い(`CLAUDE.md` §7.1。書き換えていない)**: `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(I5 の後は既定で合成)/ `frame.py:10` の docstring「未実装」(その193 から)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
+> **★次**: IMPLEMENTER が I5 / 実 frame ができたら ADR-139 追記 ① の一致の検査(未検証)。frame を組んでコミットしてから `primary.py` を回す(ADR-140 決定3)
+
+
+---
+
 ## ★2026-11-09(その205)—— STATE.md から移したブロック(ADR-063 運用規約1。その206 で置き換え)
 
 ### 冒頭

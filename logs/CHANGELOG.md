@@ -8391,3 +8391,13 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 書いた: `logs/DECISIONS.md`(ADR-140 追記 ①。提案 = IMPLEMENTER その205・表と推奨 = PLANNER その206・採択 = 人間)/ `logs/OPEN-ITEMS.md`(その205 の行を決着に)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。**`code/`・`configs/`・`Documents/` は不変**
 - 食い違い(`CLAUDE.md` §7.1。書き換えていない): `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(PLAN-016 §7-6 と同じ場で人間)/ `frame.py:10` の docstring「未実装」(その193 から)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
 - GPU 0・pod 0。push していない
+
+## 2026-11-09(その207・ADR-140 追記 ① の I5 の実装)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- 開始手順: HANDOFF(その206)・`git log`・`STATE.md` は一致(HEAD `87bebe0`・追跡ファイルの未コミット変更なし)。推奨モデル(Sonnet)と一致
+- `code/analysis/primary.py`(I5): `resolve_frame_dir` は `--frame-dir` が先 → `--shuffle-labels` なら None(config の `input.frame_dir` を読まない)→ config の順。`build_targets` の `--shuffle-labels` の分岐と `run` の `frame_read`(meta の `frame_dir`・`frame_csv_sha256`)は同じ関数を通るので同じ規則になった。`--simulate` と実データの経路は不変
+- テスト(`code/tests/test_primary.py`): 本物の config で `--shuffle-labels`(`--frame-dir` なし)が合成で通り meta の 2 欄が null・run に写る config の `frame_dir` が本物のまま / `--frame-dir` を渡すと frame を読み在り処と `csv_sha256` を記録する / `resolve_frame_dir` の 3 分岐。`--simulate` と合成の `--shuffle-labels` のテストは null の写しから本物の config に戻した(`config_file_without_frame` は実データの実行が null で止まるテストにだけ残る)。`pytest code/tests -q` 2719 passed(前回 2717 + 新 2)
+- `configs/primary.yaml`: 冒頭のコマンド例の注釈だけ直した(値は不変。`--frame-dir` を足す実 frame の入れ替えの例を 1 行足した)
+- 旧い STATE の 4 ブロックは `logs/STATE-ARCHIVE.md` へ。`logs/OPEN-ITEMS.md` の ADR-140 の行に「I5 は実装済み」を追記
+- PLAN に無い選択: なし
+- 食い違い(`CLAUDE.md` §7.1。書き換えていない): `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(I5 の後は既定で合成。人間待ち)/ `frame.py:10` の docstring「未実装」(その193 から。報告のみ)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
+- GPU 0・pod 0。push していない

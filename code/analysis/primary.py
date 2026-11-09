@@ -24,7 +24,9 @@ ADR-138 決定2・決定5 で人間がそう決めた —— 写しを作ると 
 量は `analysis_gate.task` × 基準水準 `id` の `rule_rate`(run ごと)、`>= analysis_gate.threshold` で通過。
 門ありの側で残った `p2` の run が `analysis_gate.min_runs`(k)本未満なら `実施不能: 解析門`。
 `--simulate` と `--shuffle-labels` は門を掛けず、run ごとの量を記録するだけ(ADR-138 決定3)。
-実データの実行が止まる未決は `input.frame_dir`(frame の在り処)だけである。
+未決の値はもう無い(frame の在り処 `input.frame_dir` は ADR-140 で決まった)。実データの実行が止まるのは、
+本実験の frame がまだ無いからである(`read_frame` が理由を出して止まる)。
+結果の `primary.json` の meta と `report.md` には、読んだ frame の在り処(repo 相対)と `csv_sha256` が残る(ADR-140 決定4)。
 """
 
 from __future__ import annotations
@@ -45,7 +47,7 @@ import numpy as np
 
 from code import artifacts
 from code.analysis import ceiling, frame, power_sim
-from code.config import ConfigError, load_config, require, resolve_repo_path
+from code.config import REPO_ROOT, ConfigError, load_config, require, resolve_repo_path
 from code.data_gen.pool import COVERAGE_ID
 from code.rates import CORRECT
 
@@ -242,7 +244,13 @@ def parse_frame_row(raw: Mapping[str, str]) -> dict[str, Any]:
 def read_frame(frame_dir: Path) -> list[dict[str, Any]]:
     """答える問い: 凍結した frame は、記録(ハッシュ・行数・問題)と一致するか。一致しなければ止まる。"""
     csv_path = frame_dir / frame.CSV_FILENAME
-    manifest = json.loads((frame_dir / frame.FRAME_MANIFEST_FILENAME).read_text(encoding="utf-8"))
+    manifest_path = frame_dir / frame.FRAME_MANIFEST_FILENAME
+    for needed in (csv_path, manifest_path):
+        if not needed.is_file():
+            # config の input.frame_dir は凍結前から書いてある(ADR-140)。frame を作る前に走らせたら、
+            # 生の FileNotFoundError ではなくここで理由を出して止まる
+            raise PrimaryError(f"{needed} が無い。frame.py で凍結した frame_dir を指していない(ADR-140)")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
     if digest != manifest["csv_sha256"]:
         raise PrimaryError(f"{csv_path} の sha256 が frame_manifest.json と違う(凍結後に書き換わっている)")
@@ -256,6 +264,24 @@ def read_frame(frame_dir: Path) -> list[dict[str, Any]]:
     if len(rows) != manifest["n_rows"]:
         raise PrimaryError(f"行数 {len(rows)} が frame_manifest.json の {manifest['n_rows']} と違う")
     return rows
+
+
+def frame_record(frame_dir: Path | None) -> dict[str, str | None]:
+    """答える問い: この結果は、どの frame(在り処と sha256)を読んで出したのか(ADR-140 決定4 (i))。
+
+    frame を読んでいない(`--simulate`・合成の `--shuffle-labels`)ときは、2 欄とも None。
+    sha256 は `read_frame` が照合した CSV の実体から取る。在り処は repo ルートからの相対パス(posix 形)で、
+    repo の外を指すときだけ絶対パスのまま残す。
+    """
+    if frame_dir is None:
+        return {"frame_dir": None, "frame_csv_sha256": None}
+    resolved = frame_dir.resolve()
+    try:
+        where = resolved.relative_to(REPO_ROOT.resolve()).as_posix()
+    except ValueError:
+        where = resolved.as_posix()
+    digest = hashlib.sha256((resolved / frame.CSV_FILENAME).read_bytes()).hexdigest()
+    return {"frame_dir": where, "frame_csv_sha256": digest}
 
 
 def select_primary_rows(rows: Sequence[Mapping[str, Any]], spec: Spec) -> list[dict[str, Any]]:
@@ -732,6 +758,8 @@ def render_report(meta: Mapping[str, Any], targets: Mapping[str, Mapping[str, An
         "",
         f"- run_id: `{meta['run_id']}` / モード: `{meta['mode']}` / git: `{meta['git_sha']}`",
     ]
+    if meta.get("frame_dir") is not None:
+        lines.append(f"- 入力の frame: `{meta['frame_dir']}`(csv_sha256 `{meta['frame_csv_sha256']}`)")
     if meta["mode"] != MODE_ACTUAL:
         lines.append("- **合成データの配線の確認である。ここに出る数は実験結果ではない**(`CLAUDE.md` §2)")
     for label, result in targets.items():
@@ -851,11 +879,20 @@ def run_dir_for(root: Path, config: Mapping[str, Any], mode: str) -> tuple[Path,
     return root / run_id, run_id
 
 
+def resolve_frame_dir(args: argparse.Namespace, config: Mapping[str, Any]) -> Path | None:
+    """答える問い: 読む frame の在り処は(`--frame-dir` が先。無ければ config の `input.frame_dir`。どちらも無ければ None)。"""
+    if args.frame_dir:
+        return Path(args.frame_dir)
+    if declared(config, "input.frame_dir") is None:
+        return None
+    return resolve_repo_path(config["input"]["frame_dir"])
+
+
 def build_targets(
     args: argparse.Namespace, config: Mapping[str, Any], power_config: Mapping[str, Any], spec: Spec,
 ) -> list[tuple[str, list[dict[str, Any]], set[Cell], dict[str, Any] | None]]:
     """答える問い: このモードで何を解析するか —— (ラベル, 行, 順6 で落ちたセル, 入れ替えの記録)の並び。"""
-    frame_dir = args.frame_dir or (None if declared(config, "input.frame_dir") is None else resolve_repo_path(config["input"]["frame_dir"]))
+    frame_dir = resolve_frame_dir(args, config)
     order6 = args.order6_gonogo or (None if declared(config, "input.order6_gonogo") is None else resolve_repo_path(config["input"]["order6_gonogo"]))
     if args.simulate:
         targets = require(config, "simulate.targets")
@@ -899,8 +936,10 @@ def run(args: argparse.Namespace) -> int:
         results[label] = analyse(rows, dropped, spec, fitter, run_dir / label / FIT_DIR, apply_gate=mode == MODE_ACTUAL)
         if shuffle is not None:
             results[label]["shuffle"] = shuffle
+    # --simulate は frame を読まない(config に frame_dir があっても)。--shuffle-labels は frame_dir があるときだけ読む
+    frame_read = None if args.simulate else resolve_frame_dir(args, config)
     meta = {"run_id": run_id, "mode": mode, "git_sha": artifacts.capture_git_head_sha(),
-            "alpha": spec.alpha, "tost_alpha": spec.tost_alpha}
+            "alpha": spec.alpha, "tost_alpha": spec.tost_alpha, **frame_record(frame_read)}
     write_outputs(run_dir, meta, results, config_path, resolve_repo_path(require(config, "power_sim_config")))
     for label, result in results.items():
         print(f"{label}: {result['verdict']}")

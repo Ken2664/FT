@@ -471,6 +471,24 @@ def test_written_frame_carries_its_own_record(tmp_path: Path) -> None:
     assert header.split(",") == list(frame.COLUMNS)
 
 
+def test_write_frame_stops_when_the_out_dir_already_exists_and_leaves_it_untouched(tmp_path: Path) -> None:
+    """ADR-140 決定4 (ii): 既にある --out-dir には書かない(上書きすると manifest の sha も書き直され、後から気づけない)。"""
+    manifest = write_ft_manifest(tmp_path / "ft" / "manifest.json", condition="p2")
+    metrics_path = write_run(tmp_path / "runs", run_id="r1", manifest_path=manifest)
+    built = frame.build_frame([metrics_path])
+    out = tmp_path / "out"
+    csv_path, _ = frame.write_frame(built, out)
+    before = csv_path.read_bytes()
+    with pytest.raises(frame.FrameError, match="既にある"):
+        frame.write_frame(built, out)
+    assert csv_path.read_bytes() == before
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    with pytest.raises(frame.FrameError, match="既にある"):   # 空のディレクトリも「既にある」
+        frame.write_frame(built, empty)
+    assert list(empty.iterdir()) == []
+
+
 def test_dry_run_prints_counts_and_writes_nothing(tmp_path: Path, capsys: Any) -> None:
     """--dry-run は件数だけを出す(PLAN-017 §6-1、§9)。"""
     manifest = write_ft_manifest(tmp_path / "ft" / "manifest.json", condition="p2")

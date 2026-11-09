@@ -8373,3 +8373,13 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 書いた: `logs/DECISIONS.md`(ADR-140。提案 = PLANNER その204・採択 = 人間)/ `logs/OPEN-ITEMS.md`(1 行)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。**`code/`・`configs/` は不変**(I1〜I4 = IMPLEMENTER)
 - 食い違い(`CLAUDE.md` §7.1。書き換えていない): `frame.py:10` の docstring「`primary.py`(未実装)」と実装済みの `primary.py`(その193 から持ち越し・人間待ち)
 - GPU 0・pod 0。push していない
+
+## 2026-11-09(その205・ADR-140 の I1〜I4 の実装)   [actor: IMPLEMENTER (Claude Sonnet 5.5)]
+- 開始手順: HANDOFF(その204)・`git log`・`STATE.md` は一致(HEAD `746bc09`・追跡ファイルの未コミット変更なし)。推奨モデル(Sonnet)と一致
+- `configs/primary.yaml`(I1): `input.frame_dir` = `results/frame_exp_phase1_main`(ADR-140 決定1。「本実験の run が無いのでまだ存在しない」旨はコメントに残した)。冒頭の説明の「残る null」と `--shuffle-labels` の例の注釈を直した
+- `code/analysis/primary.py`(I2): `frame_record`(在り処 = repo 相対の posix パス・repo の外は絶対パス / `csv_sha256`)・`resolve_frame_dir`(`--frame-dir` が先・無ければ config)を追加。`primary.json` の meta に `frame_dir`・`frame_csv_sha256`、`report.md` に 1 行。frame を読まない `--simulate`・合成の `--shuffle-labels` は 2 欄とも null(`report.md` に行なし)。`read_frame` は `frame.csv`・`frame_manifest.json` が無ければ `PrimaryError`(生の `FileNotFoundError` にしない)
+- `code/analysis/frame.py`(I3): `write_frame` は既にある `out_dir` に書かず `FrameError`(`mkdir(exist_ok=True)` をやめた)。`--dry-run` は不変。行の組み方(ADR-062)は不変
+- テスト(I4): 本物の config の `input.frame_dir` の値 / 本物の config に未決が無く null の写しだけが 1 つ列挙される / null の写しで `EXIT_PENDING`・本物の config で frame が無いと `EXIT_ERROR`(何も書かない)/ meta の 2 欄と `report.md` の行(実データ・repo 相対・null)/ 既にある `out_dir`(中身がある・空)で止まり中身は不変。**`frame_dir` が null であることを本物の config に頼っていたテストは、null の写し(`undecided_frame`・`config_file_without_frame`)に直した**(ADR-138 追記 ③ と同じ形)。`pytest code/tests -q` = 2717 passed(前回 2713)
+- PLAN に無い選択 6 点(`STATE.md` 引き継ぎ・`logs/OPEN-ITEMS.md`): 人間の採否待ち。`results/frame_exp_phase1_main/` は作っていない
+- 食い違い(`CLAUDE.md` §7.1。書き換えていない): `frame.py:10` の docstring「未実装」と実装済みの `primary.py`(その193 から)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile` の値(差 1e-6。その202 から)
+- GPU 0・pod 0。push していない

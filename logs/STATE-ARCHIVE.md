@@ -18,6 +18,32 @@
 
 ---
 
+## ★2026-11-09(その204)—— STATE.md から移したブロック(ADR-063 運用規約1。その205 で置き換え。「冒頭」の旧 2 行は ADR-140 の記述と同じなので省く)
+
+### いま何をしているか
+
+> **★★2026-11-09(その204・最新)。Phase 0。Claude Opus 5.5(PLANNER 役。推奨と一致)。GPU 0・pod 0**
+> - 本実験の frame の在り処(`input.frame_dir`)を人間が決めた(ADR-140。`AskUserQuestion` 4 問とも推奨 (a)。提案 = PLANNER その204・採択 = 人間)
+> - 事実: `frame.py` の `write_frame` は既にある `out_dir` に黙って上書きする / `primary.json` は読んだ frame の在り処も sha も残さない(どちらも ADR-140 決定4 で IMPLEMENTER が塞ぐ)
+> - 大きさ: パイロット 625 の 5 run の frame は 3,400 行・617,393 B(scratchpad で組んだ。`results/` には書いていない・主張に使わない)。本実験は約 13 MB の見積もり(算術。実験結果ではない)
+
+### 次のアクション
+
+> **★★2026-11-09(その204・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 0. IMPLEMENTER(Sonnet): ADR-140 の I1〜I4(`configs/primary.yaml` の `input.frame_dir` = `results/frame_exp_phase1_main`・`primary.py` の meta と `report.md` に frame の在り処と `csv_sha256`・`frame.py` の `write_frame` が既にある `out_dir` で止まる・テスト)
+>
+> 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py:10` の「未実装」の docstring の食い違い(その193 から持ち越し)/ 実 frame ができたら ADR-139 追記 ① の一致を検査する
+> 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ N5 の (1)(`p2d` の交互作用を副次に)と #4b の事前登録での書き方 / E1 の TOST 境界 / PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)/ T3・T1b の 6 セルの扱い(ADR-078 決定6)
+
+### 引き継ぎ
+
+> **★★2026-11-09(その204・最新)。Claude Opus 5.5(PLANNER 役。推奨と一致)。HANDOFF の 1 つ(frame の在り処)を済ませた**
+>
+> **★やったこと**: 開始手順 → 事実 F1〜F8 を集める(`frame.py`・`primary.py`・`.gitignore`・パイロットで frame の大きさを実測)→ 判断材料の表と推奨をチャットで先に示す → `AskUserQuestion` 4 問(4 問とも推奨)→ ADR-140・`logs/OPEN-ITEMS.md`・`STATE.md`・CHANGELOG
+> **★気づいたこと(判断なし)**: `frame.py` の上書きと `primary.json` の記録の穴は ADR-140 決定4 に入れた / `frame.py:10` の docstring「未実装」は触っていない / 13 MB は見積もりで、T1c などで増えうる
+
 ## ★2026-11-09(その203)—— STATE.md から移したブロック(ADR-063 運用規約1。その204 で置き換え)
 
 ### 冒頭

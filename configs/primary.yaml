@@ -1,12 +1,12 @@
 # configs/primary.yaml — 実データの主要解析 code/analysis/primary.py(PLAN-048 / ADR-138)。
 #
 #   python -m code.analysis.primary --simulate                     # draw_frame の P0・P1 を全経路に通す
-#   python -m code.analysis.primary --shuffle-labels --seed 0      # 合成の P1 の task を被覆の中で入れ替える
+#   python -m code.analysis.primary --shuffle-labels --seed 0      # input.frame_dir の frame の task を被覆の中で入れ替える(ADR-140 の後。frame が無ければ止まる)
 #   python -m code.analysis.primary --frame-dir results/<frame> --order6-gonogo results/<gonogo>/gonogo.json
 #
 # **null は「まだ決めていない」であって「良きに計らえ」ではない**(configs/template.yaml の冒頭 / skill code-style §5)。
 # 実データの実行は null が 1 つでも残っていれば理由を出して非 0 で終わる(ADR-138 決定3)。
-# 門の閾値と TOST の Δ は ADR-139 で決まった(残る null は frame の在り処だけ)。
+# 門の閾値と TOST の Δ は ADR-139 で、frame の在り処は ADR-140 で決まった(null は残っていない。実データの frame ができるまで実行は止まる)。
 # --simulate と --shuffle-labels は門を掛けない(TOST は Δ を入れて判定する)。
 # **エージェントは null に値を入れない**(CLAUDE.md §8。値は凍結の場で人間が決める)。
 #
@@ -22,8 +22,11 @@ power_sim_config: configs/power_sim.yaml
 
 # ---- 入力の在り処(パスは --frame-dir / --order6-gonogo で上書きできる)-------------------
 input:
-  # frame.py が results/ に凍結したディレクトリ(frame.csv と frame_manifest.json)。実データはまだ無い(ADR-062 決定7)
-  frame_dir: null
+  # frame.py が results/ に凍結したディレクトリ(frame.csv と frame_manifest.json)。
+  # 在り処は ADR-140 で固定した(凍結 tag の前に書く。「どの frame を使うか」を後で選べないように)。
+  # **実データ(本実験の run)はまだ無い**ので、このディレクトリはまだ存在しない(ADR-062 決定7)。
+  # frame を組んで git にコミットしてから primary.py を回す(ADR-140 決定3)。frame.py は既にあるディレクトリには書かない
+  frame_dir: results/frame_exp_phase1_main
   # 順6(none)の Go/No-Go #2 の gonogo.json(code/analysis/gonogo.py の出力)。
   # 測り直し(PLAN-045 I7)の印。いまの主プール(items_sha256 6bb6084d…)で付いた [run:20261106_021031_order6_r1_remeasure]。
   # 旧い主プールの印 results/gonogo_order6/gonogo.json は使わない(ADR-138 追記 ③。人間が決めた)

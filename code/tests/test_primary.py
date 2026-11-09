@@ -144,9 +144,23 @@ def undecided_order6(config: dict[str, Any]) -> dict[str, Any]:
     return copied
 
 
+def undecided_frame(config: dict[str, Any]) -> dict[str, Any]:
+    """frame の在り処を null に戻した写し(ADR-140 で本物の config は決まったため。ADR-138 追記 ③ と同じ形)。"""
+    copied = json.loads(json.dumps(config))
+    copied["input"]["frame_dir"] = None
+    return copied
+
+
+def config_file_without_frame(config: dict[str, Any], directory: Path) -> Path:
+    """frame_dir が null の config の写しをファイルにして返す(--config で渡す。合成の --shuffle-labels を回す用)。"""
+    path = directory / "primary_no_frame.yaml"
+    path.write_text(json.dumps(undecided_frame(config)), encoding="utf-8")
+    return path
+
+
 def undecided_all(config: dict[str, Any]) -> dict[str, Any]:
-    """5 つの未決をすべて null に戻した写し(ADR-139 で門の閾値と Δ も本物の config は決まったため)。"""
-    copied = undecided_order6(config)
+    """5 つの未決をすべて null に戻した写し(ADR-139 で門の閾値と Δ、ADR-140 で frame の在り処も本物の config は決まったため)。"""
+    copied = undecided_order6(undecided_frame(config))
     copied["analysis_gate"]["threshold"] = None
     copied["tost"]["delta"] = None
     return copied
@@ -160,18 +174,33 @@ def test_all_five_undecided_items_are_listed_and_an_override_removes_only_its_ow
     assert len(primary.pending_decisions(undecided, Path("f"), Path("g"))) == 3
 
 
-def test_the_decided_config_leaves_only_the_frame(config) -> None:
-    """ADR-139 の後、本物の config で未決なのは frame の在り処だけ(門の閾値と Δ は外れた)。"""
-    listed = primary.pending_decisions(config, None, None)
-    assert len(listed) == 1 and "frame_dir" in listed[0]
-    assert primary.pending_decisions(config, Path("f"), None) == []
+def test_the_real_config_points_at_the_frozen_frame_directory(config) -> None:
+    """ADR-140 決定1: 本実験の frame の在り処は config に書いてある(tag の前に固定。実データはまだ無い)。"""
+    assert config["input"]["frame_dir"] == "results/frame_exp_phase1_main"
 
 
-def test_a_real_run_stops_when_anything_is_null_and_writes_nothing(config, tmp_path, capsys) -> None:
-    code = primary.main(["--out-dir", str(tmp_path)])
+def test_the_decided_config_leaves_nothing_pending_and_a_null_frame_is_the_only_one_listed(config) -> None:
+    """ADR-140 の後、本物の config に未決は無い。frame の在り処を null に戻した写しだけが、それ 1 つで止まる。"""
+    assert primary.pending_decisions(config, None, None) == []
+    listed = primary.pending_decisions(undecided_frame(config), None, None)
+    assert len(listed) == 1 and "input.frame_dir" in listed[0]
+    assert primary.pending_decisions(undecided_frame(config), Path("f"), None) == []
+
+
+def test_a_real_run_stops_when_the_frame_directory_is_null_and_writes_nothing(config, tmp_path, capsys) -> None:
+    code = primary.main(["--config", str(config_file_without_frame(config, tmp_path)), "--out-dir", str(tmp_path / "o")])
     assert code == primary.EXIT_PENDING
-    assert list(tmp_path.iterdir()) == []
+    assert not (tmp_path / "o").exists()
     assert "input.frame_dir" in capsys.readouterr().out
+
+
+def test_a_real_run_stops_with_a_reason_when_the_configured_frame_does_not_exist_yet(config, tmp_path, capsys) -> None:
+    """本物の config はまだ無い frame を指す(本実験の run が無い)。生の FileNotFoundError ではなく理由を出して止まる。"""
+    assert not primary.resolve_repo_path(config["input"]["frame_dir"]).exists()   # 本実験の frame を勝手に作っていない
+    code = primary.main(["--out-dir", str(tmp_path)])
+    assert code == primary.EXIT_ERROR
+    assert list(tmp_path.iterdir()) == []
+    assert "frame.csv が無い" in capsys.readouterr().out
 
 
 def test_a_null_gate_threshold_or_delta_still_stops_and_a_fully_decided_config_passes(config) -> None:
@@ -364,7 +393,7 @@ def test_a_real_run_checks_the_order6_list_before_stopping_on_the_other_null_val
     with pytest.raises(primary.PrimaryError, match="食い違う"):
         primary.build_targets(args, with_order6_list(config, []), power_config, spec)
     with pytest.raises(primary.PendingDecisionError, match="input.frame_dir"):
-        primary.build_targets(args, with_order6_list(config, ["t1.id"]), power_config, spec)
+        primary.build_targets(args, with_order6_list(undecided_frame(config), ["t1.id"]), power_config, spec)
 
 
 # --------------------------------------------------------------------------
@@ -667,14 +696,30 @@ def test_a_real_run_with_a_frame_writes_the_main_and_the_sensitivity(tmp_path, m
     assert payload["mode"] == primary.MODE_ACTUAL and calls == [6 * GATE_N_ITEM * N_SEED, 6 * GATE_N_ITEM * 6]
     assert actual["tost"]["delta"] == 0.4988 and actual["sensitivity"]["n_runs_passed"] == 6
     assert "解析門(ADR-139)" in (run_dir / primary.REPORT_MD).read_text(encoding="utf-8")
+    # ADR-140 決定4 (i): 読んだ frame の在り処と csv_sha256 が結果に残る(tmp は repo の外なので絶対パス)
+    manifest = json.loads((tmp_path / "f" / frame.FRAME_MANIFEST_FILENAME).read_text(encoding="utf-8"))
+    assert payload["frame_dir"] == (tmp_path / "f").resolve().as_posix() and payload["frame_csv_sha256"] == manifest["csv_sha256"]
+    assert f"`{manifest['csv_sha256']}`" in (run_dir / primary.REPORT_MD).read_text(encoding="utf-8")
 
 
-def test_simulate_and_shuffle_do_not_apply_the_gate(tmp_path, monkeypatch) -> None:
+def test_the_frame_record_is_repo_relative_and_null_when_no_frame_was_read(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(primary, "REPO_ROOT", tmp_path)
+    write_frame_dir(tmp_path / "results" / "frame_x", make_rows())
+    record = primary.frame_record(tmp_path / "results" / "frame_x")
+    assert record["frame_dir"] == "results/frame_x" and len(record["frame_csv_sha256"]) == 64
+    assert primary.frame_record(None) == {"frame_dir": None, "frame_csv_sha256": None}
+
+
+def test_simulate_and_shuffle_do_not_apply_the_gate(config, tmp_path, monkeypatch) -> None:
     fake_main_fitter(monkeypatch)
     assert primary.main(["--simulate", "--out-dir", str(tmp_path / "a")]) == primary.EXIT_OK
-    assert primary.main(["--shuffle-labels", "--out-dir", str(tmp_path / "b")]) == primary.EXIT_OK
+    no_frame = str(config_file_without_frame(config, tmp_path))
+    assert primary.main(["--config", no_frame, "--shuffle-labels", "--out-dir", str(tmp_path / "b")]) == primary.EXIT_OK
     for out in ("a", "b"):
         (run_dir,) = list((tmp_path / out).iterdir())
+        meta = json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))
+        assert meta["frame_dir"] is None and meta["frame_csv_sha256"] is None   # frame を読んでいない(合成)
+        assert "入力の frame" not in (run_dir / primary.REPORT_MD).read_text(encoding="utf-8")
         for target in json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))["targets"].values():
             assert target["analysis_gate"]["applied"] is False and "sensitivity" not in target
 
@@ -875,10 +920,11 @@ def test_simulate_runs_p0_and_p1_through_every_stage_and_writes_the_outputs(tmp_
     assert (run_dir / "git_sha.txt").exists()
 
 
-def test_shuffle_labels_runs_the_synthetic_p1_when_no_frame_is_given(tmp_path, monkeypatch) -> None:
+def test_shuffle_labels_runs_the_synthetic_p1_when_no_frame_is_given(config, tmp_path, monkeypatch) -> None:
     fake_main_fitter(monkeypatch)
-    assert primary.main(["--shuffle-labels", "--seed", "0", "--out-dir", str(tmp_path)]) == primary.EXIT_OK
-    (run_dir,) = list(tmp_path.iterdir())
+    no_frame = str(config_file_without_frame(config, tmp_path))
+    assert primary.main(["--config", no_frame, "--shuffle-labels", "--seed", "0", "--out-dir", str(tmp_path / "o")]) == primary.EXIT_OK
+    (run_dir,) = list((tmp_path / "o").iterdir())
     result = json.loads((run_dir / primary.PRIMARY_JSON).read_text(encoding="utf-8"))["targets"]["shuffled"]
     assert result["shuffle"]["seed"] == 0 and result["shuffle"]["n_items_moved"] > 0
     assert result["shuffle"]["mixed_templates"]

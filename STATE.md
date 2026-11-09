@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-09(その204。PLANNER 役を Claude Opus 5.5 が務めた(推奨と一致)。本実験の frame の在り処を人間が決めた: **ADR-140(4 問とも推奨 (a))** = `results/frame_exp_phase1_main/` に固定していま config に書く・CSV と manifest を git に入れる・frame のコミットが先・`primary.json` に frame の在り処と sha・`frame.py` は既にある `--out-dir` で止まる。`code/`・`configs/` は不変(I1〜I4 = IMPLEMENTER)。GPU 0・pod 0)
-(**次: IMPLEMENTER(Sonnet)が ADR-140 の I1〜I4。ADR-139 追記 ① の一致は実 frame ができるまで未検証**。)
+最終更新: 2026-11-09(その205。IMPLEMENTER 役を Claude Sonnet 5.5 が務めた(推奨と一致)。ADR-140 の I1〜I4 を実装: `configs/primary.yaml` の `input.frame_dir` = `results/frame_exp_phase1_main`・`primary.json` の meta と `report.md` に frame の在り処と `csv_sha256`・`frame.py` の `write_frame` は既にある `out_dir` で止まる。`pytest code/tests -q` 2717 passed。本物の config に null は無い(実データの実行は frame が無いので止まる)。PLAN に無い選択 6 点は人間の採否待ち。GPU 0・pod 0)
+(**次: 人間が PLAN に無い選択 ①〜⑥ を採否する。ADR-139 追記 ① の一致は実 frame ができるまで未検証**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-09(その204・最新)。Phase 0。Claude Opus 5.5(PLANNER 役。推奨と一致)。GPU 0・pod 0**
-> - 本実験の frame の在り処(`input.frame_dir`)を人間が決めた(ADR-140。`AskUserQuestion` 4 問とも推奨 (a)。提案 = PLANNER その204・採択 = 人間)
-> - 事実: `frame.py` の `write_frame` は既にある `out_dir` に黙って上書きする / `primary.json` は読んだ frame の在り処も sha も残さない(どちらも ADR-140 決定4 で IMPLEMENTER が塞ぐ)
-> - 大きさ: パイロット 625 の 5 run の frame は 3,400 行・617,393 B(scratchpad で組んだ。`results/` には書いていない・主張に使わない)。本実験は約 13 MB の見積もり(算術。実験結果ではない)
+> **★★2026-11-09(その205・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER 役。推奨の Sonnet と一致)。GPU 0・pod 0**
+> - ADR-140 の I1〜I4 を実装した(`pytest code/tests -q` = 2717 passed(前回 2713 + 新 4)): `configs/primary.yaml` の `input.frame_dir` = `results/frame_exp_phase1_main` / `primary.json` の meta と `report.md` に読んだ frame の在り処(repo 相対)と `csv_sha256` / `frame.py` の `write_frame` は既にある `out_dir` に書かず `FrameError` で止まる
+> - **本物の config に null は 1 つも残っていない。**実データの `primary.py` が止まるのは、本実験の frame(`results/frame_exp_phase1_main/`)がまだ無いから(`read_frame` が「frame.csv が無い」と理由を出して `EXIT_ERROR`)。本実験の run は無いので、このディレクトリは作っていない
+> - **PLAN に無い選択 6 点**を `logs/OPEN-ITEMS.md` に 1 行(人間の採否待ち。下の「引き継ぎ」)
 
 ---
 
@@ -321,9 +321,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-09(その204・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-11-09(その205・最新)。FT までの道筋の正本は PLAN-035 §5。**(ADR-140 の I1〜I4 は済んだ。その204 の項目 0 は消した。旧ブロックは `logs/STATE-ARCHIVE.md`)
 >
-> 0. IMPLEMENTER(Sonnet): ADR-140 の I1〜I4(`configs/primary.yaml` の `input.frame_dir` = `results/frame_exp_phase1_main`・`primary.py` の meta と `report.md` に frame の在り処と `csv_sha256`・`frame.py` の `write_frame` が既にある `out_dir` で止まる・テスト)
+> 0. 人間: **その205 の「PLAN に無い選択 6 点」(`logs/OPEN-ITEMS.md`・下の「引き継ぎ」)の採否**
 >
 > 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py:10` の「未実装」の docstring の食い違い(その193 から持ち越し)/ 実 frame ができたら ADR-139 追記 ① の一致を検査する
 > 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
@@ -333,10 +333,12 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 引き継ぎ
 
-> **★★2026-11-09(その204・最新)。Claude Opus 5.5(PLANNER 役。推奨と一致)。HANDOFF の 1 つ(frame の在り処)を済ませた**
+> **★★2026-11-09(その205・最新)。Claude Sonnet 5.5(IMPLEMENTER 役。推奨と一致)。ADR-140 の I1〜I4 を実装した**
 >
-> **★やったこと**: 開始手順 → 事実 F1〜F8 を集める(`frame.py`・`primary.py`・`.gitignore`・パイロットで frame の大きさを実測)→ 判断材料の表と推奨をチャットで先に示す → `AskUserQuestion` 4 問(4 問とも推奨)→ ADR-140・`logs/OPEN-ITEMS.md`・`STATE.md`・CHANGELOG
-> **★気づいたこと(判断なし)**: `frame.py` の上書きと `primary.json` の記録の穴は ADR-140 決定4 に入れた / `frame.py:10` の docstring「未実装」は触っていない / 13 MB は見積もりで、T1c などで増えうる
+> **★やったこと**: 開始手順(HANDOFF その204・`git log`・`STATE.md` は一致。HEAD `746bc09`)→ `code-style` を読む → I1(`configs/primary.yaml`)・I2(`primary.py` の `frame_record` / `resolve_frame_dir` / meta / `report.md`)・I3(`frame.py` の `write_frame` が既にある `out_dir` で止まる)・I4(`test_primary.py`・`test_frame.py`)→ `pytest code/tests -q` 2717 passed
+> **★PLAN に無い選択(人間の採否待ち。`logs/OPEN-ITEMS.md` 1 行)**: ① `read_frame` は `frame.csv`・`frame_manifest.json` が無ければ生の `FileNotFoundError` ではなく `PrimaryError` で止まる(I1 の帰結。本物の config は無い frame を指すため)/ ② meta の 2 欄は frame を読んだときだけ値が入る(`--simulate` は config に frame_dir があっても null・合成の `--shuffle-labels` も null・実データと frame を渡した `--shuffle-labels` は記録)/ ③ repo の外を指す frame_dir は絶対パス(posix)で残す・sha は `read_frame` が照合した CSV の実体を再ハッシュ / ④ **`--shuffle-labels` は config の `frame_dir` が決まっていれば、それを既定で読む**(既存コードの動きのまま。I1 の帰結で、frame ができるまで既定では止まる。合成の P1 の入れ替えは frame_dir を null にした config の写しを `--config` で渡す。テストはそう直した。yaml 冒頭の例の注釈も直した)/ ⑤ `write_frame` は空の既存ディレクトリも止める(`exists()`)/ ⑥ frame_dir の解決を `resolve_frame_dir` に抜き出した(`build_targets` と `run` で同じ規則)
+> **★食い違い(`CLAUDE.md` §7.1。書き換えていない)**: `frame.py:10` の docstring「`primary.py`(未実装)」と実装済みの `primary.py`(その193 から持ち越し・人間待ち)/ `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の −0.3266(差 1e-6。その202 から)
+> **★次**: 人間が上の ①〜⑥ を採否する / 実 frame ができたら ADR-139 追記 ① の一致の検査(未検証)。frame を組んでコミットしてから `primary.py` を回す(ADR-140 決定3)
 
 ---
 

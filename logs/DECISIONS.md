@@ -8275,6 +8275,7 @@
   - `frame.py:10` の docstring「`primary.py`(未実装。PLAN-016 §7-5)」と実装済みの `primary.py` の食い違いは本 ADR では扱わない(STATE「次のアクション」1 の人間待ち)
 - 影響:
   - このコミットで書き換えたもの: 本 ADR / `logs/OPEN-ITEMS.md`(1 行)/ `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
+  - ★その205(IMPLEMENTER)で I1〜I4 は実装した(下の「まだ書き換えていないもの」は実装前の記述。値と規則は動かしていない)。PLAN に無い選択 6 点は `logs/OPEN-ITEMS.md`(人間の採否待ち)
   - **まだ書き換えていないもの(IMPLEMENTER)**: I1 `configs/primary.yaml` の `input.frame_dir` = `results/frame_exp_phase1_main`(コメントに ADR-140)/ I2 `primary.py` の meta に frame の在り処と `csv_sha256`・`report.md` に 1 行 / I3 `frame.py` の `write_frame` が既にある `out_dir` で止まる / I4 テスト(本物の config の値・meta の 2 欄・上書きで止まる・`pending_decisions` から `input.frame_dir` が外れる)
   - 実データの `primary.py` が止まる未決は、I1 の後は frame そのもの(本実験の run)だけになる
 - 関連 ADR: **062** 決定7 / **139** 決定5・追記 ① / **138** 決定3 / **058** 決定2 / **097** 決定6 / **039** 決定3

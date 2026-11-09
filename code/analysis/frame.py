@@ -631,7 +631,11 @@ def write_frame(frame: Frame, out_dir: Path) -> tuple[Path, Path]:
         raise FrameError(
             "問題があるまま表を凍結しない: " + " / ".join(frame.problems)
         )
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # 既にある out_dir には書かない。上書きすると manifest の sha も書き直され、後から気づけない(ADR-140 決定4 (ii))。
+    # 組み直すときは、人がディレクトリを消してから(git の差分と primary.json の sha が見張る)
+    if out_dir.exists():
+        raise FrameError(f"{out_dir} は既にある。凍結した frame は上書きしない(ADR-140)。組み直すなら先に消す")
+    out_dir.mkdir(parents=True)
     csv_path = out_dir / CSV_FILENAME
     # newline="" は csv モジュールの規約(Windows で CR CR LF になるのを防ぐ)。
     with csv_path.open("w", encoding="utf-8", newline="") as handle:

@@ -8225,3 +8225,15 @@
   - 次: IMPLEMENTER(Sonnet)が PLAN-049 I2〜I5
 - 関連 ADR: **138** 決定3・追記 ①③ / **137** 決定2・3 / **135** / **125** 決定3 / **114** 決定5・6 / **103** 決定3 / **078** 決定6 / **062** 決定6・E-4 / **055** 決定3 / **054** 決定1 / **052** 決定2 / **041** 決定1 / **028** / **097** 決定6 / **039** 決定3
 - 関連 commit: 本 ADR のコミット
+
+- **★追記 ①(2026-11-09 その203)— PLAN-049 §11 の選択 ①〜⑧ の採否(実装のまま採る。コード・configs は不変)**:
+  - 提案・採択: **提案 エージェント(IMPLEMENTER, Sonnet 5.5。その202。PLAN-049 §11 の 8 点)/ 採択 人間(2026-11-09 その203。`AskUserQuestion` 1 回・4 問とも推奨)**。判断材料の表(各選択の案・理由)は先にチャットで示した(ADR-097 決定6)。このセッションの実モデルは Sonnet 5.5 で、HANDOFF の推奨(Opus)と不一致だった。最初の発言でそう述べ、人間が続けさせた(`10_CONTEXT_POLICY.md` §7.3)
+  - **決定(ADR-139 の値 0.90・k = 5・Δ = 0.4988 と規則は変えていない)**:
+    1. **①** 門の量は frame.csv の主軸の行(その task・`id`・seed あり)の `is_rule` の run ごとの平均から数える(`primary.py` の `gate_quantities`)。ADR-139 決定2 が書いた読み先 `frame.py` の `gate_id_by_task["t1"]`(`frame_manifest.json` 側)とは読み先が違う。**実 frame ができたら両者が一致することを検査する(未検証)**。食い違えば止めて人間に聞く
+    2. **②④⑤** config の `analysis_gate` の `role`・`task`・`direction` は実装している値(`sensitivity`・frame の task・`ge`)以外なら `ConfigError` / 門の量を作れない run は止める / `pending_decisions` に `analysis_gate.threshold`・`tost.delta` の null 検査を残す
+    3. **③** 感度の適格性フィルタは `ident` の行(frame 全体)で決め、門で絞らない。感度に残る `p2` の run のシードと `ident` のシードは対応づけない
+    4. **⑥⑦⑧** 実データの経路(`input.frame_dir` が null の間は止まる)/ 感度の出力の形(`result["sensitivity"]`・`result["analysis_gate"]`・報告に「解析門」「感度解析」の節)/ 順1b の門は順1b のコードを書くときに置く(未実装)
+  - 代案と却下理由(人間が選んだ): ① manifest を読む — `read_frame` の照合を広げる必要がある(一致の検査で足りる)/ ②④⑤ 緩める — 決めていない手続きが黙って走る・量の無い run が通過か落ちに倒れる(`CLAUDE.md` §7)/ ③ 門を通った run のシードに対応づける — seed の対応づけの規則を新たに決める必要がある / ⑥⑦⑧ 形を改める — PLAN に指定が無く、改める理由が出ていない
+  - リスク・未解決: **人間は 4 問とも推奨を選んだ**(推奨はエージェントが付けた)。**① の一致は実 frame で未検証**。`configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の値 −0.3266(差 1e-6。テストの許容 5e-6)は書き換えていない。**結果を見る前か後か**: 本実験の `p2` の実データは無い(凍結前)
+  - 影響: `logs/DECISIONS.md`(本追記)/ PLAN-049 §11(採否の列)/ `logs/OPEN-ITEMS.md`(その202 の行)/ `STATE.md` / `logs/CHANGELOG.md`。**`code/`・`configs/`・`Documents/` は不変**。実データの `primary.py` が止まる未決は `input.frame_dir`(frame の在り処)だけのまま
+  - 関連 commit: `edc7723`(I2〜I5)/ 本追記のコミット

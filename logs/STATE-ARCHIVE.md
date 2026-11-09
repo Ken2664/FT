@@ -11224,3 +11224,34 @@ pod は 3 本とも `EXITED` のまま(起動を試みたが失敗しただけ�
 > **★やったこと**: 開始手順 → PLAN-049 §3 の事実と §3.3 の算術の表をチャットで示した(算術は検算: P1 の RMS = 0.352767・正方形の中の最大 RMS = Δ / √2)→ `AskUserQuestion` 2 回 → ADR-139 → PLAN-049 §8・§9・ステータス `採択` → `05_STATISTICS.md` の 5 か所 → `logs/OPEN-ITEMS.md` 4 行
 > **★気づいたこと(判断なし)**: `05_STATISTICS.md` §4 順1b の注「#4 / #4b の 0.90 は流用していない」は「揃える」の定義の話で、門の閾値 0.90 とは別(書き換えず、注を足した)/ `logs/OPEN-ITEMS.md` の N5(ADR-028 決定1)の行の (1) と #4b の書き方は未決のまま / `code/`・`configs/` は不変
 
+
+## 2026-11-08(その202 の STATE.md の旧ブロック。その203 で置き換え)
+
+### 先頭(最終更新)
+
+最終更新: 2026-11-08(その202。IMPLEMENTER(Sonnet 5.5)が PLAN-049 I2〜I5 を実装。`configs/primary.yaml` に門(role = sensitivity・task = t1・threshold = 0.90・direction = ge・min_runs = 5)と `tost.delta` = 0.4988。`primary.py` は主(門なし)と感度(門あり)の 2 節・報告に門の節。`pytest code/tests -q` 2713 passed。実データの `primary.py` が止まる未決は `input.frame_dir` だけ。GPU 0・pod 0)
+(**次: 人間が PLAN-049 §11 の選択 ①〜⑧ の採否を決める(PLANNER・Opus)。pod 2 つの扱い・push・`results/primary/` の 2 run も人間**。)
+
+### いま何をしているか
+
+> **★★2026-11-08(その202・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER。推奨の Sonnet と一致)。PLAN-049 I2〜I5 を実装。GPU 0・pod 0**
+> - `configs/primary.yaml`: `analysis_gate`(role = sensitivity・task = t1・threshold = 0.90・direction = ge・min_runs = 5)・`tost.delta` = 0.4988(ADR-139 の値をそのまま写した)
+> - `code/analysis/primary.py`: 順 = 選ぶ → 門 → 適格性フィルタ → df → 天井 → 当てはめ。主は門なし(`design.n_seed` = 10 の検査のまま)・感度は門を通った `p2` が 5 本以上のとき同じ手続きを当て、5 本未満は「実施不能: 解析門」。`--simulate`・`--shuffle-labels` は門を掛けない。`pending_decisions` から門・Δ が外れ、実データで残る未決は `input.frame_dir` だけ
+> - **PLAN-049 §11 の選択 ①〜⑧ は人間の採否待ち**(特に ① 門の量を frame.csv の行から数えた = ADR-139 の `gate_id_by_task` の文言とは読み先が違う・⑥ 実データの経路を足した)
+
+### 次のアクション
+
+> **★★2026-11-08(その202・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 0. 人間(PLANNER・Opus): PLAN-049 §11 の選択 ①〜⑧ の採否(①〜⑧ は実装のまま採る / 改める)。採否は ADR に追記(提案 = IMPLEMENTER・採択 = 人間を分けて書く)
+>
+> 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)
+> 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ N5 の (1)(`p2d` の交互作用を副次に)と #4b の事前登録での書き方 / E1 の TOST 境界 / PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)/ T3・T1b の 6 セルの扱い(ADR-078 決定6)
+
+### 引き継ぎ
+
+> **★★2026-11-08(その202・最新)。Claude Sonnet 5.5(IMPLEMENTER。推奨の Sonnet と一致)。HANDOFF の 1 つ(PLAN-049 I2〜I5)を済ませた**
+>
+> **★やったこと**: 開始手順 → `configs/primary.yaml` の値(I2)→ `primary.py` の門と感度の節と報告(I3)→ `test_primary.py`(I4。§3.3 の算術を `configs/power_sim.yaml` の P1 から計算して固定・主と感度が分かれる frame・`k` 未満・境界 0.9 ちょうどは通過・本物の config の値)→ `pytest code/tests -q` 2713 passed(I5)→ PLAN-049 §8・§11 → CHANGELOG
+> **★気づいたこと(判断なし)**: ADR-139 決定2 は `frame.py` の `gate_id_by_task["t1"]` と書くが、`primary.py` が読むのは frame.csv だけなので同じ行の集合から数えた(§11 ①。実 frame で一致を確かめるのは未検証)/ `configs/power_sim.yaml` の P1 の係数のコメントは −0.326599 だが `build_profile` の値は −0.3266(eta を 6 桁に丸めた分。差 1e-6。テストの許容は 5e-6)/ `frame.py` の docstring「未実装」の食い違いと `results/primary/` の 2 run は触っていない

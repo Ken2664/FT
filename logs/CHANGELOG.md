@@ -8356,3 +8356,11 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - PLAN-049 §8 を更新、§11 に PLAN に無い選択 ①〜⑧ を記録(**人間の採否待ち**。`logs/OPEN-ITEMS.md` に 1 行)。`STATE.md` を更新(旧ブロックは `logs/STATE-ARCHIVE.md`)
 - 食い違い(`CLAUDE.md` §7.1): ADR-139 決定2 は量を `frame.py` の `gate_id_by_task["t1"]` と書くが `primary.py` は CSV だけを読むので、同じ行の集合から数えた(コードの読み先に従った。§11 ①)/ `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の値 −0.3266 の差 1e-6(eta の 6 桁丸め。テストの許容 5e-6。どちらも書き換えていない)
 - GPU 0・pod 0。push していない
+
+## 2026-11-09(その203・PLAN-049 §11 の選択 ①〜⑧ の採否)   [actor: PLANNER (Claude Sonnet 5.5。推奨は Opus で不一致。最初に述べ、人間が続けさせた)]
+- 開始手順: HANDOFF(その202)・`git log`・`STATE.md` は一致(HEAD `edc7723`・追跡ファイルの未コミット変更なし)。実モデル Sonnet 5.5 は HANDOFF の推奨 Opus と不一致。`10_CONTEXT_POLICY.md` §7.3 に沿って止めて人間に伝え、採否の表と推奨を示し、人間が `AskUserQuestion` で採否を決めた(案を出しただけで、決めたのは人間)
+- **人間が決めた(`AskUserQuestion` 1 回・4 問とも推奨)**: ① CSV のまま / ②④⑤ 実装のまま / ③ 実装のまま / ⑥⑦⑧ 実装のまま = **①〜⑧ すべて実装のまま採る**
+- 書いた: `logs/DECISIONS.md`(ADR-139 追記 ①。提案 = IMPLEMENTER その202・採択 = 人間)/ PLAN-049 §11(採否)/ `logs/OPEN-ITEMS.md`(その202 の行を決着に)/ `STATE.md`(旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。**`code/`・`configs/`・`Documents/` は不変**
+- 残り: ① の一致(frame.csv から数えた門の量と manifest の `gate_id_by_task`)は実 frame ができるまで未検証。実データの `primary.py` が止まる未決は `input.frame_dir` だけ
+- 食い違い(`CLAUDE.md` §7.1。どちらも書き換えていない): ADR-139 決定2 の読み先(manifest)と実装の読み先(CSV)= ADR-139 追記 ①で CSV を採った / `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の −0.3266(差 1e-6)
+- GPU 0・pod 0。push していない

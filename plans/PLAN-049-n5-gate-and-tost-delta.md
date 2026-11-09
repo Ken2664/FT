@@ -174,7 +174,7 @@
 
 提案 エージェント(PLANNER, Opus 5.5。その200)/ 採択 人間(その201。`AskUserQuestion` 2 回)。
 
-## 11. 実装で PLAN に無い選択をした点(2026-11-08 その202・IMPLEMENTER Sonnet 5.5。**人間の採否待ち**。ADR-139 の値・規則は変えていない)
+## 11. 実装で PLAN に無い選択をした点(2026-11-08 その202・IMPLEMENTER Sonnet 5.5。~~人間の採否待ち~~ → **2026-11-09 その203 に ①〜⑧ すべて実装のまま採択**(ADR-139 追記 ①。人間・`AskUserQuestion` 4 問とも推奨)。ADR-139 の値・規則は変えていない)
 
 | # | 選択 | 理由 / 代案 |
 |---|---|---|
@@ -186,3 +186,5 @@
 | ⑥ | `build_targets` の実データの経路を足した(未決が無ければ frame を読み、`confirmed_order6_cells` で順6 の一覧を照合して `actual` として解析する)。**`input.frame_dir` が `null` の間は止まる**ので、実データはまだ走らない | `require_decided` が通ったとき `AssertionError` で終わる旧い形のままでは感度解析が走らない。frame の在り処は決めていない |
 | ⑦ | 感度の当てはめの作業ディレクトリは主の隣(`<fit>_gate`)。出力は `result["sensitivity"] = {verdict, n_runs_passed, min_runs, result}` と `result["analysis_gate"]`(run ごとの量・`passes`・`n_passed`・`n_total`)。報告に「解析門」と「感度解析」の節 | 形は PLAN-049 に無かったので実装で決めた |
 | ⑧ | 順1b の門は実装していない(順1b のコードがまだ無い。ADR-139 決定3 も順1b のコードを決めていない) | — |
+
+**採否(2026-11-09 その203)**: ①〜⑧ すべて実装のまま採る。提案 IMPLEMENTER(Sonnet 5.5。その202)/ 採択 人間。コード・configs は不変。**① の一致(frame.csv から数えた量と manifest の `gate_id_by_task`)は実 frame ができるまで未検証**。

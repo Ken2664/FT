@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-08(その202。IMPLEMENTER(Sonnet 5.5)が PLAN-049 I2〜I5 を実装。`configs/primary.yaml` に門(role = sensitivity・task = t1・threshold = 0.90・direction = ge・min_runs = 5)と `tost.delta` = 0.4988。`primary.py` は主(門なし)と感度(門あり)の 2 節・報告に門の節。`pytest code/tests -q` 2713 passed。実データの `primary.py` が止まる未決は `input.frame_dir` だけ。GPU 0・pod 0)
-(**次: 人間が PLAN-049 §11 の選択 ①〜⑧ の採否を決める(PLANNER・Opus)。pod 2 つの扱い・push・`results/primary/` の 2 run も人間**。)
+最終更新: 2026-11-09(その203。PLANNER 役を Claude Sonnet 5.5 が務めた(推奨 Opus と不一致。最初に述べ、人間が続けさせた)。PLAN-049 §11 の選択 ①〜⑧ を人間が採否: **すべて実装のまま採る**(ADR-139 追記 ①。4 問とも推奨)。`code/`・`configs/` は不変。実データの `primary.py` が止まる未決は `input.frame_dir` だけのまま。GPU 0・pod 0)
+(**次: 人間が次のアクションから選ぶ(frame の在り処・pod 2 つ・push・S4 など)。① の一致(frame.csv から数えた門の量と manifest の `gate_id_by_task`)は実 frame ができるまで未検証**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,10 +67,9 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-08(その202・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER。推奨の Sonnet と一致)。PLAN-049 I2〜I5 を実装。GPU 0・pod 0**
-> - `configs/primary.yaml`: `analysis_gate`(role = sensitivity・task = t1・threshold = 0.90・direction = ge・min_runs = 5)・`tost.delta` = 0.4988(ADR-139 の値をそのまま写した)
-> - `code/analysis/primary.py`: 順 = 選ぶ → 門 → 適格性フィルタ → df → 天井 → 当てはめ。主は門なし(`design.n_seed` = 10 の検査のまま)・感度は門を通った `p2` が 5 本以上のとき同じ手続きを当て、5 本未満は「実施不能: 解析門」。`--simulate`・`--shuffle-labels` は門を掛けない。`pending_decisions` から門・Δ が外れ、実データで残る未決は `input.frame_dir` だけ
-> - **PLAN-049 §11 の選択 ①〜⑧ は人間の採否待ち**(特に ① 門の量を frame.csv の行から数えた = ADR-139 の `gate_id_by_task` の文言とは読み先が違う・⑥ 実データの経路を足した)
+> **★★2026-11-09(その203・最新)。Phase 0。Claude Sonnet 5.5(PLANNER 役。推奨の Opus と不一致 → 最初の発言で述べ、人間が続けさせた)。GPU 0・pod 0**
+> - PLAN-049 §11 の選択 ①〜⑧ を人間が採否(`AskUserQuestion` 4 問とも推奨 = 実装のまま採る)。ADR-139 追記 ① に書いた(提案 = IMPLEMENTER その202・採択 = 人間)。ADR-139 の値(0.90・k = 5・Δ = 0.4988)と規則は不変
+> - **① の一致は未検証**: `primary.py` の `gate_quantities`(frame.csv の主軸の行から数える)と `frame.py` の `gate_id_by_task`(manifest。全 `id` 行から数える)は同じ行の集合のはずだが、実 frame ができるまで確かめられない
 
 ---
 
@@ -321,11 +320,11 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-08(その202・最新)。FT までの道筋の正本は PLAN-035 §5。**
+> **★★2026-11-09(その203・最新)。FT までの道筋の正本は PLAN-035 §5。**
 >
-> 0. 人間(PLANNER・Opus): PLAN-049 §11 の選択 ①〜⑧ の採否(①〜⑧ は実装のまま採る / 改める)。採否は ADR に追記(提案 = IMPLEMENTER・採択 = 人間を分けて書く)
+> 0. ~~人間(PLANNER・Opus): PLAN-049 §11 の選択 ①〜⑧ の採否~~ → **2026-11-09 決着(ADR-139 追記 ①。すべて実装のまま採る)**
 >
-> 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)
+> 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)/ frame の在り処(`input.frame_dir`。実データの `primary.py` が止まる最後の未決。決まったら ① の一致を検査する)
 > 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
 > 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ N5 の (1)(`p2d` の交互作用を副次に)と #4b の事前登録での書き方 / E1 の TOST 境界 / PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)/ T3・T1b の 6 セルの扱い(ADR-078 決定6)
 
@@ -333,10 +332,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 引き継ぎ
 
-> **★★2026-11-08(その202・最新)。Claude Sonnet 5.5(IMPLEMENTER。推奨の Sonnet と一致)。HANDOFF の 1 つ(PLAN-049 I2〜I5)を済ませた**
+> **★★2026-11-09(その203・最新)。Claude Sonnet 5.5(PLANNER 役。推奨の Opus と不一致。人間が続けさせた)。HANDOFF の 1 つ(PLAN-049 §11 の採否)を済ませた**
 >
-> **★やったこと**: 開始手順 → `configs/primary.yaml` の値(I2)→ `primary.py` の門と感度の節と報告(I3)→ `test_primary.py`(I4。§3.3 の算術を `configs/power_sim.yaml` の P1 から計算して固定・主と感度が分かれる frame・`k` 未満・境界 0.9 ちょうどは通過・本物の config の値)→ `pytest code/tests -q` 2713 passed(I5)→ PLAN-049 §8・§11 → CHANGELOG
-> **★気づいたこと(判断なし)**: ADR-139 決定2 は `frame.py` の `gate_id_by_task["t1"]` と書くが、`primary.py` が読むのは frame.csv だけなので同じ行の集合から数えた(§11 ①。実 frame で一致を確かめるのは未検証)/ `configs/power_sim.yaml` の P1 の係数のコメントは −0.326599 だが `build_profile` の値は −0.3266(eta を 6 桁に丸めた分。差 1e-6。テストの許容は 5e-6)/ `frame.py` の docstring「未実装」の食い違いと `results/primary/` の 2 run は触っていない
+> **★やったこと**: 開始手順 → 判断材料の表と推奨をチャットで先に示す → `AskUserQuestion` 4 問(4 問とも推奨)→ ADR-139 追記 ①・PLAN-049 §11・`logs/OPEN-ITEMS.md`・`STATE.md`・CHANGELOG
+> **★気づいたこと(判断なし)**: ① の一致は実 frame が出来るまで未検証 / `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の −0.3266(差 1e-6)は書き換えていない / `frame.py` の docstring「未実装」の食い違いと `results/primary/` の 2 run は触っていない
 
 ---
 

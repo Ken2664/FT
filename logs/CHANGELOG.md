@@ -8383,3 +8383,11 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - PLAN に無い選択 6 点(`STATE.md` 引き継ぎ・`logs/OPEN-ITEMS.md`): 人間の採否待ち。`results/frame_exp_phase1_main/` は作っていない
 - 食い違い(`CLAUDE.md` §7.1。書き換えていない): `frame.py:10` の docstring「未実装」と実装済みの `primary.py`(その193 から)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile` の値(差 1e-6。その202 から)
 - GPU 0・pod 0。push していない
+
+## 2026-11-09(その206・その205 の PLAN に無い選択 ①〜⑥ の採否(ADR-140 追記 ①))   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その205)・`git log`・`STATE.md` は一致(HEAD `f484e7f`・追跡ファイルの未コミット変更なし)。推奨モデル(Opus)と一致
+- 読んだ: `primary.py` の `read_frame`・`frame_record`・`resolve_frame_dir`・`build_targets`・`run`(`:244-285`・`:882-945`)/ `frame.py` の `write_frame`(`:618-647`)/ `05_STATISTICS.md` §8 / PLAN-016 R9。判断材料の表(実装の動き・代案・推奨と理由)をチャットで先に示した
+- **人間が決めた(`AskUserQuestion` 1 回・3 問とも推奨)**: ④ を改める = `--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ(I5 = IMPLEMENTER)/ ③ 実装のまま / ①②⑤⑥ 実装のまま
+- 書いた: `logs/DECISIONS.md`(ADR-140 追記 ①。提案 = IMPLEMENTER その205・表と推奨 = PLANNER その206・採択 = 人間)/ `logs/OPEN-ITEMS.md`(その205 の行を決着に)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。**`code/`・`configs/`・`Documents/` は不変**
+- 食い違い(`CLAUDE.md` §7.1。書き換えていない): `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(PLAN-016 §7-6 と同じ場で人間)/ `frame.py:10` の docstring「未実装」(その193 から)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
+- GPU 0・pod 0。push していない

@@ -8280,3 +8280,19 @@
   - 実データの `primary.py` が止まる未決は、I1 の後は frame そのもの(本実験の run)だけになる
 - 関連 ADR: **062** 決定7 / **139** 決定5・追記 ① / **138** 決定3 / **058** 決定2 / **097** 決定6 / **039** 決定3
 - 関連 commit: 本 ADR のコミット
+
+- **★追記 ①(2026-11-09 その206)— その205(I1〜I4 の実装)の PLAN に無い選択 ①〜⑥ の採否(④ は改める = I5・ほかは実装のまま採る。コード・configs は不変)**:
+  - 提案・採択: **提案 エージェント(①〜⑥ の選択 = IMPLEMENTER, Sonnet 5.5。その205 / 判断材料の表と推奨 = PLANNER, Opus 5.5。その206)/ 採択 人間(2026-11-09 その206。`AskUserQuestion` 1 回・3 問とも推奨)**。判断材料の表(各選択の実装の動き・代案・推奨と理由)は先にチャットで示した(ADR-097 決定6)
+  - **決定(ADR-140 の決定1〜4 と ADR-138・ADR-139 の値と規則は変えていない)**:
+    1. **④ を改める(I5 = IMPLEMENTER)**: **`--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ**にする。明示しなければ config に `input.frame_dir` があっても読まず、合成の入れ替え(`shuffle.source_target` の P1 など)を回す。`--simulate` が config の `frame_dir` を読まないのと同じ形にする。理由: 凍結の条件(PLAN-016 R9「ラベル入れ替えで走ること」・`05_STATISTICS.md` §8)は tag の前に満たすもので、その時点で実 frame は無い。実装のままだと tag の前の確かめを `frame_dir` を null にした config の写しで回すことになり、`write_outputs` が run に写す config(`primary.py:784`)が凍結する `configs/primary.yaml` と違ってしまう。実 frame での入れ替え(PLAN-016 §7-6)は人間待ちのままで、明示したときだけ走る(meta の `frame_dir`・`frame_csv_sha256` に残る)
+    2. **③ 実装のまま**: repo の外を指す frame_dir は絶対パス(posix)で残す。sha は解析の後に CSV の実体を読み直して取る(`frame_record`)。読んだものと食い違いうるのは当てはめの最中に frame が書き換わったときだけで、frame は git に入り(決定2)`write_frame` は上書きしない(決定4 (ii))
+    3. **①②⑤⑥ 実装のまま**: ① `read_frame` は `frame.csv`・`frame_manifest.json` が無ければ `PrimaryError` で理由を出して止まる / ② meta の 2 欄は frame を読んだときだけ値が入る / ⑤ `write_frame` は空の既存ディレクトリも止める(`exists()`)/ ⑥ frame_dir の解決は `resolve_frame_dir`(`build_targets` と `run` で同じ規則。I5 で `--shuffle-labels` の扱いがここに入る)
+  - **I5(IMPLEMENTER。まだ書き換えていない)**: `primary.py` の `build_targets` の `--shuffle-labels` の分岐と `run` の `frame_read` が、`--shuffle-labels` では config の `input.frame_dir` を読まない(`--frame-dir` だけ)/ テスト = 本物の config で `--shuffle-labels`(`--frame-dir` なし)が合成で通り meta の 2 欄が null・`--frame-dir` を渡すと frame を読み記録する。その205 で合成の入れ替えのために null の config の写しを使うよう直したテストは、本物の config に戻せるものは戻す / `configs/primary.yaml` 冒頭の `--shuffle-labels` の例の注釈(4 行目「input.frame_dir の frame の task を…frame が無ければ止まる」)を新しい動きに直す
+  - 代案と却下理由(人間が選んだ): ④ (a) 実装のまま — 上の写しの問題が残る / ④ (c) 読み先を指定する必須の引数を新しく作る — 引数と修正が増え、`--simulate` と形が揃わない / ③ (b) `read_frame` が照合した時点の sha を渡す — 厳密だが、食い違いの起きる道は決定2・4 で塞がれている / ①②⑤⑥ を改める — 改める理由が出ていない
+  - リスク・未解決:
+    - **人間は 3 問とも推奨を選んだ**(推奨はエージェント (Opus 5.5) が付けた)
+    - **食い違い(`CLAUDE.md` §7.1。書き換えていない)**: `05_STATISTICS.md:1497-1501` の「実データで解析する前に、条件ラベルをシャッフルしたデータで…」と例のコマンド `--shuffle-labels --seed 0` は、合成で回すのか実データのラベルを入れ替えるのかが読み分けられない。I5 の後、例のコマンドは frame ができた後も合成で回る(実データの入れ替えは `--frame-dir` を足す)。事前登録の文書なので文言は動かしていない。どちらの読みかは PLAN-016 §7-6 と同じ場で人間が決める
+    - **結果を見る前か後か**: 本実験の実データの前(凍結前)。frame は無い
+    - ADR-139 追記 ① の一致の検査(frame.csv から数えた門の量 = manifest の `gate_id_by_task`)は実 frame ができるまで未検証のまま
+  - 影響: `logs/DECISIONS.md`(本追記)/ `logs/OPEN-ITEMS.md`(その205 の行を決着に)/ `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`。**`code/`・`configs/`・`Documents/` は不変**(I5 = IMPLEMENTER)
+  - 関連 commit: `f484e7f`(I1〜I4)/ 本追記のコミット

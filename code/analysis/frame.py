@@ -7,7 +7,7 @@
     python -m code.analysis.frame --runs "runs/*exp003*" --out-dir results/frame_exp003
 
 **組むだけで、当てはめない**(skill code-style §2)。当てはめは
-`code/analysis/primary.py`(未実装。PLAN-016 §7-5)と R 側(ADR-058 決定1)の仕事である。
+`code/analysis/primary.py`(PLAN-048 で実装。PLAN-016 §7-5)と R 側(ADR-058 決定1)の仕事である。
 
 **絞り込まない**(ADR-062 決定4 = PLAN-017 E-4 案 (a))。全 run・全群・全被覆水準を
 1枚に出し、主軸の subset は解析側が行う。frame が解析ごとに分岐すると

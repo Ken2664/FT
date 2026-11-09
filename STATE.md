@@ -8,8 +8,8 @@
 > **原因は「全部の節が過去のセッション記録を積み上げるスタックだった」ことである。**
 > **各節の最新 1 ブロックだけが現在の状態で、残りは過去の記録だった。**
 
-最終更新: 2026-11-09(その207。IMPLEMENTER 役を Claude Sonnet 5.5 が務めた(推奨と一致)。ADR-140 追記 ① の I5 を実装: `--shuffle-labels` が実 frame を読むのは `--frame-dir` を明示したときだけ(`resolve_frame_dir`)。既定は合成で、本物の config(`input.frame_dir` あり)のまま回る。`pytest code/tests -q` 2719 passed。PLAN に無い選択なし。GPU 0・pod 0)
-(**次: 人間が次のアクションから選ぶ。ADR-139 追記 ① の一致は実 frame ができるまで未検証**。)
+最終更新: 2026-11-09(その208。Claude Opus 5.5 が人間の選んだ「次のアクション」1 を務めた(推奨は Sonnet。不一致を最初に伝えた)。人間の決定(4 問とも推奨): pod `9matkiq0jozcgm`・`oorrti5on9opnb` を terminate(`list-pods` 0 本・ボリューム `r963j7swke` は残る)/ `results/primary/` の 2 run を注記つきでコミット / `frame.py:10` の docstring を直す / main を push。`pytest code/tests -q` 2719 passed。GPU 0・pod 0)
+(**次: 人間が次のアクションから選ぶ。push は済んだので項目 2 は G2-1 承認から。ADR-139 追記 ① の一致は実 frame ができるまで未検証**。)
 ---
 
 ## 0. このファイルの読み方(★2026-09-08 新設)
@@ -67,10 +67,10 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## いま何をしているか
 
-> **★★2026-11-09(その207・最新)。Phase 0。Claude Sonnet 5.5(IMPLEMENTER 役。推奨の Sonnet と一致)。GPU 0・pod 0**
-> - ADR-140 追記 ① の I5 を実装した(`pytest code/tests -q` = 2719 passed(前回 2717 + 新 2)): `primary.py` の `resolve_frame_dir` が `--shuffle-labels` で `--frame-dir` が無ければ None を返す。`build_targets` の分岐と `run` の meta(`frame_dir`・`frame_csv_sha256`)は同じ関数を通るので同じ規則
-> - 本物の config で `--shuffle-labels`(`--frame-dir` なし)が合成で通り、meta の 2 欄は null。`--frame-dir` を渡すと frame を読んで 2 欄に記録する。run に写る config は凍結する `configs/primary.yaml` そのもの。`--simulate` と実データの経路は不変
-> - `configs/primary.yaml` 冒頭のコマンド例の注釈だけ直した(値は不変)。`results/frame_exp_phase1_main/` は作っていない(本実験の run が無い)
+> **★★2026-11-09(その208・最新)。Phase 0。Claude Opus 5.5(人間が「次のアクション」1 を選んだ。推奨の Sonnet と不一致)。GPU 0・pod 0**
+> - pod `9matkiq0jozcgm`・`oorrti5on9opnb` を terminate した(MCP `delete-pod` 204 × 2。直後の `list-pods` は 0 本)。ネットワークボリューム `r963j7swke`(EU-RO-1・50 GB)は残っている(`get-network-volume` で確認)
+> - `results/primary/` の 2 run をコミットした。**shuffle の run は `git_sha.txt` が `dc9ab92`(`primary.py` のコミット前)・`dirty: true`・patch 0 B で、当時の `primary.py` は記録から復元できない**。2 本とも I11・ADR-140 の前のコードの run で、主張に使わない
+> - `frame.py:10` の docstring「未実装」を「PLAN-048 で実装」に直した(コメントだけ)。main を `origin/main` に push した(公開リポジトリ。push 前に追加行の秘密情報を走査し該当 0)
 
 ---
 
@@ -275,7 +275,7 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 | **★run2 の門と当てはめ失敗(PLAN-042)** ★新(その153) | run2 の 1 段目で門は閉じるが、棄却のほとんどは当てはめ失敗を棄却に数えた分。~~PLAN-042(診断)の採否・§2 の閾値・今夜のタスク・P1 を回すか~~ → **★その154 ADR-126 で決着(採る・門で数え直す・今夜 1 回・P1 は後)。残り = 夜用タスクの無効化・診断の実行の日時・診断の後に規則を変えるか** **→ ★その156 ADR-127: §2.1 を診断の前に改めた(§2.2)・過誤の門と実行可能性の門を分ける(方針)。(5) の中身は上限の値・D2' の書き換え・ADR-125 決定3 との整合・新しい反復**。**→ ★その161 ADR-128 で (5) 決着(A2 + A3・B1 + B2・実行可能性の門 0.10・TOST も主張しない・run3)。残り = 実装の PLAN(PLAN-043)** **→ ★その162 PLAN-043 草案(人間のレビュー待ち。§4 の Q1〜Q6)**。**→ ★その163 ADR-129 で PLAN-043 を採択(7 問とも推奨。`rng_seed` 20261008)。残り = 実装 I1〜I10・run3 の起動**。全文は `logs/OPEN-ITEMS.md` の行 | 診断の後 |
 | **★前段 FT の前の診断** ★新(その77) | 足し算を含まない比較を T1b・T3 の形式で確かめ、前段 FT に意味があるかを判断する(ADR-096 決定1)。**→ ★2026-09-26(その103)設計と判定の規則は ADR-107 で決まった(`plans/PLAN-032` §8.1)。残りは下の行** | PLAN-029 の実装より前 |
 | **★`CLAUDE.md` を 200 行へ戻す** ★新(その127) | 216 行(§10.2 の上限 200 行)。§1 の「449行」も古い。全文は `logs/OPEN-ITEMS.md` の行 | ADR-113 決定2 | いつでも |
-| **★R8(Phase 2)の push と G2-1 承認** ★新(その125) | ADR-111 決定3。人間の操作 2 つ: `01cf60f` 以降の main の push と新しい G2-1 承認。経緯の全文は `logs/OPEN-ITEMS.md` の行 | ADR-111 / ADR-107 決定7 | 人間の都合 |
+| **★R8(Phase 2)の push と G2-1 承認** ★新(その125) | ADR-111 決定3。人間の操作 2 つ: `01cf60f` 以降の main の push と新しい G2-1 承認。**→ ★その208: push は済んだ。残りは G2-1 承認だけ**。経緯の全文は `logs/OPEN-ITEMS.md` の行 | ADR-111 / ADR-107 決定7 | 人間の都合 |
 | **★前段 FT の成功基準・侵襲の閾値** ★新(その77) | エージェントが案を下書きし、人間が値を決めて tag で凍結する(ADR-096 決定3) | 前段 FT の GPU の前 |
 | **★モデル名の一致の機械的な検査** ★新(その87) | CHANGELOG の `[actor: 役割 (モデル名)]` と commit trailer の一致を hook か `test_repo_hygiene.py` で検査するか(案のみ。ADR-101 の保留。**ADR-101 の再確認そのものは ADR-102 で決着**) | いつでも |
 | **★S3 の根拠の見直し** ★新(その83) | ADR-099 決定2(α)で S3(ADR-055 決定2)の根拠 F15 が消える。案 b を保って根拠を書き直す / 案 a / 案 c(`plans/PLAN-031` §5)。エージェントの案: S5 と同じ場 | 凍結前 |
@@ -321,24 +321,24 @@ sed -n '1,60p' logs/OPEN-ITEMS.md                    # 人間待ちの索引だ�
 
 ## 次のアクション
 
-> **★★2026-11-09(その207・最新)。FT までの道筋の正本は PLAN-035 §5。**(ADR-140 追記 ① の I5 は済んだ。項目 0 は消した。旧ブロックは `logs/STATE-ARCHIVE.md`)
+> **★★2026-11-09(その208・最新)。FT までの道筋の正本は PLAN-035 §5。**(項目 1 の pod・push・2 run・docstring は済んだ。旧ブロックは `logs/STATE-ARCHIVE.md`)
 >
 > 0. 人間: `05_STATISTICS.md:1497-1501` の入れ替えの読み(合成か実データか。I5 の後は既定で合成)は PLAN-016 §7-6 と同じ場で決める
 >
-> 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py:10` の「未実装」の docstring の食い違い(その193 から持ち越し)/ 実 frame ができたら ADR-139 追記 ① の一致を検査する
-> 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
+> 1. 実 frame ができたら ADR-139 追記 ① の一致を検査する(未検証)/ ネットワークボリューム `r963j7swke` と HF トークンの扱いは決めていない(OPEN-ITEMS の行 80 から持ち越し)
+> 2. 人間: G2-1 承認(push は その208 で済んだ)→ S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
 > 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ N5 の (1)(`p2d` の交互作用を副次に)と #4b の事前登録での書き方 / E1 の TOST 境界 / PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)/ T3・T1b の 6 セルの扱い(ADR-078 決定6)
 
 ---
 
 ## 引き継ぎ
 
-> **★★2026-11-09(その207・最新)。Claude Sonnet 5.5(IMPLEMENTER 役。推奨と一致)。ADR-140 追記 ① の I5 を実装した**
+> **★★2026-11-09(その208・最新)。Claude Opus 5.5(人間が「次のアクション」1 を選んだ。推奨の Sonnet と不一致)。pod・push・2 run・docstring を片付けた**
 >
-> **★やったこと**: 開始手順(HANDOFF その206・`git log`・`STATE.md` は一致。HEAD `87bebe0`。worktree `claude/great-bardeen-9c1ac4` は登録簿の既存)→ `resolve_frame_dir` に `--shuffle-labels` の分岐を 1 つ足す(`--frame-dir` が先 → `--shuffle-labels` なら None → config)/ `run` のコメントを新しい規則に / `configs/primary.yaml` のコマンド例 / テスト: 本物の config で合成が通り meta の 2 欄が null かつ run に写る config の `frame_dir` が本物のまま・`--frame-dir` を渡すと frame を読み記録する・`resolve_frame_dir` の 3 分岐。`--simulate` と合成の `--shuffle-labels` のテストは null の写しから本物の config に戻した(`config_file_without_frame` は実データの実行が null で止まるテストにだけ残る)
-> **★PLAN に無い選択**: なし(ADR-140 追記 ① の I5 の記述どおり)
-> **★食い違い(`CLAUDE.md` §7.1。書き換えていない)**: `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(I5 の後は既定で合成。人間待ち)/ `frame.py:10` の docstring「未実装」(その193 から。気づいたので報告のみ)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
-> **★次**: 人間が「次のアクション」から選ぶ / 実 frame ができたら ADR-139 追記 ① の一致の検査(未検証)。frame を組んでコミットしてから `primary.py` を回す(ADR-140 決定3)
+> **★やったこと**: 開始手順(HANDOFF その207・`git log`・`STATE.md` は一致。HEAD `ac3afc2`)→ 役割が無いので項目を人間に聞いた → 判断材料の表(pod の状態とマウント・push の量と公開の有無と秘密の走査・2 run の出所・docstring)→ 4 問とも推奨で決定 → terminate 2 台・コミット 2 本・push
+> **★PLAN に無い選択**: なし(人間の決定どおり)
+> **★食い違い(`CLAUDE.md` §7.1。書き換えていない)**: `05_STATISTICS.md:1497-1501` の入れ替えの例(人間待ち)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)。`frame.py:10` は直したので消した
+> **★次**: 人間が「次のアクション」から選ぶ / 実 frame ができたら ADR-139 追記 ① の一致の検査(未検証)
 
 ---
 

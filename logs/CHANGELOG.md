@@ -8401,3 +8401,12 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - PLAN に無い選択: なし
 - 食い違い(`CLAUDE.md` §7.1。書き換えていない): `05_STATISTICS.md:1497-1501` の入れ替えの例は合成か実データかを読み分けられない(I5 の後は既定で合成。人間待ち)/ `frame.py:10` の docstring「未実装」(その193 から。報告のみ)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6。その202 から)
 - GPU 0・pod 0。push していない
+
+## 2026-11-09(その208・pod の terminate・push・`results/primary/` の 2 run・`frame.py` の docstring)   [actor: RUNNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その207)・`git log`・`STATE.md` は一致(HEAD `ac3afc2`・追跡ファイルの未コミット変更なし)。HANDOFF に役割が無いので作業を人間に聞いた(1 を推奨)。推奨モデル(Sonnet)と不一致を最初に伝えた
+- 事実を集めた: `list-pods` = 2 本とも `EXITED`・RTX 4090・EU-RO-1・マウントはネットワークボリューム `r963j7swke` だけ / `main` は `origin/main`(`102c2d5`)より 153 commit 先 / `Ken2664/FT` は公開(GitHub API 200)/ 追加行に HF・GitHub・RunPod のトークン・秘密鍵・メールの形は 0 / `results/primary/` は 693 KB で、shuffle の run は `dc9ab92`・`dirty: true`・patch 0 B
+- **人間が決めた(`AskUserQuestion` 1 回・4 問とも推奨)**: 2 台とも terminate / push する / 2 run を注記つきでコミット / docstring を直す
+- やった: `delete-pod` 204 × 2・直後の `list-pods` は 0 本・`r963j7swke` は残る / `results/primary/` の 2 run をコミット [run:20261103_051849_primary_t1t2_simulate] [run:20261103_051849_primary_t1t2_shuffle](shuffle の当時の `primary.py` は記録から復元できない。2 本とも旧コード。主張に使わない)/ `code/analysis/frame.py:10` の docstring「未実装」→「PLAN-048 で実装」(コメントだけ)/ `pytest code/tests -q` 2719 passed / `git push origin main`
+- 旧い STATE の 4 ブロックは `logs/STATE-ARCHIVE.md` へ。`logs/OPEN-ITEMS.md` の pod の行と push・G2-1 の行に追記
+- 食い違い(`CLAUDE.md` §7.1。書き換えていない): `05_STATISTICS.md:1497-1501` の入れ替えの例(人間待ち)/ `configs/power_sim.yaml` の P1 の係数のコメントと `build_profile`(差 1e-6)
+- GPU 0・pod 0(terminate 後)

@@ -8237,3 +8237,45 @@
   - リスク・未解決: **人間は 4 問とも推奨を選んだ**(推奨はエージェントが付けた)。**① の一致は実 frame で未検証**。`configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の値 −0.3266(差 1e-6。テストの許容 5e-6)は書き換えていない。**結果を見る前か後か**: 本実験の `p2` の実データは無い(凍結前)
   - 影響: `logs/DECISIONS.md`(本追記)/ PLAN-049 §11(採否の列)/ `logs/OPEN-ITEMS.md`(その202 の行)/ `STATE.md` / `logs/CHANGELOG.md`。**`code/`・`configs/`・`Documents/` は不変**。実データの `primary.py` が止まる未決は `input.frame_dir`(frame の在り処)だけのまま
   - 関連 commit: `edc7723`(I2〜I5)/ 本追記のコミット
+
+## ADR-140: 本実験の frame の在り処(`configs/primary.yaml` の `input.frame_dir`)と凍結の手順(4 問とも推奨 (a))—— `results/frame_exp_phase1_main/` に固定していま(凍結 tag の前に)config に書く / `frame.csv` と `frame_manifest.json` を両方 git に入れる / frame のコミットが先で `primary.py` は後 / `primary.json` に読んだ frame の在り処と sha を残し、`frame.py` は既にある `--out-dir` に書かずに止まる
+
+- 日付: 2026-11-09(その204)
+- ステータス: **採択**(在り処の規則と手順の決定。**`code/`・`configs/` は不変**(I1〜I4 = IMPLEMENTER)。ADR-062 決定7(`results/` に CSV + sha + 入力 run_id + `pairs_hash` を凍結する)・ADR-138・ADR-139 の値と規則は変えていない。GPU 0・pod 0・tag・push なし)
+- 提案・採択(ADR-039 決定3):
+  - **提案 エージェント (PLANNER, Opus 5.5。その204。下の F1〜F8 の事実・問い A〜D の表と推奨)/ 採択 人間(2026-11-09 その204。`AskUserQuestion` 1 回・4 問とも推奨 (a))**
+  - 判断材料の表(事実 F1〜F8、各問いの案・長所・短所)をチャットで先に示した(ADR-097 決定6)
+- 文脈:
+  1. 実データの `primary.py` が止まる最後の未決が `input.frame_dir`(ADR-139 追記 ①・`primary.py` の `pending_decisions`)。ADR-062 決定7 は「`results/` に凍結する」までを決め、どのディレクトリか・git に入れるか・いつ固めるかは決めていなかった
+  2. 事実(このセッションで確かめた。推測ではない):
+     - F1 `frame.py --out-dir <dir>` は `frame.csv` と `frame_manifest.json`(`csv_sha256`・`run_ids`・`pairs_hashes`・`problems` ほか)を書く(`code/analysis/frame.py:618-650`)
+     - F2 `write_frame` は `mkdir(exist_ok=True)` で、**既にある `out_dir` に黙って上書きする**。manifest の sha も書き直すので、上書きされても後から気づけない(`frame.py:634-647`)
+     - F3 `primary.py` の `read_frame` は sha・列・行数・`problems` を照合する(`primary.py:242-258`)が、**`primary.json` の meta は run_id・mode・git_sha・α だけで、読んだ frame の在り処も sha も残らない**(`primary.py:902-903`)。`--frame-dir` で渡すと結果から frame を辿れない
+     - F4 `predictions/` は `.gitignore` で外れ、永続ボリュームにしか無い(ADR-062 決定7 の根拠 = PLAN-017 F79)
+     - F5 `results/` は `.gitignore` で外れていない(`results/power_sim/**/fits/` などを除く)。いま追跡している最大のファイルは `logs/STATE-ARCHIVE.md`(1,287,706 B)
+     - F6 **大きさの実測**: パイロット 625 の 5 run(`pilot_ft_eval_{p2_s0,p2_s1,ident_s0,ident_s1,p2d_s0}`)を `frame.py` で組んだ frame は 3,400 行・617,393 B(1 行あたり約 182 B)。**書き出し先は scratchpad で、`results/` には書いていない。主張に使わない**
+     - F7 **見積もり(設計の算術。実験結果ではない)**: 本実験 40 run × 主プール 1,640 項目 = 65,600 行。run_id が長くなる分を見込んで 1 行 200 B 前後とすると約 13 MB
+     - F8 本実験の experiment id は `exp_phase1_main`(`configs/exp_phase1_main.yaml:15`)。`frame.py` の docstring の例は `results/frame_exp003`
+- 決定(問いの記号):
+  1. **(A (a))** **本実験の frame の在り処は `results/frame_exp_phase1_main/`**(`frame.csv` と `frame_manifest.json`)。**`configs/primary.yaml` の `input.frame_dir` にいま(事前登録の凍結 tag の前に)書く**。パスはデータに依存しないので、tag の前に固定して「どの frame を使うか」を後で選べないようにする(ADR-139 決定5 で Δ を run3 の前に決めたのと同じ考え方)。`--frame-dir` による上書きの口は残る(下の決定4 で記録される)
+  2. **(B (a))** **`frame.csv` と `frame_manifest.json` を両方 git にコミットする**。`predictions/` が git に無いので(F4)、repo だけで主要検定の入力を再現できるのはこの CSV だけである。上書きは git の差分で見える。大きさは 1 回だけ約 13 MB の見積もり(F7)
+  3. **(C (a))** **frame をコミットしてから `primary.py`(実データの経路)を回す**。結果の `git_sha` が frame を含む commit を指すので、入力が結果より先に固まっていたことを git の履歴で示せる
+  4. **(D (a))** **穴を両方塞ぐ(実装は IMPLEMENTER)**: (i) `primary.py` は読んだ frame の在り処(repo からの相対パス)と `csv_sha256` を `primary.json` の meta(と `report.md`)に残す / (ii) `frame.py` は既にある `--out-dir` に書かずに止まる(上書きしない)
+- 代案と却下理由(人間が選んだ):
+  - 決定1: (b) `results/frame/<timestamp>_exp_phase1_main/` を frame の後に書く — tag の後に config を書き換え、複数の frame から選ぶ余地が残る / (c) null のまま `--frame-dir` — F3 のとおり結果から frame を辿れない
+  - 決定2: (b) manifest だけ — CSV は永続ボリュームにしか残らず、ボリュームを失うと再現できない / (c) LFS — 導入していない
+  - 決定3: (b) 順を決めない — 結果を見てから frame を組み直す余地が残る
+  - 決定4: (b) 記録だけ — F2 の上書きの穴が残る / (c) どちらもしない — F2・F3 が残る
+- リスク・未解決:
+  - **人間は 4 問とも推奨を選んだ**(推奨はエージェント (Opus 5.5) が付けた)
+  - **結果を見る前か後か**: 本実験の実データの前(凍結前)。`results/` に本実験の `p2` は無い。F6 はパイロットの run の行数と大きさだけを見た(4 値・率は見ていない)
+  - **13 MB は見積もり**。T1c などで項目が増えれば大きくなる。GitHub の 1 ファイルの上限(100 MB)に近づくなら別に諮る
+  - 決定4 (ii) で `frame.py` が止まるようになると、組み直しは「ディレクトリを人が消してから」になる。消すこと自体は止められない(git の差分と決定4 (i) の sha が見張り)
+  - **ADR-139 追記 ① の一致の検査**(frame.csv から数えた門の量 = manifest の `gate_id_by_task`)は実 frame ができるまで未検証のまま
+  - `frame.py:10` の docstring「`primary.py`(未実装。PLAN-016 §7-5)」と実装済みの `primary.py` の食い違いは本 ADR では扱わない(STATE「次のアクション」1 の人間待ち)
+- 影響:
+  - このコミットで書き換えたもの: 本 ADR / `logs/OPEN-ITEMS.md`(1 行)/ `STATE.md` / `logs/STATE-ARCHIVE.md` / `logs/CHANGELOG.md` / `logs/HANDOFF.md`
+  - **まだ書き換えていないもの(IMPLEMENTER)**: I1 `configs/primary.yaml` の `input.frame_dir` = `results/frame_exp_phase1_main`(コメントに ADR-140)/ I2 `primary.py` の meta に frame の在り処と `csv_sha256`・`report.md` に 1 行 / I3 `frame.py` の `write_frame` が既にある `out_dir` で止まる / I4 テスト(本物の config の値・meta の 2 欄・上書きで止まる・`pending_decisions` から `input.frame_dir` が外れる)
+  - 実データの `primary.py` が止まる未決は、I1 の後は frame そのもの(本実験の run)だけになる
+- 関連 ADR: **062** 決定7 / **139** 決定5・追記 ① / **138** 決定3 / **058** 決定2 / **097** 決定6 / **039** 決定3
+- 関連 commit: 本 ADR のコミット

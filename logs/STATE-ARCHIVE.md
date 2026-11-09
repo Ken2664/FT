@@ -18,6 +18,38 @@
 
 ---
 
+## ★2026-11-09(その203)—— STATE.md から移したブロック(ADR-063 運用規約1。その204 で置き換え)
+
+### 冒頭
+
+最終更新: 2026-11-09(その203。PLANNER 役を Claude Sonnet 5.5 が務めた(推奨 Opus と不一致。最初に述べ、人間が続けさせた)。PLAN-049 §11 の選択 ①〜⑧ を人間が採否: **すべて実装のまま採る**(ADR-139 追記 ①。4 問とも推奨)。`code/`・`configs/` は不変。実データの `primary.py` が止まる未決は `input.frame_dir` だけのまま。GPU 0・pod 0)
+(**次: 人間が次のアクションから選ぶ(frame の在り処・pod 2 つ・push・S4 など)。① の一致(frame.csv から数えた門の量と manifest の `gate_id_by_task`)は実 frame ができるまで未検証**。)
+
+### いま何をしているか
+
+> **★★2026-11-09(その203・最新)。Phase 0。Claude Sonnet 5.5(PLANNER 役。推奨の Opus と不一致 → 最初の発言で述べ、人間が続けさせた)。GPU 0・pod 0**
+> - PLAN-049 §11 の選択 ①〜⑧ を人間が採否(`AskUserQuestion` 4 問とも推奨 = 実装のまま採る)。ADR-139 追記 ① に書いた(提案 = IMPLEMENTER その202・採択 = 人間)。ADR-139 の値(0.90・k = 5・Δ = 0.4988)と規則は不変
+> - **① の一致は未検証**: `primary.py` の `gate_quantities`(frame.csv の主軸の行から数える)と `frame.py` の `gate_id_by_task`(manifest。全 `id` 行から数える)は同じ行の集合のはずだが、実 frame ができるまで確かめられない
+
+### 次のアクション
+
+> **★★2026-11-09(その203・最新)。FT までの道筋の正本は PLAN-035 §5。**
+>
+> 0. ~~人間(PLANNER・Opus): PLAN-049 §11 の選択 ①〜⑧ の採否~~ → **2026-11-09 決着(ADR-139 追記 ①。すべて実装のまま採る)**
+>
+> 1. 人間: pod `9matkiq0jozcgm`・`oorrti5on9opnb`(どちらも `EXITED`)を残すか terminate するか / push / `results/primary/` の 2 run(その193)をコミットするか / `frame.py` の「未実装」の docstring の食い違い(その193 から持ち越し)/ frame の在り処(`input.frame_dir`。実データの `primary.py` が止まる最後の未決。決まったら ① の一致を検査する)
+> 2. 人間: `01cf60f` 以降の push と G2-1 承認 → S4(RUNNER)→ T2 の文面・step 数の決定(ADR-130 決定2)。run3 はその後(PLAN-043 §12 の判断 6 件もそのとき)
+> 3. 人間(凍結前): REVIEW の R4 以下・C1/C2・R5(組 199)/ 確率の尺度(第 2 の尺度)の手続きと TOST の Δ(S5)/ `id` の二重露出の感度解析の事前登録(PLAN-045 Q4)/ N5 の (1)(`p2d` の交互作用を副次に)と #4b の事前登録での書き方 / E1 の TOST 境界 / PLAN-048 で外したもの(リンク 3 本・ADR-060 のベイズ)の PLAN / 実データの frame での `--shuffle-labels`(PLAN-016 §7-6)/ T3・T1b の 6 セルの扱い(ADR-078 決定6)
+
+### 引き継ぎ
+
+> **★★2026-11-09(その203・最新)。Claude Sonnet 5.5(PLANNER 役。推奨の Opus と不一致。人間が続けさせた)。HANDOFF の 1 つ(PLAN-049 §11 の採否)を済ませた**
+>
+> **★やったこと**: 開始手順 → 判断材料の表と推奨をチャットで先に示す → `AskUserQuestion` 4 問(4 問とも推奨)→ ADR-139 追記 ①・PLAN-049 §11・`logs/OPEN-ITEMS.md`・`STATE.md`・CHANGELOG
+> **★気づいたこと(判断なし)**: ① の一致は実 frame が出来るまで未検証 / `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の −0.3266(差 1e-6)は書き換えていない / `frame.py` の docstring「未実装」の食い違いと `results/primary/` の 2 run は触っていない
+
+---
+
 ## ★2026-11-06(その200)—— STATE.md から移したブロック(ADR-063 運用規約1。その201 で置き換え)
 
 ### 冒頭

@@ -8365,3 +8365,11 @@ Answer: M` で M を採る(パイロット T2 で 15 行の分類が動く)
 - 食い違い(`CLAUDE.md` §7.1。どちらも書き換えていない): ADR-139 決定2 の読み先(manifest)と実装の読み先(CSV)= ADR-139 追記 ①で CSV を採った / `configs/power_sim.yaml` の P1 の係数のコメント −0.326599 と `build_profile` の −0.3266(差 1e-6)
 - GPU 0・pod 0。push していない
 - 引き継ぎ(その203 の終わり): 人間が次の作業に「frame の在り処を決める」を選んだが、コンテキストが 149k を超えた(hook `context_guard`)ので着手せず `logs/HANDOFF.md` を書き直した(次は PLANNER・推奨 Opus)
+
+## 2026-11-09(その204・本実験の frame の在り処(ADR-140))   [actor: PLANNER (Claude Opus 5.5)]
+- 開始手順: HANDOFF(その203)・`git log`・`STATE.md` は一致(HEAD `e6d4331`・追跡ファイルの未コミット変更なし)。推奨モデル(Opus)と一致
+- 事実を集めた: `frame.py` の `write_frame` は既にある `out_dir` に黙って上書きする(`frame.py:634-647`)/ `primary.json` の meta は読んだ frame の在り処も sha も残さない(`primary.py:902-903`)/ `results/` は ignore されていない / パイロット 625 の 5 run の frame を scratchpad で組んで大きさを測った(3,400 行・617,393 B。`results/` には書いていない・主張に使わない)。本実験は 40 run × 1,640 項目で約 13 MB の見積もり(算術)
+- **人間が決めた(`AskUserQuestion` 1 回・4 問とも推奨 (a))**: A `results/frame_exp_phase1_main/` に固定していま(tag の前に)config に書く / B `frame.csv` と `frame_manifest.json` を両方 git に / C frame のコミットが先・`primary.py` は後 / D `primary.json` に frame の在り処と `csv_sha256`・`frame.py` は既にある `--out-dir` で止まる
+- 書いた: `logs/DECISIONS.md`(ADR-140。提案 = PLANNER その204・採択 = 人間)/ `logs/OPEN-ITEMS.md`(1 行)/ `STATE.md`(4 ブロック。旧ブロックは `logs/STATE-ARCHIVE.md`)/ `logs/HANDOFF.md`。**`code/`・`configs/` は不変**(I1〜I4 = IMPLEMENTER)
+- 食い違い(`CLAUDE.md` §7.1。書き換えていない): `frame.py:10` の docstring「`primary.py`(未実装)」と実装済みの `primary.py`(その193 から持ち越し・人間待ち)
+- GPU 0・pod 0。push していない
